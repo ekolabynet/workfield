@@ -84,7 +84,7 @@ Page {
           id: welcomeScreenLogo
           objectName: "welcomeScreenLogo"
 
-          property real imageSize: Math.min(48, mainWindow.width / 6)
+          property real imageSize: Math.min(96, mainWindow.width / 5)
           property real pressedValue: -1
 
           Layout.preferredWidth: imageSize
@@ -118,7 +118,7 @@ Page {
 
           Layout.fillWidth: true
 
-          font.pointSize: welcomeScreenLogo.imageSize * 0.5
+          font.pointSize: 24
           font.bold: true
           color: Theme.mainOverlayColor
           text: appName
