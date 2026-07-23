@@ -17,6 +17,7 @@
 import QtCore
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import QtQuick.Controls.impl
 import QtQuick.Controls.Material
 import QtQuick.Controls.Material.impl
@@ -50,6 +51,40 @@ ApplicationWindow {
 
   Material.theme: Theme.darkTheme ? Material.Dark : Material.Light
   Material.accent: Theme.mainColor
+
+  header: ToolBar {
+    id: mainToolBar
+    height: 64
+    Material.background: Theme.mainColor
+
+    RowLayout {
+      anchors.fill: parent
+      spacing: 0
+
+      ToolButton {
+        Layout.preferredWidth: 64
+        Layout.preferredHeight: 64
+        icon.source: Theme.getThemeVectorIcon("ic_baseline-list_white_24dp")
+        icon.width: 32
+        icon.height: 32
+        icon.color: "white"
+        onClicked: dashBoard.opened ? dashBoard.close() : dashBoard.open()
+      }
+
+      Item {
+        Layout.fillWidth: true
+      }
+
+      ToolButton {
+        Layout.preferredWidth: 64
+        Layout.preferredHeight: 64
+        icon.source: Theme.getThemeVectorIcon("ic_settings_white_24dp")
+        icon.width: 32
+        icon.height: 32
+        icon.color: "white"
+      }
+    }
+  }
 
   property bool sceneLoaded: false
   property bool sceneBorderless: false
