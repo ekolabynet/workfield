@@ -5543,6 +5543,11 @@ ApplicationWindow {
       projectInfo.activeLayer = layer;
     }
 
+    onAddExistingRequested: {
+      qfieldLocalDataPickerScreen.projectFolderView = false;
+      qfieldLocalDataPickerScreen.visible = true;
+    }
+
     onModeToggled: digitize => {
       stateMachine.state = digitize ? "digitize" : "browse";
     }
