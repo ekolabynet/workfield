@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.impl
 import QtQuick.Layouts
 import Theme
 
@@ -50,14 +51,14 @@ Column {
       contentItem: RowLayout {
         spacing: 16
 
-        Image {
+        ColorImage {
           Layout.preferredWidth: 28
           Layout.preferredHeight: 28
           Layout.leftMargin: 8
           source: t.getThemeVectorIcon(entry.iconName)
           sourceSize.width: 28
           sourceSize.height: 28
-          fillMode: Image.PreserveAspectFit
+          color: sideMenu.t.mainTextColor
         }
 
         Text {

@@ -54,7 +54,8 @@ ApplicationWindow {
 
   header: ToolBar {
     id: mainToolBar
-    height: 64
+    visible: !qfieldSettings.visible && !qfieldLocalDataPickerScreen.visible && !qfieldCloudScreen.visible && !welcomeScreen.visible && !aboutDialog.visible && !codeReader.visible && !sketcher.visible
+    height: visible ? 64 : 0
     Material.background: Theme.mainColor
 
     RowLayout {
