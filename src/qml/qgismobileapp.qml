@@ -72,8 +72,36 @@ ApplicationWindow {
         onClicked: dashBoard.opened ? dashBoard.close() : dashBoard.open()
       }
 
-      Item {
+      ColumnLayout {
         Layout.fillWidth: true
+        Layout.leftMargin: 8
+        Layout.rightMargin: 8
+        spacing: 0
+
+        Text {
+          Layout.fillWidth: true
+          text: dashBoard.activeLayer ? dashBoard.activeLayer.name : qsTr("Brak aktywnej warstwy")
+          color: Theme.mainOverlayColor
+          font.pointSize: Theme.tipFont.pointSize
+          font.bold: true
+          elide: Text.ElideRight
+        }
+
+        Text {
+          Layout.fillWidth: true
+          color: Theme.mainOverlayColor
+          opacity: 0.75
+          font.pointSize: Theme.tinyFont.pointSize
+          elide: Text.ElideRight
+          text: {
+            let parts = [];
+            if (mapCanvas.mapSettings.destinationCrs)
+              parts.push(mapCanvas.mapSettings.destinationCrs.authid);
+            if (positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid)
+              parts.push("±" + positionSource.positionInformation.hacc.toFixed(1) + " m");
+            return parts.join("  ·  ");
+          }
+        }
       }
 
       ToolButton {
