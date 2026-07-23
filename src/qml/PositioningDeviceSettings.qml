@@ -192,7 +192,7 @@ QfPopup {
           }
 
           contentItem: MenuItem {
-            width: positioningDeviceComboBox.width
+            width: positioningDeviceType.width
             height: 36
 
             icon.source: {
