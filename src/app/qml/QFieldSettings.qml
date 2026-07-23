@@ -14,6 +14,8 @@ Page {
   signal finished
 
   property var networkSettingsItem: null
+  property var positioningModelItem: null
+  property var positioningComboItem: null
   property var variableEditorItem: null
 
   property string currentPanel: ""
@@ -386,7 +388,7 @@ Page {
 
     onApply: {
       if (originalName != '') {
-        positioningDeviceModel.removeDevice(originalName);
+        positioningModelItem.removeDevice(originalName);
       }
       var name = positioningDeviceSettings.name;
       var type = positioningDeviceSettings.type;
@@ -394,8 +396,11 @@ Page {
       if (name === '') {
         name = positioningDeviceSettings.generateName();
       }
-      var index = positioningDeviceModel.addDevice(type, name, settings);
-      positioningDeviceComboBox.currentIndex = index;
+      if (!positioningModelItem)
+        return;
+      var index = positioningModelItem.addDevice(type, name, settings);
+      if (positioningComboItem)
+        positioningComboItem.currentIndex = index;
     }
   }
 
@@ -472,6 +477,7 @@ Page {
     valueRole: 'DeviceType'
     model: PositioningDeviceModel {
     id: positioningDeviceModel
+    Component.onCompleted: page.positioningModelItem = positioningDeviceModel
     }
 
     delegate: ItemDelegate {
@@ -554,6 +560,7 @@ Page {
     }
 
     Component.onCompleted: {
+    page.positioningComboItem = positioningDeviceComboBox;
     currentIndex = positioningDeviceModel.findIndexFromDeviceId(positioningSettings.positioningDevice);
     loaded = true;
     }
