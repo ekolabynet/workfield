@@ -1406,7 +1406,7 @@ bool LayerUtils::setAttachmentField( QgsVectorLayer *layer, const QString &field
     layer->setEditorWidgetSetup( uuidIndex, QgsEditorWidgetSetup( QStringLiteral( "Hidden" ), QVariantMap() ) );
   }
 
-  const QString rootExpression = QStringLiteral( "@project_folder || '/DCIM/' || @layer_name || '/' || \"%1\"" ).arg( uuidFieldName );
+  const QString rootExpression = QStringLiteral( "@project_folder || '/' || @layer_name || '/' || if($id > 0, $id, 'new') || '_' || left(\"%1\", 6) || '/'" ).arg( uuidFieldName );
 
   QVariantMap config;
   config.insert( QStringLiteral( "DocumentViewer" ), 1 );

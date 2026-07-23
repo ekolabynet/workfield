@@ -35,16 +35,16 @@ function getAttachmentFilePath(evaluatedFilepath, documentViewer, FileUtils) {
 
     if (documentViewer === 1) {
       // DocumentImage
-      filepath = 'DCIM/JPEG_' + nowStr + '.{extension}';
+      filepath = 'JPEG_' + nowStr + '.{extension}';
     } else if (documentViewer === 3) {
       // DocumentAudio
-      filepath = 'audio/AUDIO_' + nowStr + '.{extension}';
+      filepath = 'AUDIO_' + nowStr + '.{extension}';
     } else if (documentViewer === 4) {
       // DocumentVideo
-      filepath = 'video/VIDEO_' + nowStr + '.{extension}';
+      filepath = 'VIDEO_' + nowStr + '.{extension}';
     } else {
       // DocumentFile (0) or unknown
-      filepath = 'files/' + nowStr + '_{filename}';
+      filepath = nowStr + '_{filename}';
     }
   }
 
