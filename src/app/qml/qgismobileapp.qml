@@ -3643,6 +3643,13 @@ ApplicationWindow {
       }
     }
 
+    onShowBookmarks: bookmarkList.show()
+    onShowPluginManager: pluginManagerSettings.open()
+    onShowSettings: qfieldSettings.visible = true
+    onShowMessageLog: messageLog.visible = true
+    onLockScreen: screenLocker.enabled = true
+    onShowAbout: aboutDialog.visible = true
+
     onShowMainMenu: p => {
       mainMenu.popup(p.x - mainMenu.width - 2, p.y - 2);
     }

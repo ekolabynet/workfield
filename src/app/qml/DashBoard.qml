@@ -14,6 +14,12 @@ Drawer {
   objectName: "dashBoard"
 
   signal showMainMenu(point p)
+  signal showBookmarks
+  signal showPluginManager
+  signal showSettings
+  signal showMessageLog
+  signal lockScreen
+  signal showAbout
   signal showPrintLayouts(point p)
   signal showCloudPopup
   signal showProjectFolder
@@ -123,8 +129,29 @@ Drawer {
           newLayerDialog.openDialog();
           close();
           break;
-        case "mainMenu":
-          showMainMenu(origin);
+        case "bookmarks":
+          showBookmarks();
+          close();
+          break;
+        case "plugins":
+          showPluginManager();
+          close();
+          break;
+        case "settings":
+          showSettings();
+          close();
+          break;
+        case "messageLog":
+          showMessageLog();
+          close();
+          break;
+        case "lockScreen":
+          lockScreen();
+          close();
+          break;
+        case "about":
+          showAbout();
+          close();
           break;
         }
       }
