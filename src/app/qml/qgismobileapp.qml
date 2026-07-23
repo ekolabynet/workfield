@@ -5511,6 +5511,11 @@ ApplicationWindow {
     Component.onCompleted: focusstack.addFocusTaker(this)
   }
 
+  QfNewLayerDialog {
+    id: newLayerDialog
+    t: Theme
+  }
+
   QfSubLayerPicker {
     id: subLayerPicker
     t: Theme

@@ -115,6 +115,10 @@ Drawer {
         case "projectFolder":
           showProjectFolder();
           break;
+        case "newLayer":
+          newLayerDialog.openDialog();
+          close();
+          break;
         case "mainMenu":
           showMainMenu(origin);
           break;

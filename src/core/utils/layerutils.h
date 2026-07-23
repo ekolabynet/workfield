@@ -174,6 +174,19 @@ class LayerUtils : public QObject
      */
     static Q_INVOKABLE QVariantList layerFields( QgsVectorLayer *layer );
 
+    /**
+     * Creates an empty vector layer at \a filePath.
+     *
+     * \a geometryType accepts "Point", "LineString", "Polygon", "MultiPoint",
+     * "MultiLineString", "MultiPolygon" or "NoGeometry".
+     * \a fields is a list of maps with "name" and "type" keys, where type is one
+     * of "text", "multiline", "integer", "real", "date", "datetime" or "bool".
+     * When the target is an existing GeoPackage the layer is appended to it.
+     *
+     * Returns the created layer, or NULLPTR on failure.
+     */
+    static Q_INVOKABLE QgsVectorLayer *createEmptyLayer( const QString &filePath, const QString &layerName, const QString &geometryType, const QString &crsAuthId, const QVariantList &fields );
+
     //! Switches the layer to a single symbol renderer.
     static Q_INVOKABLE void setSingleSymbolRenderer( QgsVectorLayer *layer );
 

@@ -35,6 +35,10 @@ Column {
         iconName: "ic_project_folder_black_24dp"
       }
       ListElement {
+        actionId: "newLayer"
+        iconName: "ic_add_white_24dp"
+      }
+      ListElement {
         actionId: "mainMenu"
         iconName: "ic_dot_menu_black_24dp"
       }
@@ -73,6 +77,8 @@ Column {
               return qsTr("Wydruki");
             case "projectFolder":
               return qsTr("Folder projektu");
+            case "newLayer":
+              return qsTr("Nowa warstwa");
             case "mainMenu":
               return qsTr("Menu główne");
             }

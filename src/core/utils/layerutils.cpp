@@ -16,6 +16,7 @@
 
 #include "layerutils.h"
 #include <qgscoordinatetransform.h>
+#include <qgseditorwidgetsetup.h>
 #include <qgsproviderregistry.h>
 #include <qgsprovidersublayerdetails.h>
 #include <qgsfillsymbollayer.h>
@@ -1280,5 +1281,104 @@ bool LayerUtils::setGraduatedRenderer( QgsVectorLayer *layer, const QString &fie
   layer->triggerRepaint();
   emit layer->styleChanged();
   return true;
+}
+
+static QMetaType::Type metaTypeForFieldType( const QString &type )
+{
+  if ( type == QLatin1String( "integer" ) )
+    return QMetaType::Int;
+  if ( type == QLatin1String( "real" ) )
+    return QMetaType::Double;
+  if ( type == QLatin1String( "date" ) )
+    return QMetaType::QDate;
+  if ( type == QLatin1String( "datetime" ) )
+    return QMetaType::QDateTime;
+  if ( type == QLatin1String( "bool" ) )
+    return QMetaType::Bool;
+
+  return QMetaType::QString;
+}
+
+QgsVectorLayer *LayerUtils::createEmptyLayer( const QString &filePath, const QString &layerName, const QString &geometryType, const QString &crsAuthId, const QVariantList &fields )
+{
+  if ( filePath.isEmpty() || layerName.isEmpty() )
+    return nullptr;
+
+  const QFileInfo fileInfo( filePath );
+  const QString driverName = QgsVectorFileWriter::driverForExtension( fileInfo.suffix() );
+  if ( driverName.isEmpty() )
+    return nullptr;
+
+  QgsCoordinateReferenceSystem crs( crsAuthId );
+  if ( !crs.isValid() )
+    crs = QgsProject::instance()->crs();
+
+  const Qgis::WkbType wkbType = QgsWkbTypes::parseType( geometryType );
+
+  QgsFields layerFields;
+  QStringList multilineFields;
+  for ( const QVariant &entry : fields )
+  {
+    const QVariantMap fieldMap = entry.toMap();
+    const QString name = fieldMap.value( QStringLiteral( "name" ) ).toString().trimmed();
+    if ( name.isEmpty() )
+      continue;
+
+    const QString type = fieldMap.value( QStringLiteral( "type" ) ).toString();
+    QgsField field( name, metaTypeForFieldType( type ) );
+    if ( type == QLatin1String( "multiline" ) )
+      multilineFields.append( name );
+
+    layerFields.append( field );
+  }
+
+  QgsVectorFileWriter::SaveVectorOptions saveOptions;
+  saveOptions.fileEncoding = QStringLiteral( "UTF-8" );
+  saveOptions.layerName = layerName;
+  saveOptions.driverName = driverName;
+  saveOptions.datasourceOptions = QgsVectorFileWriter::defaultDatasetOptions( driverName );
+  saveOptions.layerOptions = QgsVectorFileWriter::defaultLayerOptions( driverName );
+
+  const bool appendToGeoPackage = driverName == QLatin1String( "GPKG" ) && QFile::exists( filePath );
+  saveOptions.actionOnExistingFile = appendToGeoPackage
+                                       ? QgsVectorFileWriter::CreateOrOverwriteLayer
+                                       : QgsVectorFileWriter::CreateOrOverwriteFile;
+
+  QString finalFileName;
+  QString finalLayerName;
+  std::unique_ptr<QgsVectorFileWriter> writer( QgsVectorFileWriter::create( filePath, layerFields, wkbType, crs, QgsProject::instance()->transformContext(), saveOptions, QgsFeatureSink::RegeneratePrimaryKey, &finalFileName, &finalLayerName ) );
+
+  if ( !writer || writer->hasError() )
+  {
+    qInfo() << QStringLiteral( "Create layer error: %1" ).arg( writer ? writer->errorMessage() : QStringLiteral( "writer creation failed" ) );
+    return nullptr;
+  }
+
+  writer.reset();
+
+  QString uri = finalFileName;
+  if ( driverName == QLatin1String( "GPKG" ) )
+    uri = QStringLiteral( "%1|layername=%2" ).arg( finalFileName, layerName );
+
+  QgsVectorLayer *layer = new QgsVectorLayer( uri, layerName, QStringLiteral( "ogr" ) );
+  if ( !layer->isValid() )
+  {
+    delete layer;
+    return nullptr;
+  }
+
+  for ( const QString &fieldName : std::as_const( multilineFields ) )
+  {
+    const int index = layer->fields().lookupField( fieldName );
+    if ( index < 0 )
+      continue;
+
+    QVariantMap config;
+    config.insert( QStringLiteral( "IsMultiline" ), true );
+    config.insert( QStringLiteral( "UseHtml" ), false );
+    layer->setEditorWidgetSetup( index, QgsEditorWidgetSetup( QStringLiteral( "TextEdit" ), config ) );
+  }
+
+  return layer;
 }
 
