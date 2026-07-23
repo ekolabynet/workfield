@@ -10,10 +10,10 @@ import Theme
  * `page` wskazuje na QFieldSettings — stamtąd pochodzą właściwości proxy.
  */
 GridLayout {
-  property var page
+  property var settingsPage
 
   function syncFromSettings() {
-    const typeIdx = proxyTypeComboBox.indexOfValue(page.proxyType);
+    const typeIdx = proxyTypeComboBox.indexOfValue(settingsPage.proxyType);
     proxyTypeComboBox.currentIndex = typeIdx >= 0 ? typeIdx : 0;
     authenticationConfigurationsListView.model = AuthUtils.authenticationConfigurationDetails();
   }
@@ -127,8 +127,8 @@ GridLayout {
     id: proxyEnabledSwitch
     Layout.preferredWidth: implicitContentWidth
     Layout.alignment: Qt.AlignTop | Qt.AlignRight
-    checked: page.proxyEnabled
-    onCheckedChanged: page.proxyEnabled = checked
+    checked: settingsPage.proxyEnabled
+    onCheckedChanged: settingsPage.proxyEnabled = checked
   }
 
   Label {
@@ -177,12 +177,12 @@ GridLayout {
 
     onCurrentValueChanged: {
       if (initialized) {
-        page.proxyType = currentValue;
+        settingsPage.proxyType = currentValue;
       }
     }
 
     Component.onCompleted: {
-      currentIndex = indexOfValue(page.proxyType);
+      currentIndex = indexOfValue(settingsPage.proxyType);
       if (currentIndex < 0)
         currentIndex = 0;
       initialized = true;
@@ -192,39 +192,39 @@ GridLayout {
   Label {
     text: qsTr("Host")
     font: Theme.defaultFont
-    color: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
+    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.leftMargin: 8
-    visible: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
+    visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
   }
 
   QfTextField {
     id: proxyHostField
-    enabled: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
-    visible: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
+    enabled: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
+    visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
     font: Theme.defaultFont
     Layout.fillWidth: true
     placeholderText: qsTr("e.g. proxy.example.com")
     inputMethodHints: Qt.ImhUrlCharactersOnly
-    text: page.proxyHost
-    onTextChanged: page.proxyHost = text
+    text: settingsPage.proxyHost
+    onTextChanged: settingsPage.proxyHost = text
   }
 
   Label {
     text: qsTr("Port")
     font: Theme.defaultFont
-    color: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
+    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.leftMargin: 8
-    visible: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
+    visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
   }
 
   QfTextField {
     id: proxyPortField
-    enabled: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
-    visible: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
+    enabled: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
+    visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
     font: Theme.defaultFont
     Layout.fillWidth: true
     placeholderText: qsTr("e.g. 8888")
@@ -233,51 +233,51 @@ GridLayout {
       bottom: 0
       top: 65535
     }
-    text: page.proxyPort > 0 ? page.proxyPort : ''
-    onTextChanged: page.proxyPort = text.length > 0 ? parseInt(text) : 0
+    text: settingsPage.proxyPort > 0 ? settingsPage.proxyPort : ''
+    onTextChanged: settingsPage.proxyPort = text.length > 0 ? parseInt(text) : 0
   }
 
   Label {
     text: qsTr("Username")
     font: Theme.defaultFont
-    color: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
+    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.leftMargin: 8
-    visible: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
+    visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
   }
 
   QfTextField {
     id: proxyUserField
-    enabled: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
-    visible: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
+    enabled: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
+    visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
     font: Theme.defaultFont
     Layout.fillWidth: true
     placeholderText: qsTr("Optional")
-    text: page.proxyUser
-    onTextChanged: page.proxyUser = text
+    text: settingsPage.proxyUser
+    onTextChanged: settingsPage.proxyUser = text
   }
 
   Label {
     text: qsTr("Password")
     font: Theme.defaultFont
-    color: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
+    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.leftMargin: 8
-    visible: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
+    visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
   }
 
   QfTextField {
     id: proxyPasswordField
-    enabled: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
-    visible: proxyEnabledSwitch.checked && page.proxyType !== 'DefaultProxy'
+    enabled: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
+    visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
     font: Theme.defaultFont
     Layout.fillWidth: true
     echoMode: TextInput.Password
     placeholderText: qsTr("Optional")
-    text: page.proxyPassword
-    onTextChanged: page.proxyPassword = text
+    text: settingsPage.proxyPassword
+    onTextChanged: settingsPage.proxyPassword = text
   }
 
   Label {
@@ -300,8 +300,8 @@ GridLayout {
     Layout.columnSpan: 2
     Layout.leftMargin: 8
     placeholderText: qsTr("e.g. localhost, 192.168.*")
-    text: page.proxyExcludedUrls
-    onTextChanged: page.proxyExcludedUrls = text
+    text: settingsPage.proxyExcludedUrls
+    onTextChanged: settingsPage.proxyExcludedUrls = text
   }
 
   Label {
