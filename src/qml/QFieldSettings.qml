@@ -54,6 +54,8 @@ Page {
   property alias snapToCommonAngleDegrees: registry.snapToCommonAngleDegrees
   property alias snapToCommonAngleTolerance: registry.snapToCommonAngleTolerance
 
+  property alias enableNavigation: registry.enableNavigation
+
   property bool proxyEnabled: false
   property string proxyType: "DefaultProxy"
   property string proxyHost: ""
@@ -137,6 +139,7 @@ Page {
 
   Settings {
     id: registry
+    property bool enableNavigation: false
     property bool showScaleBar: true
     property bool showZoomControls: false
     property bool fullScreenIdentifyView: false
@@ -244,6 +247,13 @@ Page {
 
   ListModel {
     id: interfaceSettingsModel
+
+    ListElement {
+      title: qsTr("Nawigacja do obiektu")
+      description: qsTr("Pokazuje kierunek i odległość do wybranego obiektu.")
+      settingAlias: "enableNavigation"
+      isVisible: true
+    }
     ListElement {
       title: qsTr("Maximize feature form")
       description: ''

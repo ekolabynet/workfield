@@ -37,10 +37,10 @@ RoundButton {
     id: backgroundRectangle
     implicitWidth: 100
     implicitHeight: 25
-    border.width: round && roundborder ? height / 6 : 1
+    border.width: 0
     border.color: button.borderColor
     color: 'transparent'
-    radius: round ? height / 2 : roundborder ? 12 : 0
+    radius: 12
     clip: true
 
     Behavior on color {

@@ -3028,7 +3028,7 @@ ApplicationWindow {
 
       QfToolButton {
         id: navigationButton
-        visible: navigation.isActive
+        visible: navigation.isActive && qfieldSettings.enableNavigation
         round: true
         anchors.right: parent.right
 
@@ -3101,7 +3101,7 @@ ApplicationWindow {
               target: gnssButton
               iconSource: Theme.getThemeVectorIcon("ic_location_disabled_white_24dp")
               iconColor: Theme.toolButtonColor
-              bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+              bgcolor: Theme.toolButtonBackgroundColor
             }
           },
           State {
