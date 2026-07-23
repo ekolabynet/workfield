@@ -305,6 +305,19 @@ class LayerUtils : public QObject
      * \param filterExpression an optional filter expression used to save a subset of features from the layer (note that only the global, project, and layer expression context scopes are used)
      * \returns If successful, finalized file path will be returned, otherwise an empty string will be returned
      */
+    /**
+     * Exports a vector layer to \a filePath, reprojecting to \a destinationCrsAuthId
+     * (e.g. "EPSG:4326") when provided. Returns the written file name, or an empty
+     * string on failure.
+     */
+    /**
+     * Returns the vector sub-layers available in \a filePath as a list of maps
+     * with "name", "geometry", "featureCount" and "uri" keys.
+     */
+    Q_INVOKABLE static QVariantList vectorSubLayers( const QString &filePath );
+
+    Q_INVOKABLE static QString exportVectorLayer( QgsVectorLayer *layer, const QString &filePath, const QString &destinationCrsAuthId = QString(), const QString &fileEncoding = QStringLiteral( "UTF-8" ) );
+
     Q_INVOKABLE static QString saveVectorLayerAs( QgsVectorLayer *layer, const QString &filePath, const QString &driverName = QString(), const QString &filterExpression = QString() );
 };
 

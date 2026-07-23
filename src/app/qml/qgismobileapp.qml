@@ -5511,6 +5511,26 @@ ApplicationWindow {
     Component.onCompleted: focusstack.addFocusTaker(this)
   }
 
+  QfSubLayerPicker {
+    id: subLayerPicker
+    t: Theme
+
+    onLayersChosen: uris => {
+      let added = 0;
+      for (let i = 0; i < uris.length; i++) {
+        const vl = LayerUtils.loadVectorLayer(uris[i].uri, uris[i].name, uris[i].provider);
+        if (vl && vl.isValid && ProjectUtils.addMapLayer(qgisProject, vl))
+          added++;
+      }
+      displayToast(added > 0 ? qsTr("Dodano warstw: %1").arg(added) : qsTr("Nie udało się dodać warstw"));
+    }
+  }
+
+  QfLayerExportDialog {
+    id: exportDialog
+    t: Theme
+  }
+
   QFieldSettings {
     id: qfieldSettings
     objectName: "qfieldSettings"
