@@ -502,6 +502,21 @@ QfPopup {
         }
 
         QfButton {
+          id: exportLayerButton
+          Layout.fillWidth: true
+          Layout.topMargin: 5
+          text: qsTr("Eksportuj jako…")
+          visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer) ? true : false
+          onClicked: {
+            const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+            if (vl) {
+              exportDialog.openFor(vl);
+              close();
+            }
+          }
+        }
+
+        QfButton {
           id: doneButton
           Layout.fillWidth: true
           Layout.topMargin: 5

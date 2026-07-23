@@ -530,6 +530,21 @@ Page {
       }
 
       MenuItem {
+        id: addToProjectItem
+        enabled: itemMenu.itemMetaType == LocalFilesModel.Dataset && qgisProject && qgisProject.fileName !== ''
+        visible: enabled
+        font: Theme.defaultFont
+        width: parent.width
+        height: enabled ? 48 : 0
+        leftPadding: Theme.menuItemLeftPadding
+        text: qsTr("Dodaj do projektu")
+        onTriggered: {
+          subLayerPicker.openFor(itemMenu.itemPath);
+
+        }
+      }
+
+      MenuItem {
         id: exportDatasetTo
         enabled: platformUtilities.capabilities & PlatformUtilities.CustomExport && itemMenu.itemMetaType == LocalFilesModel.Dataset
         visible: enabled

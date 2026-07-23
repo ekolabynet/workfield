@@ -103,6 +103,8 @@
         <file>Legend.qml</file>
         <file>TemporalProperties.qml</file>
         <file>LayerTreeItemProperties.qml</file>
+        <file>QfLayerExportDialog.qml</file>
+        <file>QfSubLayerPicker.qml</file>
         <file>VertexRubberband.qml</file>
         <file>LocatorItem.qml</file>
         <file>LocatorSettings.qml</file>

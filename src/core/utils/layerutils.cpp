@@ -15,6 +15,9 @@
  ***************************************************************************/
 
 #include "layerutils.h"
+#include <qgscoordinatetransform.h>
+#include <qgsproviderregistry.h>
+#include <qgsprovidersublayerdetails.h>
 #include <qgsfillsymbollayer.h>
 #include <qgslinesymbollayer.h>
 #include <qgsmarkersymbollayer.h>
@@ -948,5 +951,95 @@ void LayerUtils::setMarkerShape( QgsVectorLayer *layer, int shape )
 
   marker->setShape( static_cast<Qgis::MarkerShape>( shape ) );
   refreshLayer( layer );
+}
+
+QString LayerUtils::exportVectorLayer( QgsVectorLayer *layer, const QString &filePath, const QString &destinationCrsAuthId, const QString &fileEncoding )
+{
+  if ( !layer || !layer->isValid() )
+    return QString();
+
+  const QFileInfo fileInfo( filePath );
+  const QString driverName = QgsVectorFileWriter::driverForExtension( fileInfo.suffix() );
+  if ( driverName.isEmpty() )
+    return QString();
+
+  QgsCoordinateReferenceSystem destinationCrs = layer->crs();
+  if ( !destinationCrsAuthId.isEmpty() )
+  {
+    const QgsCoordinateReferenceSystem requested( destinationCrsAuthId );
+    if ( requested.isValid() )
+      destinationCrs = requested;
+  }
+
+  QgsVectorFileWriter::SaveVectorOptions saveOptions;
+  saveOptions.fileEncoding = fileEncoding.isEmpty() ? QStringLiteral( "UTF-8" ) : fileEncoding;
+  saveOptions.layerName = fileInfo.completeBaseName();
+  saveOptions.driverName = driverName;
+  saveOptions.datasourceOptions = QgsVectorFileWriter::defaultDatasetOptions( driverName );
+  saveOptions.layerOptions = QgsVectorFileWriter::defaultLayerOptions( driverName );
+  saveOptions.symbologyExport = Qgis::FeatureSymbologyExport::NoSymbology;
+  saveOptions.actionOnExistingFile = QgsVectorFileWriter::CreateOrOverwriteFile;
+
+  QString finalFileName;
+  QString finalLayerName;
+  std::unique_ptr<QgsVectorFileWriter> writer( QgsVectorFileWriter::create( filePath, layer->fields(), layer->wkbType(), destinationCrs, QgsProject::instance()->transformContext(), saveOptions, QgsFeatureSink::RegeneratePrimaryKey, &finalFileName, &finalLayerName ) );
+
+  if ( !writer || writer->hasError() )
+  {
+    qInfo() << QStringLiteral( "Vector layer export error: %1" ).arg( writer ? writer->errorMessage() : QStringLiteral( "writer creation failed" ) );
+    return QString();
+  }
+
+  const bool needsTransform = destinationCrs != layer->crs();
+  QgsCoordinateTransform transform;
+  if ( needsTransform )
+  {
+    transform = QgsCoordinateTransform( layer->crs(), destinationCrs, QgsProject::instance()->transformContext() );
+    qInfo() << QStringLiteral( "Export: %1 -> %2, transform valid: %3" ).arg( layer->crs().authid(), destinationCrs.authid() ).arg( transform.isValid() );
+  }
+
+  QgsFeatureIterator it = layer->getFeatures();
+  QgsFeature feature;
+  while ( it.nextFeature( feature ) )
+  {
+    if ( needsTransform && feature.hasGeometry() )
+    {
+      QgsGeometry geometry = feature.geometry();
+      if ( geometry.transform( transform ) == Qgis::GeometryOperationResult::Success )
+        feature.setGeometry( geometry );
+      else
+        qInfo() << QStringLiteral( "Export: geometry transform failed for feature %1" ).arg( feature.id() );
+    }
+    writer->addFeature( feature, QgsFeatureSink::FastInsert );
+  }
+
+  return finalFileName;
+}
+
+QVariantList LayerUtils::vectorSubLayers( const QString &filePath )
+{
+  QVariantList result;
+
+  QgsVectorLayer probe( filePath, QString(), QStringLiteral( "ogr" ) );
+  if ( !probe.isValid() && probe.dataProvider() == nullptr )
+    return result;
+
+  const QList<QgsProviderSublayerDetails> details = QgsProviderRegistry::instance()->querySublayers( filePath, Qgis::SublayerQueryFlag::ResolveGeometryType );
+
+  for ( const QgsProviderSublayerDetails &detail : details )
+  {
+    if ( detail.type() != Qgis::LayerType::Vector )
+      continue;
+
+    QVariantMap entry;
+    entry.insert( QStringLiteral( "name" ), detail.name() );
+    entry.insert( QStringLiteral( "geometry" ), QgsWkbTypes::displayString( detail.wkbType() ) );
+    entry.insert( QStringLiteral( "featureCount" ), static_cast<qlonglong>( detail.featureCount() ) );
+    entry.insert( QStringLiteral( "uri" ), detail.uri() );
+    entry.insert( QStringLiteral( "provider" ), detail.providerKey() );
+    result.append( entry );
+  }
+
+  return result;
 }
 
