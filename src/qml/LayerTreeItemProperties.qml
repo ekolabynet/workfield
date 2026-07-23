@@ -23,6 +23,7 @@ QfPopup {
   property var trackingButtonText
 
   property bool opacitySliderVisible: false
+  property bool symbologyVisible: false
 
   parent: mainWindow.contentItem
   width: Math.min(childrenRect.width, mainWindow.width - Theme.popupScreenEdgeHorizontalMargin)
@@ -54,6 +55,12 @@ QfPopup {
 
     // the layer tree model returns -1 for items that do not support the opacity setting
     opacitySliderVisible = layerTree.data(index, FlatLayerTreeModel.Opacity) > -1;
+    const styleLayer = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+    symbologyVisible = styleLayer ? LayerUtils.hasSimpleSymbology(styleLayer) : false;
+    if (symbologyVisible) {
+      symbolSizeSlider.value = LayerUtils.symbolSize(styleLayer);
+      colorPalette.currentColor = LayerUtils.symbolColor(styleLayer);
+    }
   }
 
   Page {
@@ -231,6 +238,139 @@ QfPopup {
               projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
             }
           }
+        }
+
+        ColumnLayout {
+          id: symbologyPanel
+
+          Layout.fillWidth: true
+          Layout.topMargin: 4
+          Layout.bottomMargin: 4
+          spacing: 4
+          visible: symbologyVisible
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 4
+
+            QfToolButton {
+              Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
+              Layout.preferredWidth: 24
+              Layout.leftMargin: 4
+              width: 24
+              height: 24
+              padding: 0
+              enabled: false
+              bgcolor: "transparent"
+              icon.source: Theme.getThemeVectorIcon("ic_palette_black_24dp")
+              icon.color: Theme.mainTextColor
+            }
+
+            Text {
+              Layout.alignment: Qt.AlignVCenter
+              text: qsTr("Kolor")
+              font: Theme.defaultFont
+              color: Theme.mainTextColor
+            }
+
+            Item {
+              Layout.fillWidth: true
+            }
+          }
+
+          Flow {
+            id: colorPalette
+            Layout.fillWidth: true
+            Layout.leftMargin: 32
+            Layout.rightMargin: 8
+            spacing: 6
+
+            property color currentColor: "transparent"
+            readonly property var swatches: ["#e53935", "#d81b60", "#8e24aa", "#3949ab", "#1e88e5", "#00897b", "#43a047", "#c0ca33", "#fdd835", "#fb8c00", "#6d4c41", "#212121"]
+
+            Repeater {
+              model: colorPalette.swatches
+
+              delegate: Rectangle {
+                required property string modelData
+
+                width: 32
+                height: 32
+                radius: 4
+                color: modelData
+                border.width: Qt.colorEqual(colorPalette.currentColor, modelData) ? 3 : 1
+                border.color: Qt.colorEqual(colorPalette.currentColor, modelData) ? Theme.mainTextColor : Theme.controlBorderColor
+
+                MouseArea {
+                  anchors.fill: parent
+                  onClicked: {
+                    const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                    if (!vl)
+                      return;
+                    LayerUtils.setSymbolColor(vl, parent.modelData);
+                    colorPalette.currentColor = parent.modelData;
+                    projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                  }
+                }
+              }
+            }
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            spacing: 4
+            visible: symbolSizeSlider.value > 0
+
+            QfToolButton {
+              Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
+              Layout.preferredWidth: 24
+              Layout.leftMargin: 4
+              width: 24
+              height: 24
+              padding: 0
+              enabled: false
+              bgcolor: "transparent"
+              icon.source: Theme.getThemeVectorIcon("ic_size_medium_white_24dp")
+              icon.color: Theme.mainTextColor
+            }
+
+            Text {
+              Layout.alignment: Qt.AlignVCenter
+              text: qsTr("Rozmiar")
+              font: Theme.defaultFont
+              color: Theme.mainTextColor
+            }
+
+            QfSlider {
+              id: symbolSizeSlider
+              Layout.fillWidth: true
+              Layout.rightMargin: 5
+              Layout.alignment: Qt.AlignVCenter
+              from: 0.5
+              to: 12
+              stepSize: 0.5
+              suffixText: " mm"
+              height: 40
+
+              onMoved: function () {
+                const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                if (!vl)
+                  return;
+                LayerUtils.setSymbolSize(vl, value);
+                projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+              }
+            }
+          }
+        }
+
+        QfButton {
+          id: doneButton
+          Layout.fillWidth: true
+          Layout.topMargin: 5
+          text: qsTr("Gotowe")
+          icon.source: Theme.getThemeVectorIcon("ic_check_white_24dp")
+          onClicked: close()
         }
 
         QfButton {

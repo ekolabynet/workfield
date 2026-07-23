@@ -97,8 +97,13 @@ ApplicationWindow {
             let parts = [];
             if (mapCanvas.mapSettings.destinationCrs)
               parts.push(mapCanvas.mapSettings.destinationCrs.authid);
-            if (positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid)
-              parts.push("±" + positionSource.positionInformation.hacc.toFixed(1) + " m");
+            if (positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid) {
+              const acc = positionSource.positionInformation.hacc;
+              if (acc < 1)
+                parts.push("±" + (acc * 100).toFixed(0) + " cm");
+              else if (acc < 100)
+                parts.push("±" + acc.toFixed(1) + " m");
+            }
             return parts.join("  ·  ");
           }
         }
