@@ -51,6 +51,21 @@ ApplicationWindow {
   Material.theme: Theme.darkTheme ? Material.Dark : Material.Light
   Material.accent: Theme.mainColor
 
+  footer: TabBar {
+    id: mainNav
+    width: parent.width
+
+    TabButton {
+      text: qsTr("Mapa")
+    }
+    TabButton {
+      text: qsTr("Warstwy")
+    }
+    TabButton {
+      text: qsTr("Dane")
+    }
+  }
+
   property bool sceneLoaded: false
   property bool sceneBorderless: false
   property double sceneTopMargin: SafeArea.margins.top
