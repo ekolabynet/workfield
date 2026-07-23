@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import org.qfield
 import Theme
 
-Column {
+ColumnLayout {
   property var settingsPage
   property var settingsRegistry
   property var settingsModel
@@ -33,7 +33,7 @@ Column {
 
   ListView {
     Layout.fillWidth: true
-    Layout.preferredHeight: childrenRect.height
+    Layout.preferredHeight: contentHeight
     interactive: false
 
     model: settingsModel
