@@ -79,6 +79,27 @@ class ProjectUtils : public QObject
      * - tracks: set to TRUE to add a tracks layer
      * - track_on_launch: set to TRUE to start tracking position on project launch
      */
+    /**
+     * Writes the project to its current file. Returns TRUE on success.
+     */
+    static Q_INVOKABLE bool saveProject( QgsProject *project = nullptr );
+
+    /**
+     * Writes the project to \a filePath. Returns TRUE on success.
+     */
+    static Q_INVOKABLE bool saveProjectAs( const QString &filePath, QgsProject *project = nullptr );
+
+    /**
+     * Returns the project file path, or an empty string when the project has
+     * never been saved.
+     */
+    static Q_INVOKABLE QString projectFilePath( QgsProject *project = nullptr );
+
+    /**
+     * Returns TRUE when the project has unsaved changes.
+     */
+    static Q_INVOKABLE bool isProjectDirty( QgsProject *project = nullptr );
+
     Q_INVOKABLE static QString createProject( const QVariantMap &options, const GnssPositionInformation &positionInformation = GnssPositionInformation() );
 };
 
