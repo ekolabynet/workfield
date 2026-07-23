@@ -4552,7 +4552,7 @@ ApplicationWindow {
       font: Theme.defaultFont
 
       onTriggered: {
-        qfieldSettings.currentPanel = 1;
+        qfieldSettings.currentPanel = "positioning";
         qfieldSettings.visible = true;
       }
     }
