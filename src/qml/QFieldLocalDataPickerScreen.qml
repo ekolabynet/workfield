@@ -31,6 +31,7 @@ Page {
   header: QfPageHeader {
     title: projectFolderView ? qsTr("Project Folder") : qsTr("Local Projects & Datasets")
 
+
     showBackButton: true
     showApplyButton: false
     showCancelButton: false
@@ -561,6 +562,21 @@ Page {
       }
 
       // Folder items
+      MenuItem {
+        id: gotoPathItem
+        enabled: true
+        visible: enabled
+        font: Theme.defaultFont
+        width: parent.width
+        height: enabled ? 48 : 0
+        leftPadding: Theme.menuItemLeftPadding
+        text: qsTr("Przejdź do katalogu…")
+        onTriggered: {
+          gotoPathField.text = table.model.currentPath === "root" ? "" : table.model.currentPath;
+          gotoPathPopup.open();
+        }
+      }
+
       MenuItem {
         id: toggleFavoriteState
         enabled: itemMenu.itemMetaType == LocalFilesModel.Folder && localFilesModel.isPathFavoriteEditable(itemMenu.itemPath)
@@ -1827,6 +1843,79 @@ Page {
       } else {
         finished(false);
       }
+    }
+  }
+
+  Popup {
+    id: gotoPathPopup
+
+    parent: mainWindow.contentItem
+    width: Math.min(460, mainWindow.width - 32)
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    modal: true
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Przejdź do katalogu")
+        font: Theme.strongFont
+        color: Theme.mainTextColor
+      }
+
+      TextField {
+        id: gotoPathField
+
+        Layout.fillWidth: true
+        font: Theme.defaultFont
+        placeholderText: "/DATA/GIS"
+        selectByMouse: true
+
+        onAccepted: gotoPathPopup.applyPath()
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Po wejściu możesz dodać katalog do ulubionych przez menu obok jego nazwy.")
+        font: Theme.tipFont
+        color: Theme.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Layout.topMargin: 8
+        spacing: 8
+
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Anuluj")
+          onClicked: gotoPathPopup.close()
+        }
+
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Przejdź")
+          highlighted: true
+          onClicked: gotoPathPopup.applyPath()
+        }
+      }
+    }
+
+    function applyPath() {
+      const path = gotoPathField.text.trim();
+      if (path === "")
+        return;
+      if (!FileUtils.fileExists(path)) {
+        displayToast(qsTr("Katalog nie istnieje"));
+        return;
+      }
+      table.model.resetToPath(path);
+      gotoPathPopup.close();
     }
   }
 }

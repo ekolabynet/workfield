@@ -1,0 +1,282 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Controls.Material
+import QtQuick.Layouts
+import org.qfield
+import Theme
+
+Popup {
+  id: newLayerDialog
+
+  property var t
+
+  property string layerName: ""
+  property string geometryType: "Point"
+  property string crsAuthId: ""
+  property string targetMode: "gpkg"
+  property string gpkgPath: ""
+
+  readonly property var geometryTypes: [
+    { key: "Point", label: qsTr("Punkt") },
+    { key: "MultiLineString", label: qsTr("Linia") },
+    { key: "MultiPolygon", label: qsTr("Poligon") },
+    { key: "NoGeometry", label: qsTr("Bez geometrii") }
+  ]
+
+  readonly property var fieldTypes: [
+    { key: "text", label: qsTr("Tekst") },
+    { key: "multiline", label: qsTr("Tekst długi") },
+    { key: "integer", label: qsTr("Liczba całkowita") },
+    { key: "real", label: qsTr("Liczba rzeczywista") },
+    { key: "date", label: qsTr("Data") },
+    { key: "datetime", label: qsTr("Data i czas") },
+    { key: "bool", label: qsTr("Tak/Nie") }
+  ]
+
+  readonly property string targetPath: {
+    if (!qgisProject)
+      return "";
+    const safe = FileUtils.sanitizeFilePathPart(layerName === "" ? "warstwa" : layerName);
+    if (targetMode === "gpkg" && gpkgPath !== "")
+      return gpkgPath;
+    if (targetMode === "gpkg")
+      return qgisProject.homePath + "/" + safe + ".gpkg";
+    return qgisProject.homePath + "/" + safe + ".geojson";
+  }
+
+  signal layerCreated(var layer)
+
+  parent: mainWindow.contentItem
+  width: Math.min(440, mainWindow.width - 32)
+  height: Math.min(implicitHeight, mainWindow.height - 64)
+  x: (mainWindow.width - width) / 2
+  y: (mainWindow.height - height) / 2
+  modal: true
+  closePolicy: Popup.CloseOnEscape
+
+  function openDialog() {
+    layerName = "";
+    geometryType = "Point";
+    crsAuthId = qgisProject && qgisProject.crs ? qgisProject.crs.authid : "EPSG:4326";
+    targetMode = "gpkg";
+    gpkgPath = "";
+    fieldModel.clear();
+    fieldModel.append({
+      fieldName: "opis",
+      fieldType: "text"
+    });
+    open();
+  }
+
+  ListModel {
+    id: fieldModel
+  }
+
+  ColumnLayout {
+    anchors.fill: parent
+    spacing: 8
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Nowa warstwa")
+      font: t.strongFont
+      color: t.mainTextColor
+    }
+
+    TextField {
+      Layout.fillWidth: true
+      font: t.defaultFont
+      placeholderText: qsTr("Nazwa warstwy")
+      text: newLayerDialog.layerName
+      onTextChanged: newLayerDialog.layerName = text
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      text: qsTr("Geometria")
+      font: t.strongTipFont
+      color: t.mainTextColor
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Repeater {
+        model: newLayerDialog.geometryTypes
+
+        delegate: Button {
+          required property var modelData
+          text: modelData.label
+          font.pointSize: t.tinyFont.pointSize
+          checkable: true
+          checked: newLayerDialog.geometryType === modelData.key
+          onClicked: newLayerDialog.geometryType = modelData.key
+        }
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      spacing: 6
+
+      Text {
+        text: qsTr("Układ")
+        font: t.defaultFont
+        color: t.mainTextColor
+      }
+
+      TextField {
+        Layout.fillWidth: true
+        font: t.defaultFont
+        placeholderText: "EPSG:2180"
+        text: newLayerDialog.crsAuthId
+        onTextChanged: newLayerDialog.crsAuthId = text
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      text: qsTr("Zapis")
+      font: t.strongTipFont
+      color: t.mainTextColor
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Button {
+        text: qsTr("GeoPackage")
+        font.pointSize: t.tinyFont.pointSize
+        checkable: true
+        checked: newLayerDialog.targetMode === "gpkg"
+        onClicked: newLayerDialog.targetMode = "gpkg"
+      }
+
+      Button {
+        text: qsTr("GeoJSON")
+        font.pointSize: t.tinyFont.pointSize
+        checkable: true
+        checked: newLayerDialog.targetMode === "geojson"
+        onClicked: newLayerDialog.targetMode = "geojson"
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: newLayerDialog.targetPath
+      font: t.tinyFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WrapAnywhere
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      text: qsTr("Atrybuty")
+      font: t.strongTipFont
+      color: t.mainTextColor
+    }
+
+    ListView {
+      Layout.fillWidth: true
+      Layout.preferredHeight: Math.min(contentHeight, 220)
+      clip: true
+      model: fieldModel
+
+      delegate: RowLayout {
+        required property int index
+        required property string fieldName
+        required property string fieldType
+
+        width: ListView.view.width
+        height: 48
+        spacing: 6
+
+        TextField {
+          Layout.fillWidth: true
+          font: t.defaultFont
+          text: fieldName
+          placeholderText: qsTr("nazwa pola")
+          onTextChanged: {
+            if (parent.index >= 0 && parent.index < fieldModel.count)
+              fieldModel.setProperty(parent.index, "fieldName", text);
+          }
+        }
+
+        ComboBox {
+          Layout.preferredWidth: 150
+          font: t.defaultFont
+          model: newLayerDialog.fieldTypes.map(f => f.label)
+          currentIndex: newLayerDialog.fieldTypes.findIndex(f => f.key === fieldType)
+          onActivated: idx => fieldModel.setProperty(parent.index, "fieldType", newLayerDialog.fieldTypes[idx].key)
+        }
+
+        QfToolButton {
+          Layout.preferredWidth: 34
+          Layout.preferredHeight: 34
+          padding: 0
+          bgcolor: "transparent"
+          iconSource: Theme.getThemeVectorIcon("ic_delete_forever_white_24dp")
+          iconColor: t.errorColor
+          onClicked: fieldModel.remove(parent.index)
+        }
+      }
+    }
+
+    Button {
+      Layout.fillWidth: true
+      text: qsTr("Dodaj pole")
+      font.pointSize: t.tinyFont.pointSize
+      onClicked: fieldModel.append({
+        fieldName: "",
+        fieldType: "text"
+      })
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.topMargin: 8
+      spacing: 8
+
+      Button {
+        Layout.fillWidth: true
+        text: qsTr("Anuluj")
+        onClicked: newLayerDialog.close()
+      }
+
+      Button {
+        Layout.fillWidth: true
+        text: qsTr("Utwórz")
+        highlighted: true
+        enabled: newLayerDialog.layerName !== ""
+
+        onClicked: {
+          let fields = [];
+          for (let i = 0; i < fieldModel.count; i++) {
+            const item = fieldModel.get(i);
+            if (item.fieldName.trim() !== "")
+              fields.push({
+                name: item.fieldName.trim(),
+                type: item.fieldType
+              });
+          }
+
+          const layer = LayerUtils.createEmptyLayer(newLayerDialog.targetPath, newLayerDialog.layerName, newLayerDialog.geometryType, newLayerDialog.crsAuthId, fields);
+
+          if (layer && ProjectUtils.addMapLayer(qgisProject, layer)) {
+            displayToast(qsTr("Utworzono warstwę %1").arg(newLayerDialog.layerName));
+            newLayerDialog.layerCreated(layer);
+            newLayerDialog.close();
+          } else {
+            displayToast(qsTr("Nie udało się utworzyć warstwy"));
+          }
+        }
+      }
+    }
+  }
+}
