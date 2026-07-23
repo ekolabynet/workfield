@@ -27,6 +27,8 @@ QfPopup {
   property int symbolKind: -1
   property int currentStrokeStyle: -1
   property int currentMarkerShape: -1
+  property bool categoriesVisible: false
+  property var categoryEntries: []
 
   parent: mainWindow.contentItem
   width: Math.min(childrenRect.width, mainWindow.width - Theme.popupScreenEdgeHorizontalMargin)
@@ -60,6 +62,8 @@ QfPopup {
     opacitySliderVisible = layerTree.data(index, FlatLayerTreeModel.Opacity) > -1;
     const styleLayer = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
     symbologyVisible = styleLayer ? LayerUtils.hasSimpleSymbology(styleLayer) : false;
+    categoriesVisible = styleLayer ? LayerUtils.hasCategorizedSymbology(styleLayer) : false;
+    categoryEntries = categoriesVisible ? LayerUtils.rendererCategories(styleLayer) : [];
     if (symbologyVisible) {
       symbolKind = LayerUtils.symbolType(styleLayer);
       symbolSizeSlider.value = Math.max(0, LayerUtils.symbolSize(styleLayer));
@@ -496,6 +500,131 @@ QfPopup {
                   return;
                 LayerUtils.setSymbolSize(vl, value);
                 projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+              }
+            }
+          }
+        }
+
+        ColumnLayout {
+          id: categoryPanel
+
+          Layout.fillWidth: true
+          Layout.topMargin: 4
+          Layout.bottomMargin: 4
+          spacing: 4
+          visible: categoriesVisible
+
+          Text {
+            Layout.fillWidth: true
+            Layout.leftMargin: 4
+            text: qsTr("Kategorie (%1)").arg(categoryEntries.length)
+            font: Theme.strongTipFont
+            color: Theme.mainTextColor
+          }
+
+          ListView {
+            id: categoryList
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(contentHeight, 260)
+            clip: true
+            model: categoryEntries
+
+            property int editingIndex: -1
+
+            delegate: Column {
+              required property int index
+              required property var modelData
+
+              width: categoryList.width
+              spacing: 0
+
+              RowLayout {
+                width: parent.width
+                height: 40
+                spacing: 8
+
+                Rectangle {
+                  Layout.leftMargin: 4
+                  width: 26
+                  height: 26
+                  radius: 4
+                  color: modelData.color
+                  border.width: 1
+                  border.color: Theme.controlBorderColor
+                  opacity: modelData.visible ? 1.0 : 0.35
+
+                  MouseArea {
+                    anchors.fill: parent
+                    onClicked: categoryList.editingIndex = categoryList.editingIndex === index ? -1 : index
+                  }
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  text: modelData.label
+                  font: Theme.defaultFont
+                  color: Theme.mainTextColor
+                  opacity: modelData.visible ? 1.0 : 0.5
+                  elide: Text.ElideRight
+
+                  MouseArea {
+                    anchors.fill: parent
+                    onClicked: categoryList.editingIndex = categoryList.editingIndex === index ? -1 : index
+                  }
+                }
+
+                QfToolButton {
+                  Layout.rightMargin: 4
+                  width: 32
+                  height: 32
+                  padding: 0
+                  bgcolor: "transparent"
+                  iconSource: Theme.getThemeVectorIcon(modelData.visible ? "ic_eye_black_24dp" : "ic_eye_hide_black_24dp")
+                  iconColor: Theme.mainTextColor
+
+                  onClicked: {
+                    const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  }
+                }
+              }
+
+              Flow {
+                width: parent.width - 16
+                x: 8
+                spacing: 5
+                bottomPadding: 6
+                visible: categoryList.editingIndex === index
+
+                readonly property var swatches: ["#e53935", "#d81b60", "#8e24aa", "#3949ab", "#1e88e5", "#00897b", "#43a047", "#c0ca33", "#fdd835", "#fb8c00", "#6d4c41", "#212121", "#ffffff"]
+
+                Repeater {
+                  model: parent.swatches
+
+                  delegate: Rectangle {
+                    required property string modelData
+
+                    width: 26
+                    height: 26
+                    radius: 4
+                    color: modelData
+                    border.width: 1
+                    border.color: Theme.controlBorderColor
+
+                    MouseArea {
+                      anchors.fill: parent
+                      onClicked: {
+                        const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                        if (!vl)
+                          return;
+                        LayerUtils.setCategoryColor(vl, categoryList.editingIndex, parent.modelData);
+                        categoryEntries = LayerUtils.rendererCategories(vl);
+                        categoryList.editingIndex = -1;
+                        projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                      }
+                    }
+                  }
+                }
               }
             }
           }

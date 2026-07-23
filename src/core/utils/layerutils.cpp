@@ -25,6 +25,8 @@
 #include <qgsfillsymbol.h>
 #include <qgslinesymbol.h>
 #include <qgsmarkersymbol.h>
+#include <qgscategorizedsymbolrenderer.h>
+#include <qgsgraduatedsymbolrenderer.h>
 #include <qgssinglesymbolrenderer.h>
 #include <qgssymbol.h>
 
@@ -1041,5 +1043,114 @@ QVariantList LayerUtils::vectorSubLayers( const QString &filePath )
   }
 
   return result;
+}
+
+bool LayerUtils::hasCategorizedSymbology( QgsVectorLayer *layer )
+{
+  if ( !layer )
+    return false;
+
+  return dynamic_cast<QgsCategorizedSymbolRenderer *>( layer->renderer() ) != nullptr
+         || dynamic_cast<QgsGraduatedSymbolRenderer *>( layer->renderer() ) != nullptr;
+}
+
+QVariantList LayerUtils::rendererCategories( QgsVectorLayer *layer )
+{
+  QVariantList result;
+  if ( !layer )
+    return result;
+
+  if ( QgsCategorizedSymbolRenderer *renderer = dynamic_cast<QgsCategorizedSymbolRenderer *>( layer->renderer() ) )
+  {
+    const QgsCategoryList categories = renderer->categories();
+    int i = 0;
+    for ( const QgsRendererCategory &category : categories )
+    {
+      QVariantMap entry;
+      entry.insert( QStringLiteral( "index" ), i );
+      entry.insert( QStringLiteral( "label" ), category.label().isEmpty() ? category.value().toString() : category.label() );
+      entry.insert( QStringLiteral( "color" ), category.symbol() ? category.symbol()->color() : QColor() );
+      entry.insert( QStringLiteral( "visible" ), category.renderState() );
+      result.append( entry );
+      ++i;
+    }
+    return result;
+  }
+
+  if ( QgsGraduatedSymbolRenderer *renderer = dynamic_cast<QgsGraduatedSymbolRenderer *>( layer->renderer() ) )
+  {
+    const QgsRangeList ranges = renderer->ranges();
+    int i = 0;
+    for ( const QgsRendererRange &range : ranges )
+    {
+      QVariantMap entry;
+      entry.insert( QStringLiteral( "index" ), i );
+      entry.insert( QStringLiteral( "label" ), range.label() );
+      entry.insert( QStringLiteral( "color" ), range.symbol() ? range.symbol()->color() : QColor() );
+      entry.insert( QStringLiteral( "visible" ), range.renderState() );
+      result.append( entry );
+      ++i;
+    }
+  }
+
+  return result;
+}
+
+void LayerUtils::setCategoryColor( QgsVectorLayer *layer, int categoryIndex, const QColor &color )
+{
+  if ( !layer || !color.isValid() || categoryIndex < 0 )
+    return;
+
+  if ( QgsCategorizedSymbolRenderer *renderer = dynamic_cast<QgsCategorizedSymbolRenderer *>( layer->renderer() ) )
+  {
+    if ( categoryIndex >= renderer->categories().size() )
+      return;
+
+    std::unique_ptr<QgsSymbol> symbol( renderer->categories().at( categoryIndex ).symbol()->clone() );
+    symbol->setColor( color );
+    renderer->updateCategorySymbol( categoryIndex, symbol.release() );
+  }
+  else if ( QgsGraduatedSymbolRenderer *renderer = dynamic_cast<QgsGraduatedSymbolRenderer *>( layer->renderer() ) )
+  {
+    if ( categoryIndex >= renderer->ranges().size() )
+      return;
+
+    std::unique_ptr<QgsSymbol> symbol( renderer->ranges().at( categoryIndex ).symbol()->clone() );
+    symbol->setColor( color );
+    renderer->updateRangeSymbol( categoryIndex, symbol.release() );
+  }
+  else
+  {
+    return;
+  }
+
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+}
+
+void LayerUtils::setCategoryVisible( QgsVectorLayer *layer, int categoryIndex, bool visible )
+{
+  if ( !layer || categoryIndex < 0 )
+    return;
+
+  if ( QgsCategorizedSymbolRenderer *renderer = dynamic_cast<QgsCategorizedSymbolRenderer *>( layer->renderer() ) )
+  {
+    if ( categoryIndex >= renderer->categories().size() )
+      return;
+    renderer->updateCategoryRenderState( categoryIndex, visible );
+  }
+  else if ( QgsGraduatedSymbolRenderer *renderer = dynamic_cast<QgsGraduatedSymbolRenderer *>( layer->renderer() ) )
+  {
+    if ( categoryIndex >= renderer->ranges().size() )
+      return;
+    renderer->updateRangeRenderState( categoryIndex, visible );
+  }
+  else
+  {
+    return;
+  }
+
+  layer->triggerRepaint();
+  emit layer->styleChanged();
 }
 
