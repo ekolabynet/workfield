@@ -6,10 +6,10 @@ import org.qfield
 import Theme
 
 Column {
-  property var page
-  property var registry
+  property var settingsPage
+  property var settingsRegistry
   property var settingsModel
-  property Component listItem
+  property Component rowDelegate
 
   signal openLocatorSettings()
   signal openPluginManager()
@@ -102,6 +102,6 @@ Column {
 
     model: settingsModel
 
-    delegate: listItem
+    delegate: rowDelegate
   }
 }

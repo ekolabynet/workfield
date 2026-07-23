@@ -21,7 +21,7 @@ Column {
     rowSpacing: 5
 
     Label {
-      text: qsTr('Advanced')
+      text: qsTr('Map Canvas')
       font: Theme.strongFont
       color: Theme.mainTextColor
       wrapMode: Text.WordWrap
