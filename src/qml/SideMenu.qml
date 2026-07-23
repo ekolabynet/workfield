@@ -35,16 +35,36 @@ Column {
         iconName: "ic_print_black_24dp"
       }
       ListElement {
-        actionId: "projectFolder"
-        iconName: "ic_project_folder_black_24dp"
-      }
-      ListElement {
         actionId: "newLayer"
         iconName: "ic_add_white_24dp"
       }
       ListElement {
-        actionId: "mainMenu"
+        actionId: "projectFolder"
+        iconName: "ic_project_folder_black_24dp"
+      }
+      ListElement {
+        actionId: "bookmarks"
+        iconName: "ic_bookmark_black_24dp"
+      }
+      ListElement {
+        actionId: "plugins"
         iconName: "ic_dot_menu_black_24dp"
+      }
+      ListElement {
+        actionId: "settings"
+        iconName: "ic_settings_white_24dp"
+      }
+      ListElement {
+        actionId: "messageLog"
+        iconName: "ic_alert_black_24dp"
+      }
+      ListElement {
+        actionId: "lockScreen"
+        iconName: "ic_lock_black_24dp"
+      }
+      ListElement {
+        actionId: "about"
+        iconName: "ic_book_white_24dp"
       }
     }
 
@@ -81,14 +101,24 @@ Column {
               return qsTr("Widok 3D");
             case "print":
               return qsTr("Wydruki");
-            case "projectFolder":
-              return qsTr("Folder projektu");
             case "newLayer":
               return qsTr("Nowa warstwa");
-            case "mainMenu":
-              return qsTr("Menu główne");
+            case "projectFolder":
+              return qsTr("Folder projektu");
+            case "bookmarks":
+              return qsTr("Zakładki");
+            case "plugins":
+              return qsTr("Wtyczki");
+            case "settings":
+              return qsTr("Ustawienia");
+            case "messageLog":
+              return qsTr("Dziennik");
+            case "lockScreen":
+              return qsTr("Zablokuj ekran");
+            case "about":
+              return qsTr("O programie");
             }
-            return "";
+                        return "";
           }
           font: t.defaultFont
           color: t.mainTextColor
