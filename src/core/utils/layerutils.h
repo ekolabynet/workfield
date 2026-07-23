@@ -163,6 +163,23 @@ class LayerUtils : public QObject
     /**
      * Returns 0 for marker, 1 for line, 2 for fill, -1 if unavailable.
      */
+    /**
+     * Returns TRUE when the layer uses a categorized or graduated renderer.
+     */
+    static Q_INVOKABLE bool hasCategorizedSymbology( QgsVectorLayer *layer );
+
+    /**
+     * Returns the categories of a categorized/graduated renderer as a list of maps
+     * with "index", "label", "color" and "visible" keys.
+     */
+    static Q_INVOKABLE QVariantList rendererCategories( QgsVectorLayer *layer );
+
+    //! Sets the color of the category at \a categoryIndex.
+    static Q_INVOKABLE void setCategoryColor( QgsVectorLayer *layer, int categoryIndex, const QColor &color );
+
+    //! Toggles rendering of the category at \a categoryIndex.
+    static Q_INVOKABLE void setCategoryVisible( QgsVectorLayer *layer, int categoryIndex, bool visible );
+
     static Q_INVOKABLE int symbolType( QgsVectorLayer *layer );
 
     //! Fill color of the first symbol layer.
