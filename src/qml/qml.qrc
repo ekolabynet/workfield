@@ -52,6 +52,8 @@
         <file>QFieldAudioRecorder.qml</file>
         <file>QFieldCamera.qml</file>
         <file>QFieldSettings.qml</file>
+        <file>QfSettingsIndex.qml</file>
+        <file>QfSettingsIndex.qml</file>
         <file>QfSettingsMapCanvas.qml</file>
         <file>QfSettingsDigitizing.qml</file>
         <file>QfSettingsInterface.qml</file>
