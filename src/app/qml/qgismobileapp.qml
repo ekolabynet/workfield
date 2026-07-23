@@ -5506,6 +5506,15 @@ ApplicationWindow {
 
   QFieldLocalDataPickerScreen {
     id: qfieldLocalDataPickerScreen
+
+    onDatasetPicked: path => {
+      subLayerPicker.openFor(path);
+    }
+
+    onVisibleChanged: {
+      if (!visible)
+        pickerMode = false;
+    }
     objectName: "qfieldLocalDataPickerScreen"
 
     anchors.fill: parent
@@ -5545,6 +5554,7 @@ ApplicationWindow {
 
     onAddExistingRequested: {
       qfieldLocalDataPickerScreen.projectFolderView = false;
+      qfieldLocalDataPickerScreen.pickerMode = true;
       qfieldLocalDataPickerScreen.visible = true;
     }
 

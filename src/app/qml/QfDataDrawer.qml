@@ -22,6 +22,11 @@ Drawer {
   dragMargin: 0
   interactive: opened
 
+  onOpenedChanged: {
+    if (opened)
+      projectSection.refresh();
+  }
+
   background: Rectangle {
     color: t.mainBackgroundColor
   }
@@ -52,6 +57,70 @@ Drawer {
         iconSource: t.getThemeVectorIcon("ic_arrow_right_black_24dp")
         iconColor: t.mainTextColor
         onClicked: dataDrawer.close()
+      }
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 1
+      color: t.controlBorderColor
+    }
+
+    ColumnLayout {
+      id: projectSection
+
+      Layout.fillWidth: true
+      Layout.margins: 8
+      spacing: 4
+
+      property bool dirty: false
+      property string filePath: ""
+
+      function refresh() {
+        dirty = ProjectUtils.isProjectDirty(qgisProject);
+        filePath = qgisProject ? ProjectUtils.projectFilePath(qgisProject) : "";
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("Projekt")
+          font: t.strongTipFont
+          color: t.mainTextColor
+        }
+
+        Text {
+          text: projectSection.dirty ? qsTr("niezapisane zmiany") : ""
+          font: t.tinyFont
+          color: t.warningColor
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: projectSection.filePath !== "" ? FileUtils.fileName(projectSection.filePath) : qsTr("projekt niezapisany")
+        font: t.tinyFont
+        color: t.secondaryTextColor
+        elide: Text.ElideMiddle
+      }
+
+      Button {
+        Layout.fillWidth: true
+        text: qsTr("Zapisz projekt")
+        font.pointSize: t.tinyFont.pointSize
+        enabled: projectSection.filePath !== ""
+
+        onClicked: {
+          if (ProjectUtils.saveProject(qgisProject)) {
+            displayToast(qsTr("Projekt zapisany"));
+            projectSection.refresh();
+          } else {
+            displayToast(qsTr("Nie udało się zapisać projektu"));
+          }
+        }
       }
     }
 

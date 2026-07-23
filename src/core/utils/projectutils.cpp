@@ -614,3 +614,42 @@ QString ProjectUtils::createProject( const QVariantMap &options, const GnssPosit
 
   return written ? projectFilepath : QString();
 }
+
+bool ProjectUtils::saveProject( QgsProject *project )
+{
+  QgsProject *p = project ? project : QgsProject::instance();
+  if ( !p || p->fileName().isEmpty() )
+    return false;
+
+  const bool ok = p->write();
+  if ( !ok )
+    qInfo() << QStringLiteral( "Project save failed: %1" ).arg( p->error() );
+
+  return ok;
+}
+
+bool ProjectUtils::saveProjectAs( const QString &filePath, QgsProject *project )
+{
+  QgsProject *p = project ? project : QgsProject::instance();
+  if ( !p || filePath.isEmpty() )
+    return false;
+
+  const bool ok = p->write( filePath );
+  if ( !ok )
+    qInfo() << QStringLiteral( "Project save-as failed: %1" ).arg( p->error() );
+
+  return ok;
+}
+
+QString ProjectUtils::projectFilePath( QgsProject *project )
+{
+  QgsProject *p = project ? project : QgsProject::instance();
+  return p ? p->fileName() : QString();
+}
+
+bool ProjectUtils::isProjectDirty( QgsProject *project )
+{
+  QgsProject *p = project ? project : QgsProject::instance();
+  return p ? p->isDirty() : false;
+}
+

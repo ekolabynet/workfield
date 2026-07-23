@@ -14,6 +14,9 @@ Page {
 
   property bool openedOnce: false
   property bool projectFolderView: false
+  property bool pickerMode: false
+
+  signal datasetPicked(string path)
   property alias model: table.model
 
   signal finished(var loading)
@@ -29,7 +32,7 @@ Page {
   }
 
   header: QfPageHeader {
-    title: projectFolderView ? qsTr("Project Folder") : qsTr("Local Projects & Datasets")
+    title: pickerMode ? qsTr("Wybierz plik z danymi") : (projectFolderView ? qsTr("Project Folder") : qsTr("Local Projects & Datasets"))
 
 
     showBackButton: true
@@ -367,6 +370,8 @@ Page {
               if (item) {
                 if (item.itemMetaType === LocalFilesModel.Folder || item.itemMetaType === LocalFilesModel.Favorite) {
                   table.model.currentPath = item.itemPath;
+                } else if (qfieldLocalDataPickerScreen.pickerMode && item.itemMetaType === LocalFilesModel.Dataset) {
+                  qfieldLocalDataPickerScreen.datasetPicked(item.itemPath);
                 } else if (!qfieldLocalDataPickerScreen.projectFolderView && (item.itemMetaType === LocalFilesModel.Project || item.itemMetaType === LocalFilesModel.Dataset)) {
                   iface.loadFile(item.itemPath, item.itemTitle);
                   finished(true);
