@@ -17,6 +17,7 @@
 #ifndef LAYERUTILS_H
 #define LAYERUTILS_H
 
+#include <QColor>
 #include <QObject>
 #include <qgis.h>
 #include <qgstextformat.h>
@@ -131,6 +132,34 @@ class LayerUtils : public QObject
     * any of the print layouts of the currently opened project.
     * \param layer the vector layer to check against print layouts
     */
+    /**
+     * Returns the fill/marker color of a single-symbol renderer, or an invalid
+     * color if the layer uses a different renderer type.
+     */
+    static Q_INVOKABLE QColor symbolColor( QgsVectorLayer *layer );
+
+    /**
+     * Sets the color of a single-symbol renderer and repaints the layer.
+     */
+    static Q_INVOKABLE void setSymbolColor( QgsVectorLayer *layer, const QColor &color );
+
+    /**
+     * Returns the size (markers) or width (lines/outlines) of a single-symbol
+     * renderer in millimeters, or -1 if unavailable.
+     */
+    static Q_INVOKABLE double symbolSize( QgsVectorLayer *layer );
+
+    /**
+     * Sets the size (markers) or width (lines/outlines) of a single-symbol renderer.
+     */
+    static Q_INVOKABLE void setSymbolSize( QgsVectorLayer *layer, double size );
+
+    /**
+     * Returns TRUE if the layer uses a single-symbol renderer and can be styled
+     * through the methods above.
+     */
+    static Q_INVOKABLE bool hasSimpleSymbology( QgsVectorLayer *layer );
+
     static Q_INVOKABLE bool isAtlasCoverageLayer( QgsVectorLayer *layer );
 
     /**

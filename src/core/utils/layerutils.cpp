@@ -15,6 +15,11 @@
  ***************************************************************************/
 
 #include "layerutils.h"
+#include <qgsfillsymbol.h>
+#include <qgslinesymbol.h>
+#include <qgsmarkersymbol.h>
+#include <qgssinglesymbolrenderer.h>
+#include <qgssymbol.h>
 
 #include <QQmlEngine>
 #include <QScopeGuard>
@@ -722,3 +727,73 @@ QString LayerUtils::saveVectorLayerAs( QgsVectorLayer *layer, const QString &fil
 
   return finalFileName;
 }
+
+static QgsSymbol *singleSymbolOf( QgsVectorLayer *layer )
+{
+  if ( !layer )
+    return nullptr;
+  QgsSingleSymbolRenderer *renderer = dynamic_cast<QgsSingleSymbolRenderer *>( layer->renderer() );
+  return renderer ? renderer->symbol() : nullptr;
+}
+
+bool LayerUtils::hasSimpleSymbology( QgsVectorLayer *layer )
+{
+  return singleSymbolOf( layer ) != nullptr;
+}
+
+QColor LayerUtils::symbolColor( QgsVectorLayer *layer )
+{
+  QgsSymbol *symbol = singleSymbolOf( layer );
+  return symbol ? symbol->color() : QColor();
+}
+
+void LayerUtils::setSymbolColor( QgsVectorLayer *layer, const QColor &color )
+{
+  QgsSymbol *symbol = singleSymbolOf( layer );
+  if ( !symbol || !color.isValid() )
+    return;
+
+  symbol->setColor( color );
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+}
+
+double LayerUtils::symbolSize( QgsVectorLayer *layer )
+{
+  QgsSymbol *symbol = singleSymbolOf( layer );
+  if ( !symbol )
+    return -1;
+
+  switch ( symbol->type() )
+  {
+    case Qgis::SymbolType::Marker:
+      return static_cast<QgsMarkerSymbol *>( symbol )->size();
+    case Qgis::SymbolType::Line:
+      return static_cast<QgsLineSymbol *>( symbol )->width();
+    default:
+      return -1;
+  }
+}
+
+void LayerUtils::setSymbolSize( QgsVectorLayer *layer, double size )
+{
+  QgsSymbol *symbol = singleSymbolOf( layer );
+  if ( !symbol || size <= 0 )
+    return;
+
+  switch ( symbol->type() )
+  {
+    case Qgis::SymbolType::Marker:
+      static_cast<QgsMarkerSymbol *>( symbol )->setSize( size );
+      break;
+    case Qgis::SymbolType::Line:
+      static_cast<QgsLineSymbol *>( symbol )->setWidth( size );
+      break;
+    default:
+      return;
+  }
+
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+}
+
