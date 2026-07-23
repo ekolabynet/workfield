@@ -30,7 +30,8 @@ Popup {
     { key: "real", label: qsTr("Liczba rzeczywista") },
     { key: "date", label: qsTr("Data") },
     { key: "datetime", label: qsTr("Data i czas") },
-    { key: "bool", label: qsTr("Tak/Nie") }
+    { key: "bool", label: qsTr("Tak/Nie") },
+    { key: "attachment", label: qsTr("Załącznik (zdjęcia)") }
   ]
 
   readonly property string targetPath: {
@@ -257,16 +258,41 @@ Popup {
 
         onClicked: {
           let fields = [];
+          let needsUuid = false;
           for (let i = 0; i < fieldModel.count; i++) {
             const item = fieldModel.get(i);
-            if (item.fieldName.trim() !== "")
-              fields.push({
-                name: item.fieldName.trim(),
-                type: item.fieldType
-              });
+            if (item.fieldName.trim() === "")
+              continue;
+            if (item.fieldType === "attachment")
+              needsUuid = true;
+            fields.push({
+              name: item.fieldName.trim(),
+              type: item.fieldType === "attachment" ? "text" : item.fieldType
+            });
           }
 
+          if (needsUuid && !fields.some(f => f.name === "uuid"))
+            fields.unshift({
+              name: "uuid",
+              type: "text"
+            });
+
           const layer = LayerUtils.createEmptyLayer(newLayerDialog.targetPath, newLayerDialog.layerName, newLayerDialog.geometryType, newLayerDialog.crsAuthId, fields);
+
+          if (layer) {
+            let hasAttachment = false;
+            for (let k = 0; k < fieldModel.count; k++) {
+              if (fieldModel.get(k).fieldType === "attachment")
+                hasAttachment = true;
+            }
+            if (hasAttachment) {
+              for (let m = 0; m < fieldModel.count; m++) {
+                const item = fieldModel.get(m);
+                if (item.fieldType === "attachment")
+                  LayerUtils.setAttachmentField(layer, item.fieldName.trim());
+              }
+            }
+          }
 
           if (layer && ProjectUtils.addMapLayer(qgisProject, layer)) {
             displayToast(qsTr("Utworzono warstwę %1").arg(newLayerDialog.layerName));

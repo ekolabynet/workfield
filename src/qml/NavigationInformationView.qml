@@ -25,7 +25,7 @@ Rectangle {
   property color textColor: Theme.mainTextColor
   property real contentHeight: content.height
 
-  color: Theme.mainBackgroundColorSemiOpaque
+  color: Theme.mainBackgroundColor
 
   Timer {
     id: featureVertexTimer
