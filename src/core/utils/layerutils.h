@@ -160,6 +160,31 @@ class LayerUtils : public QObject
      */
     static Q_INVOKABLE bool hasSimpleSymbology( QgsVectorLayer *layer );
 
+    /**
+     * Returns 0 for marker, 1 for line, 2 for fill, -1 if unavailable.
+     */
+    static Q_INVOKABLE int symbolType( QgsVectorLayer *layer );
+
+    //! Fill color of the first symbol layer.
+    static Q_INVOKABLE QColor fillColor( QgsVectorLayer *layer );
+    static Q_INVOKABLE void setFillColor( QgsVectorLayer *layer, const QColor &color );
+
+    //! Stroke color of the first symbol layer.
+    static Q_INVOKABLE QColor strokeColor( QgsVectorLayer *layer );
+    static Q_INVOKABLE void setStrokeColor( QgsVectorLayer *layer, const QColor &color );
+
+    //! Stroke width in millimeters, -1 if unavailable.
+    static Q_INVOKABLE double strokeWidth( QgsVectorLayer *layer );
+    static Q_INVOKABLE void setStrokeWidth( QgsVectorLayer *layer, double width );
+
+    //! Stroke style as Qt::PenStyle (1 solid, 2 dash, 3 dot, 4 dash-dot, 5 dash-dot-dot).
+    static Q_INVOKABLE int strokeStyle( QgsVectorLayer *layer );
+    static Q_INVOKABLE void setStrokeStyle( QgsVectorLayer *layer, int style );
+
+    //! Marker shape as Qgis::MarkerShape, -1 if not a marker symbol.
+    static Q_INVOKABLE int markerShape( QgsVectorLayer *layer );
+    static Q_INVOKABLE void setMarkerShape( QgsVectorLayer *layer, int shape );
+
     static Q_INVOKABLE bool isAtlasCoverageLayer( QgsVectorLayer *layer );
 
     /**

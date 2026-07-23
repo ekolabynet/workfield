@@ -24,6 +24,9 @@ QfPopup {
 
   property bool opacitySliderVisible: false
   property bool symbologyVisible: false
+  property int symbolKind: -1
+  property int currentStrokeStyle: -1
+  property int currentMarkerShape: -1
 
   parent: mainWindow.contentItem
   width: Math.min(childrenRect.width, mainWindow.width - Theme.popupScreenEdgeHorizontalMargin)
@@ -58,8 +61,13 @@ QfPopup {
     const styleLayer = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
     symbologyVisible = styleLayer ? LayerUtils.hasSimpleSymbology(styleLayer) : false;
     if (symbologyVisible) {
-      symbolSizeSlider.value = LayerUtils.symbolSize(styleLayer);
-      colorPalette.currentColor = LayerUtils.symbolColor(styleLayer);
+      symbolKind = LayerUtils.symbolType(styleLayer);
+      symbolSizeSlider.value = Math.max(0, LayerUtils.symbolSize(styleLayer));
+      strokeWidthSlider.value = Math.max(0, LayerUtils.strokeWidth(styleLayer));
+      fillPalette.currentColor = LayerUtils.fillColor(styleLayer);
+      strokePalette.currentColor = LayerUtils.strokeColor(styleLayer);
+      currentStrokeStyle = LayerUtils.strokeStyle(styleLayer);
+      currentMarkerShape = LayerUtils.markerShape(styleLayer);
     }
   }
 
@@ -246,71 +254,215 @@ QfPopup {
           Layout.fillWidth: true
           Layout.topMargin: 4
           Layout.bottomMargin: 4
-          spacing: 4
+          spacing: 6
           visible: symbologyVisible
 
-          RowLayout {
+          component SectionLabel: Text {
             Layout.fillWidth: true
-            spacing: 4
-
-            QfToolButton {
-              Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
-              Layout.preferredWidth: 24
-              Layout.leftMargin: 4
-              width: 24
-              height: 24
-              padding: 0
-              enabled: false
-              bgcolor: "transparent"
-              icon.source: Theme.getThemeVectorIcon("ic_palette_black_24dp")
-              icon.color: Theme.mainTextColor
-            }
-
-            Text {
-              Layout.alignment: Qt.AlignVCenter
-              text: qsTr("Kolor")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
-            }
-
-            Item {
-              Layout.fillWidth: true
-            }
+            Layout.leftMargin: 4
+            Layout.topMargin: 6
+            font: Theme.strongTipFont
+            color: Theme.mainTextColor
           }
 
-          Flow {
-            id: colorPalette
+          component ColorGrid: Flow {
+            id: grid
             Layout.fillWidth: true
-            Layout.leftMargin: 32
+            Layout.leftMargin: 8
             Layout.rightMargin: 8
             spacing: 6
 
             property color currentColor: "transparent"
-            readonly property var swatches: ["#e53935", "#d81b60", "#8e24aa", "#3949ab", "#1e88e5", "#00897b", "#43a047", "#c0ca33", "#fdd835", "#fb8c00", "#6d4c41", "#212121"]
+            signal picked(color chosen)
+
+            readonly property var swatches: ["#e53935", "#d81b60", "#8e24aa", "#3949ab", "#1e88e5", "#00897b", "#43a047", "#c0ca33", "#fdd835", "#fb8c00", "#6d4c41", "#212121", "#ffffff"]
 
             Repeater {
-              model: colorPalette.swatches
+              model: grid.swatches
 
               delegate: Rectangle {
                 required property string modelData
 
-                width: 32
-                height: 32
+                width: 30
+                height: 30
                 radius: 4
                 color: modelData
-                border.width: Qt.colorEqual(colorPalette.currentColor, modelData) ? 3 : 1
-                border.color: Qt.colorEqual(colorPalette.currentColor, modelData) ? Theme.mainTextColor : Theme.controlBorderColor
+                border.width: Qt.colorEqual(grid.currentColor, modelData) ? 3 : 1
+                border.color: Qt.colorEqual(grid.currentColor, modelData) ? Theme.mainColor : Theme.controlBorderColor
 
                 MouseArea {
                   anchors.fill: parent
-                  onClicked: {
-                    const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-                    if (!vl)
-                      return;
-                    LayerUtils.setSymbolColor(vl, parent.modelData);
-                    colorPalette.currentColor = parent.modelData;
-                    projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
-                  }
+                  onClicked: grid.picked(parent.modelData)
+                }
+              }
+            }
+          }
+
+          SectionLabel {
+            text: symbolKind === 1 ? qsTr("Kolor linii") : qsTr("Wypełnienie")
+          }
+
+          ColorGrid {
+            id: fillPalette
+            onPicked: chosen => {
+              const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+              if (!vl)
+                return;
+              LayerUtils.setFillColor(vl, chosen);
+              fillPalette.currentColor = chosen;
+              projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+            }
+          }
+
+          SectionLabel {
+            visible: symbolKind !== 1
+            text: qsTr("Kontur")
+          }
+
+          ColorGrid {
+            id: strokePalette
+            visible: symbolKind !== 1
+            onPicked: chosen => {
+              const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+              if (!vl)
+                return;
+              LayerUtils.setStrokeColor(vl, chosen);
+              strokePalette.currentColor = chosen;
+              projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+            }
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 6
+            visible: strokeWidthSlider.value >= 0
+
+            Text {
+              text: qsTr("Grubość")
+              font: Theme.defaultFont
+              color: Theme.mainTextColor
+            }
+
+            QfSlider {
+              id: strokeWidthSlider
+              Layout.fillWidth: true
+              from: 0
+              to: 5
+              stepSize: 0.1
+              suffixText: " mm"
+              height: 40
+
+              onMoved: function () {
+                const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                if (!vl)
+                  return;
+                LayerUtils.setStrokeWidth(vl, value);
+                projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+              }
+            }
+          }
+
+          SectionLabel {
+            text: qsTr("Styl linii")
+          }
+
+          Flow {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            spacing: 6
+
+            Repeater {
+              model: [
+                {
+                  "s": 1,
+                  "n": qsTr("Ciągła")
+                },
+                {
+                  "s": 2,
+                  "n": qsTr("Kreskowana")
+                },
+                {
+                  "s": 3,
+                  "n": qsTr("Kropkowana")
+                },
+                {
+                  "s": 4,
+                  "n": qsTr("Kreska-kropka")
+                }
+              ]
+
+              delegate: QfButton {
+                required property var modelData
+
+                text: modelData.n
+                font.pointSize: Theme.tinyFont.pointSize
+                bgcolor: currentStrokeStyle === modelData.s ? Theme.mainColor : Theme.controlBackgroundAlternateColor
+                color: currentStrokeStyle === modelData.s ? Theme.mainOverlayColor : Theme.mainTextColor
+
+                onClicked: {
+                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  if (!vl)
+                    return;
+                  LayerUtils.setStrokeStyle(vl, modelData.s);
+                  currentStrokeStyle = modelData.s;
+                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                }
+              }
+            }
+          }
+
+          SectionLabel {
+            visible: symbolKind === 0
+            text: qsTr("Kształt")
+          }
+
+          Flow {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            spacing: 6
+            visible: symbolKind === 0
+
+            Repeater {
+              model: [
+                {
+                  "s": 0,
+                  "n": qsTr("Kwadrat")
+                },
+                {
+                  "s": 3,
+                  "n": qsTr("Trójkąt")
+                },
+                {
+                  "s": 6,
+                  "n": qsTr("Koło")
+                },
+                {
+                  "s": 8,
+                  "n": qsTr("Krzyż")
+                },
+                {
+                  "s": 12,
+                  "n": qsTr("Gwiazda")
+                }
+              ]
+
+              delegate: QfButton {
+                required property var modelData
+
+                text: modelData.n
+                font.pointSize: Theme.tinyFont.pointSize
+                bgcolor: currentMarkerShape === modelData.s ? Theme.mainColor : Theme.controlBackgroundAlternateColor
+                color: currentMarkerShape === modelData.s ? Theme.mainOverlayColor : Theme.mainTextColor
+
+                onClicked: {
+                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  if (!vl)
+                    return;
+                  LayerUtils.setMarkerShape(vl, modelData.s);
+                  currentMarkerShape = modelData.s;
+                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
                 }
               }
             }
@@ -318,26 +470,13 @@ QfPopup {
 
           RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: 4
-            spacing: 4
-            visible: symbolSizeSlider.value > 0
-
-            QfToolButton {
-              Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
-              Layout.preferredWidth: 24
-              Layout.leftMargin: 4
-              width: 24
-              height: 24
-              padding: 0
-              enabled: false
-              bgcolor: "transparent"
-              icon.source: Theme.getThemeVectorIcon("ic_size_medium_white_24dp")
-              icon.color: Theme.mainTextColor
-            }
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 6
+            visible: symbolKind !== 2 && symbolSizeSlider.value > 0
 
             Text {
-              Layout.alignment: Qt.AlignVCenter
-              text: qsTr("Rozmiar")
+              text: symbolKind === 1 ? qsTr("Szerokość") : qsTr("Rozmiar")
               font: Theme.defaultFont
               color: Theme.mainTextColor
             }
@@ -345,8 +484,6 @@ QfPopup {
             QfSlider {
               id: symbolSizeSlider
               Layout.fillWidth: true
-              Layout.rightMargin: 5
-              Layout.alignment: Qt.AlignVCenter
               from: 0.5
               to: 12
               stepSize: 0.5
