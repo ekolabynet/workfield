@@ -29,6 +29,9 @@ QfPopup {
   property int currentMarkerShape: -1
   property bool categoriesVisible: false
   property var categoryEntries: []
+  property var availableFields: []
+  property string pendingField: ""
+  property int pendingClassCount: 5
 
   parent: mainWindow.contentItem
   width: Math.min(childrenRect.width, mainWindow.width - Theme.popupScreenEdgeHorizontalMargin)
@@ -64,6 +67,8 @@ QfPopup {
     symbologyVisible = styleLayer ? LayerUtils.hasSimpleSymbology(styleLayer) : false;
     categoriesVisible = styleLayer ? LayerUtils.hasCategorizedSymbology(styleLayer) : false;
     categoryEntries = categoriesVisible ? LayerUtils.rendererCategories(styleLayer) : [];
+    availableFields = styleLayer ? LayerUtils.layerFields(styleLayer) : [];
+    pendingField = "";
     if (symbologyVisible) {
       symbolKind = LayerUtils.symbolType(styleLayer);
       symbolSizeSlider.value = Math.max(0, LayerUtils.symbolSize(styleLayer));
@@ -248,6 +253,119 @@ QfPopup {
             onMoved: function () {
               layerTree.setData(index, value / 100, FlatLayerTreeModel.Opacity);
               projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+            }
+          }
+        }
+
+        ColumnLayout {
+          id: rendererModeRow
+
+          Layout.fillWidth: true
+          Layout.topMargin: 6
+          spacing: 4
+          visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer) ? true : false
+
+          function applyMode(mode) {
+            const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+            if (!vl)
+              return;
+            if (mode === "single") {
+              LayerUtils.setSingleSymbolRenderer(vl);
+            } else if (mode === "categorized") {
+              if (pendingField === "")
+                return;
+              LayerUtils.setCategorizedRenderer(vl, pendingField);
+            } else if (mode === "graduated") {
+              if (pendingField === "")
+                return;
+              LayerUtils.setGraduatedRenderer(vl, pendingField, pendingClassCount);
+            }
+            symbologyVisible = LayerUtils.hasSimpleSymbology(vl);
+            categoriesVisible = LayerUtils.hasCategorizedSymbology(vl);
+            categoryEntries = categoriesVisible ? LayerUtils.rendererCategories(vl) : [];
+            if (symbologyVisible) {
+              symbolKind = LayerUtils.symbolType(vl);
+              fillPalette.currentColor = LayerUtils.fillColor(vl);
+              strokePalette.currentColor = LayerUtils.strokeColor(vl);
+            }
+            projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+          }
+
+          Text {
+            Layout.fillWidth: true
+            Layout.leftMargin: 4
+            text: qsTr("Sposób wyświetlania")
+            font: Theme.strongTipFont
+            color: Theme.mainTextColor
+          }
+
+          Flow {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            spacing: 6
+
+            QfButton {
+              text: qsTr("Pojedynczy")
+              font.pointSize: Theme.tinyFont.pointSize
+              bgcolor: symbologyVisible ? Theme.mainColor : Theme.controlBackgroundAlternateColor
+              color: symbologyVisible ? Theme.mainOverlayColor : Theme.mainTextColor
+              onClicked: rendererModeRow.applyMode("single")
+            }
+
+            QfButton {
+              text: qsTr("Kategorie")
+              font.pointSize: Theme.tinyFont.pointSize
+              bgcolor: categoriesVisible ? Theme.mainColor : Theme.controlBackgroundAlternateColor
+              color: categoriesVisible ? Theme.mainOverlayColor : Theme.mainTextColor
+              enabled: pendingField !== ""
+              onClicked: rendererModeRow.applyMode("categorized")
+            }
+
+            QfButton {
+              text: qsTr("Przedziały")
+              font.pointSize: Theme.tinyFont.pointSize
+              bgcolor: Theme.controlBackgroundAlternateColor
+              color: Theme.mainTextColor
+              enabled: pendingField !== "" && fieldCombo.currentNumeric
+              onClicked: rendererModeRow.applyMode("graduated")
+            }
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            Layout.topMargin: 4
+            spacing: 6
+
+            Text {
+              text: qsTr("Pole")
+              font: Theme.defaultFont
+              color: Theme.mainTextColor
+            }
+
+            ComboBox {
+              id: fieldCombo
+
+              Layout.fillWidth: true
+              font: Theme.defaultFont
+              model: availableFields.map(f => f.name)
+              currentIndex: -1
+              displayText: currentIndex < 0 ? qsTr("wybierz…") : currentText
+
+              readonly property bool currentNumeric: currentIndex >= 0 && currentIndex < availableFields.length ? availableFields[currentIndex].numeric : false
+
+              onActivated: pendingField = availableFields[currentIndex].name
+            }
+
+            SpinBox {
+              Layout.preferredWidth: 96
+              visible: fieldCombo.currentNumeric
+              from: 2
+              to: 12
+              value: pendingClassCount
+              font: Theme.defaultFont
+              onValueChanged: pendingClassCount = value
             }
           }
         }
@@ -580,7 +698,7 @@ QfPopup {
                   height: 32
                   padding: 0
                   bgcolor: "transparent"
-                  iconSource: Theme.getThemeVectorIcon(modelData.visible ? "ic_eye_black_24dp" : "ic_eye_hide_black_24dp")
+                  iconSource: Theme.getThemeVectorIcon(modelData.visible ? "WŁAŚCIWA_NAZWA" : "WŁAŚCIWA_NAZWA_2")
                   iconColor: Theme.mainTextColor
 
                   onClicked: {

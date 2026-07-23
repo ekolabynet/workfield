@@ -26,6 +26,9 @@
 #include <qgslinesymbol.h>
 #include <qgsmarkersymbol.h>
 #include <qgscategorizedsymbolrenderer.h>
+#include <qgsclassificationquantile.h>
+#include <qgscolorramp.h>
+#include <qgsstyle.h>
 #include <qgsgraduatedsymbolrenderer.h>
 #include <qgssinglesymbolrenderer.h>
 #include <qgssymbol.h>
@@ -1152,5 +1155,130 @@ void LayerUtils::setCategoryVisible( QgsVectorLayer *layer, int categoryIndex, b
 
   layer->triggerRepaint();
   emit layer->styleChanged();
+}
+
+static QgsColorRamp *rampByName( const QString &rampName )
+{
+  QgsStyle *style = QgsStyle::defaultStyle();
+  if ( style && style->colorRampNames().contains( rampName ) )
+    return style->colorRamp( rampName );
+
+  if ( style && !style->colorRampNames().isEmpty() )
+    return style->colorRamp( style->colorRampNames().first() );
+
+  return nullptr;
+}
+
+QVariantList LayerUtils::layerFields( QgsVectorLayer *layer )
+{
+  QVariantList result;
+  if ( !layer )
+    return result;
+
+  const QgsFields fields = layer->fields();
+  for ( const QgsField &field : fields )
+  {
+    QVariantMap entry;
+    entry.insert( QStringLiteral( "name" ), field.name() );
+    entry.insert( QStringLiteral( "type" ), field.typeName() );
+    entry.insert( QStringLiteral( "numeric" ), field.isNumeric() );
+    result.append( entry );
+  }
+
+  return result;
+}
+
+void LayerUtils::setSingleSymbolRenderer( QgsVectorLayer *layer )
+{
+  if ( !layer )
+    return;
+
+  std::unique_ptr<QgsSymbol> symbol( QgsSymbol::defaultSymbol( layer->geometryType() ) );
+  if ( !symbol )
+    return;
+
+  layer->setRenderer( new QgsSingleSymbolRenderer( symbol.release() ) );
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+}
+
+bool LayerUtils::setCategorizedRenderer( QgsVectorLayer *layer, const QString &fieldName, const QString &rampName )
+{
+  if ( !layer || fieldName.isEmpty() )
+    return false;
+
+  const int fieldIndex = layer->fields().lookupField( fieldName );
+  if ( fieldIndex < 0 )
+    return false;
+
+  const QSet<QVariant> uniqueValues = layer->uniqueValues( fieldIndex, 200 );
+  if ( uniqueValues.isEmpty() )
+    return false;
+
+  QList<QVariant> sortedValues = uniqueValues.values();
+  std::sort( sortedValues.begin(), sortedValues.end(), []( const QVariant &a, const QVariant &b ) {
+    return a.toString().localeAwareCompare( b.toString() ) < 0;
+  } );
+
+  std::unique_ptr<QgsColorRamp> ramp( rampByName( rampName ) );
+
+  QgsCategoryList categories;
+  const int count = sortedValues.size();
+  int i = 0;
+  for ( const QVariant &value : std::as_const( sortedValues ) )
+  {
+    std::unique_ptr<QgsSymbol> symbol( QgsSymbol::defaultSymbol( layer->geometryType() ) );
+    if ( !symbol )
+      continue;
+
+    if ( ramp )
+      symbol->setColor( ramp->color( count > 1 ? static_cast<double>( i ) / ( count - 1 ) : 0.0 ) );
+
+    categories.append( QgsRendererCategory( value, symbol.release(), value.toString() ) );
+    ++i;
+  }
+
+  if ( categories.isEmpty() )
+    return false;
+
+  layer->setRenderer( new QgsCategorizedSymbolRenderer( fieldName, categories ) );
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+  return true;
+}
+
+bool LayerUtils::setGraduatedRenderer( QgsVectorLayer *layer, const QString &fieldName, int classCount, const QString &rampName )
+{
+  if ( !layer || fieldName.isEmpty() || classCount < 2 )
+    return false;
+
+  const int fieldIndex = layer->fields().lookupField( fieldName );
+  if ( fieldIndex < 0 || !layer->fields().at( fieldIndex ).isNumeric() )
+    return false;
+
+  std::unique_ptr<QgsGraduatedSymbolRenderer> renderer( new QgsGraduatedSymbolRenderer( fieldName ) );
+
+  std::unique_ptr<QgsSymbol> symbol( QgsSymbol::defaultSymbol( layer->geometryType() ) );
+  if ( !symbol )
+    return false;
+  renderer->setSourceSymbol( symbol.release() );
+
+  std::unique_ptr<QgsColorRamp> ramp( rampByName( rampName ) );
+  if ( ramp )
+    renderer->setSourceColorRamp( ramp.release() );
+
+  renderer->setClassificationMethod( new QgsClassificationQuantile() );
+  QString classificationError;
+  renderer->updateClasses( layer, classCount, classificationError );
+  if ( !classificationError.isEmpty() )
+    qInfo() << QStringLiteral( "Graduated renderer: %1" ).arg( classificationError );
+
+  if ( renderer->ranges().isEmpty() )
+    return false;
+
+  layer->setRenderer( renderer.release() );
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+  return true;
 }
 

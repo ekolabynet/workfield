@@ -169,6 +169,21 @@ class LayerUtils : public QObject
     static Q_INVOKABLE bool hasCategorizedSymbology( QgsVectorLayer *layer );
 
     /**
+     * Returns the layer fields as a list of maps with "name", "type" and
+     * "numeric" keys.
+     */
+    static Q_INVOKABLE QVariantList layerFields( QgsVectorLayer *layer );
+
+    //! Switches the layer to a single symbol renderer.
+    static Q_INVOKABLE void setSingleSymbolRenderer( QgsVectorLayer *layer );
+
+    //! Switches the layer to a categorized renderer on \a fieldName.
+    static Q_INVOKABLE bool setCategorizedRenderer( QgsVectorLayer *layer, const QString &fieldName, const QString &rampName = QStringLiteral( "Turbo" ) );
+
+    //! Switches the layer to a graduated renderer on \a fieldName with \a classCount classes.
+    static Q_INVOKABLE bool setGraduatedRenderer( QgsVectorLayer *layer, const QString &fieldName, int classCount = 5, const QString &rampName = QStringLiteral( "Turbo" ) );
+
+    /**
      * Returns the categories of a categorized/graduated renderer as a list of maps
      * with "index", "label", "color" and "visible" keys.
      */
