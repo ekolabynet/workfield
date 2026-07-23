@@ -21,7 +21,6 @@ ColumnLayout {
     columnSpacing: 0
     rowSpacing: 5
 
-
     Label {
       text: qsTr('Digitizing & Editing')
       font: Theme.strongFont

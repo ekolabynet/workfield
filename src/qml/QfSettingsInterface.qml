@@ -11,9 +11,8 @@ ColumnLayout {
   property var settingsModel
   property Component rowDelegate
 
-
-  signal openLocatorSettings()
-  signal openPluginManager()
+  signal openLocatorSettings
+  signal openPluginManager
 
   GridLayout {
     Layout.fillWidth: true
@@ -62,7 +61,6 @@ ColumnLayout {
 
       onClicked: {
         openLocatorSettings();
-        
       }
     }
 

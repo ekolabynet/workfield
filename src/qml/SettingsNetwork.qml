@@ -313,4 +313,3 @@ GridLayout {
     Layout.columnSpan: 2
   }
 }
-

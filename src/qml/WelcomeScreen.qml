@@ -37,16 +37,7 @@ Page {
   Rectangle {
     id: welcomeBackground
     anchors.fill: parent
-    gradient: Gradient {
-      GradientStop {
-        position: 0.0
-        color: Theme.darkTheme ? "#99000000" : "#99A5A5A5"
-      }
-      GradientStop {
-        position: 0.33
-        color: Theme.mainBackgroundColor
-      }
-    }
+    color: Theme.darkTheme ? "#062e2a" : "#00695c"
   }
 
   ScrollView {
@@ -129,7 +120,7 @@ Page {
 
           font.pointSize: welcomeScreenLogo.imageSize * 0.5
           font.bold: true
-          color: Theme.mainTextColor
+          color: Theme.mainOverlayColor
           text: appName
           wrapMode: Text.WordWrap
         }
@@ -190,7 +181,7 @@ Page {
               Layout.maximumWidth: feedbackView.width - 12
               text: qsTr("We're sorry to hear that. Click on the button below to comment or seek support.")
               font: Theme.defaultFont
-              color: Theme.mainTextColor
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -247,7 +238,7 @@ Page {
               Layout.maximumWidth: feedbackView.width - 12
               text: qsTr("Hey there, how do you like your experience with %1 so far?").arg(appName)
               font: Theme.defaultFont
-              color: Theme.mainTextColor
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -312,7 +303,7 @@ Page {
               Layout.maximumWidth: feedbackView.width - 12
               text: qsTr("That's great! We'd love for you to click on the button below and leave a review.")
               font: Theme.defaultFont
-              color: Theme.mainTextColor
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -397,7 +388,7 @@ Page {
               Layout.maximumWidth: collectionView.width - 12
               text: qsTr("Anonymized metrics collection has been disabled. You can re-enable through the settings panel.")
               font: Theme.defaultFont
-              color: Theme.mainTextColor
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -433,7 +424,7 @@ Page {
               Layout.maximumWidth: collectionView.width - 12
               text: qsTr("To improve stability for everyone, %1 collects and sends anonymized metrics.").arg(appName)
               font: Theme.defaultFont
-              color: Theme.mainTextColor
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -487,7 +478,7 @@ Page {
         Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
         text: ""
         font: Theme.defaultFont
-        color: Theme.mainTextColor
+        color: Theme.mainOverlayColor
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
       }
@@ -572,7 +563,7 @@ Page {
             text: qsTr("Recently Opened")
             font.pointSize: Theme.tipFont.pointSize
             font.bold: true
-            color: Theme.mainTextColor
+            color: Theme.mainOverlayColor
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
           }
@@ -791,7 +782,7 @@ Page {
               bottomPadding: 10
               font: Theme.tipFont
               wrapMode: Text.WordWrap
-              color: Theme.mainTextColor
+              color: Theme.mainOverlayColor
 
               text: registry.defaultProject != '' ? qsTr('Load default project on launch') : qsTr('Load last opened project on launch')
 
