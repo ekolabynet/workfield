@@ -35,10 +35,6 @@ Column {
         iconName: "ic_print_black_24dp"
       }
       ListElement {
-        actionId: "newLayer"
-        iconName: "ic_add_white_24dp"
-      }
-      ListElement {
         actionId: "projectFolder"
         iconName: "ic_project_folder_black_24dp"
       }
@@ -101,8 +97,6 @@ Column {
               return qsTr("Widok 3D");
             case "print":
               return qsTr("Wydruki");
-            case "newLayer":
-              return qsTr("Nowa warstwa");
             case "projectFolder":
               return qsTr("Folder projektu");
             case "bookmarks":

@@ -14,6 +14,7 @@ Drawer {
 
   signal layerActivated(var layer)
   signal modeToggled(bool digitize)
+  signal addExistingRequested
 
   edge: Qt.RightEdge
   width: Math.min(360, mainWindow.width * 0.85)
@@ -93,6 +94,34 @@ Drawer {
       Layout.fillWidth: true
       Layout.preferredHeight: 1
       color: t.controlBorderColor
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.margins: 8
+      spacing: 8
+
+      Button {
+        id: newLayerButton
+        Layout.fillWidth: true
+        text: qsTr("Nowa warstwa")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          dataDrawer.close();
+          newLayerDialog.openDialog();
+        }
+      }
+
+      Button {
+        id: addLayerButton
+        Layout.fillWidth: true
+        text: qsTr("Dodaj z pliku")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          dataDrawer.close();
+          dataDrawer.addExistingRequested();
+        }
+      }
     }
 
     Text {
