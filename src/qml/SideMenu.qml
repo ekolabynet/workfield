@@ -19,6 +19,10 @@ Column {
   Repeater {
     model: ListModel {
       ListElement {
+        actionId: "legend"
+        iconName: "ic_baseline-list_white_24dp"
+      }
+      ListElement {
         actionId: "measurement"
         iconName: "ic_measurement_black_24dp"
       }
@@ -69,6 +73,8 @@ Column {
           Layout.fillWidth: true
           text: {
             switch (entry.actionId) {
+            case "legend":
+              return qsTr("Warstwy");
             case "measurement":
               return qsTr("Pomiar");
             case "view3d":

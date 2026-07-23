@@ -106,6 +106,8 @@
         <file>QfLayerExportDialog.qml</file>
         <file>QfSubLayerPicker.qml</file>
         <file>QfNewLayerDialog.qml</file>
+        <file>QfDataDrawer.qml</file>
+        <file>QfLegendScreen.qml</file>
         <file>VertexRubberband.qml</file>
         <file>LocatorItem.qml</file>
         <file>LocatorSettings.qml</file>

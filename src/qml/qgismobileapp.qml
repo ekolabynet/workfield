@@ -54,7 +54,7 @@ ApplicationWindow {
 
   header: ToolBar {
     id: mainToolBar
-    visible: !qfieldSettings.visible && !qfieldLocalDataPickerScreen.visible && !qfieldCloudScreen.visible && !welcomeScreen.visible && !aboutDialog.visible && !codeReader.visible && !sketcher.visible
+    visible: !legendScreen.visible && !qfieldSettings.visible && !qfieldLocalDataPickerScreen.visible && !qfieldCloudScreen.visible && !welcomeScreen.visible && !aboutDialog.visible && !codeReader.visible && !sketcher.visible
     height: visible ? 64 : 0
     Material.background: Theme.mainColor
 
@@ -112,10 +112,11 @@ ApplicationWindow {
       ToolButton {
         Layout.preferredWidth: 64
         Layout.preferredHeight: 64
-        icon.source: Theme.getThemeVectorIcon("ic_settings_white_24dp")
+        icon.source: Theme.getThemeVectorIcon("NAZWA_Z_PIERWSZEJ_LISTY")
         icon.width: 32
         icon.height: 32
         icon.color: "white"
+        onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
       }
     }
   }
@@ -5507,6 +5508,35 @@ ApplicationWindow {
     }
 
     Component.onCompleted: focusstack.addFocusTaker(this)
+  }
+
+  QfLegendScreen {
+    id: legendScreen
+    t: Theme
+    layerTree: flatLayerTree
+    activeLayer: dashBoard.activeLayer
+    allowActiveLayerChange: !digitizingToolbar.isDigitizing
+    mapSettings: mapCanvas.mapSettings
+    anchors.fill: parent
+    focus: visible
+
+    onFinished: visible = false
+  }
+
+  QfDataDrawer {
+    id: dataDrawer
+    t: Theme
+    layerTree: flatLayerTree
+    activeLayer: dashBoard.activeLayer
+
+    onLayerActivated: layer => {
+      dashBoard.activeLayer = layer;
+      projectInfo.activeLayer = layer;
+    }
+
+    onModeToggled: digitize => {
+      stateMachine.state = digitize ? "digitize" : "browse";
+    }
   }
 
   QfNewLayerDialog {
