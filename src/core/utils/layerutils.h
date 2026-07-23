@@ -185,6 +185,13 @@ class LayerUtils : public QObject
      *
      * Returns the created layer, or NULLPTR on failure.
      */
+    /**
+     * Configures \a fieldName of \a layer as a photo attachment field storing
+     * files under <project>/DCIM/<layer>/<uuid>/ and marks \a uuidFieldName as a
+     * hidden field with a UUID default value.
+     */
+    static Q_INVOKABLE bool setAttachmentField( QgsVectorLayer *layer, const QString &fieldName, const QString &uuidFieldName = QStringLiteral( "uuid" ) );
+
     static Q_INVOKABLE QgsVectorLayer *createEmptyLayer( const QString &filePath, const QString &layerName, const QString &geometryType, const QString &crsAuthId, const QVariantList &fields );
 
     //! Switches the layer to a single symbol renderer.

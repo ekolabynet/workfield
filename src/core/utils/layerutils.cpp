@@ -16,7 +16,9 @@
 
 #include "layerutils.h"
 #include <qgscoordinatetransform.h>
+#include <qgsdefaultvalue.h>
 #include <qgseditorwidgetsetup.h>
+#include <qgspropertycollection.h>
 #include <qgsproviderregistry.h>
 #include <qgsprovidersublayerdetails.h>
 #include <qgsfillsymbollayer.h>
@@ -1367,6 +1369,12 @@ QgsVectorLayer *LayerUtils::createEmptyLayer( const QString &filePath, const QSt
     return nullptr;
   }
 
+  layer->reload();
+  layer->updateExtents();
+
+  layer->reload();
+  layer->updateExtents();
+
   for ( const QString &fieldName : std::as_const( multilineFields ) )
   {
     const int index = layer->fields().lookupField( fieldName );
@@ -1380,5 +1388,51 @@ QgsVectorLayer *LayerUtils::createEmptyLayer( const QString &filePath, const QSt
   }
 
   return layer;
+}
+
+bool LayerUtils::setAttachmentField( QgsVectorLayer *layer, const QString &fieldName, const QString &uuidFieldName )
+{
+  if ( !layer )
+    return false;
+
+  const int attachmentIndex = layer->fields().lookupField( fieldName );
+  if ( attachmentIndex < 0 )
+    return false;
+
+  const int uuidIndex = layer->fields().lookupField( uuidFieldName );
+  if ( uuidIndex >= 0 )
+  {
+    layer->setDefaultValueDefinition( uuidIndex, QgsDefaultValue( QStringLiteral( "uuid('WithoutBraces')" ), false ) );
+    layer->setEditorWidgetSetup( uuidIndex, QgsEditorWidgetSetup( QStringLiteral( "Hidden" ), QVariantMap() ) );
+  }
+
+  const QString rootExpression = QStringLiteral( "@project_folder || '/DCIM/' || @layer_name || '/' || \"%1\"" ).arg( uuidFieldName );
+
+  QVariantMap config;
+  config.insert( QStringLiteral( "DocumentViewer" ), 1 );
+  config.insert( QStringLiteral( "DocumentViewerHeight" ), 0 );
+  config.insert( QStringLiteral( "DocumentViewerWidth" ), 0 );
+  config.insert( QStringLiteral( "FileWidget" ), true );
+  config.insert( QStringLiteral( "FileWidgetButton" ), true );
+  config.insert( QStringLiteral( "FileWidgetFilter" ), QString() );
+  config.insert( QStringLiteral( "RelativeStorage" ), 2 );
+  config.insert( QStringLiteral( "StorageMode" ), 0 );
+  config.insert( QStringLiteral( "StorageType" ), QString() );
+
+  QVariantMap rootPathProperty;
+  rootPathProperty.insert( QStringLiteral( "active" ), true );
+  rootPathProperty.insert( QStringLiteral( "type" ), 3 );
+  rootPathProperty.insert( QStringLiteral( "expression" ), rootExpression );
+
+  QVariantMap properties;
+  properties.insert( QStringLiteral( "propertyRootPath" ), rootPathProperty );
+
+  QVariantMap propertyCollection;
+  propertyCollection.insert( QStringLiteral( "properties" ), properties );
+
+  config.insert( QStringLiteral( "PropertyCollection" ), propertyCollection );
+
+  layer->setEditorWidgetSetup( attachmentIndex, QgsEditorWidgetSetup( QStringLiteral( "ExternalResource" ), config ) );
+  return true;
 }
 
