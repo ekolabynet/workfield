@@ -13,6 +13,16 @@ Page {
 
   signal finished
 
+  readonly property var categoryTitles: ({
+      "mapCanvas": qsTr("Obszar mapy"),
+      "digitizing": qsTr("Digitalizacja i edycja"),
+      "interface": qsTr("Interfejs"),
+      "positioning": qsTr("Lokalizacja"),
+      "network": qsTr("Sieć"),
+      "advanced": qsTr("Zaawansowane"),
+      "variables": qsTr("Zmienne")
+    })
+
   property var networkSettingsItem: null
   property var positioningModelItem: null
   property var positioningComboItem: null
@@ -1575,7 +1585,7 @@ Page {
   }
 
   header: QfPageHeader {
-    title: qsTr("%1 Settings").arg(appName)
+    title: settingsStack.depth > 1 && settingsStack.currentItem && settingsStack.currentItem.categoryId ? page.categoryTitles[settingsStack.currentItem.categoryId] : qsTr("%1 Settings").arg(appName)
 
     showBackButton: true
     showApplyButton: false
