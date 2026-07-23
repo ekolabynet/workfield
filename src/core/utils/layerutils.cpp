@@ -15,6 +15,10 @@
  ***************************************************************************/
 
 #include "layerutils.h"
+#include <qgsfillsymbollayer.h>
+#include <qgslinesymbollayer.h>
+#include <qgsmarkersymbollayer.h>
+#include <qgssymbollayer.h>
 #include <qgsfillsymbol.h>
 #include <qgslinesymbol.h>
 #include <qgsmarkersymbol.h>
@@ -795,5 +799,154 @@ void LayerUtils::setSymbolSize( QgsVectorLayer *layer, double size )
 
   layer->triggerRepaint();
   emit layer->styleChanged();
+}
+
+static QgsSymbolLayer *firstSymbolLayerOf( QgsVectorLayer *layer )
+{
+  QgsSymbol *symbol = singleSymbolOf( layer );
+  return ( symbol && symbol->symbolLayerCount() > 0 ) ? symbol->symbolLayer( 0 ) : nullptr;
+}
+
+static void refreshLayer( QgsVectorLayer *layer )
+{
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+}
+
+int LayerUtils::symbolType( QgsVectorLayer *layer )
+{
+  QgsSymbol *symbol = singleSymbolOf( layer );
+  if ( !symbol )
+    return -1;
+
+  switch ( symbol->type() )
+  {
+    case Qgis::SymbolType::Marker:
+      return 0;
+    case Qgis::SymbolType::Line:
+      return 1;
+    case Qgis::SymbolType::Fill:
+      return 2;
+    default:
+      return -1;
+  }
+}
+
+QColor LayerUtils::fillColor( QgsVectorLayer *layer )
+{
+  QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
+  return sl ? sl->fillColor() : QColor();
+}
+
+void LayerUtils::setFillColor( QgsVectorLayer *layer, const QColor &color )
+{
+  QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
+  if ( !sl || !color.isValid() )
+    return;
+
+  sl->setFillColor( color );
+  refreshLayer( layer );
+}
+
+QColor LayerUtils::strokeColor( QgsVectorLayer *layer )
+{
+  QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
+  return sl ? sl->strokeColor() : QColor();
+}
+
+void LayerUtils::setStrokeColor( QgsVectorLayer *layer, const QColor &color )
+{
+  QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
+  if ( !sl || !color.isValid() )
+    return;
+
+  sl->setStrokeColor( color );
+  refreshLayer( layer );
+}
+
+double LayerUtils::strokeWidth( QgsVectorLayer *layer )
+{
+  QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
+  if ( !sl )
+    return -1;
+
+  if ( QgsSimpleFillSymbolLayer *fill = dynamic_cast<QgsSimpleFillSymbolLayer *>( sl ) )
+    return fill->strokeWidth();
+  if ( QgsSimpleLineSymbolLayer *line = dynamic_cast<QgsSimpleLineSymbolLayer *>( sl ) )
+    return line->width();
+  if ( QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( sl ) )
+    return marker->strokeWidth();
+
+  return -1;
+}
+
+void LayerUtils::setStrokeWidth( QgsVectorLayer *layer, double width )
+{
+  QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
+  if ( !sl || width < 0 )
+    return;
+
+  if ( QgsSimpleFillSymbolLayer *fill = dynamic_cast<QgsSimpleFillSymbolLayer *>( sl ) )
+    fill->setStrokeWidth( width );
+  else if ( QgsSimpleLineSymbolLayer *line = dynamic_cast<QgsSimpleLineSymbolLayer *>( sl ) )
+    line->setWidth( width );
+  else if ( QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( sl ) )
+    marker->setStrokeWidth( width );
+  else
+    return;
+
+  refreshLayer( layer );
+}
+
+int LayerUtils::strokeStyle( QgsVectorLayer *layer )
+{
+  QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
+  if ( !sl )
+    return -1;
+
+  if ( QgsSimpleFillSymbolLayer *fill = dynamic_cast<QgsSimpleFillSymbolLayer *>( sl ) )
+    return static_cast<int>( fill->strokeStyle() );
+  if ( QgsSimpleLineSymbolLayer *line = dynamic_cast<QgsSimpleLineSymbolLayer *>( sl ) )
+    return static_cast<int>( line->penStyle() );
+  if ( QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( sl ) )
+    return static_cast<int>( marker->strokeStyle() );
+
+  return -1;
+}
+
+void LayerUtils::setStrokeStyle( QgsVectorLayer *layer, int style )
+{
+  QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
+  if ( !sl )
+    return;
+
+  const Qt::PenStyle penStyle = static_cast<Qt::PenStyle>( style );
+
+  if ( QgsSimpleFillSymbolLayer *fill = dynamic_cast<QgsSimpleFillSymbolLayer *>( sl ) )
+    fill->setStrokeStyle( penStyle );
+  else if ( QgsSimpleLineSymbolLayer *line = dynamic_cast<QgsSimpleLineSymbolLayer *>( sl ) )
+    line->setPenStyle( penStyle );
+  else if ( QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( sl ) )
+    marker->setStrokeStyle( penStyle );
+  else
+    return;
+
+  refreshLayer( layer );
+}
+
+int LayerUtils::markerShape( QgsVectorLayer *layer )
+{
+  QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( firstSymbolLayerOf( layer ) );
+  return marker ? static_cast<int>( marker->shape() ) : -1;
+}
+
+void LayerUtils::setMarkerShape( QgsVectorLayer *layer, int shape )
+{
+  QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( firstSymbolLayerOf( layer ) );
+  if ( !marker )
+    return;
+
+  marker->setShape( static_cast<Qgis::MarkerShape>( shape ) );
+  refreshLayer( layer );
 }
 
