@@ -13,6 +13,7 @@
         <file>ConfirmationToolbar.qml</file>
         <file>CoordinateLocator.qml</file>
         <file>DashBoard.qml</file>
+        <file>SideMenu.qml</file>
         <file>DigitizingToolbar.qml</file>
         <file>Dummy.qml</file>
         <file>ElevationProfile.qml</file>
