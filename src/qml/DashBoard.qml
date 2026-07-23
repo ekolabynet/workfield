@@ -164,6 +164,7 @@ Drawer {
     }
     RowLayout {
       id: projectInformationLayout
+      visible: false
       Layout.fillWidth: true
       Layout.leftMargin: mainWindow.sceneLeftMargin + 10
       Layout.rightMargin: 6
@@ -251,6 +252,7 @@ Drawer {
 
     GroupBox {
       id: mapThemeContainer
+      visible: false
       objectName: "mapThemeContainer"
       Layout.fillWidth: true
       title: qsTr("Map Theme")
@@ -341,6 +343,7 @@ Drawer {
 
     GroupBox {
       id: legendContainer
+      visible: false
       objectName: "legendContainer"
       Layout.fillWidth: true
       Layout.fillHeight: true
