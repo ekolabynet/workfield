@@ -187,6 +187,19 @@ ListView {
           }
         }
 
+        QfToolButton {
+          id: activeLayerMarker
+          visible: isSelectedLayer
+          height: 22
+          width: 22
+          padding: 0
+          enabled: false
+          bgcolor: "transparent"
+          anchors.verticalCenter: parent.verticalCenter
+          iconSource: Theme.getThemeVectorIcon('NAZWA_Z_DRUGIEJ_LISTY')
+          iconColor: Theme.mainOverlayColor
+        }
+
         // Legend icon
         Item {
           height: 24

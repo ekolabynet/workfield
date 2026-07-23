@@ -103,6 +103,10 @@ Drawer {
 
       onActionTriggered: (action, origin) => {
         switch (action) {
+        case "legend":
+          legendScreen.visible = true;
+          close();
+          break;
         case "measurement":
           toggleMeasurementTool();
           break;
@@ -390,7 +394,7 @@ Drawer {
 
       MenuItem {
         id: homeButton
-        width: parent.width - modeSwitch.width
+        width: parent.width - modeSwitch.width - modeSwitchLabel.width - 12
         height: parent.height
         anchors.verticalCenter: parent.verticalCenter
         icon.source: Theme.getThemeVectorIcon("ic_home_black_24dp")
@@ -400,6 +404,16 @@ Drawer {
         text: qsTr("Return home")
 
         onClicked: returnHome()
+      }
+
+      Text {
+        id: modeSwitchLabel
+        anchors.right: modeSwitch.left
+        anchors.rightMargin: 6
+        anchors.verticalCenter: parent.verticalCenter
+        text: modeSwitch.checked ? qsTr("Digitalizacja") : qsTr("Przeglądanie")
+        font: Theme.tipFont
+        color: modeSwitch.checked ? Theme.mainColor : Theme.secondaryTextColor
       }
 
       QfSwitch {
