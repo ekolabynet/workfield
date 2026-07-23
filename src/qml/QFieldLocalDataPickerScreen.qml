@@ -1556,8 +1556,8 @@ Page {
           id: importWebdavPathContainer
           width: parent.width
           height: 340
-          outlineColor: importWebdavPathInput.Material.hintTextColor
-          focusedOutlineColor: importWebdavPathInput.Material.accentColor
+          outlineColor: Theme.controlBorderColor
+          focusedOutlineColor: Theme.mainColor
           controlHasActiveFocus: importWebdavPathInput.activeFocus
 
           ListView {
