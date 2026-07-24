@@ -48,6 +48,40 @@ Popup {
       ]
     },
     {
+      group: qsTr("GUGiK — dane wektorowe (WFS)"),
+      items: [
+        { name: qsTr("Granice gmin"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries", typeName: "A03_Granice_gmin", crs: "EPSG:2180" },
+        { name: qsTr("Granice powiatów"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries", typeName: "A02_Granice_powiatow", crs: "EPSG:2180" },
+        { name: qsTr("Granice województw"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries", typeName: "A01_Granice_wojewodztw", crs: "EPSG:2180" },
+        { name: qsTr("Punkty adresowe (PRG)"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaNumeracjiAdresowej", typeName: "ms:prg-adresy", crs: "EPSG:2180" },
+        { name: qsTr("Budynki (INSPIRE)"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/wfsBU/guest", typeName: "bu-core2d:Building", crs: "EPSG:2180" },
+        { name: qsTr("Osnowa pozioma"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PodstawowaOsnowaGeodezyjnaPozioma", typeName: "ms:Bazowa_pozioma", crs: "EPSG:2180" },
+        { name: qsTr("Osnowa wysokościowa"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PodstawowaOsnowaGeodezyjnaWysokosciowa", typeName: "ms:Bazowa_wysokosciowa", crs: "EPSG:2180" },
+        { name: qsTr("Fotopunkty"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ZDJ/WFS/Fotopunkty", typeName: "ms:Fotopunkty", crs: "EPSG:2180" },
+        { name: qsTr("Nazwy geograficzne"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/wfsGN/guest", typeName: "gn:NamedPlace", crs: "EPSG:2180" }
+      ]
+    },
+    {
+      group: qsTr("Skorowidze do pobierania danych (WFS)"),
+      items: [
+        { name: qsTr("Skorowidz ortofotomapy"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze", typeName: "gugik:SkorowidzOrtofomapy2020", crs: "EPSG:2180" },
+        { name: qsTr("Skorowidz NMT"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NumerycznyModelTerenuEVRF2007/WFS/Skorowidze", typeName: "gugik:SkorowidzNMT2020", crs: "EPSG:2180" },
+        { name: qsTr("Skorowidz NMPT"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NumerycznyModelPokryciaTerenuEVRF2007/WFS/Skorowidze", typeName: "gugik:SkorowidzNMPT2020", crs: "EPSG:2180" },
+        { name: qsTr("Skorowidz BDOT10k"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k", typeName: "ms:BDOT10k_powiaty", crs: "EPSG:2180" }
+      ]
+    },
+    {
+      group: qsTr("Warszawa — dane wektorowe (WFS)"),
+      items: [
+        { name: qsTr("Działki ewidencyjne"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:dzialki", crs: "EPSG:2178" },
+        { name: qsTr("Budynki"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:budynki", crs: "EPSG:2178" },
+        { name: qsTr("Punkty adresowe"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:punkty_adresowe", crs: "EPSG:2178" },
+        { name: qsTr("Ulice"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:ulice", crs: "EPSG:2178" },
+        { name: qsTr("Osnowa pozioma"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:Osnowa_pozioma", crs: "EPSG:2178" },
+        { name: qsTr("Osnowa wysokościowa"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:Osnowa_wysokosciowa", crs: "EPSG:2178" }
+      ]
+    },
+    {
       group: qsTr("Warszawa"),
       items: [
         { name: qsTr("Ortofotomapa Warszawy"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "ORTO", crs: "EPSG:2178" },
@@ -100,6 +134,8 @@ Popup {
       layer = LayerUtils.createWmsLayer(item.url, item.name, item.layers, item.crs !== undefined ? item.crs : "EPSG:3857");
     else if (item.kind === "wmts")
       layer = LayerUtils.createWmtsLayer(item.url, item.name, item.layer, item.tileMatrixSet, item.crs !== undefined ? item.crs : "EPSG:3857");
+    else if (item.kind === "wfs")
+      layer = LayerUtils.createWfsLayer(item.url, item.name, item.typeName, item.crs !== undefined ? item.crs : "EPSG:2180", true);
 
     if (layer && ProjectUtils.addMapLayer(qgisProject, layer)) {
       displayToast(qsTr("Dodano podkład %1").arg(item.name));
@@ -205,7 +241,8 @@ Popup {
         model: [
           { k: "xyz", n: "XYZ" },
           { k: "wms", n: "WMS" },
-          { k: "wmts", n: "WMTS" }
+          { k: "wmts", n: "WMTS" },
+          { k: "wfs", n: "WFS" }
         ]
 
         delegate: Button {
@@ -236,7 +273,7 @@ Popup {
       TextField {
         Layout.fillWidth: true
         font: t.defaultFont
-        placeholderText: qsTr("nazwa warstwy w usłudze")
+        placeholderText: basemapScreen.customKind === "wfs" ? qsTr("nazwa typu, np. wfs:dzialki") : qsTr("nazwa warstwy w usłudze")
         text: basemapScreen.customLayers
         onTextChanged: basemapScreen.customLayers = text
       }
@@ -326,6 +363,7 @@ Popup {
             "layers": basemapScreen.customLayers.trim(),
             "layer": basemapScreen.customLayers.trim(),
             "tileMatrixSet": basemapScreen.customCrs.replace(":", ""),
+            "typeName": basemapScreen.customLayers.trim(),
             "crs": basemapScreen.customCrs.trim(),
             "zmax": 19
           });
