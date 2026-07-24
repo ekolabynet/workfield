@@ -145,16 +145,18 @@ QfPopup {
     header: RowLayout {
       id: headerLayout
       spacing: 2
+
       Label {
         id: titleLabel
         Layout.fillWidth: true
         Layout.leftMargin: reloadDataButtonVisible ? zoomInButton.width + headerLayout.spacing : 0
-        topPadding: 10
-        bottomPadding: 10
+        topPadding: 6
+        bottomPadding: 6
         text: ''
         font: Theme.strongFont
         horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.WrapAnywhere
+        elide: Text.ElideMiddle
+        maximumLineCount: 1
       }
       QfToolButton {
         id: zoomInButton
@@ -190,6 +192,7 @@ QfPopup {
         width: popupContent.width - 10
         spacing: 4
 
+
         FontMetrics {
           id: fontMetrics
           font: lockText.font
@@ -199,7 +202,8 @@ QfPopup {
           id: invalidText
           visible: index !== undefined && !layerTree.data(index, FlatLayerTreeModel.IsValid)
           Layout.fillWidth: true
-          bottomPadding: 15
+          Layout.preferredHeight: visible ? implicitHeight : 0
+          bottomPadding: visible ? 15 : 0
 
           wrapMode: Text.WordWrap
           textFormat: Text.RichText
@@ -501,7 +505,8 @@ QfPopup {
           component SectionLabel: Text {
             Layout.fillWidth: true
             Layout.leftMargin: 4
-            Layout.topMargin: 6
+            Layout.topMargin: visible ? 6 : 0
+            Layout.preferredHeight: visible ? implicitHeight : 0
             font: Theme.strongTipFont
             color: Theme.mainTextColor
           }

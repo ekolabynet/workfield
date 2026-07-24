@@ -84,9 +84,11 @@ Drawer {
   ColumnLayout {
     anchors.fill: parent
 
+
+
     Rectangle {
       Layout.fillWidth: true
-      Layout.preferredHeight: mainWindow.sceneTopMargin + 56
+      Layout.preferredHeight: mainWindow.sceneTopMargin + 44
       color: "transparent"
 
       QfToolButton {
@@ -164,6 +166,12 @@ Drawer {
     }
     RowLayout {
       id: projectInformationLayout
+      height: 0
+      implicitHeight: 0
+      Layout.maximumHeight: 0
+      Layout.minimumHeight: 0
+      Layout.preferredHeight: 0
+      Layout.margins: 0
       visible: false
       Layout.fillWidth: true
       Layout.leftMargin: mainWindow.sceneLeftMargin + 10
@@ -252,6 +260,12 @@ Drawer {
 
     GroupBox {
       id: mapThemeContainer
+      height: 0
+      implicitHeight: 0
+      Layout.maximumHeight: 0
+      Layout.minimumHeight: 0
+      Layout.preferredHeight: 0
+      Layout.margins: 0
       visible: false
       objectName: "mapThemeContainer"
       Layout.fillWidth: true
@@ -343,6 +357,12 @@ Drawer {
 
     GroupBox {
       id: legendContainer
+      height: 0
+      implicitHeight: 0
+      Layout.maximumHeight: 0
+      Layout.minimumHeight: 0
+      Layout.preferredHeight: 0
+      Layout.margins: 0
       visible: false
       objectName: "legendContainer"
       Layout.fillWidth: true
