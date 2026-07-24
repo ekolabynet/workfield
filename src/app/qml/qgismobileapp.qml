@@ -55,7 +55,8 @@ ApplicationWindow {
   header: ToolBar {
     id: mainToolBar
     visible: !legendScreen.visible && !qfieldSettings.visible && !qfieldLocalDataPickerScreen.visible && !qfieldCloudScreen.visible && !welcomeScreen.visible && !aboutDialog.visible && !codeReader.visible && !sketcher.visible
-    height: visible ? 64 : 0
+    height: visible ? 64 + mainWindow.sceneTopMargin : 0
+    topPadding: mainWindow.sceneTopMargin
     Material.background: Theme.mainColor
 
     RowLayout {
@@ -112,7 +113,7 @@ ApplicationWindow {
       ToolButton {
         Layout.preferredWidth: 64
         Layout.preferredHeight: 64
-        icon.source: Theme.getThemeVectorIcon("NAZWA_Z_PIERWSZEJ_LISTY")
+        icon.source: Theme.getThemeVectorIcon("ic_baseline-list_white_24dp")
         icon.width: 32
         icon.height: 32
         icon.color: "white"
