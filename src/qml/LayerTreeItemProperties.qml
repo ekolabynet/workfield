@@ -984,6 +984,81 @@ QfPopup {
           }
         }
 
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.topMargin: 6
+          spacing: 6
+          visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.MapLayerPointer) ? true : false
+
+          QfButton {
+            Layout.fillWidth: true
+            text: qsTr("Wczytaj styl")
+            font.pointSize: Theme.tinyFont.pointSize
+
+            onClicked: {
+              const ml = layerTree.data(index, FlatLayerTreeModel.MapLayerPointer);
+              if (!ml)
+                return;
+              styleFileMenu.entries = LayerUtils.availableStyleFiles(ml);
+              if (styleFileMenu.entries.length === 0) {
+                displayToast(qsTr("Nie znaleziono plików .qml obok warstwy ani w folderze projektu"));
+                return;
+              }
+              styleFileMenu.popup();
+            }
+          }
+
+          QfButton {
+            Layout.fillWidth: true
+            text: qsTr("Zapisz styl")
+            font.pointSize: Theme.tinyFont.pointSize
+
+            onClicked: {
+              const ml = layerTree.data(index, FlatLayerTreeModel.MapLayerPointer);
+              if (!ml)
+                return;
+              platformUtilities.createDir(qgisProject.homePath, "styles");
+              const target = qgisProject.homePath + "/styles/" + FileUtils.sanitizeFilePathPart(ml.name) + ".qml";
+              const error = LayerUtils.saveStyleToFile(ml, target);
+              displayToast(error === "" ? qsTr("Zapisano styl: %1").arg(FileUtils.fileName(target)) : error);
+            }
+          }
+        }
+
+        Menu {
+          id: styleFileMenu
+
+          property var entries: []
+
+          width: 300
+          font: Theme.defaultFont
+
+          Repeater {
+            model: styleFileMenu.entries
+
+            delegate: MenuItem {
+              required property var modelData
+
+              text: modelData.name
+              font: Theme.defaultFont
+
+              onTriggered: {
+                const ml = layerTree.data(index, FlatLayerTreeModel.MapLayerPointer);
+                if (!ml)
+                  return;
+                const error = LayerUtils.loadStyleFromFile(ml, modelData.path);
+                if (error === "") {
+                  displayToast(qsTr("Wczytano styl: %1").arg(modelData.name));
+                  projectInfo.saveLayerStyle(ml);
+                  refresh();
+                } else {
+                  displayToast(error);
+                }
+              }
+            }
+          }
+        }
+
         QfButton {
           id: exportLayerButton
           Layout.fillWidth: true

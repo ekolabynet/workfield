@@ -172,6 +172,23 @@ class LayerUtils : public QObject
      * Returns the current label configuration as a map with "enabled", "field",
      * "size", "color", "bufferEnabled" and "bufferColor" keys.
      */
+    /**
+     * Loads a QGIS layer style (.qml) from \a filePath. Returns an empty string
+     * on success, or an error message.
+     */
+    static Q_INVOKABLE QString loadStyleFromFile( QgsMapLayer *layer, const QString &filePath );
+
+    /**
+     * Saves the current layer style to \a filePath as a QGIS .qml file.
+     */
+    static Q_INVOKABLE QString saveStyleToFile( QgsMapLayer *layer, const QString &filePath );
+
+    /**
+     * Returns .qml style files found next to the layer source and in the project
+     * folder, as a list of maps with "name" and "path" keys.
+     */
+    static Q_INVOKABLE QVariantList availableStyleFiles( QgsMapLayer *layer );
+
     static Q_INVOKABLE QVariantMap labelSettings( QgsVectorLayer *layer );
 
     /**
