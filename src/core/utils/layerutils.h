@@ -128,6 +128,29 @@ class LayerUtils : public QObject
     static QgsMapLayer *createBasemap( const QString &style = QString() );
 
     /**
+     * Creates an XYZ tile layer from \a url (with {x}, {y}, {z} placeholders).
+     */
+    static Q_INVOKABLE QgsRasterLayer *createXyzLayer( const QString &url, const QString &name, int maxZoom = 19 );
+
+    /**
+     * Creates a WMS layer. \a layers is a comma separated list of layer names,
+     * \a crs an authid such as "EPSG:2180".
+     */
+    static Q_INVOKABLE QgsRasterLayer *createWmsLayer( const QString &url, const QString &name, const QString &layers, const QString &crs = QStringLiteral( "EPSG:3857" ), const QString &format = QStringLiteral( "image/png" ) );
+
+    /**
+     * Creates a WMTS layer from a GetCapabilities \a url.
+     */
+    static Q_INVOKABLE QgsRasterLayer *createWmtsLayer( const QString &url, const QString &name, const QString &layer, const QString &tileMatrixSet, const QString &crs = QStringLiteral( "EPSG:3857" ), const QString &format = QStringLiteral( "image/png" ) );
+
+    /**
+     * Returns the layer names advertised by a WMS service, as a list of maps
+     * with "name" and "title" keys. Blocking call.
+     */
+    static Q_INVOKABLE QVariantList wmsLayerNames( const QString &url );
+
+
+    /**
     * Returns TRUE if the vector layer is used as an atlas coverage layer in
     * any of the print layouts of the currently opened project.
     * \param layer the vector layer to check against print layouts

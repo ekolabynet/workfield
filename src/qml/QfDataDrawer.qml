@@ -182,6 +182,17 @@ Drawer {
       }
 
       Button {
+        id: addBasemapButton
+        Layout.fillWidth: true
+        text: qsTr("Podkład")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          dataDrawer.close();
+          basemapScreen.open();
+        }
+      }
+
+      Button {
         id: addLayerButton
         Layout.fillWidth: true
         text: qsTr("Dodaj z pliku")

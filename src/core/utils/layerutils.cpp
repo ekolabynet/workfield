@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include "layerutils.h"
+#include <qgsdatasourceuri.h>
 #include <qgscoordinatetransform.h>
 #include <qgsdefaultvalue.h>
 #include <qgseditorwidgetsetup.h>
@@ -1718,5 +1719,101 @@ QString LayerUtils::removeLayerField( QgsVectorLayer *layer, const QString &fiel
   layer->updateFields();
   emit layer->styleChanged();
   return QString();
+}
+
+QgsRasterLayer *LayerUtils::createXyzLayer( const QString &url, const QString &name, int maxZoom )
+{
+  if ( url.isEmpty() )
+    return nullptr;
+
+  const QString encoded = QString::fromLatin1( QUrl::toPercentEncoding( url, ":/" ) );
+
+  const QString uri = QStringLiteral( "type=xyz&tilePixelRatio=1&url=" ) + encoded
+                      + QStringLiteral( "&zmax=" ) + QString::number( maxZoom )
+                      + QStringLiteral( "&zmin=0&crs=EPSG3857" );
+
+  QgsRasterLayer *layer = new QgsRasterLayer( uri, name, QStringLiteral( "wms" ) );
+  if ( !layer->isValid() )
+  {
+    delete layer;
+    return nullptr;
+  }
+
+  return layer;
+}
+
+QgsRasterLayer *LayerUtils::createWmsLayer( const QString &url, const QString &name, const QString &layers, const QString &crs, const QString &format )
+{
+  if ( url.isEmpty() || layers.isEmpty() )
+    return nullptr;
+
+  QgsDataSourceUri dataSource;
+  dataSource.setParam( QStringLiteral( "url" ), url );
+  dataSource.setParam( QStringLiteral( "format" ), format );
+  dataSource.setParam( QStringLiteral( "crs" ), crs );
+  dataSource.setParam( QStringLiteral( "styles" ), QString() );
+
+  const QStringList layerList = layers.split( ',', Qt::SkipEmptyParts );
+  for ( const QString &l : layerList )
+    dataSource.setParam( QStringLiteral( "layers" ), l.trimmed() );
+
+  QgsRasterLayer *layer = new QgsRasterLayer( dataSource.encodedUri(), name, QStringLiteral( "wms" ) );
+  if ( !layer->isValid() )
+  {
+    qInfo() << QStringLiteral( "WMS layer error: %1" ).arg( layer->error().summary() );
+    delete layer;
+    return nullptr;
+  }
+
+  return layer;
+}
+
+QgsRasterLayer *LayerUtils::createWmtsLayer( const QString &url, const QString &name, const QString &layer, const QString &tileMatrixSet, const QString &crs, const QString &format )
+{
+  if ( url.isEmpty() || layer.isEmpty() )
+    return nullptr;
+
+  QgsDataSourceUri dataSource;
+  dataSource.setParam( QStringLiteral( "url" ), url );
+  dataSource.setParam( QStringLiteral( "format" ), format );
+  dataSource.setParam( QStringLiteral( "crs" ), crs );
+  dataSource.setParam( QStringLiteral( "layers" ), layer );
+  dataSource.setParam( QStringLiteral( "styles" ), QStringLiteral( "default" ) );
+  dataSource.setParam( QStringLiteral( "tileMatrixSet" ), tileMatrixSet );
+
+  QgsRasterLayer *result = new QgsRasterLayer( dataSource.encodedUri(), name, QStringLiteral( "wms" ) );
+  if ( !result->isValid() )
+  {
+    qInfo() << QStringLiteral( "WMTS layer error: %1" ).arg( result->error().summary() );
+    delete result;
+    return nullptr;
+  }
+
+  return result;
+}
+
+QVariantList LayerUtils::wmsLayerNames( const QString &url )
+{
+  QVariantList result;
+  if ( url.isEmpty() )
+    return result;
+
+  QgsDataSourceUri dataSource;
+  dataSource.setParam( QStringLiteral( "url" ), url );
+
+  QgsProviderMetadata *metadata = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "wms" ) );
+  if ( !metadata )
+    return result;
+
+  const QList<QgsProviderSublayerDetails> sublayers = QgsProviderRegistry::instance()->querySublayers( dataSource.encodedUri() );
+  for ( const QgsProviderSublayerDetails &detail : sublayers )
+  {
+    QVariantMap entry;
+    entry.insert( QStringLiteral( "name" ), detail.name() );
+    entry.insert( QStringLiteral( "title" ), detail.description().isEmpty() ? detail.name() : detail.description() );
+    result.append( entry );
+  }
+
+  return result;
 }
 
