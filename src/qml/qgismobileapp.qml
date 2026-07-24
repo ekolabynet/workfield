@@ -5561,6 +5561,11 @@ ApplicationWindow {
     }
   }
 
+  QfColorPicker {
+    id: colorPicker
+    t: Theme
+  }
+
   QfNewLayerDialog {
     id: newLayerDialog
     t: Theme
