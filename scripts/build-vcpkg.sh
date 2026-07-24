@@ -7,9 +7,9 @@ export SOURCE_DIR=/usr/src/qfield
 CMAKE_BUILD_DIR=/usr/src/qfield/build-${triplet}
 ANDROID_NDK_VERSION=$(sed -En -e 's/^Pkg.Revision\s*=\s*([0-9a-f]+)/\1/p' ${ANDROID_NDK_HOME}/source.properties)
 
-[[ -z ${APP_NAME} ]] && APP_NAME="QField Home"
+[[ -z ${APP_NAME} ]] && APP_NAME="WorkFieldGIS"
 [[ -z ${APP_PACKAGE_NAME} ]] && APP_PACKAGE_NAME="qfield_home"
-[[ -z ${APP_ICON} ]] && APP_ICON="qfield_logo_beta"
+[[ -z ${APP_ICON} ]] && APP_ICON="workfieldgis"
 
 echo "Package name ${APP_PACKAGE_NAME}"
 
@@ -22,9 +22,9 @@ cmake -S "${SOURCE_DIR}" \
 	-D ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT}" \
 	-D ANDROID_BUILD_TOOLS_VERSION="${ANDROID_BUILD_TOOLS_VERSION}" \
 	-D WITH_SPIX=OFF \
-	-D APK_VERSION_CODE="1" \
-	-D APP_VERSION="" \
-	-D APP_VERSION_STR="Home" \
+	-D APK_VERSION_CODE="${APK_VERSION_CODE:-600}" \
+	-D APP_VERSION="${APP_VERSION:-v0.6.0}" \
+	-D APP_VERSION_STR="${APP_VERSION_STR:-0.6.0}" \
 	-D APP_PACKAGE_NAME="${APP_PACKAGE_NAME}" \
 	-D APP_ICON="${APP_ICON}" \
 	-D APP_NAME="${APP_NAME}" \
