@@ -1295,7 +1295,7 @@ ApplicationWindow {
       mapSettings: mapCanvas.mapSettings
       currentLayer: dashBoard.activeLayer
       positionInformation: positionSource.positionInformation
-      positionLocked: !digitizingToolbar.cogoEnabled && positionSource.active && (positioningSettings.positioningCoordinateLock || gnssButton.followActive)
+      positionLocked: !digitizingToolbar.cogoEnabled && positionSource.active && positioningSettings.positioningCoordinateLock
       rubberbandModel: geometryEditorsToolbar.stateVisible ? geometryEditorsToolbar.editorRubberbandModel : digitizingToolbar.rubberbandModel
       averagedPosition: positionSource.averagedPosition
       averagedPositionCount: positionSource.averagedPositionCount
@@ -3066,7 +3066,8 @@ ApplicationWindow {
 
       QfToolButton {
         id: gnssButton
-        state: positionSource.active ? "On" : "Off"
+        readonly property bool locked: positionSource.active && positioningSettings.positioningCoordinateLock
+        state: !positionSource.active ? "Off" : (locked ? "Locked" : "On")
         visible: positionSource.valid
         round: true
 
@@ -3114,6 +3115,15 @@ ApplicationWindow {
               iconColor: followActive ? Theme.toolButtonColor : Theme.positionColor
               bgcolor: followActive ? Theme.positionColor : Theme.toolButtonBackgroundColor
             }
+          },
+          State {
+            name: "Locked"
+            PropertyChanges {
+              target: gnssButton
+              iconSource: Theme.getThemeVectorIcon("ic_location_cursor_lock_white_24dp")
+              iconColor: Theme.toolButtonColor
+              bgcolor: Theme.mainColor
+            }
           }
         ]
 
@@ -3121,13 +3131,25 @@ ApplicationWindow {
           if (!positionSource.active) {
             positionSource.jumpToPosition = true;
             positioningSettings.positioningActivated = true;
-          } else {
-            if (positionSource.projectedPosition.x) {
-              jumpToLocation();
-            } else {
-              displayToast(qsTr("Waiting for location"));
-            }
+            positioningSettings.positioningCoordinateLock = false;
+            displayToast(qsTr("Pozycja włączona — kursor podąża za mapą"));
+            return;
           }
+
+          if (!positioningSettings.positioningCoordinateLock) {
+            if (!positionSource.projectedPosition.x) {
+              displayToast(qsTr("Waiting for location"));
+              return;
+            }
+            positioningSettings.positioningCoordinateLock = true;
+            jumpToLocation();
+            displayToast(qsTr("Kursor przypięty do pozycji GNSS"));
+            return;
+          }
+
+          positioningSettings.positioningCoordinateLock = false;
+          positioningSettings.positioningActivated = false;
+          displayToast(qsTr("Pozycja wyłączona"));
         }
 
         onPressAndHold: {
