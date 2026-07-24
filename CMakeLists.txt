@@ -162,9 +162,9 @@ if (ANDROID)
       )
   else()
     message(STATUS "Using default vector drawable: qfield_logo_vector.xml -> ${APP_ICON}_vector.xml")
-    file(COPY
-        "${CMAKE_SOURCE_DIR}/platform/android/res/drawable/${APP_ICON}_vector.xml"
-        DESTINATION "${DST_DRAWABLE_DIR}"
+    file(COPY_FILE
+        "${CMAKE_SOURCE_DIR}/platform/android/res/drawable/qfield_logo_vector.xml"
+        "${DST_DRAWABLE_DIR}/${APP_ICON}_vector.xml"
       )
   endif()
 
