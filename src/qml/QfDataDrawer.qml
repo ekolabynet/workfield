@@ -247,6 +247,36 @@ Drawer {
             color: isCurrent ? t.mainOverlayColor : t.mainTextColor
             elide: Text.ElideRight
           }
+
+          QfToolButton {
+            width: 30
+            height: 30
+            padding: 0
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon("ic_edit_attributes_white_24dp")
+            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+
+            onClicked: {
+              dataDrawer.close();
+              layerFieldsScreen.openFor(model.VectorLayerPointer);
+            }
+          }
+
+          QfToolButton {
+            Layout.rightMargin: 4
+            width: 30
+            height: 30
+            padding: 0
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon("ic_delete_forever_white_24dp")
+            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+
+            onClicked: {
+              removeLayerConfirm.targetLayer = model.VectorLayerPointer;
+              removeLayerConfirm.targetName = model.Name;
+              removeLayerConfirm.open();
+            }
+          }
         }
 
         onClicked: {
@@ -288,6 +318,75 @@ Drawer {
       Layout.fillHeight: true
       visible: dataDrawer.activeLayer !== null && dataDrawer.activeLayer !== undefined
       inPlaceLayer: dataDrawer.activeLayer
+    }
+  }
+
+  Popup {
+    id: removeLayerConfirm
+
+    property var targetLayer: null
+    property string targetName: ""
+
+    parent: mainWindow.contentItem
+    width: Math.min(380, mainWindow.width - 32)
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    modal: true
+    closePolicy: Popup.CloseOnEscape
+
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Usunąć warstwę z projektu?")
+        font: t.strongFont
+        color: t.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: removeLayerConfirm.targetName
+        font: t.tipFont
+        color: t.secondaryTextColor
+        elide: Text.ElideMiddle
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Plik z danymi pozostanie na dysku.")
+        font: t.tinyFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Layout.topMargin: 8
+        spacing: 8
+
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Anuluj")
+          onClicked: removeLayerConfirm.close()
+        }
+
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Usuń")
+          highlighted: true
+
+          onClicked: {
+            if (removeLayerConfirm.targetLayer) {
+              ProjectUtils.removeMapLayer(qgisProject, removeLayerConfirm.targetLayer);
+              displayToast(qsTr("Usunięto warstwę %1").arg(removeLayerConfirm.targetName));
+            }
+            removeLayerConfirm.close();
+          }
+        }
+      }
     }
   }
 }

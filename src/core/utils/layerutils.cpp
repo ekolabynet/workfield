@@ -1652,3 +1652,71 @@ QVariantList LayerUtils::availableStyleFiles( QgsMapLayer *layer )
   return result;
 }
 
+bool LayerUtils::canEditFields( QgsVectorLayer *layer )
+{
+  if ( !layer || !layer->dataProvider() )
+    return false;
+
+  const Qgis::VectorProviderCapabilities caps = layer->dataProvider()->capabilities();
+  return caps.testFlag( Qgis::VectorProviderCapability::AddAttributes )
+         && caps.testFlag( Qgis::VectorProviderCapability::DeleteAttributes );
+}
+
+QString LayerUtils::addLayerField( QgsVectorLayer *layer, const QString &name, const QString &type )
+{
+  if ( !layer )
+    return QObject::tr( "No layer" );
+
+  const QString trimmed = name.trimmed();
+  if ( trimmed.isEmpty() )
+    return QObject::tr( "Field name is empty" );
+
+  if ( layer->fields().lookupField( trimmed ) >= 0 )
+    return QObject::tr( "Field already exists" );
+
+  if ( !canEditFields( layer ) )
+    return QObject::tr( "This layer does not support adding fields" );
+
+  QgsField field( trimmed, metaTypeForFieldType( type ) );
+
+  if ( !layer->dataProvider()->addAttributes( QList<QgsField>() << field ) )
+    return QObject::tr( "Could not add the field" );
+
+  layer->updateFields();
+
+  if ( type == QLatin1String( "multiline" ) )
+  {
+    const int index = layer->fields().lookupField( trimmed );
+    if ( index >= 0 )
+    {
+      QVariantMap config;
+      config.insert( QStringLiteral( "IsMultiline" ), true );
+      config.insert( QStringLiteral( "UseHtml" ), false );
+      layer->setEditorWidgetSetup( index, QgsEditorWidgetSetup( QStringLiteral( "TextEdit" ), config ) );
+    }
+  }
+
+  emit layer->styleChanged();
+  return QString();
+}
+
+QString LayerUtils::removeLayerField( QgsVectorLayer *layer, const QString &fieldName )
+{
+  if ( !layer )
+    return QObject::tr( "No layer" );
+
+  const int index = layer->fields().lookupField( fieldName );
+  if ( index < 0 )
+    return QObject::tr( "Field not found" );
+
+  if ( !canEditFields( layer ) )
+    return QObject::tr( "This layer does not support removing fields" );
+
+  if ( !layer->dataProvider()->deleteAttributes( QgsAttributeIds() << index ) )
+    return QObject::tr( "Could not remove the field" );
+
+  layer->updateFields();
+  emit layer->styleChanged();
+  return QString();
+}
+

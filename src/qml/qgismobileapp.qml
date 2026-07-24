@@ -5583,6 +5583,11 @@ ApplicationWindow {
     }
   }
 
+  QfLayerFieldsScreen {
+    id: layerFieldsScreen
+    t: Theme
+  }
+
   QfColorPicker {
     id: colorPicker
     t: Theme

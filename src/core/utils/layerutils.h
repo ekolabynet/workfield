@@ -216,6 +216,23 @@ class LayerUtils : public QObject
     static Q_INVOKABLE QVariantList layerFields( QgsVectorLayer *layer );
 
     /**
+     * Adds a field to \a layer. \a type is one of "text", "multiline",
+     * "integer", "real", "date", "datetime" or "bool". Returns an empty string
+     * on success, or an error message.
+     */
+    static Q_INVOKABLE QString addLayerField( QgsVectorLayer *layer, const QString &name, const QString &type );
+
+    /**
+     * Removes \a fieldName from \a layer. Returns an empty string on success.
+     */
+    static Q_INVOKABLE QString removeLayerField( QgsVectorLayer *layer, const QString &fieldName );
+
+    /**
+     * Returns TRUE when the layer provider supports adding and deleting fields.
+     */
+    static Q_INVOKABLE bool canEditFields( QgsVectorLayer *layer );
+
+    /**
      * Creates an empty vector layer at \a filePath.
      *
      * \a geometryType accepts "Point", "LineString", "Polygon", "MultiPoint",

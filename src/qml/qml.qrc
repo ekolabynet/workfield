@@ -109,6 +109,8 @@
         <file>QfDataDrawer.qml</file>
         <file>QfLegendScreen.qml</file>
         <file>QfColorPicker.qml</file>
+        <file>QfLayerFieldsScreen.qml</file>
+        <file>QfLayerFieldsScreen.qml</file>
         <file>VertexRubberband.qml</file>
         <file>LocatorItem.qml</file>
         <file>LocatorSettings.qml</file>
