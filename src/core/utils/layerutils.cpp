@@ -15,6 +15,9 @@
  ***************************************************************************/
 
 #include "layerutils.h"
+#include <QDomDocument>
+#include <QUrlQuery>
+#include <qgsblockingnetworkrequest.h>
 #include <qgsdatasourceuri.h>
 #include <qgscoordinatetransform.h>
 #include <qgsdefaultvalue.h>
@@ -1751,16 +1754,17 @@ QgsRasterLayer *LayerUtils::createWmsLayer( const QString &url, const QString &n
   dataSource.setParam( QStringLiteral( "url" ), url );
   dataSource.setParam( QStringLiteral( "format" ), format );
   dataSource.setParam( QStringLiteral( "crs" ), crs );
-  dataSource.setParam( QStringLiteral( "styles" ), QString() );
-
   const QStringList layerList = layers.split( ',', Qt::SkipEmptyParts );
   for ( const QString &l : layerList )
+  {
     dataSource.setParam( QStringLiteral( "layers" ), l.trimmed() );
+    dataSource.setParam( QStringLiteral( "styles" ), QString() );
+  }
 
   QgsRasterLayer *layer = new QgsRasterLayer( dataSource.encodedUri(), name, QStringLiteral( "wms" ) );
   if ( !layer->isValid() )
   {
-    qInfo() << QStringLiteral( "WMS layer error: %1" ).arg( layer->error().summary() );
+    qInfo() << QStringLiteral( "WMS layer error [%1 / %2]: %3" ).arg( name, layers, layer->error().summary() );
     delete layer;
     return nullptr;
   }
@@ -1798,14 +1802,107 @@ QVariantList LayerUtils::wmsLayerNames( const QString &url )
   if ( url.isEmpty() )
     return result;
 
+  QUrl capabilitiesUrl( url );
+  QUrlQuery query( capabilitiesUrl );
+  query.removeQueryItem( QStringLiteral( "service" ) );
+  query.removeQueryItem( QStringLiteral( "request" ) );
+  query.addQueryItem( QStringLiteral( "service" ), QStringLiteral( "WMS" ) );
+  query.addQueryItem( QStringLiteral( "request" ), QStringLiteral( "GetCapabilities" ) );
+  capabilitiesUrl.setQuery( query );
+
+  QgsBlockingNetworkRequest request;
+  QNetworkRequest networkRequest( capabilitiesUrl );
+  networkRequest.setHeader( QNetworkRequest::UserAgentHeader, QStringLiteral( "Mozilla/5.0 QGIS" ) );
+
+  if ( request.get( networkRequest ) != QgsBlockingNetworkRequest::NoError )
+  {
+    qInfo() << QStringLiteral( "GetCapabilities failed: %1" ).arg( request.errorMessage() );
+    return result;
+  }
+
+  QDomDocument document;
+  if ( !document.setContent( request.reply().content() ) )
+    return result;
+
+  const QDomNodeList layers = document.elementsByTagName( QStringLiteral( "Layer" ) );
+  for ( int i = 0; i < layers.count(); ++i )
+  {
+    const QDomElement layer = layers.at( i ).toElement();
+
+    const QDomNodeList names = layer.elementsByTagName( QStringLiteral( "Name" ) );
+    if ( names.isEmpty() )
+      continue;
+
+    // only direct children count, otherwise parent layers pick up child names
+    QString name;
+    for ( int j = 0; j < names.count(); ++j )
+    {
+      if ( names.at( j ).parentNode() == layer )
+      {
+        name = names.at( j ).toElement().text();
+        break;
+      }
+    }
+
+    if ( name.isEmpty() )
+      continue;
+
+    QString title = name;
+    const QDomNodeList titles = layer.elementsByTagName( QStringLiteral( "Title" ) );
+    for ( int j = 0; j < titles.count(); ++j )
+    {
+      if ( titles.at( j ).parentNode() == layer )
+      {
+        title = titles.at( j ).toElement().text();
+        break;
+      }
+    }
+
+    QVariantMap entry;
+    entry.insert( QStringLiteral( "name" ), name );
+    entry.insert( QStringLiteral( "title" ), title == name ? name : QStringLiteral( "%1 (%2)" ).arg( title, name ) );
+    result.append( entry );
+  }
+
+  return result;
+}
+
+QgsVectorLayer *LayerUtils::createWfsLayer( const QString &url, const QString &name, const QString &typeName, const QString &crs, bool onlyVisibleExtent )
+{
+  if ( url.isEmpty() || typeName.isEmpty() )
+    return nullptr;
+
+  QgsDataSourceUri dataSource;
+  dataSource.setParam( QStringLiteral( "url" ), url );
+  dataSource.setParam( QStringLiteral( "typename" ), typeName );
+  dataSource.setParam( QStringLiteral( "srsname" ), crs );
+  dataSource.setParam( QStringLiteral( "version" ), QStringLiteral( "auto" ) );
+  dataSource.setParam( QStringLiteral( "pagingEnabled" ), QStringLiteral( "true" ) );
+
+  if ( onlyVisibleExtent )
+    dataSource.setParam( QStringLiteral( "restrictToRequestBBOX" ), QStringLiteral( "1" ) );
+
+  QgsVectorLayer *layer = new QgsVectorLayer( dataSource.uri(), name, QStringLiteral( "WFS" ) );
+  if ( !layer->isValid() )
+  {
+    qInfo() << QStringLiteral( "WFS layer error: %1" ).arg( layer->error().summary() );
+    delete layer;
+    return nullptr;
+  }
+
+  return layer;
+}
+
+QVariantList LayerUtils::wfsTypeNames( const QString &url )
+{
+  QVariantList result;
+  if ( url.isEmpty() )
+    return result;
+
   QgsDataSourceUri dataSource;
   dataSource.setParam( QStringLiteral( "url" ), url );
 
-  QgsProviderMetadata *metadata = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "wms" ) );
-  if ( !metadata )
-    return result;
-
-  const QList<QgsProviderSublayerDetails> sublayers = QgsProviderRegistry::instance()->querySublayers( dataSource.encodedUri() );
+  const QList<QgsProviderSublayerDetails> sublayers = QgsProviderRegistry::instance()->querySublayers( dataSource.uri() );
   for ( const QgsProviderSublayerDetails &detail : sublayers )
   {
     QVariantMap entry;

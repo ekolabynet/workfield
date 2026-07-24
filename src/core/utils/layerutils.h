@@ -149,6 +149,18 @@ class LayerUtils : public QObject
      */
     static Q_INVOKABLE QVariantList wmsLayerNames( const QString &url );
 
+    /**
+     * Creates a WFS layer. When \a onlyVisibleExtent is TRUE the provider only
+     * fetches features within the current canvas extent.
+     */
+    static Q_INVOKABLE QgsVectorLayer *createWfsLayer( const QString &url, const QString &name, const QString &typeName, const QString &crs = QStringLiteral( "EPSG:2180" ), bool onlyVisibleExtent = true );
+
+    /**
+     * Returns the feature types advertised by a WFS service as a list of maps
+     * with "name" and "title" keys.
+     */
+    static Q_INVOKABLE QVariantList wfsTypeNames( const QString &url );
+
 
     /**
     * Returns TRUE if the vector layer is used as an atlas coverage layer in
