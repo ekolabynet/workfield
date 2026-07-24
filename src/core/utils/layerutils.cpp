@@ -1882,6 +1882,8 @@ QgsVectorLayer *LayerUtils::createWfsLayer( const QString &url, const QString &n
   if ( onlyVisibleExtent )
     dataSource.setParam( QStringLiteral( "restrictToRequestBBOX" ), QStringLiteral( "1" ) );
 
+  qInfo() << QStringLiteral( "WFS uri: %1" ).arg( dataSource.uri() );
+
   QgsVectorLayer *layer = new QgsVectorLayer( dataSource.uri(), name, QStringLiteral( "WFS" ) );
   if ( !layer->isValid() )
   {
