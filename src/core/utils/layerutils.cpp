@@ -1575,3 +1575,80 @@ bool LayerUtils::setLabelBuffer( QgsVectorLayer *layer, bool enabled, const QCol
   return applyLabelSettings( layer, settings );
 }
 
+QString LayerUtils::loadStyleFromFile( QgsMapLayer *layer, const QString &filePath )
+{
+  if ( !layer )
+    return QObject::tr( "No layer" );
+
+  if ( !QFile::exists( filePath ) )
+    return QObject::tr( "File not found" );
+
+  bool ok = false;
+  const QString message = layer->loadNamedStyle( filePath, ok );
+
+  if ( !ok )
+    return message.isEmpty() ? QObject::tr( "Could not load style" ) : message;
+
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+  return QString();
+}
+
+QString LayerUtils::saveStyleToFile( QgsMapLayer *layer, const QString &filePath )
+{
+  if ( !layer )
+    return QObject::tr( "No layer" );
+
+  bool ok = false;
+  const QString message = layer->saveNamedStyle( filePath, ok );
+
+  if ( !ok )
+    return message.isEmpty() ? QObject::tr( "Could not save style" ) : message;
+
+  return QString();
+}
+
+QVariantList LayerUtils::availableStyleFiles( QgsMapLayer *layer )
+{
+  QVariantList result;
+  if ( !layer )
+    return result;
+
+  QStringList directories;
+
+  const QString source = layer->publicSource();
+  const QString cleanSource = source.split( QStringLiteral( "|" ) ).first();
+  const QFileInfo sourceInfo( cleanSource );
+  if ( sourceInfo.exists() )
+    directories.append( sourceInfo.absolutePath() );
+
+  const QString projectPath = QgsProject::instance()->homePath();
+  if ( !projectPath.isEmpty() && !directories.contains( projectPath ) )
+    directories.append( projectPath );
+
+  const QString stylesPath = projectPath + QStringLiteral( "/styles" );
+  if ( QDir( stylesPath ).exists() )
+    directories.append( stylesPath );
+
+  QSet<QString> seen;
+  for ( const QString &directory : std::as_const( directories ) )
+  {
+    QDir dir( directory );
+    const QStringList files = dir.entryList( QStringList() << QStringLiteral( "*.qml" ), QDir::Files, QDir::Name );
+    for ( const QString &file : files )
+    {
+      const QString absolute = dir.absoluteFilePath( file );
+      if ( seen.contains( absolute ) )
+        continue;
+      seen.insert( absolute );
+
+      QVariantMap entry;
+      entry.insert( QStringLiteral( "name" ), file );
+      entry.insert( QStringLiteral( "path" ), absolute );
+      result.append( entry );
+    }
+  }
+
+  return result;
+}
+
