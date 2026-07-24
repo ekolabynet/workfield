@@ -30,6 +30,12 @@ QfPopup {
   property bool categoriesVisible: false
   property var categoryEntries: []
   property var availableFields: []
+  property bool labelsOn: false
+  property string labelField: ""
+  property real labelSize: 10
+  property color labelColor: "black"
+  property bool labelBufferOn: true
+  property color labelBufferColor: "white"
   property string pendingField: ""
   property int pendingClassCount: 5
 
@@ -68,6 +74,16 @@ QfPopup {
     categoriesVisible = styleLayer ? LayerUtils.hasCategorizedSymbology(styleLayer) : false;
     categoryEntries = categoriesVisible ? LayerUtils.rendererCategories(styleLayer) : [];
     availableFields = styleLayer ? LayerUtils.layerFields(styleLayer) : [];
+
+    if (styleLayer) {
+      const ls = LayerUtils.labelSettings(styleLayer);
+      labelsOn = ls.enabled === true;
+      labelField = ls.field !== undefined ? ls.field : "";
+      labelSize = ls.size > 0 ? ls.size : 10;
+      labelColor = ls.color !== undefined ? ls.color : "black";
+      labelBufferOn = ls.bufferEnabled === true;
+      labelBufferColor = ls.bufferColor !== undefined ? ls.bufferColor : "white";
+    }
     pendingField = "";
     if (symbologyVisible) {
       symbolKind = LayerUtils.symbolType(styleLayer);
@@ -741,6 +757,226 @@ QfPopup {
                         projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
                       }
                     }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        ColumnLayout {
+          id: labelPanel
+
+          Layout.fillWidth: true
+          Layout.topMargin: 6
+          spacing: 4
+          visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer) ? true : false
+
+          function currentLayer() {
+            return layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+          }
+
+          function persist() {
+            projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 4
+            spacing: 8
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Etykiety")
+              font: Theme.strongTipFont
+              color: Theme.mainTextColor
+            }
+
+            QfSwitch {
+              checked: labelsOn
+              onCheckedChanged: {
+                if (checked === labelsOn)
+                  return;
+                const vl = labelPanel.currentLayer();
+                if (!vl)
+                  return;
+                LayerUtils.setLabelsEnabled(vl, checked, labelField);
+                labelsOn = checked;
+                const ls = LayerUtils.labelSettings(vl);
+                labelField = ls.field !== undefined ? ls.field : "";
+                labelPanel.persist();
+              }
+            }
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 6
+            visible: labelsOn
+
+            Text {
+              text: qsTr("Pole")
+              font: Theme.defaultFont
+              color: Theme.mainTextColor
+            }
+
+            ComboBox {
+              Layout.fillWidth: true
+              font: Theme.defaultFont
+              model: availableFields.map(f => f.name)
+              currentIndex: availableFields.findIndex(f => f.name === labelField)
+
+              onActivated: idx => {
+                const vl = labelPanel.currentLayer();
+                if (!vl)
+                  return;
+                labelField = availableFields[idx].name;
+                LayerUtils.setLabelField(vl, labelField);
+                labelPanel.persist();
+              }
+            }
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 6
+            visible: labelsOn
+
+            Text {
+              text: qsTr("Rozmiar")
+              font: Theme.defaultFont
+              color: Theme.mainTextColor
+            }
+
+            QfSlider {
+              Layout.fillWidth: true
+              from: 6
+              to: 30
+              stepSize: 1
+              value: labelSize
+              suffixText: " pt"
+              height: 40
+
+              onMoved: function () {
+                const vl = labelPanel.currentLayer();
+                if (!vl)
+                  return;
+                labelSize = value;
+                LayerUtils.setLabelSize(vl, value);
+                labelPanel.persist();
+              }
+            }
+          }
+
+          Text {
+            Layout.fillWidth: true
+            Layout.leftMargin: 4
+            visible: labelsOn
+            text: qsTr("Kolor tekstu")
+            font: Theme.tipFont
+            color: Theme.secondaryTextColor
+          }
+
+          Flow {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 5
+            visible: labelsOn
+
+            readonly property var swatches: ["#212121", "#ffffff", "#e53935", "#1e88e5", "#00897b", "#fb8c00", "#8e24aa", "#43a047"]
+
+            Repeater {
+              model: parent.swatches
+
+              delegate: Rectangle {
+                required property string modelData
+
+                width: 28
+                height: 28
+                radius: 4
+                color: modelData
+                border.width: Qt.colorEqual(labelColor, modelData) ? 3 : 1
+                border.color: Qt.colorEqual(labelColor, modelData) ? Theme.mainColor : Theme.controlBorderColor
+
+                MouseArea {
+                  anchors.fill: parent
+                  onClicked: {
+                    const vl = labelPanel.currentLayer();
+                    if (!vl)
+                      return;
+                    LayerUtils.setLabelColor(vl, parent.modelData);
+                    labelColor = parent.modelData;
+                    labelPanel.persist();
+                  }
+                }
+              }
+            }
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 4
+            spacing: 8
+            visible: labelsOn
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Otoczka")
+              font: Theme.tipFont
+              color: Theme.secondaryTextColor
+            }
+
+            QfSwitch {
+              checked: labelBufferOn
+              onCheckedChanged: {
+                if (checked === labelBufferOn)
+                  return;
+                const vl = labelPanel.currentLayer();
+                if (!vl)
+                  return;
+                LayerUtils.setLabelBuffer(vl, checked, labelBufferColor);
+                labelBufferOn = checked;
+                labelPanel.persist();
+              }
+            }
+          }
+
+          Flow {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 5
+            visible: labelsOn && labelBufferOn
+
+            readonly property var swatches: ["#ffffff", "#212121", "#fdd835", "#e0f2ef"]
+
+            Repeater {
+              model: parent.swatches
+
+              delegate: Rectangle {
+                required property string modelData
+
+                width: 28
+                height: 28
+                radius: 4
+                color: modelData
+                border.width: Qt.colorEqual(labelBufferColor, modelData) ? 3 : 1
+                border.color: Qt.colorEqual(labelBufferColor, modelData) ? Theme.mainColor : Theme.controlBorderColor
+
+                MouseArea {
+                  anchors.fill: parent
+                  onClicked: {
+                    const vl = labelPanel.currentLayer();
+                    if (!vl)
+                      return;
+                    LayerUtils.setLabelBuffer(vl, true, parent.modelData);
+                    labelBufferColor = parent.modelData;
+                    labelPanel.persist();
                   }
                 }
               }

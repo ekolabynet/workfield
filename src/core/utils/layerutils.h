@@ -169,6 +169,30 @@ class LayerUtils : public QObject
     static Q_INVOKABLE bool hasCategorizedSymbology( QgsVectorLayer *layer );
 
     /**
+     * Returns the current label configuration as a map with "enabled", "field",
+     * "size", "color", "bufferEnabled" and "bufferColor" keys.
+     */
+    static Q_INVOKABLE QVariantMap labelSettings( QgsVectorLayer *layer );
+
+    /**
+     * Enables or disables labels on \a layer, creating a default configuration
+     * on \a fieldName when none exists yet.
+     */
+    static Q_INVOKABLE bool setLabelsEnabled( QgsVectorLayer *layer, bool enabled, const QString &fieldName = QString() );
+
+    //! Sets the field used for labels.
+    static Q_INVOKABLE bool setLabelField( QgsVectorLayer *layer, const QString &fieldName );
+
+    //! Sets the label text size in points.
+    static Q_INVOKABLE bool setLabelSize( QgsVectorLayer *layer, double size );
+
+    //! Sets the label text color.
+    static Q_INVOKABLE bool setLabelColor( QgsVectorLayer *layer, const QColor &color );
+
+    //! Enables the label halo and sets its color.
+    static Q_INVOKABLE bool setLabelBuffer( QgsVectorLayer *layer, bool enabled, const QColor &color = QColor( 255, 255, 255 ) );
+
+    /**
      * Returns the layer fields as a list of maps with "name", "type" and
      * "numeric" keys.
      */
