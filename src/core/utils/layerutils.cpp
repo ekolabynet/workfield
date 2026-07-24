@@ -1436,3 +1436,142 @@ bool LayerUtils::setAttachmentField( QgsVectorLayer *layer, const QString &field
   return true;
 }
 
+static QgsPalLayerSettings currentLabelSettings( QgsVectorLayer *layer, bool *hasLabeling = nullptr )
+{
+  if ( hasLabeling )
+    *hasLabeling = false;
+
+  if ( !layer )
+    return QgsPalLayerSettings();
+
+  if ( const QgsVectorLayerSimpleLabeling *simple = dynamic_cast<const QgsVectorLayerSimpleLabeling *>( layer->labeling() ) )
+  {
+    if ( hasLabeling )
+      *hasLabeling = true;
+    return simple->settings();
+  }
+
+  return QgsPalLayerSettings();
+}
+
+static bool applyLabelSettings( QgsVectorLayer *layer, const QgsPalLayerSettings &settings )
+{
+  if ( !layer )
+    return false;
+
+  layer->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+  return true;
+}
+
+QVariantMap LayerUtils::labelSettings( QgsVectorLayer *layer )
+{
+  QVariantMap result;
+  if ( !layer )
+    return result;
+
+  bool hasLabeling = false;
+  const QgsPalLayerSettings settings = currentLabelSettings( layer, &hasLabeling );
+  const QgsTextFormat format = settings.format();
+
+  result.insert( QStringLiteral( "enabled" ), layer->labelsEnabled() );
+  result.insert( QStringLiteral( "configured" ), hasLabeling );
+  result.insert( QStringLiteral( "field" ), settings.fieldName );
+  result.insert( QStringLiteral( "size" ), format.size() );
+  result.insert( QStringLiteral( "color" ), format.color() );
+  result.insert( QStringLiteral( "bufferEnabled" ), format.buffer().enabled() );
+  result.insert( QStringLiteral( "bufferColor" ), format.buffer().color() );
+
+  return result;
+}
+
+bool LayerUtils::setLabelsEnabled( QgsVectorLayer *layer, bool enabled, const QString &fieldName )
+{
+  if ( !layer )
+    return false;
+
+  if ( enabled && !layer->labeling() )
+  {
+    QgsPalLayerSettings settings;
+    settings.fieldName = fieldName.isEmpty() && layer->fields().count() > 0
+                           ? layer->fields().at( 0 ).name()
+                           : fieldName;
+    settings.obstacleSettings().setIsObstacle( true );
+
+    QgsTextFormat format;
+    format.setSize( 10 );
+    format.setSizeUnit( Qgis::RenderUnit::Points );
+    format.setColor( QColor( 0, 0, 0 ) );
+
+    QgsTextBufferSettings buffer;
+    buffer.setEnabled( true );
+    buffer.setSize( 1 );
+    buffer.setColor( QColor( 255, 255, 255 ) );
+    format.setBuffer( buffer );
+
+    settings.setFormat( format );
+    layer->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );
+  }
+
+  layer->setLabelsEnabled( enabled );
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+  return true;
+}
+
+bool LayerUtils::setLabelField( QgsVectorLayer *layer, const QString &fieldName )
+{
+  if ( !layer || fieldName.isEmpty() )
+    return false;
+
+  QgsPalLayerSettings settings = currentLabelSettings( layer );
+  settings.fieldName = fieldName;
+  return applyLabelSettings( layer, settings );
+}
+
+bool LayerUtils::setLabelSize( QgsVectorLayer *layer, double size )
+{
+  if ( !layer || size <= 0 )
+    return false;
+
+  QgsPalLayerSettings settings = currentLabelSettings( layer );
+  QgsTextFormat format = settings.format();
+  format.setSize( size );
+  format.setSizeUnit( Qgis::RenderUnit::Points );
+  settings.setFormat( format );
+  return applyLabelSettings( layer, settings );
+}
+
+bool LayerUtils::setLabelColor( QgsVectorLayer *layer, const QColor &color )
+{
+  if ( !layer || !color.isValid() )
+    return false;
+
+  QgsPalLayerSettings settings = currentLabelSettings( layer );
+  QgsTextFormat format = settings.format();
+  format.setColor( color );
+  settings.setFormat( format );
+  return applyLabelSettings( layer, settings );
+}
+
+bool LayerUtils::setLabelBuffer( QgsVectorLayer *layer, bool enabled, const QColor &color )
+{
+  if ( !layer )
+    return false;
+
+  QgsPalLayerSettings settings = currentLabelSettings( layer );
+  QgsTextFormat format = settings.format();
+
+  QgsTextBufferSettings buffer = format.buffer();
+  buffer.setEnabled( enabled );
+  if ( color.isValid() )
+    buffer.setColor( color );
+  if ( buffer.size() <= 0 )
+    buffer.setSize( 1 );
+
+  format.setBuffer( buffer );
+  settings.setFormat( format );
+  return applyLabelSettings( layer, settings );
+}
+
