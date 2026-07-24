@@ -23,22 +23,54 @@ Popup {
       ]
     },
     {
-      group: qsTr("GUGiK — ortofotomapa"),
+      group: qsTr("Ortofotomapa"),
       items: [
         { name: qsTr("Ortofotomapa standardowa"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution", layers: "Raster", crs: "EPSG:2180" },
-        { name: qsTr("Ortofotomapa wysokiej rozdzielczości"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/HighResolution", layers: "Raster", crs: "EPSG:2180" }
+        { name: qsTr("Ortofotomapa wysokorozdzielcza"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/HighResolution", layers: "Raster", crs: "EPSG:2180" },
+        { name: qsTr("Prawdziwa ortofotomapa"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/TrueOrtho", layers: "PrawdziwaOrtofotomapa", crs: "EPSG:2180" },
+        { name: qsTr("Wskaźnik wegetacji NDVI"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/NDVI", layers: "0", crs: "EPSG:2180" }
       ]
     },
     {
-      group: qsTr("GUGiK — pozostałe"),
+      group: qsTr("Rzeźba terenu"),
       items: [
-        { name: qsTr("Krajowa Integracja Ewidencji Gruntów"), kind: "wms", url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", layers: "dzialki,numery_dzialek,budynki", crs: "EPSG:2180" },
-        { name: qsTr("Uzbrojenie terenu (KIUT)"), kind: "wms", url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzbrojeniaTerenu", layers: "przewod_wodociagowy,przewod_kanalizacyjny,przewod_gazowy,przewod_cieplowniczy,przewod_elektroenergetyczny,przewod_telekomunikacyjny", crs: "EPSG:2180" },
         { name: qsTr("Cieniowanie NMT"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WMS/ShadedRelief", layers: "Raster", crs: "EPSG:2180" },
-        { name: qsTr("Mapa topograficzna BDOT10k"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WMS/TopoMap", layers: "Raster", crs: "EPSG:2180" }
+        { name: qsTr("Hipsometria"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WMS/Hypsometry", layers: "Raster", crs: "EPSG:2180" }
+      ]
+    },
+    {
+      group: qsTr("Ewidencja i uzbrojenie"),
+      items: [
+        { name: qsTr("Działki ewidencyjne (KIEG)"), kind: "wms", url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", layers: "dzialki", crs: "EPSG:2180" },
+        { name: qsTr("Obręby ewidencyjne (KIEG)"), kind: "wms", url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", layers: "obreby", crs: "EPSG:2180" },
+        { name: qsTr("Uzbrojenie terenu (KIUT)"), kind: "wms", url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzbrojeniaTerenu", layers: "gesut", crs: "EPSG:2180" },
+        { name: qsTr("Plany miejscowe (KIMP)"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/ext/KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego", layers: "plany", crs: "EPSG:2180" }
+      ]
+    },
+    {
+      group: qsTr("Warszawa"),
+      items: [
+        { name: qsTr("Ortofotomapa Warszawy"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "ORTO", crs: "EPSG:2178" },
+        { name: qsTr("Działki ewidencyjne"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "GEODEZJA_DZIALKI", crs: "EPSG:2178" },
+        { name: qsTr("Budynki"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "GEODEZJA_BUDYNKI", crs: "EPSG:2178" },
+        { name: qsTr("Obręby ewidencyjne"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "GEODEZJA_OBREBY", crs: "EPSG:2178" },
+        { name: qsTr("Punkty adresowe"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "ENOM_PUNKTY_ADRESOWE", crs: "EPSG:2178" },
+        { name: qsTr("Decyzje o warunkach zabudowy"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "DECYZJE_O_WARUNKACH_ZABUDOWY", crs: "EPSG:2178" },
+        { name: qsTr("Pozwolenia na budowę"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "DECYZJE_O_POZWOLENIU_NA_BUDOWE", crs: "EPSG:2178" },
+        { name: qsTr("Więcej warstw Warszawy…"), kind: "browse", url: "https://wms.um.warszawa.pl/serwis", crs: "EPSG:2178" }
+      ]
+    },
+    {
+      group: qsTr("Mapy topograficzne"),
+      items: [
+        { name: qsTr("BDOT10k — wybierz warstwę…"), kind: "browse", url: "https://mapy.geoportal.gov.pl/wss/service/pub/guest/kompozycja_BDOT10k_WMS/MapServer/WMSServer", crs: "EPSG:2180" },
+        { name: qsTr("Mapa topograficzna rastrowa"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/img/guest/TOPO/MapServer/WMSServer", layers: "Raster", crs: "EPSG:2180" },
+        { name: qsTr("Mapa glebowo-rolnicza"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/pub/guest/MapaGlebowoRolnicza/MapServer/WMSServer", layers: "0", crs: "EPSG:2180" },
+        { name: qsTr("Granice administracyjne — wybierz…"), kind: "browse", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WMS/AdministrativeBoundaries", crs: "EPSG:2180" }
       ]
     }
   ]
+
 
   property string customKind: "xyz"
   property string customUrl: ""
@@ -47,6 +79,19 @@ Popup {
   property string customCrs: "EPSG:2180"
 
   function addPreset(item) {
+    if (item.kind === "browse") {
+      customKind = "wms";
+      customUrl = item.url;
+      customCrs = item.crs !== undefined ? item.crs : "EPSG:2180";
+      customLayers = "";
+      serviceLayersMenu.entries = LayerUtils.wmsLayerNames(item.url);
+      if (serviceLayersMenu.entries.length === 0)
+        displayToast(qsTr("Nie udało się pobrać listy warstw"));
+      else
+        serviceLayersMenu.popup();
+      return;
+    }
+
     let layer = null;
 
     if (item.kind === "xyz")
@@ -183,13 +228,54 @@ Popup {
       onTextChanged: basemapScreen.customUrl = text
     }
 
-    TextField {
+    RowLayout {
       Layout.fillWidth: true
-      font: t.defaultFont
-      placeholderText: qsTr("nazwa warstwy w usłudze")
+      spacing: 6
       visible: basemapScreen.customKind !== "xyz"
-      text: basemapScreen.customLayers
-      onTextChanged: basemapScreen.customLayers = text
+
+      TextField {
+        Layout.fillWidth: true
+        font: t.defaultFont
+        placeholderText: qsTr("nazwa warstwy w usłudze")
+        text: basemapScreen.customLayers
+        onTextChanged: basemapScreen.customLayers = text
+      }
+
+      Button {
+        text: qsTr("Wykaz")
+        font.pointSize: t.tinyFont.pointSize
+        enabled: basemapScreen.customUrl.trim() !== ""
+
+        onClicked: {
+          serviceLayersMenu.entries = LayerUtils.wmsLayerNames(basemapScreen.customUrl.trim());
+          if (serviceLayersMenu.entries.length === 0) {
+            displayToast(qsTr("Nie udało się pobrać listy warstw"));
+            return;
+          }
+          serviceLayersMenu.popup();
+        }
+      }
+    }
+
+    Menu {
+      id: serviceLayersMenu
+
+      property var entries: []
+
+      width: 320
+      font: t.defaultFont
+
+      Repeater {
+        model: serviceLayersMenu.entries
+
+        delegate: MenuItem {
+          required property var modelData
+
+          text: modelData.title
+          font: t.defaultFont
+          onTriggered: basemapScreen.customLayers = modelData.name
+        }
+      }
     }
 
     RowLayout {
