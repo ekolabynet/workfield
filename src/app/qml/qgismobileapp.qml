@@ -5585,6 +5585,11 @@ ApplicationWindow {
     }
   }
 
+  QfBasemapScreen {
+    id: basemapScreen
+    t: Theme
+  }
+
   QfLayerFieldsScreen {
     id: layerFieldsScreen
     t: Theme
