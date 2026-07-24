@@ -29,6 +29,17 @@ QfPopup {
   property int currentMarkerShape: -1
   property bool categoriesVisible: false
   property var categoryEntries: []
+  property var styleTargetLayer: null
+  property var styleTargetMapLayer: null
+
+  function openColorPicker(title, current, callback) {
+    colorPicker.title = title;
+    colorPicker.colorPicked.connect(function handler(chosen) {
+      colorPicker.colorPicked.disconnect(handler);
+      callback(chosen);
+    });
+    colorPicker.openFor(current);
+  }
   property var availableFields: []
   property bool labelsOn: false
   property string labelField: ""
@@ -73,6 +84,8 @@ QfPopup {
     symbologyVisible = styleLayer ? LayerUtils.hasSimpleSymbology(styleLayer) : false;
     categoriesVisible = styleLayer ? LayerUtils.hasCategorizedSymbology(styleLayer) : false;
     categoryEntries = categoriesVisible ? LayerUtils.rendererCategories(styleLayer) : [];
+    styleTargetLayer = styleLayer;
+    styleTargetMapLayer = layerTree.data(index, FlatLayerTreeModel.MapLayerPointer);
     availableFields = styleLayer ? LayerUtils.layerFields(styleLayer) : [];
 
     if (styleLayer) {
@@ -88,7 +101,7 @@ QfPopup {
     if (symbologyVisible) {
       symbolKind = LayerUtils.symbolType(styleLayer);
       symbolSizeSlider.value = Math.max(0, LayerUtils.symbolSize(styleLayer));
-      strokeWidthSlider.value = Math.max(0, LayerUtils.strokeWidth(styleLayer));
+      strokeWidthStepper.value = Math.max(0, LayerUtils.strokeWidth(styleLayer));
       fillPalette.currentColor = LayerUtils.fillColor(styleLayer);
       strokePalette.currentColor = LayerUtils.strokeColor(styleLayer);
       currentStrokeStyle = LayerUtils.strokeStyle(styleLayer);
@@ -395,6 +408,68 @@ QfPopup {
           spacing: 6
           visible: symbologyVisible
 
+          component StepperRow: RowLayout {
+            id: stepper
+
+            property string label: ""
+            property real value: 0
+            property real step: 0.1
+            property real minimum: 0
+            property real maximum: 20
+            property string suffix: " mm"
+            property int decimals: 1
+
+            signal valueEdited(real newValue)
+
+            function bump(delta) {
+              const next = Math.min(maximum, Math.max(minimum, value + delta));
+              if (Math.abs(next - value) < 0.0001)
+                return;
+              value = next;
+              valueEdited(next);
+            }
+
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 6
+
+            Text {
+              Layout.fillWidth: true
+              text: stepper.label
+              font: Theme.defaultFont
+              color: Theme.mainTextColor
+            }
+
+            QfButton {
+              text: "−"
+              font.pointSize: Theme.defaultFont.pointSize + 2
+              implicitWidth: 46
+              bgcolor: Theme.toolButtonBackgroundColor
+              color: Theme.mainOverlayColor
+              onClicked: stepper.bump(-stepper.step)
+              onPressAndHold: stepper.bump(-stepper.step * 10)
+            }
+
+            Text {
+              Layout.preferredWidth: 74
+              horizontalAlignment: Text.AlignHCenter
+              text: stepper.value.toFixed(stepper.decimals) + stepper.suffix
+              font: Theme.strongTipFont
+              color: Theme.mainTextColor
+            }
+
+            QfButton {
+              text: "+"
+              font.pointSize: Theme.defaultFont.pointSize + 2
+              implicitWidth: 46
+              bgcolor: Theme.toolButtonBackgroundColor
+              color: Theme.mainOverlayColor
+              onClicked: stepper.bump(stepper.step)
+              onPressAndHold: stepper.bump(stepper.step * 10)
+            }
+          }
+
           component SectionLabel: Text {
             Layout.fillWidth: true
             Layout.leftMargin: 4
@@ -440,15 +515,41 @@ QfPopup {
             text: symbolKind === 1 ? qsTr("Kolor linii") : qsTr("Wypełnienie")
           }
 
-          ColorGrid {
-            id: fillPalette
-            onPicked: chosen => {
-              const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-              if (!vl)
-                return;
-              LayerUtils.setFillColor(vl, chosen);
-              fillPalette.currentColor = chosen;
-              projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 8
+
+            Rectangle {
+              id: fillPalette
+              property color currentColor: "transparent"
+
+              width: 44
+              height: 30
+              radius: 4
+              color: currentColor
+              border.width: 1
+              border.color: Theme.controlBorderColor
+
+              MouseArea {
+                anchors.fill: parent
+                onClicked: openColorPicker(qsTr("Wypełnienie"), fillPalette.currentColor, function (chosen) {
+                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  if (!vl)
+                    return;
+                  LayerUtils.setFillColor(vl, chosen);
+                  fillPalette.currentColor = chosen;
+                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                })
+              }
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Dotknij, aby zmienić")
+              font: Theme.tipFont
+              color: Theme.secondaryTextColor
             }
           }
 
@@ -457,16 +558,42 @@ QfPopup {
             text: qsTr("Kontur")
           }
 
-          ColorGrid {
-            id: strokePalette
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            spacing: 8
             visible: symbolKind !== 1
-            onPicked: chosen => {
-              const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-              if (!vl)
-                return;
-              LayerUtils.setStrokeColor(vl, chosen);
-              strokePalette.currentColor = chosen;
-              projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+
+            Rectangle {
+              id: strokePalette
+              property color currentColor: "transparent"
+
+              width: 44
+              height: 30
+              radius: 4
+              color: currentColor
+              border.width: 1
+              border.color: Theme.controlBorderColor
+
+              MouseArea {
+                anchors.fill: parent
+                onClicked: openColorPicker(qsTr("Kontur"), strokePalette.currentColor, function (chosen) {
+                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  if (!vl)
+                    return;
+                  LayerUtils.setStrokeColor(vl, chosen);
+                  strokePalette.currentColor = chosen;
+                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                })
+              }
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Dotknij, aby zmienić")
+              font: Theme.tipFont
+              color: Theme.secondaryTextColor
             }
           }
 
@@ -475,28 +602,23 @@ QfPopup {
             Layout.leftMargin: 8
             Layout.rightMargin: 8
             spacing: 6
-            visible: strokeWidthSlider.value >= 0
+            visible: strokeWidthStepper.value >= 0
 
-            Text {
-              text: qsTr("Grubość")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
-            }
 
-            QfSlider {
-              id: strokeWidthSlider
-              Layout.fillWidth: true
-              from: 0
-              to: 5
-              stepSize: 0.1
-              suffixText: " mm"
-              height: 40
+            StepperRow {
+              id: strokeWidthStepper
+              label: qsTr("Grubość")
+              step: 0.1
+              minimum: 0
+              maximum: 10
+              suffix: " mm"
+              decimals: 1
 
-              onMoved: function () {
+              onValueEdited: newValue => {
                 const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
                 if (!vl)
                   return;
-                LayerUtils.setStrokeWidth(vl, value);
+                LayerUtils.setStrokeWidth(vl, newValue);
                 projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
               }
             }
@@ -748,13 +870,13 @@ QfPopup {
                     MouseArea {
                       anchors.fill: parent
                       onClicked: {
-                        const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-                        if (!vl)
+                        if (!styleTargetLayer)
                           return;
-                        LayerUtils.setCategoryColor(vl, categoryList.editingIndex, parent.modelData);
-                        categoryEntries = LayerUtils.rendererCategories(vl);
+                        LayerUtils.setCategoryColor(styleTargetLayer, categoryList.editingIndex, parent.modelData);
+                        categoryEntries = LayerUtils.rendererCategories(styleTargetLayer);
                         categoryList.editingIndex = -1;
-                        projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                        if (styleTargetMapLayer)
+                          projectInfo.saveLayerStyle(styleTargetMapLayer);
                       }
                     }
                   }
@@ -881,40 +1003,39 @@ QfPopup {
             color: Theme.secondaryTextColor
           }
 
-          Flow {
+          RowLayout {
             Layout.fillWidth: true
             Layout.leftMargin: 8
             Layout.rightMargin: 8
-            spacing: 5
+            spacing: 8
             visible: labelsOn
 
-            readonly property var swatches: ["#212121", "#ffffff", "#e53935", "#1e88e5", "#00897b", "#fb8c00", "#8e24aa", "#43a047"]
+            Rectangle {
+              width: 44
+              height: 30
+              radius: 4
+              color: labelColor
+              border.width: 1
+              border.color: Theme.controlBorderColor
 
-            Repeater {
-              model: parent.swatches
-
-              delegate: Rectangle {
-                required property string modelData
-
-                width: 28
-                height: 28
-                radius: 4
-                color: modelData
-                border.width: Qt.colorEqual(labelColor, modelData) ? 3 : 1
-                border.color: Qt.colorEqual(labelColor, modelData) ? Theme.mainColor : Theme.controlBorderColor
-
-                MouseArea {
-                  anchors.fill: parent
-                  onClicked: {
-                    const vl = labelPanel.currentLayer();
-                    if (!vl)
-                      return;
-                    LayerUtils.setLabelColor(vl, parent.modelData);
-                    labelColor = parent.modelData;
-                    labelPanel.persist();
-                  }
-                }
+              MouseArea {
+                anchors.fill: parent
+                onClicked: openColorPicker(qsTr("Kolor tekstu"), labelColor, function (chosen) {
+                  const vl = labelPanel.currentLayer();
+                  if (!vl)
+                    return;
+                  LayerUtils.setLabelColor(vl, chosen);
+                  labelColor = chosen;
+                  labelPanel.persist();
+                })
               }
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Dotknij, aby zmienić")
+              font: Theme.tipFont
+              color: Theme.secondaryTextColor
             }
           }
 
@@ -946,40 +1067,39 @@ QfPopup {
             }
           }
 
-          Flow {
+          RowLayout {
             Layout.fillWidth: true
             Layout.leftMargin: 8
             Layout.rightMargin: 8
-            spacing: 5
+            spacing: 8
             visible: labelsOn && labelBufferOn
 
-            readonly property var swatches: ["#ffffff", "#212121", "#fdd835", "#e0f2ef"]
+            Rectangle {
+              width: 44
+              height: 30
+              radius: 4
+              color: labelBufferColor
+              border.width: 1
+              border.color: Theme.controlBorderColor
 
-            Repeater {
-              model: parent.swatches
-
-              delegate: Rectangle {
-                required property string modelData
-
-                width: 28
-                height: 28
-                radius: 4
-                color: modelData
-                border.width: Qt.colorEqual(labelBufferColor, modelData) ? 3 : 1
-                border.color: Qt.colorEqual(labelBufferColor, modelData) ? Theme.mainColor : Theme.controlBorderColor
-
-                MouseArea {
-                  anchors.fill: parent
-                  onClicked: {
-                    const vl = labelPanel.currentLayer();
-                    if (!vl)
-                      return;
-                    LayerUtils.setLabelBuffer(vl, true, parent.modelData);
-                    labelBufferColor = parent.modelData;
-                    labelPanel.persist();
-                  }
-                }
+              MouseArea {
+                anchors.fill: parent
+                onClicked: openColorPicker(qsTr("Kolor otoczki"), labelBufferColor, function (chosen) {
+                  const vl = labelPanel.currentLayer();
+                  if (!vl)
+                    return;
+                  LayerUtils.setLabelBuffer(vl, true, chosen);
+                  labelBufferColor = chosen;
+                  labelPanel.persist();
+                })
               }
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Dotknij, aby zmienić")
+              font: Theme.tipFont
+              color: Theme.secondaryTextColor
             }
           }
         }
