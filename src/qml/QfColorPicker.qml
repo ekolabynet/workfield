@@ -30,6 +30,13 @@ Popup {
 
   property real alphaValue: 1.0
 
+  property bool showStrokeOptions: false
+  property real strokeWidth: 0.26
+  property int strokeStyle: 1
+
+  signal strokeWidthPicked(real width)
+  signal strokeStylePicked(int style)
+
   function openFor(color) {
     currentColor = color;
     alphaValue = color.a !== undefined ? color.a : 1.0;
@@ -128,6 +135,94 @@ Popup {
         text: Math.round(colorPicker.alphaValue * 100) + " %"
         font: t.tipFont
         color: t.secondaryTextColor
+      }
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      Layout.preferredHeight: 1
+      color: t.controlBorderColor
+      visible: colorPicker.showStrokeOptions
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 6
+      visible: colorPicker.showStrokeOptions
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Grubość")
+        font: t.defaultFont
+        color: t.mainTextColor
+      }
+
+      Button {
+        text: "−"
+        implicitWidth: 46
+        onClicked: {
+          colorPicker.strokeWidth = Math.max(0, colorPicker.strokeWidth - 0.1);
+          colorPicker.strokeWidthPicked(colorPicker.strokeWidth);
+        }
+      }
+
+      Text {
+        Layout.preferredWidth: 74
+        horizontalAlignment: Text.AlignHCenter
+        text: colorPicker.strokeWidth.toFixed(1) + " mm"
+        font: t.strongTipFont
+        color: t.mainTextColor
+      }
+
+      Button {
+        text: "+"
+        implicitWidth: 46
+        onClicked: {
+          colorPicker.strokeWidth = Math.min(10, colorPicker.strokeWidth + 0.1);
+          colorPicker.strokeWidthPicked(colorPicker.strokeWidth);
+        }
+      }
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+      visible: colorPicker.showStrokeOptions
+
+      Repeater {
+        model: [
+          {
+            "s": 1,
+            "n": qsTr("Ciągła")
+          },
+          {
+            "s": 2,
+            "n": qsTr("Kreskowana")
+          },
+          {
+            "s": 3,
+            "n": qsTr("Kropkowana")
+          },
+          {
+            "s": 4,
+            "n": qsTr("Kreska-kropka")
+          }
+        ]
+
+        delegate: Button {
+          required property var modelData
+
+          text: modelData.n
+          font.pointSize: t.tinyFont.pointSize
+          checkable: true
+          checked: colorPicker.strokeStyle === modelData.s
+
+          onClicked: {
+            colorPicker.strokeStyle = modelData.s;
+            colorPicker.strokeStylePicked(modelData.s);
+          }
+        }
       }
     }
 

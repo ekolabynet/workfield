@@ -29,11 +29,39 @@ QfPopup {
   property int currentMarkerShape: -1
   property bool categoriesVisible: false
   property var categoryEntries: []
+  property real strokeWidthValue: 0
   property var styleTargetLayer: null
   property var styleTargetMapLayer: null
 
+  function openStrokePicker(current, width, style, colorCallback, widthCallback, styleCallback) {
+    colorPicker.title = qsTr("Kontur");
+    colorPicker.showStrokeOptions = true;
+    colorPicker.strokeWidth = width;
+    colorPicker.strokeStyle = style;
+
+    colorPicker.colorPicked.connect(function ch(chosen) {
+      colorPicker.colorPicked.disconnect(ch);
+      colorCallback(chosen);
+    });
+    colorPicker.strokeWidthPicked.connect(function wh(w) {
+      widthCallback(w);
+    });
+    colorPicker.strokeStylePicked.connect(function sh(st) {
+      styleCallback(st);
+    });
+    colorPicker.closed.connect(function cl() {
+      colorPicker.closed.disconnect(cl);
+      colorPicker.showStrokeOptions = false;
+      colorPicker.strokeWidthPicked.disconnect(widthCallback);
+      colorPicker.strokeStylePicked.disconnect(styleCallback);
+    });
+
+    colorPicker.openFor(current);
+  }
+
   function openColorPicker(title, current, callback) {
     colorPicker.title = title;
+    colorPicker.showStrokeOptions = false;
     colorPicker.colorPicked.connect(function handler(chosen) {
       colorPicker.colorPicked.disconnect(handler);
       callback(chosen);
@@ -79,7 +107,7 @@ QfPopup {
     trackingButtonText = trackingModel.layerInActiveTracking(layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer)) ? qsTr('Stop tracking') : qsTr('Setup tracking');
 
     // the layer tree model returns -1 for items that do not support the opacity setting
-    opacitySliderVisible = layerTree.data(index, FlatLayerTreeModel.Opacity) > -1;
+    opacitySliderVisible = layerTree.data(index, FlatLayerTreeModel.Opacity) > -1 && !LayerUtils.hasSimpleSymbology(layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer));
     const styleLayer = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
     symbologyVisible = styleLayer ? LayerUtils.hasSimpleSymbology(styleLayer) : false;
     categoriesVisible = styleLayer ? LayerUtils.hasCategorizedSymbology(styleLayer) : false;
@@ -101,7 +129,7 @@ QfPopup {
     if (symbologyVisible) {
       symbolKind = LayerUtils.symbolType(styleLayer);
       symbolSizeSlider.value = Math.max(0, LayerUtils.symbolSize(styleLayer));
-      strokeWidthStepper.value = Math.max(0, LayerUtils.strokeWidth(styleLayer));
+      strokeWidthValue = Math.max(0, LayerUtils.strokeWidth(styleLayer));
       fillPalette.currentColor = LayerUtils.fillColor(styleLayer);
       strokePalette.currentColor = LayerUtils.strokeColor(styleLayer);
       currentStrokeStyle = LayerUtils.strokeStyle(styleLayer);
@@ -578,13 +606,27 @@ QfPopup {
 
               MouseArea {
                 anchors.fill: parent
-                onClicked: openColorPicker(qsTr("Kontur"), strokePalette.currentColor, function (chosen) {
-                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-                  if (!vl)
+                onClicked: openStrokePicker(strokePalette.currentColor, strokeWidthValue, currentStrokeStyle, function (chosen) {
+                  if (!styleTargetLayer)
                     return;
-                  LayerUtils.setStrokeColor(vl, chosen);
+                  LayerUtils.setStrokeColor(styleTargetLayer, chosen);
                   strokePalette.currentColor = chosen;
-                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                  if (styleTargetMapLayer)
+                    projectInfo.saveLayerStyle(styleTargetMapLayer);
+                }, function (w) {
+                  if (!styleTargetLayer)
+                    return;
+                  LayerUtils.setStrokeWidth(styleTargetLayer, w);
+                  strokeWidthValue = w;
+                  if (styleTargetMapLayer)
+                    projectInfo.saveLayerStyle(styleTargetMapLayer);
+                }, function (st) {
+                  if (!styleTargetLayer)
+                    return;
+                  LayerUtils.setStrokeStyle(styleTargetLayer, st);
+                  currentStrokeStyle = st;
+                  if (styleTargetMapLayer)
+                    projectInfo.saveLayerStyle(styleTargetMapLayer);
                 })
               }
             }
@@ -597,81 +639,7 @@ QfPopup {
             }
           }
 
-          RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            Layout.rightMargin: 8
-            spacing: 6
-            visible: strokeWidthStepper.value >= 0
 
-
-            StepperRow {
-              id: strokeWidthStepper
-              label: qsTr("Grubość")
-              step: 0.1
-              minimum: 0
-              maximum: 10
-              suffix: " mm"
-              decimals: 1
-
-              onValueEdited: newValue => {
-                const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-                if (!vl)
-                  return;
-                LayerUtils.setStrokeWidth(vl, newValue);
-                projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
-              }
-            }
-          }
-
-          SectionLabel {
-            text: qsTr("Styl linii")
-          }
-
-          Flow {
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            spacing: 6
-
-            Repeater {
-              model: [
-                {
-                  "s": 1,
-                  "n": qsTr("Ciągła")
-                },
-                {
-                  "s": 2,
-                  "n": qsTr("Kreskowana")
-                },
-                {
-                  "s": 3,
-                  "n": qsTr("Kropkowana")
-                },
-                {
-                  "s": 4,
-                  "n": qsTr("Kreska-kropka")
-                }
-              ]
-
-              delegate: QfButton {
-                required property var modelData
-
-                text: modelData.n
-                font.pointSize: Theme.tinyFont.pointSize
-                bgcolor: currentStrokeStyle === modelData.s ? Theme.mainColor : Theme.controlBackgroundAlternateColor
-                color: currentStrokeStyle === modelData.s ? Theme.mainOverlayColor : Theme.mainTextColor
-
-                onClicked: {
-                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-                  if (!vl)
-                    return;
-                  LayerUtils.setStrokeStyle(vl, modelData.s);
-                  currentStrokeStyle = modelData.s;
-                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
-                }
-              }
-            }
-          }
 
           SectionLabel {
             visible: symbolKind === 0
