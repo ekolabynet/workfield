@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Shapes
 import org.qgis
 import org.qfield
 import Theme
@@ -20,32 +21,51 @@ Column {
   // rozpoznawane warstwy szablonow: nazwa -> etykieta, litera, kolor
   readonly property var captureTargets: [
     {
+      "layerName": "platy",
+      "letter": "P",
+      "tooltip": qsTr("Rysuj płat (warstwa aktywna)"),
+      "color": "#69F0AE",
+      "shape": "polygon",
+      "mode": "digitize"
+    },
+    {
       "layerName": "platy_zalazki",
-      "letter": "Z",
+      "letter": "PZ",
       "tooltip": qsTr("Zalążek płatu"),
-      "color": "#FF4081"
+      "color": "#AB47BC",
+      "shape": "rounded",
+      "mode": "capture"
     },
     {
       "layerName": "zdjecia_fito",
-      "letter": "F",
+      "letter": "ZF",
       "tooltip": qsTr("Zdjęcie fitosocjologiczne"),
-      "color": "#FF2E75"
+      "color": "#FF9800",
+      "shape": "square",
+      "mode": "capture"
     },
     {
       "layerName": "gatunki",
       "letter": "G",
       "tooltip": qsTr("Obserwacja gatunku"),
-      "color": "#69F0AE"
+      "color": "#18FFFF",
+      "shape": "circle",
+      "mode": "capture"
     },
     {
       "layerName": "obserwacje",
       "letter": "O",
       "tooltip": qsTr("Szybka obserwacja"),
-      "color": "#C6FF00"
+      "color": "#C6FF00",
+      "shape": "circle",
+      "mode": "capture"
     }
   ]
 
   property var resolvedLayers: []
+  property var pendingLayer: null
+  property var pendingFeature: null
+  property var cameraSource: null
 
   spacing: 10
   visible: resolvedLayers.length > 0 && !overlayFeatureFormDrawer.opened && stateMachine.state !== "measure" && stateMachine.state !== "3d"
@@ -59,7 +79,9 @@ Column {
             "layer": layer,
             "letter": target.letter,
             "tooltip": target.tooltip,
-            "color": target.color
+            "color": target.color,
+            "shape": target.shape,
+            "mode": target.mode
           });
       }
     }
@@ -78,12 +100,47 @@ Column {
     const geometryInLayerCrs = GeometryUtils.reprojectGeometry(geometryInMapCrs, mapCanvas.mapSettings.destinationCrs, layer.crs);
     const feature = FeatureUtils.createFeature(layer, geometryInLayerCrs, positionSource.positionInformation);
 
+    // najpierw aparat, formularz otwiera sie po zdjeciu (lub po anulowaniu, bez foto)
+    pendingLayer = layer;
+    pendingFeature = feature;
+    const fileName = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss") + ".jpg";
+    cameraSource = platformUtilities.getCameraPicture(qgisProject.homePath + "/", fileName, "jpg", quickCaptureBar);
+    console.log("QuickCapture camera source:", cameraSource);
+    if (!cameraSource) {
+      openPendingForm("");
+    }
+  }
+
+  function openPendingForm(photoPath) {
+    if (!pendingLayer) {
+      return;
+    }
+    let feature = pendingFeature;
+    if (photoPath && photoPath !== "") {
+      feature.setAttribute("foto", photoPath);
+    }
     // celowo bez dotykania dashBoard.activeLayer - przypisanie imperatywne,
     // binding do warstwy aktywnej odtwarzany przy zamknieciu szuflady
-    overlayFeatureFormDrawer.featureModel.currentLayer = layer;
+    overlayFeatureFormDrawer.featureModel.currentLayer = pendingLayer;
     overlayFeatureFormDrawer.featureModel.feature = feature;
     overlayFeatureFormDrawer.state = "Add";
     overlayFeatureFormDrawer.open();
+    pendingLayer = null;
+    pendingFeature = null;
+    cameraSource = null;
+  }
+
+  Connections {
+    target: quickCaptureBar.cameraSource
+    ignoreUnknownSignals: true
+
+    function onResourceReceived(path) {
+      quickCaptureBar.openPendingForm(path);
+    }
+
+    function onResourceCanceled(path) {
+      quickCaptureBar.openPendingForm("");
+    }
   }
 
   Connections {
@@ -122,11 +179,30 @@ Column {
     delegate: Rectangle {
       width: 56
       height: 56
-      radius: width / 2
-      color: modelData.color
-      border.color: "#003D33"
+      radius: modelData.shape === "circle" ? width / 2 : modelData.shape === "rounded" ? 16 : 6
+      color: modelData.shape === "polygon" ? "transparent" : modelData.color
+      border.color: modelData.shape === "polygon" ? "transparent" : "#003D33"
       border.width: 2
       opacity: 0.92
+
+      Shape {
+        anchors.fill: parent
+        visible: modelData.shape === "polygon"
+
+        ShapePath {
+          strokeColor: "#003D33"
+          strokeWidth: 3
+          fillColor: modelData.color
+
+          // wielokat pomiarowy z logo WorkField, przeskalowany do 56px
+          PathMove { x: 12.5; y: 20.9 }
+          PathLine { x: 39.1; y: 10.7 }
+          PathLine { x: 51.6; y: 31.9 }
+          PathLine { x: 40.6; y: 53.0 }
+          PathLine { x: 10.9; y: 47.5 }
+          PathLine { x: 12.5; y: 20.9 }
+        }
+      }
 
       Text {
         anchors.centerIn: parent
@@ -138,7 +214,14 @@ Column {
 
       MouseArea {
         anchors.fill: parent
-        onClicked: quickCaptureBar.captureInto(modelData.layer)
+        onClicked: {
+          if (modelData.mode === "digitize") {
+            dashBoard.activeLayer = modelData.layer;
+            displayToast(modelData.tooltip, "info");
+          } else {
+            quickCaptureBar.captureInto(modelData.layer);
+          }
+        }
         onPressAndHold: displayToast(modelData.tooltip, "info")
       }
     }
