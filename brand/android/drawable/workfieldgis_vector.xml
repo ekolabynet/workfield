@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WorkField GIS logo (vivid) - converted from WorlFieldLogoScreen_vivid.svg -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+
+    <!-- subtle grid -->
+    <path
+        android:pathData="M256,0 L256,1024 M512,0 L512,1024 M768,0 L768,1024 M0,256 L1024,256 M0,512 L1024,512 M0,768 L1024,768"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeAlpha="0.08" />
+
+    <!-- survey polygon -->
+    <path
+        android:pathData="M300,380 L640,250 L800,520 L660,790 L280,720 Z"
+        android:fillColor="#003D33"
+        android:fillAlpha="0.55"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="22"
+        android:strokeLineJoin="round" />
+
+    <!-- vivid filled circle (tree/plot) -->
+    <path
+        android:pathData="M372,530 a168,168 0 1 0 336,0 a168,168 0 1 0 -336,0 Z"
+        android:fillColor="#FF2E75"
+        android:fillAlpha="0.677"
+        android:strokeColor="#AA003A"
+        android:strokeWidth="15" />
+
+    <!-- center dot -->
+    <path
+        android:pathData="M518,530 a22,22 0 1 0 44,0 a22,22 0 1 0 -44,0 Z"
+        android:fillColor="#B4003D" />
+
+    <!-- dashed tie line emulated as dots (VectorDrawable has no dasharray) -->
+    <path
+        android:pathData="M325.9,401.2 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0 Z M358.1,421.3 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0 Z M390.4,441.5 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0 Z M422.6,461.6 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0 Z M454.8,481.8 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0 Z M487.1,501.9 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0 Z"
+        android:fillColor="#FF4081"
+        android:fillAlpha="0.9" />
+
+    <!-- white vertices -->
+    <path
+        android:pathData="M606,250 a34,34 0 1 0 68,0 a34,34 0 1 0 -68,0 Z M766,520 a34,34 0 1 0 68,0 a34,34 0 1 0 -68,0 Z M626,790 a34,34 0 1 0 68,0 a34,34 0 1 0 -68,0 Z M246,720 a34,34 0 1 0 68,0 a34,34 0 1 0 -68,0 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- origin marker -->
+    <path
+        android:pathData="M266,380 a34,34 0 1 0 68,0 a34,34 0 1 0 -68,0 Z"
+        android:fillColor="#FF4081" />
+    <path
+        android:pathData="M240,380 a60,60 0 1 0 120,0 a60,60 0 1 0 -120,0 Z"
+        android:strokeColor="#FF4081"
+        android:strokeWidth="12"
+        android:strokeAlpha="0.55" />
+</vector>
