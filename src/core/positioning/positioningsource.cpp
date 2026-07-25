@@ -27,6 +27,8 @@
 #include "nmeagnssreceiver.h"
 #include "ntripclient.h"
 #include "positioningsource.h"
+
+#include <QtMath>
 #include "positioningutils.h"
 #include "tcpreceiver.h"
 #include "udpreceiver.h"
@@ -79,6 +81,7 @@ void PositioningSource::setActive( bool active )
     }
     mCompassTimer.stop();
     mCompass.setActive( false );
+    mCompassReadings.clear();
     mOrientation = std::numeric_limits<double>::quiet_NaN();
     emit orientationChanged();
   }
@@ -426,6 +429,28 @@ void PositioningSource::processCompassReading()
       orientation = 360 + orientation;
     }
 
+    // circular moving average to smooth noisy magnetometer readings
+    if ( mCompassSmoothingWindowMs > 0 )
+    {
+      const int maxSamples = qMax( 1, mCompassSmoothingWindowMs / mCompassTimer.interval() );
+      mCompassReadings.append( orientation );
+      while ( mCompassReadings.size() > maxSamples )
+        mCompassReadings.removeFirst();
+
+      double sumSin = 0.0;
+      double sumCos = 0.0;
+      for ( const double reading : std::as_const( mCompassReadings ) )
+      {
+        sumSin += qSin( qDegreesToRadians( reading ) );
+        sumCos += qCos( qDegreesToRadians( reading ) );
+      }
+      orientation = qRadiansToDegrees( qAtan2( sumSin, sumCos ) );
+      if ( orientation < 0.0 )
+      {
+        orientation = 360 + orientation;
+      }
+    }
+
     if ( mOrientation != orientation )
     {
       mOrientation = orientation;
@@ -579,4 +604,15 @@ void PositioningSource::setNtripLastError( const QString &error )
 int PositioningSource::deviceCapabilities() const
 {
   return mReceiver ? mReceiver->capabilities() : AbstractGnssReceiver::NoCapabilities;
+}
+
+void PositioningSource::setCompassSmoothingWindowMs( int window )
+{
+  window = qMax( 0, window );
+  if ( mCompassSmoothingWindowMs == window )
+    return;
+
+  mCompassSmoothingWindowMs = window;
+  mCompassReadings.clear();
+  emit compassSmoothingWindowMsChanged();
 }
