@@ -6,6 +6,9 @@ SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"/..
 
 export APK_VERSION_CODE=${APK_VERSION_CODE:-600}
 export APP_VERSION_STR=${APP_VERSION_STR:-0.6.0}
+export STOREPASS=${STOREPASS:-workfield2026}
+export KEYNAME=${KEYNAME:-workfield}
+export KEYPASS=${KEYPASS:-workfield2026}
 
 triplet=${triplet:-arm64-android}
 
