@@ -4815,6 +4815,13 @@ ApplicationWindow {
     source: bookmarkList
   }
 
+  QfQuickCaptureBar {
+    id: quickCaptureBar
+    anchors.right: parent.right
+    anchors.rightMargin: 8
+    anchors.verticalCenter: parent.verticalCenter
+  }
+
   OverlayFeatureFormDrawer {
     id: overlayFeatureFormDrawer
     objectName: "overlayFeatureFormDrawer"

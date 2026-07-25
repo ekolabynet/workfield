@@ -174,6 +174,11 @@ class LayerUtils : public QObject
     static Q_INVOKABLE QColor symbolColor( QgsVectorLayer *layer );
 
     /**
+     * Returns the first vector layer matching \a name in \a project, or nullptr.
+     */
+    static Q_INVOKABLE QgsVectorLayer *vectorLayerByName( QgsProject *project, const QString &name );
+
+    /**
      * Sets the color of a single-symbol renderer and repaints the layer.
      */
     static Q_INVOKABLE void setSymbolColor( QgsVectorLayer *layer, const QColor &color );
