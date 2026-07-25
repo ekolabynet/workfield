@@ -196,7 +196,7 @@ ListView {
           enabled: false
           bgcolor: "transparent"
           anchors.verticalCenter: parent.verticalCenter
-          iconSource: Theme.getThemeVectorIcon('NAZWA_Z_DRUGIEJ_LISTY')
+          iconSource: Theme.getThemeVectorIcon('ic_create_white_24dp')
           iconColor: Theme.mainOverlayColor
         }
 

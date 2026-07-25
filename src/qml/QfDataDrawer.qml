@@ -246,7 +246,7 @@ Drawer {
             padding: 0
             enabled: false
             bgcolor: "transparent"
-            iconSource: t.getThemeVectorIcon("NAZWA_Z_DRUGIEJ_LISTY")
+            iconSource: t.getThemeVectorIcon("ic_create_white_24dp")
             iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
             opacity: isCurrent ? 1.0 : 0.3
           }

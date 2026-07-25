@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Particles
 import QtCore
+import Qt.labs.folderlistmodel
 import org.qfield
 import Theme
 
@@ -24,6 +25,39 @@ Page {
 
   visible: false
   focus: visible
+
+  function templatesDataRoot() {
+    const dirs = platformUtilities.appDataDirs();
+    if (dirs.length === 0) {
+      return "";
+    }
+    return dirs[0].endsWith("/") ? dirs[0] : dirs[0] + "/";
+  }
+
+  function createProjectFromTemplate(templatePath, projectName) {
+    const root = templatesDataRoot();
+    if (root === "") {
+      return;
+    }
+    platformUtilities.createDir(root, "Imported Projects");
+    const safeName = FileUtils.sanitizeFilePathPart(projectName);
+    const destination = root + "Imported Projects/" + safeName;
+    if (FileUtils.fileExists(destination + "/projekt.qgs") || FileUtils.fileExists(destination + "/projekt.qgz")) {
+      displayToast(qsTr("Projekt o nazwie '%1' już istnieje").arg(safeName));
+      return;
+    }
+    if (!FileUtils.copyRecursively(templatePath, destination)) {
+      displayToast(qsTr("Nie udało się skopiować szablonu"));
+      return;
+    }
+    if (FileUtils.fileExists(destination + "/projekt.qgs")) {
+      iface.loadFile(destination + "/projekt.qgs", projectName);
+    } else if (FileUtils.fileExists(destination + "/projekt.qgz")) {
+      iface.loadFile(destination + "/projekt.qgz", projectName);
+    } else {
+      displayToast(qsTr("Szablon nie zawiera pliku projekt.qgs"));
+    }
+  }
 
   Settings {
     id: registry
@@ -499,59 +533,82 @@ Page {
           width: parent.width
           spacing: 12
 
-          Container {
-            id: welcomeActionsContainer
-            objectName: "welcomeActionsContainer"
-            Layout.preferredWidth: Math.min(welcomeActionsListView.contentWidth, welcomeActions.width)
-            Layout.preferredHeight: Math.max(welcomeActionCloud.height, welcomeActionLocalProjects.height, welcomeActionNewProject.height)
-            Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
+          Text {
+            id: templatesText
+            Layout.fillWidth: true
+            visible: templatesListView.count > 0
+            text: qsTr("Nowy z szablonu")
+            font.pointSize: Theme.tipFont.pointSize
+            font.bold: true
+            color: Theme.mainOverlayColor
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+          }
+
+          ListView {
+            id: templatesListView
+            Layout.fillWidth: true
+            Layout.preferredHeight: count > 0 ? 92 : 0
+            orientation: ListView.Horizontal
+            spacing: 8
             clip: true
+            visible: count > 0
 
-            readonly property real itemWidth: count > 3 ? welcomeActions.width / 3.3 : welcomeActions.width / 3
+            ScrollBar.horizontal: QfScrollBar {
+              policy: templatesListView.contentWidth > templatesListView.width ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+            }
 
-            contentItem: ListView {
-              id: welcomeActionsListView
-              model: parent.contentModel
-              width: parent.width
-              height: parent.height
-              orientation: ListView.Horizontal
-              spacing: 0
-              ScrollBar.horizontal: QfScrollBar {
-                policy: contentWidth > width ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+            model: FolderListModel {
+              id: templatesFolderModel
+              folder: "file://" + welcomeScreen.templatesDataRoot() + "templates"
+              showFiles: false
+              showDirs: true
+              showDotAndDotDot: false
+            }
+
+            delegate: Rectangle {
+              width: 150
+              height: 84
+              radius: 8
+              color: "transparent"
+              border.color: Theme.mainOverlayColor
+              border.width: 1
+
+              ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 4
+
+                Image {
+                  Layout.alignment: Qt.AlignHCenter
+                  source: Theme.getThemeVectorIcon("ic_add_white_24dp")
+                  sourceSize.width: 24
+                  sourceSize.height: 24
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  Layout.fillHeight: true
+                  text: fileName
+                  font: Theme.tipFont
+                  color: Theme.mainOverlayColor
+                  horizontalAlignment: Text.AlignHCenter
+                  verticalAlignment: Text.AlignVCenter
+                  wrapMode: Text.WordWrap
+                  elide: Text.ElideRight
+                  maximumLineCount: 2
+                }
               }
-            }
 
-            QfWelcomeAction {
-              id: welcomeActionCloud
-              objectName: "welcomeActionCloud"
-              width: welcomeActionsContainer.itemWidth
-              iconSource: Theme.getThemeVectorIcon("ic_cloud_active_24dp")
-              iconColor: Theme.cloudColor
-              label: qsTr("QFieldCloud\nprojects")
-              onClicked: showQFieldCloudScreen()
-            }
-
-            QfWelcomeAction {
-              id: welcomeActionLocalProjects
-              objectName: "welcomeActionLocalProjects"
-              width: welcomeActionsContainer.itemWidth
-              iconSource: Theme.getThemeVectorIcon("ic_folder_open_black_24dp")
-              iconColor: Theme.mainColor
-              label: qsTr("Local projects and\n datasets")
-              onClicked: {
-                platformUtilities.requestStoragePermission();
-                showLocalDataPicker();
+              MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                  templateNameDialog.templatePath = filePath;
+                  templateNameDialog.templateName = fileName;
+                  templateNameField.text = fileName + " Projekt " + new Date().toISOString().slice(0, 10);
+                  templateNameDialog.open();
+                }
               }
-            }
-
-            QfWelcomeAction {
-              id: welcomeActionNewProject
-              objectName: "welcomeActionNewProject"
-              width: welcomeActionsContainer.itemWidth
-              iconSource: Theme.getThemeVectorIcon("ic_add_white_24dp")
-              iconColor: Theme.mainColor
-              label: qsTr("Create new\nproject")
-              onClicked: showProjectCreationScreen()
             }
           }
 
@@ -566,6 +623,25 @@ Page {
             color: Theme.mainOverlayColor
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
+          }
+
+          Text {
+            Layout.fillWidth: true
+            Layout.topMargin: 14
+            Layout.bottomMargin: 4
+            text: qsTr("Otwórz lokalne projekty i dane…")
+            font.pointSize: Theme.tipFont.pointSize
+            font.underline: true
+            color: Theme.mainOverlayColor
+            horizontalAlignment: Text.AlignHCenter
+
+            MouseArea {
+              anchors.fill: parent
+              onClicked: {
+                platformUtilities.requestStoragePermission();
+                showLocalDataPicker();
+              }
+            }
           }
 
           Rectangle {
@@ -983,6 +1059,10 @@ Page {
   }
 
   Component.onCompleted: {
+    const templatesRoot = templatesDataRoot();
+    if (templatesRoot !== "") {
+      platformUtilities.createDir(templatesRoot, "templates");
+    }
     adjustWelcomeScreen();
     var runCount = settings.value("/QField/RunCount", 0) * 1;
     var feedbackFormShown = settings.value("/QField/FeedbackFormShown", false);
@@ -1034,6 +1114,48 @@ Page {
         visible = false;
       } else {
         event.accepted = false;
+      }
+    }
+  }
+
+  Dialog {
+    id: templateNameDialog
+
+    property string templatePath: ""
+    property string templateName: ""
+
+    parent: mainWindow.contentItem
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(mainWindow.width - 40, 400)
+    modal: true
+    title: qsTr("Nowy projekt z szablonu")
+    standardButtons: Dialog.Ok | Dialog.Cancel
+    focus: visible
+
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 8
+
+      Label {
+        Layout.fillWidth: true
+        text: qsTr("Nazwa projektu:")
+        font: Theme.defaultFont
+        color: Theme.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      TextField {
+        id: templateNameField
+        Layout.fillWidth: true
+        font: Theme.defaultFont
+        selectByMouse: true
+      }
+    }
+
+    onAccepted: {
+      if (templateNameField.text.trim() !== "") {
+        welcomeScreen.createProjectFromTemplate(templatePath, templateNameField.text.trim());
       }
     }
   }
