@@ -52,6 +52,7 @@ class PositioningSource : public QObject
     Q_PROPERTY( double antennaHeight READ antennaHeight WRITE setAntennaHeight NOTIFY antennaHeightChanged )
 
     Q_PROPERTY( double orientation READ orientation NOTIFY orientationChanged );
+    Q_PROPERTY( int compassSmoothingWindowMs READ compassSmoothingWindowMs WRITE setCompassSmoothingWindowMs NOTIFY compassSmoothingWindowMsChanged );
 
     Q_PROPERTY( bool logging READ logging WRITE setLogging NOTIFY loggingChanged )
     Q_PROPERTY( QString loggingPath READ loggingPath WRITE setLoggingPath NOTIFY loggingPathChanged )
@@ -201,6 +202,16 @@ class PositioningSource : public QObject
     double orientation() const { return mOrientation; }
 
     /**
+     * Returns the compass smoothing window in milliseconds (0 disables smoothing)
+     */
+    int compassSmoothingWindowMs() const { return mCompassSmoothingWindowMs; }
+
+    /**
+     * Sets the compass smoothing \a window in milliseconds (0 disables smoothing)
+     */
+    void setCompassSmoothingWindowMs( int window );
+
+    /**
      * Returns whether GNSS devices will log their incoming position stream into a logfile.
      * \note Requires a device type with logging capability
      */
@@ -305,6 +316,7 @@ class PositioningSource : public QObject
     void elevationCorrectionModeChanged();
     void antennaHeightChanged();
     void orientationChanged();
+    void compassSmoothingWindowMsChanged();
     void loggingChanged();
     void loggingPathChanged();
     void backgroundModeChanged();
@@ -362,6 +374,8 @@ class PositioningSource : public QObject
 
     QCompass mCompass;
     QTimer mCompassTimer;
+    QList<double> mCompassReadings;
+    int mCompassSmoothingWindowMs = 5000;
     double mOrientation = std::numeric_limits<double>::quiet_NaN();
 };
 
