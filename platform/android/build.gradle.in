@@ -92,13 +92,24 @@ android {
       }
     }
 
+    signingConfigs {
+      workfield {
+        storeFile file(System.getenv("STOREFILE") ?: "/usr/src/qfield/brand/workfield.keystore")
+        storePassword System.getenv("STOREPASS") ?: ""
+        keyAlias System.getenv("KEYNAME") ?: "workfield"
+        keyPassword System.getenv("KEYPASS") ?: ""
+      }
+    }
+
     buildTypes {
       release {
+         signingConfig signingConfigs.workfield
          ndk {
            abiFilters "@ANDROID_ABI@"
          }
        }
       debug {
+         signingConfig signingConfigs.workfield
          ndk {
            abiFilters "@ANDROID_ABI@"
          }
