@@ -560,7 +560,7 @@ Page {
 
             model: FolderListModel {
               id: templatesFolderModel
-              folder: "file://" + welcomeScreen.templatesDataRoot() + "templates"
+              folder: ""
               showFiles: false
               showDirs: true
               showDotAndDotDot: false
@@ -1062,6 +1062,7 @@ Page {
     const templatesRoot = templatesDataRoot();
     if (templatesRoot !== "") {
       platformUtilities.createDir(templatesRoot, "templates");
+      templatesFolderModel.folder = "file://" + templatesRoot + "templates";
     }
     adjustWelcomeScreen();
     var runCount = settings.value("/QField/RunCount", 0) * 1;
