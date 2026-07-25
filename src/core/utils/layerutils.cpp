@@ -1914,3 +1914,43 @@ QVariantList LayerUtils::wfsTypeNames( const QString &url )
   return result;
 }
 
+
+QgsVectorLayer *LayerUtils::vectorLayerByName( QgsProject *project, const QString &name )
+{
+  if ( !project )
+    return nullptr;
+
+  const QList<QgsMapLayer *> layers = project->mapLayers().values();
+
+  // 1. exact name match
+  for ( QgsMapLayer *layer : layers )
+  {
+    if ( QgsVectorLayer *vectorLayer = qobject_cast<QgsVectorLayer *>( layer ) )
+    {
+      if ( vectorLayer->name() == name )
+        return vectorLayer;
+    }
+  }
+
+  // 2. tolerant match: QGIS "file — layer" naming or provider layername= token
+  for ( QgsMapLayer *layer : layers )
+  {
+    QgsVectorLayer *vectorLayer = qobject_cast<QgsVectorLayer *>( layer );
+    if ( !vectorLayer )
+      continue;
+
+    if ( vectorLayer->name().endsWith( QStringLiteral( " \u2014 " ) + name ) || vectorLayer->name().endsWith( QStringLiteral( " - " ) + name ) )
+      return vectorLayer;
+
+    const QString source = vectorLayer->source();
+    const QString token = QStringLiteral( "layername=" ) + name;
+    const int idx = source.indexOf( token );
+    if ( idx >= 0 )
+    {
+      const int after = idx + token.length();
+      if ( after >= source.length() || source.at( after ) == QLatin1Char( '|' ) )
+        return vectorLayer;
+    }
+  }
+  return nullptr;
+}
