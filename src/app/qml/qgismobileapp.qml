@@ -5123,6 +5123,8 @@ ApplicationWindow {
       } else {
         coordinateLocator.cursorOutlineColor = "#FFFFFF";
       }
+      const coordinateCursorShapeOverride = parseInt(iface.readProjectEntry("qfieldsync", "/coordinateCursorShape", ""));
+      coordinateLocator.cursorShape = Qt.binding(() => isNaN(coordinateCursorShapeOverride) ? qfieldSettings.coordinateCursorShape : coordinateCursorShapeOverride);
       const coordinateCursorSize = iface.readProjectEntry("qfieldsync", "/coordinateCursorSize", "normal");
       switch (coordinateCursorSize) {
       case "tiny":

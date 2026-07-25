@@ -17,6 +17,10 @@ Item {
   property color cursorFillColor: "#000000"
   property color cursorOutlineColor: "#FFFFFF"
   property real cursorSizeScale: 1.0
+
+  //! Cursor shape: 0 = dot, 1 = cross, 2 = cross with dot, 3 = classic circle crosshair, 4 = reticle
+  property int cursorShape: 3
+  readonly property color effectiveCursorColor: !!overrideLocation && overrideLocation.x ? Qt.darker(Theme.positionColor, 1.25) : cursorFillColor
   readonly property real crossHalfLength: cursorSizeScale >= 2.0 ? 16 : cursorSizeScale >= 1.5 ? 14 : 8
 
   /**
@@ -196,7 +200,7 @@ Item {
     }
   }
 
-  Shape {
+  Item {
     id: crosshairCircle
 
     property bool isSnapped: false
@@ -229,66 +233,361 @@ Item {
       }
     }
 
-    ShapePath {
-      id: crosshairPathBuffer
-      strokeColor: locator.cursorOutlineColor
-      strokeWidth: crosshairPath.strokeWidth + 2
-      fillColor: "transparent"
+    Loader {
+      id: crosshairLoader
+      anchors.fill: parent
+      sourceComponent: {
+        switch (locator.cursorShape) {
+        case 0:
+          return dotCursorComponent;
+        case 1:
+          return crossCursorComponent;
+        case 2:
+          return crossDotCursorComponent;
+        case 4:
+          return reticleCursorComponent;
+        case 3:
+        default:
+          return classicCursorComponent;
+        }
+      }
     }
+  }
 
-    ShapePath {
-      id: crosshairPath
-      strokeColor: !!overrideLocation && overrideLocation.x ? Qt.darker(Theme.positionColor, 1.25) : locator.cursorFillColor
-      strokeWidth: 2
-      fillColor: "transparent"
+  //! Shape 0: plain dot
+  Component {
+    id: dotCursorComponent
 
-      PathAngleArc {
-        centerX: crosshairCircle.halfWidth
-        centerY: crosshairCircle.halfWidth
-        radiusX: crosshairCircle.halfWidth
-        radiusY: crosshairCircle.halfWidth
-        startAngle: 0 + crosshairCircle.arcSpacing
-        sweepAngle: 90 - crosshairCircle.arcSpacing * 2
+    Shape {
+      ShapePath {
+        strokeColor: locator.cursorOutlineColor
+        strokeWidth: 2
+        fillColor: locator.effectiveCursorColor
+
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: crosshairCircle.width / 8
+          radiusY: crosshairCircle.width / 8
+          startAngle: 0
+          sweepAngle: 360
+        }
       }
-      PathAngleArc {
-        centerX: crosshairCircle.halfWidth
-        centerY: crosshairCircle.halfWidth
-        radiusX: crosshairCircle.halfWidth
-        radiusY: crosshairCircle.halfWidth
-        startAngle: 90 + crosshairCircle.arcSpacing
-        sweepAngle: 90 - crosshairCircle.arcSpacing * 2
+    }
+  }
+
+  //! Shape 1: open-center cross (gap closes when snapped)
+  Component {
+    id: crossCursorComponent
+
+    Shape {
+      id: crossShape
+      property real gapLength: crosshairCircle.isSnapped ? 0 : crosshairCircle.halfWidth * 0.3
+
+      ShapePath {
+        id: crossBuffer
+        strokeColor: locator.cursorOutlineColor
+        strokeWidth: crossMain.strokeWidth + 2
+        fillColor: "transparent"
       }
-      PathAngleArc {
-        centerX: crosshairCircle.halfWidth
-        centerY: crosshairCircle.halfWidth
-        radiusX: crosshairCircle.halfWidth
-        radiusY: crosshairCircle.halfWidth
-        startAngle: 180 + crosshairCircle.arcSpacing
-        sweepAngle: 90 - crosshairCircle.arcSpacing * 2
+
+      ShapePath {
+        id: crossMain
+        strokeColor: locator.effectiveCursorColor
+        strokeWidth: 2
+        fillColor: "transparent"
+
+        PathMove {
+          x: crosshairCircle.halfWidth
+          y: 0
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.halfWidth - crossShape.gapLength
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.width
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.halfWidth + crossShape.gapLength
+        }
+        PathMove {
+          x: 0
+          y: crosshairCircle.halfWidth
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth - crossShape.gapLength
+          y: crosshairCircle.halfWidth
+        }
+        PathMove {
+          x: crosshairCircle.width
+          y: crosshairCircle.halfWidth
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth + crossShape.gapLength
+          y: crosshairCircle.halfWidth
+        }
       }
-      PathAngleArc {
-        centerX: crosshairCircle.halfWidth
-        centerY: crosshairCircle.halfWidth
-        radiusX: crosshairCircle.halfWidth
-        radiusY: crosshairCircle.halfWidth
-        startAngle: 270 + crosshairCircle.arcSpacing
-        sweepAngle: 90 - crosshairCircle.arcSpacing * 2
+
+      Component.onCompleted: {
+        crossBuffer.pathElements = crossMain.pathElements;
       }
-      PathMove {
-        x: crosshairCircle.halfWidth
-        y: crosshairCircle.halfWidth - locator.crossHalfLength
+    }
+  }
+
+  //! Shape 2: open-center cross with a center dot
+  Component {
+    id: crossDotCursorComponent
+
+    Shape {
+      id: crossDotShape
+      property real gapLength: crosshairCircle.isSnapped ? 0 : crosshairCircle.halfWidth * 0.35
+
+      ShapePath {
+        id: crossDotBuffer
+        strokeColor: locator.cursorOutlineColor
+        strokeWidth: crossDotMain.strokeWidth + 2
+        fillColor: "transparent"
       }
-      PathLine {
-        x: crosshairCircle.halfWidth
-        y: crosshairCircle.halfWidth + locator.crossHalfLength
+
+      ShapePath {
+        id: crossDotMain
+        strokeColor: locator.effectiveCursorColor
+        strokeWidth: 2
+        fillColor: "transparent"
+
+        PathMove {
+          x: crosshairCircle.halfWidth
+          y: 0
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.halfWidth - crossDotShape.gapLength
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.width
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.halfWidth + crossDotShape.gapLength
+        }
+        PathMove {
+          x: 0
+          y: crosshairCircle.halfWidth
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth - crossDotShape.gapLength
+          y: crosshairCircle.halfWidth
+        }
+        PathMove {
+          x: crosshairCircle.width
+          y: crosshairCircle.halfWidth
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth + crossDotShape.gapLength
+          y: crosshairCircle.halfWidth
+        }
       }
-      PathMove {
-        x: crosshairCircle.halfWidth - locator.crossHalfLength
-        y: crosshairCircle.halfWidth
+
+      ShapePath {
+        strokeColor: locator.cursorOutlineColor
+        strokeWidth: 1
+        fillColor: locator.effectiveCursorColor
+
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: crosshairCircle.width / 14
+          radiusY: crosshairCircle.width / 14
+          startAngle: 0
+          sweepAngle: 360
+        }
       }
-      PathLine {
-        x: crosshairCircle.halfWidth + locator.crossHalfLength
-        y: crosshairCircle.halfWidth
+
+      Component.onCompleted: {
+        crossDotBuffer.pathElements = crossDotMain.pathElements;
+      }
+    }
+  }
+
+  //! Shape 3: classic QField circle crosshair (default)
+  Component {
+    id: classicCursorComponent
+
+    Shape {
+      ShapePath {
+        id: classicBuffer
+        strokeColor: locator.cursorOutlineColor
+        strokeWidth: classicMain.strokeWidth + 2
+        fillColor: "transparent"
+      }
+
+      ShapePath {
+        id: classicMain
+        strokeColor: locator.effectiveCursorColor
+        strokeWidth: 2
+        fillColor: "transparent"
+
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: crosshairCircle.halfWidth
+          radiusY: crosshairCircle.halfWidth
+          startAngle: 0 + crosshairCircle.arcSpacing
+          sweepAngle: 90 - crosshairCircle.arcSpacing * 2
+        }
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: crosshairCircle.halfWidth
+          radiusY: crosshairCircle.halfWidth
+          startAngle: 90 + crosshairCircle.arcSpacing
+          sweepAngle: 90 - crosshairCircle.arcSpacing * 2
+        }
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: crosshairCircle.halfWidth
+          radiusY: crosshairCircle.halfWidth
+          startAngle: 180 + crosshairCircle.arcSpacing
+          sweepAngle: 90 - crosshairCircle.arcSpacing * 2
+        }
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: crosshairCircle.halfWidth
+          radiusY: crosshairCircle.halfWidth
+          startAngle: 270 + crosshairCircle.arcSpacing
+          sweepAngle: 90 - crosshairCircle.arcSpacing * 2
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.halfWidth - locator.crossHalfLength
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.halfWidth + locator.crossHalfLength
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth - locator.crossHalfLength
+          y: crosshairCircle.halfWidth
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth + locator.crossHalfLength
+          y: crosshairCircle.halfWidth
+        }
+      }
+
+      Component.onCompleted: {
+        classicBuffer.pathElements = classicMain.pathElements;
+      }
+    }
+  }
+
+  //! Shape 4: reticle with inner circle and graduation ticks
+  Component {
+    id: reticleCursorComponent
+
+    Shape {
+      ShapePath {
+        id: reticleBuffer
+        strokeColor: locator.cursorOutlineColor
+        strokeWidth: reticleMain.strokeWidth + 2
+        fillColor: "transparent"
+      }
+
+      ShapePath {
+        id: reticleMain
+        strokeColor: locator.effectiveCursorColor
+        strokeWidth: 2
+        fillColor: "transparent"
+
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: crosshairCircle.halfWidth
+          radiusY: crosshairCircle.halfWidth
+          startAngle: 0
+          sweepAngle: 360
+        }
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: crosshairCircle.halfWidth * 0.55
+          radiusY: crosshairCircle.halfWidth * 0.55
+          startAngle: 0
+          sweepAngle: 360
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth
+          y: 0
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth
+          y: crosshairCircle.width
+        }
+        PathMove {
+          x: 0
+          y: crosshairCircle.halfWidth
+        }
+        PathLine {
+          x: crosshairCircle.width
+          y: crosshairCircle.halfWidth
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth - 5
+          y: crosshairCircle.halfWidth * 0.5
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth + 5
+          y: crosshairCircle.halfWidth * 0.5
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth - 5
+          y: crosshairCircle.halfWidth * 1.5
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth + 5
+          y: crosshairCircle.halfWidth * 1.5
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth * 0.5
+          y: crosshairCircle.halfWidth - 5
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth * 0.5
+          y: crosshairCircle.halfWidth + 5
+        }
+        PathMove {
+          x: crosshairCircle.halfWidth * 1.5
+          y: crosshairCircle.halfWidth - 5
+        }
+        PathLine {
+          x: crosshairCircle.halfWidth * 1.5
+          y: crosshairCircle.halfWidth + 5
+        }
+      }
+
+      ShapePath {
+        strokeColor: "transparent"
+        strokeWidth: 0
+        fillColor: locator.effectiveCursorColor
+
+        PathAngleArc {
+          centerX: crosshairCircle.halfWidth
+          centerY: crosshairCircle.halfWidth
+          radiusX: 2.5
+          radiusY: 2.5
+          startAngle: 0
+          sweepAngle: 360
+        }
+      }
+
+      Component.onCompleted: {
+        reticleBuffer.pathElements = reticleMain.pathElements;
       }
     }
   }
@@ -378,10 +677,6 @@ Item {
         easing.type: Easing.InOutCubic
       }
     }
-  }
-
-  Component.onCompleted: {
-    crosshairPathBuffer.pathElements = crosshairPath.pathElements;
   }
 
   Connections {
