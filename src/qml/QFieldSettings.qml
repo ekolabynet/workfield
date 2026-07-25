@@ -48,6 +48,7 @@ Page {
   property alias enableInfoCollection: registry.enableInfoCollection
   property alias enableMapRotation: registry.enableMapRotation
   property alias quality: registry.quality
+  property alias coordinateCursorShape: registry.coordinateCursorShape
   property alias previewJobsEnabled: registry.previewJobsEnabled
   property alias snapToCommonAngleIsEnabled: registry.snapToCommonAngleIsEnabled
   property alias snapToCommonAngleIsRelative: registry.snapToCommonAngleIsRelative
@@ -156,6 +157,7 @@ Page {
     property bool enableInfoCollection: true
     property bool enableMapRotation: true
     property double quality: 1.0
+    property int coordinateCursorShape: 3
     property bool previewJobsEnabled: true
 
     property bool snapToCommonAngleIsEnabled: false
