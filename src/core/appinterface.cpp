@@ -553,3 +553,61 @@ void AppInterface::importUrl( const QString &url, const QString &title, bool loa
     emit importEnded();
   } );
 }
+
+bool AppInterface::saveProject()
+{
+  return QgsProject::instance()->write();
+}
+
+bool AppInterface::saveProjectAs( const QString &path )
+{
+  return QgsProject::instance()->write( path );
+}
+
+bool AppInterface::createBlankProject( const QString &path )
+{
+  QgsProject::instance()->clear();
+  return QgsProject::instance()->write( path );
+}
+
+bool AppInterface::removeProjectFolder( const QString &path )
+{
+  if ( path.contains( QStringLiteral( "/templates/" ) ) )
+    return false;
+
+  QDir dir( path );
+  if ( !dir.exists() )
+    return false;
+
+  return dir.removeRecursively();
+}
+
+QString AppInterface::projectTitle() const
+{
+  return QgsProject::instance()->title();
+}
+
+void AppInterface::setProjectTitle( const QString &title )
+{
+  QgsProject::instance()->setTitle( title );
+}
+
+QString AppInterface::projectCrsAuthid() const
+{
+  return QgsProject::instance()->crs().authid();
+}
+
+QString AppInterface::projectCrsDescription() const
+{
+  return QgsProject::instance()->crs().description();
+}
+
+bool AppInterface::setProjectCrs( const QString &authid )
+{
+  const QgsCoordinateReferenceSystem crs( authid );
+  if ( !crs.isValid() )
+    return false;
+
+  QgsProject::instance()->setCrs( crs );
+  return true;
+}
