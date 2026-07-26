@@ -25,15 +25,15 @@
     <!-- vivid filled circle (tree/plot) -->
     <path
         android:pathData="M372,530 a168,168 0 1 0 336,0 a168,168 0 1 0 -336,0 Z"
-        android:fillColor="#FF2E75"
-        android:fillAlpha="0.677"
-        android:strokeColor="#AA003A"
+        android:fillColor="#FF4081"
+        android:fillAlpha="0.14"
+        android:strokeColor="#FF4081"
         android:strokeWidth="15" />
 
     <!-- center dot -->
     <path
         android:pathData="M518,530 a22,22 0 1 0 44,0 a22,22 0 1 0 -44,0 Z"
-        android:fillColor="#B4003D" />
+        android:fillColor="#FF4081" />
 
     <!-- dashed tie line emulated as dots (VectorDrawable has no dasharray) -->
     <path

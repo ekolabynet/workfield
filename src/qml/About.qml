@@ -184,7 +184,7 @@ Item {
       Layout.fillWidth: true
       icon.source: Theme.getThemeVectorIcon('ic_book_white_24dp')
 
-      text: qsTr('Documentation')
+      text: qsTr('QField Ecosystem Documentation')
 
       onClicked: {
         Qt.openUrlExternally("https://docs.qfield.org/");
