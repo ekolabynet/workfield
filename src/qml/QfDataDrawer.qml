@@ -20,8 +20,8 @@ Drawer {
   edge: Qt.RightEdge
   width: Math.min(360, mainWindow.width * 0.85)
   height: parent.height
-  dragMargin: 0
-  interactive: opened
+  dragMargin: 10
+  interactive: opened || !overlayFeatureFormDrawer.opened
 
   onOpenedChanged: {
     if (opened)
