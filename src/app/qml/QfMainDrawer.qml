@@ -117,7 +117,7 @@ Drawer {
 
           Text {
             Layout.fillWidth: true
-            text: qsTr("Legenda")
+            text: qsTr("Stylizacja warstw")
             font: Theme.strongTipFont
             color: Theme.mainTextColor
           }
@@ -262,7 +262,7 @@ Drawer {
       currentIndex: 0
 
       TabButton {
-        text: qsTr("Legenda")
+        text: qsTr("Stylizacja warstw")
         font: Theme.tipFont
       }
       TabButton {
