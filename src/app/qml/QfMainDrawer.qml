@@ -65,6 +65,116 @@ Drawer {
   focus: visible
   clip: true
 
+  QtObject {
+    id: demDownloader
+
+    property int active: 0
+
+    function request(type) {
+      const services = type === "NMT" ? ["https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/WMS/SkorowidzeUkladKRON86?", "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/WMS/SkorowidzeUkladEVRF2007?"] : ["https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMPT/WMS/SkorowidzeUkladKRON86?", "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMPT/WMS/SkorowidzeUkladEVRF2007?"];
+      const points = iface.visibleExtentPointsIn2180(dashBoard.mapSettings, 2);
+      if (points.length === 0) {
+        displayToast(qsTr("Nie udalo sie wyznaczyc zasiegu mapy"), "warning");
+        return;
+      }
+      displayToast(qsTr("Szukam arkuszy %1 dla obszaru mapy...").arg(type));
+      queryService(services, 0, points, type);
+    }
+
+    function queryService(services, serviceIndex, points, type) {
+      if (serviceIndex >= services.length) {
+        displayToast(qsTr("Nie znaleziono arkuszy %1 dla tego obszaru").arg(type), "warning");
+        return;
+      }
+      const serviceUrl = services[serviceIndex];
+      const capsXhr = new XMLHttpRequest();
+      capsXhr.onreadystatechange = function () {
+        if (capsXhr.readyState !== XMLHttpRequest.DONE) {
+          return;
+        }
+        const layerMatches = capsXhr.responseText.match(/<Name>([^<]+)<\/Name>/g) || [];
+        const layers = layerMatches.map(m => m.replace(/<\/?Name>/g, "")).filter(n => n.indexOf("Skorowidze") === 0);
+        console.log("DEM caps:", serviceUrl, "-> warstwy:", layers.join("|"));
+        if (layers.length === 0) {
+          queryService(services, serviceIndex + 1, points, type);
+          return;
+        }
+        const layerParam = encodeURIComponent(layers.join(","));
+        collectUrls(serviceUrl, layerParam, points, 0, {}, type, services, serviceIndex);
+      };
+      capsXhr.open("GET", serviceUrl + "SERVICE=WMS&request=GetCapabilities");
+      capsXhr.send();
+    }
+
+    function collectUrls(serviceUrl, layerParam, points, pointIndex, found, type, services, serviceIndex) {
+      if (pointIndex >= points.length) {
+        const urls = Object.keys(found);
+        console.log("DEM: znaleziono URL-i:", urls.length);
+        if (urls.length === 0) {
+          queryService(services, serviceIndex + 1, points, type);
+          return;
+        }
+        startDownloads(urls, type);
+        return;
+      }
+      const pt = points[pointIndex];
+      const bbox = (pt.y - 50) + "," + (pt.x - 50) + "," + (pt.y + 50) + "," + (pt.x + 50);
+      const url = serviceUrl + "SERVICE=WMS&request=GetFeatureInfo&version=1.3.0&styles=&crs=EPSG:2180&width=101&height=101&format=image/png&transparent=true&i=50&j=50&INFO_FORMAT=text/html&layers=" + layerParam + "&query_layers=" + layerParam + "&bbox=" + bbox;
+      const xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== XMLHttpRequest.DONE) {
+          return;
+        }
+        const matches = xhr.responseText.match(/https?:\/\/[^"'<>\s]+\.(asc|tif|tiff|zip)/g) || [];
+        for (const u of matches) {
+          found[u] = true;
+        }
+        collectUrls(serviceUrl, layerParam, points, pointIndex + 1, found, type, services, serviceIndex);
+      };
+      xhr.open("GET", url);
+      xhr.send();
+    }
+
+    function startDownloads(urls, type) {
+      const capped = urls.slice(0, 4);
+      if (urls.length > 4) {
+        displayToast(qsTr("Obszar obejmuje %1 arkuszy - pobieram pierwsze 4 (przybliz mape po reszte)").arg(urls.length), "warning");
+      } else {
+        displayToast(qsTr("Pobieram %1: %2 arkuszy (duze pliki, to potrwa)...").arg(type).arg(capped.length));
+      }
+      for (const u of capped) {
+        const fileName = u.split("/").pop();
+        active++;
+        iface.downloadFile(u, qgisProject.homePath + "/" + type + "/" + fileName);
+      }
+    }
+  }
+
+  Connections {
+    target: iface
+
+    function onDownloadFinished(path) {
+      if (demDownloader.active <= 0) {
+        return;
+      }
+      demDownloader.active--;
+      const fileName = path.split("/").pop();
+      if (iface.addRasterLayerToProject(path, fileName, "EPSG:2180")) {
+        displayToast(qsTr("Wczytano %1").arg(fileName));
+      } else {
+        displayToast(qsTr("Pobrano, ale nie udalo sie wczytac %1").arg(fileName), "warning");
+      }
+    }
+
+    function onDownloadFailed(error, path) {
+      if (demDownloader.active <= 0) {
+        return;
+      }
+      demDownloader.active--;
+      displayToast(qsTr("Blad pobierania: %1").arg(error), "error");
+    }
+  }
+
   ColumnLayout {
     anchors.fill: parent
     anchors.topMargin: mainWindow.sceneTopMargin
@@ -178,7 +288,9 @@ Drawer {
             { "label": qsTr("Wydruki map"), "action": "print" },
             { "label": qsTr("Zakładki przestrzenne"), "action": "bookmarks" },
             { "label": qsTr("Wtyczki"), "action": "plugins" },
-            { "label": qsTr("Zablokuj ekran"), "action": "lockScreen" }
+            { "label": qsTr("Zablokuj ekran"), "action": "lockScreen" },
+            { "label": qsTr("Pobierz NMT (obszar mapy)"), "action": "nmt" },
+            { "label": qsTr("Pobierz NMPT (obszar mapy)"), "action": "nmpt" }
           ]
 
           delegate: MenuItem {
@@ -207,6 +319,14 @@ Drawer {
                 break;
               case "lockScreen":
                 lockScreen();
+                dashBoard.close();
+                break;
+              case "nmt":
+                demDownloader.request("NMT");
+                dashBoard.close();
+                break;
+              case "nmpt":
+                demDownloader.request("NMPT");
                 dashBoard.close();
                 break;
               }
