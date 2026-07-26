@@ -114,11 +114,11 @@ Item {
               width: parent.width
               height: parent.height
               fillMode: Image.PreserveAspectFit
-              source: "qrc:/images/opengis-logo.svg"
+              source: "qrc:/images/ekolaby-logo.png"
               sourceSize.width: width * screen.devicePixelRatio
               sourceSize.height: height * screen.devicePixelRatio
             }
-            onClicked: Qt.openUrlExternally("https://opengis.ch")
+            onClicked: Qt.openUrlExternally("https://ekolaby.net/info2")
           }
 
           Label {
@@ -128,7 +128,7 @@ Item {
             font: Theme.strongFont
             color: Theme.light
             textFormat: Text.RichText
-            text: qsTr("Developed by") + '<br><a href="https://opengis.ch">OPENGIS.ch</a>'
+            text: qsTr("Developed by") + '<br><a href="https://ekolaby.net/info2">Ekolaby.net</a><br><a href="mailto:kontakt@ekolaby.net">kontakt@ekolaby.net</a>'
             onLinkActivated: link => Qt.openUrlExternally(link)
           }
         }
