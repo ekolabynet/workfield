@@ -107,6 +107,7 @@
         <file>QfSubLayerPicker.qml</file>
         <file>QfNewLayerDialog.qml</file>
         <file>QfDataDrawer.qml</file>
+        <file>QfMainDrawer.qml</file>
         <file>QfQuickCaptureBar.qml</file>
         <file>QfLegendScreen.qml</file>
         <file>QfColorPicker.qml</file>

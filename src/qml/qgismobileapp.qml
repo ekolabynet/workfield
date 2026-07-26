@@ -3642,7 +3642,7 @@ ApplicationWindow {
     Component.onCompleted: focusstack.addFocusTaker(this)
   }
 
-  DashBoard {
+  QfMainDrawer {
     id: dashBoard
     objectName: "dashBoard"
 
