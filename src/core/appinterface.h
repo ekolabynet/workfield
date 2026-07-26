@@ -34,6 +34,8 @@ class QFieldXmlHttpRequest;
  * \brief App interface made available in QML as `iface`.
  * \ingroup core
  */
+class QgsQuickMapSettings;
+
 class AppInterface : public QObject
 {
     Q_OBJECT
@@ -92,6 +94,15 @@ class AppInterface : public QObject
 
     //! Sets the project CRS from \a authid, returns false when invalid.
     Q_INVOKABLE bool setProjectCrs( const QString &authid );
+
+    //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
+    Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
+
+    //! Adds raster at \a path to the project with a turbo pseudocolor renderer.
+    Q_INVOKABLE bool addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid );
+
+    //! Sample points (grid x grid) covering the visible extent, reprojected to EPSG:2180.
+    Q_INVOKABLE QVariantList visibleExtentPointsIn2180( QgsQuickMapSettings *mapSettings, int grid );
 
     //! Reloads the currently opened project.
     Q_INVOKABLE void reloadProject();
@@ -291,6 +302,8 @@ class AppInterface : public QObject
      * Emitted when a project loading has ended.
      */
     void loadProjectEnded( const QString &path, const QString &name );
+    void downloadFinished( const QString &path );
+    void downloadFailed( const QString &error, const QString &path );
 
     //! Requests QField to set its map to the provided \a extent.
     void setMapExtent( const QgsRectangle &extent );

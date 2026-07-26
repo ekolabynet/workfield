@@ -627,3 +627,106 @@ bool AppInterface::setProjectCrs( const QString &authid )
   QgsProject::instance()->setCrs( crs );
   return true;
 }
+
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <qgsrasterlayer.h>
+#include <qgscolorrampshader.h>
+#include <qgsrastershader.h>
+#include <qgssinglebandpseudocolorrenderer.h>
+#include <qgsrasterbandstats.h>
+#include "qgsquickmapsettings.h"
+
+void AppInterface::downloadFile( const QString &url, const QString &destinationPath )
+{
+  static QNetworkAccessManager sManager;
+  sManager.setRedirectPolicy( QNetworkRequest::NoLessSafeRedirectPolicy );
+  QNetworkReply *reply = sManager.get( QNetworkRequest( QUrl( url ) ) );
+  connect( reply, &QNetworkReply::finished, this, [this, reply, destinationPath]() {
+    if ( reply->error() != QNetworkReply::NoError )
+    {
+      emit downloadFailed( reply->errorString(), destinationPath );
+    }
+    else
+    {
+      QDir().mkpath( QFileInfo( destinationPath ).absolutePath() );
+      QFile file( destinationPath );
+      if ( file.open( QIODevice::WriteOnly ) )
+      {
+        file.write( reply->readAll() );
+        file.close();
+        emit downloadFinished( destinationPath );
+      }
+      else
+      {
+        emit downloadFailed( QStringLiteral( "Cannot write file" ), destinationPath );
+      }
+    }
+    reply->deleteLater();
+  } );
+}
+
+bool AppInterface::addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid )
+{
+  QgsRasterLayer *layer = new QgsRasterLayer( path, name );
+  if ( !layer->isValid() )
+  {
+    delete layer;
+    return false;
+  }
+  if ( !crsAuthid.isEmpty() )
+    layer->setCrs( QgsCoordinateReferenceSystem( crsAuthid ) );
+
+  const QgsRasterBandStats stats = layer->dataProvider()->bandStatistics( 1 );
+  QgsColorRampShader colorRampShader( stats.minimumValue, stats.maximumValue );
+  colorRampShader.setColorRampType( Qgis::ShaderInterpolationMethod::Linear );
+  QList<QgsColorRampShader::ColorRampItem> items;
+  const QList<QPair<double, QString>> turbo = {
+    { 0.00, QStringLiteral( "#30123B" ) }, { 0.17, QStringLiteral( "#3E9BFE" ) },
+    { 0.33, QStringLiteral( "#46F884" ) }, { 0.50, QStringLiteral( "#E1DD37" ) },
+    { 0.67, QStringLiteral( "#FA7D20" ) }, { 0.83, QStringLiteral( "#D23105" ) },
+    { 1.00, QStringLiteral( "#7A0403" ) } };
+  for ( const auto &stop : turbo )
+  {
+    const double value = stats.minimumValue + stop.first * ( stats.maximumValue - stats.minimumValue );
+    items << QgsColorRampShader::ColorRampItem( value, QColor( stop.second ), QString::number( value, 'f', 1 ) );
+  }
+  colorRampShader.setColorRampItemList( items );
+  QgsRasterShader *shader = new QgsRasterShader();
+  shader->setRasterShaderFunction( new QgsColorRampShader( colorRampShader ) );
+  layer->setRenderer( new QgsSingleBandPseudoColorRenderer( layer->dataProvider(), 1, shader ) );
+  layer->setOpacity( 0.7 );
+  QgsProject::instance()->addMapLayer( layer );
+  return true;
+}
+
+QVariantList AppInterface::visibleExtentPointsIn2180( QgsQuickMapSettings *mapSettings, int grid )
+{
+  QVariantList points;
+  if ( !mapSettings || grid < 1 )
+    return points;
+
+  const QgsCoordinateReferenceSystem crs2180( QStringLiteral( "EPSG:2180" ) );
+  const QgsCoordinateTransform transform( mapSettings->destinationCrs(), crs2180, QgsProject::instance() );
+  const QgsRectangle extent = mapSettings->visibleExtent();
+  for ( int i = 0; i <= grid; i++ )
+  {
+    for ( int j = 0; j <= grid; j++ )
+    {
+      const double x = extent.xMinimum() + ( extent.width() * i ) / grid;
+      const double y = extent.yMinimum() + ( extent.height() * j ) / grid;
+      try
+      {
+        const QgsPointXY pt = transform.transform( QgsPointXY( x, y ) );
+        QVariantMap map;
+        map.insert( QStringLiteral( "x" ), pt.x() );
+        map.insert( QStringLiteral( "y" ), pt.y() );
+        points << map;
+      }
+      catch ( const QgsCsException & )
+      {
+      }
+    }
+  }
+  return points;
+}
