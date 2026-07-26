@@ -66,6 +66,33 @@ class AppInterface : public QObject
      */
     Q_INVOKABLE bool loadFile( const QString &path, const QString &name = QString() );
 
+    //! Saves the currently opened project.
+    Q_INVOKABLE bool saveProject();
+
+    //! Saves the currently opened project under \a path.
+    Q_INVOKABLE bool saveProjectAs( const QString &path );
+
+    //! Clears the current project and writes a blank one at \a path.
+    Q_INVOKABLE bool createBlankProject( const QString &path );
+
+    //! Recursively removes a project folder at \a path. Refuses template masters.
+    Q_INVOKABLE bool removeProjectFolder( const QString &path );
+
+    //! Returns the current project title.
+    Q_INVOKABLE QString projectTitle() const;
+
+    //! Sets the current project \a title.
+    Q_INVOKABLE void setProjectTitle( const QString &title );
+
+    //! Returns the current project CRS authid (e.g. EPSG:2180).
+    Q_INVOKABLE QString projectCrsAuthid() const;
+
+    //! Returns the current project CRS description.
+    Q_INVOKABLE QString projectCrsDescription() const;
+
+    //! Sets the project CRS from \a authid, returns false when invalid.
+    Q_INVOKABLE bool setProjectCrs( const QString &authid );
+
     //! Reloads the currently opened project.
     Q_INVOKABLE void reloadProject();
 

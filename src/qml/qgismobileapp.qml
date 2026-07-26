@@ -4822,6 +4822,49 @@ ApplicationWindow {
     anchors.verticalCenter: parent.verticalCenter
   }
 
+  Dialog {
+    id: templateGuardDialog
+
+    property string templatePath: ""
+
+    parent: mainWindow.contentItem
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(mainWindow.width - 40, 420)
+    modal: true
+    title: qsTr("Otwarto wzorzec szablonu")
+
+    ColumnLayout {
+      anchors.fill: parent
+
+      Label {
+        Layout.fillWidth: true
+        text: qsTr("Ten projekt jest wzorcem w katalogu szablonów. Dane dodane tutaj zmienią szablon dla wszystkich przyszłych projektów.")
+        font: Theme.defaultFont
+        color: Theme.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+    }
+
+    footer: DialogButtonBox {
+      Button {
+        text: qsTr("Utwórz kopię roboczą")
+        DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+      }
+      Button {
+        text: qsTr("Pracuj na wzorcu")
+        DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+      }
+    }
+
+    onAccepted: {
+      const dir = FileUtils.absolutePath(templatePath);
+      const parts = dir.split("/").filter(part => part.length > 0);
+      const templateName = parts.length > 0 ? parts[parts.length - 1] : qsTr("Szablon");
+      welcomeScreen.createProjectFromTemplate(dir, templateName + " Projekt " + new Date().toISOString().slice(0, 10));
+    }
+  }
+
   OverlayFeatureFormDrawer {
     id: overlayFeatureFormDrawer
     objectName: "overlayFeatureFormDrawer"
@@ -4952,6 +4995,10 @@ ApplicationWindow {
     }
 
     function onLoadProjectEnded(path, name) {
+      if (path.indexOf("/templates/") !== -1) {
+        templateGuardDialog.templatePath = path;
+        templateGuardDialog.open();
+      }
       mapCanvasMap.unfreeze('projectload');
       busyOverlay.state = "hidden";
       dashBoard.layerTree.unfreeze(true);
