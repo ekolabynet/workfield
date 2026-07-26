@@ -1187,6 +1187,36 @@ Page {
         }
       }
 
+      Item {
+        Layout.preferredWidth: 8
+        Layout.preferredHeight: 1
+        visible: saveButtonRight.visible
+      }
+      QfToolButton {
+        id: saveButtonRight
+        property bool isVisible: !form.model.isWizard && (form.state === 'Add' || form.state === 'Edit')
+        Layout.alignment: Qt.AlignTop | Qt.AlignRight
+        visible: isVisible
+        width: Theme.toolButtonSize
+        height: Theme.toolButtonSize
+        clip: true
+        iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
+        iconColor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? Theme.mainOverlayColor : Theme.mainTextColor
+        bgcolor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? Theme.errorColor : !model.constraintsSoftValid ? Theme.warningColor : model.hasConstraints ? Theme.goodColor : Theme.mainColor
+        borderColor: Theme.mainBackgroundColor
+        roundborder: true
+        round: true
+        onClicked: {
+          if (model.constraintsHardValid) {
+            if (!model.constraintsSoftValid) {
+              displayToast(qsTr('Soft constraints were not satisified'));
+            }
+            confirm();
+          } else {
+            displayToast(qsTr('Hard constraints not satisfied'), 'error');
+          }
+        }
+      }
       QfToolButton {
         id: featureFormMenuButton
 
