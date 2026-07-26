@@ -18,7 +18,7 @@ Page {
   height: mainWindow.height
 
   header: QfPageHeader {
-    title: qsTr('Unable to load some layers')
+    title: qsTr('Nie udało się wczytać części warstw')
 
     showBackButton: false
     showApplyButton: false
@@ -40,7 +40,7 @@ Page {
       Layout.fillWidth: true
       Layout.fillHeight: false
 
-      text: qsTr("The following layers could not be loaded, please review those and reconfigure the QGIS project.")
+      text: qsTr("Poniższych warstw nie udało się wczytać. Pozostałe warstwy projektu działają normalnie — możesz wrócić do pracy albo poprawić źródła w QGIS.")
       font: Theme.defaultFont
       color: Theme.mainTextColor
       wrapMode: Text.WordWrap
@@ -117,6 +117,14 @@ Page {
       onLinkActivated: link => {
         Qt.openUrlExternally(link);
       }
+    }
+
+    Button {
+      Layout.fillWidth: true
+      Layout.topMargin: 5
+      text: qsTr("Wróć do projektu")
+      font: Theme.defaultFont
+      onClicked: badLayerPage.visible = false
     }
   }
 }
