@@ -191,7 +191,7 @@ Drawer {
           Layout.fillWidth: true
           text: qsTr("Folder projektu")
           font.pointSize: t.tinyFont.pointSize
-          icon.source: t.getThemeVectorIcon("wf_project_template")
+          icon.source: t.getThemeVectorIcon("wf_folder_project")
           icon.color: "transparent"
           icon.width: 26
           icon.height: 26
@@ -205,7 +205,7 @@ Drawer {
           Layout.fillWidth: true
           text: qsTr("Folder aplikacji")
           font.pointSize: t.tinyFont.pointSize
-          icon.source: t.getThemeVectorIcon("wf_project_new")
+          icon.source: t.getThemeVectorIcon("wf_folder_app")
           icon.color: "transparent"
           icon.width: 26
           icon.height: 26

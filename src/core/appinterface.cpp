@@ -808,3 +808,50 @@ bool AppInterface::migrateDataDir( const QString &source, const QString &destina
   }
   return true;
 }
+
+#include <gdal_utils.h>
+#include <qgsrastercalculator.h>
+
+bool AppInterface::demProcessing( const QString &tool, const QString &inputPath, const QString &outputPath )
+{
+  GDALAllRegister();
+  GDALDatasetH input = GDALOpen( inputPath.toUtf8().constData(), GA_ReadOnly );
+  if ( !input )
+    return false;
+
+  GDALDEMProcessingOptions *options = GDALDEMProcessingOptionsNew( nullptr, nullptr );
+  int usageError = FALSE;
+  GDALDatasetH output = GDALDEMProcessing( outputPath.toUtf8().constData(), input, tool.toUtf8().constData(), nullptr, options, &usageError );
+  GDALDEMProcessingOptionsFree( options );
+  GDALClose( input );
+  if ( !output )
+    return false;
+  GDALClose( output );
+  return true;
+}
+
+bool AppInterface::rasterDifference( const QString &pathA, const QString &pathB, const QString &outputPath )
+{
+  std::unique_ptr<QgsRasterLayer> layerA = std::make_unique<QgsRasterLayer>( pathA, QStringLiteral( "A" ) );
+  std::unique_ptr<QgsRasterLayer> layerB = std::make_unique<QgsRasterLayer>( pathB, QStringLiteral( "B" ) );
+  if ( !layerA->isValid() || !layerB->isValid() )
+    return false;
+
+  QgsRasterCalculatorEntry entryA;
+  entryA.ref = QStringLiteral( "A@1" );
+  entryA.raster = layerA.get();
+  entryA.bandNumber = 1;
+  QgsRasterCalculatorEntry entryB;
+  entryB.ref = QStringLiteral( "B@1" );
+  entryB.raster = layerB.get();
+  entryB.bandNumber = 1;
+
+  QgsRasterCalculator calculator( QStringLiteral( "\"A@1\" - \"B@1\"" ), outputPath, QStringLiteral( "GTiff" ), layerA->extent(), layerA->crs(), layerA->width(), layerA->height(), { entryA, entryB }, QgsProject::instance()->transformContext() );
+  return calculator.processCalculation() == QgsRasterCalculator::Result::Success;
+}
+
+QStringList AppInterface::listFiles( const QString &dirPath, const QString &nameFilter ) const
+{
+  QDir dir( dirPath );
+  return dir.entryList( QStringList() << nameFilter, QDir::Files, QDir::Name );
+}
