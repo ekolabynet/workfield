@@ -714,3 +714,14 @@ QVariantList AppInterface::visibleExtentPointsIn2180( QgsQuickMapSettings *mapSe
   }
   return points;
 }
+
+bool AppInterface::writeTextFile( const QString &path, const QString &content )
+{
+  QDir().mkpath( QFileInfo( path ).absolutePath() );
+  QFile file( path );
+  if ( !file.open( QIODevice::WriteOnly | QIODevice::Text ) )
+    return false;
+  file.write( content.toUtf8() );
+  file.close();
+  return true;
+}

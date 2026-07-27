@@ -32,7 +32,7 @@ Page {
   }
 
   header: QfPageHeader {
-    title: pickerMode ? qsTr("Wybierz plik z danymi") : (projectFolderView ? qsTr("Project Folder") : qsTr("Local Projects & Datasets"))
+    title: pickerMode ? qsTr("Wybierz plik z danymi") : (projectFolderView ? qsTr("Folder projektu") : qsTr("Lokalne projekty i dane"))
 
 
     showBackButton: true
@@ -498,7 +498,7 @@ Page {
         height: enabled ? 48 : 0
         leftPadding: Theme.menuItemLeftPadding
 
-        text: qsTr("View file")
+        text: qsTr("Podgląd pliku")
         onTriggered: {
           platformUtilities.open(itemMenu.itemPath);
         }
@@ -515,7 +515,7 @@ Page {
         height: enabled ? 48 : 0
         leftPadding: Theme.menuItemLeftPadding
 
-        text: qsTr("Send to...")
+        text: qsTr("Wyślij do…")
         onTriggered: {
           platformUtilities.sendDatasetTo(itemMenu.itemPath);
         }
@@ -564,7 +564,7 @@ Page {
         height: enabled ? 48 : 0
         leftPadding: Theme.menuItemLeftPadding
 
-        text: qsTr("Export to folder...")
+        text: qsTr("Eksportuj do folderu…")
         onTriggered: {
           platformUtilities.exportDatasetTo(itemMenu.itemPath);
         }
@@ -596,7 +596,7 @@ Page {
         height: enabled ? 48 : 0
         leftPadding: Theme.menuItemLeftPadding
 
-        text: !itemMenu.itemIsFavorite ? qsTr("Add to favorites") : qsTr("Remove from favorites")
+        text: !itemMenu.itemIsFavorite ? qsTr("Dodaj do ulubionych") : qsTr("Usuń z ulubionych")
         onTriggered: {
           if (!itemMenu.itemIsFavorite) {
             localFilesModel.addToFavorites(itemMenu.itemPath);
@@ -623,7 +623,7 @@ Page {
         height: enabled ? 48 : 0
         leftPadding: Theme.menuItemLeftPadding
 
-        text: qsTr("Export to folder...")
+        text: qsTr("Eksportuj do folderu…")
         onTriggered: {
           platformUtilities.exportFolderTo(itemMenu.itemPath);
         }
@@ -639,7 +639,7 @@ Page {
         height: enabled ? 48 : 0
         leftPadding: Theme.menuItemLeftPadding
 
-        text: qsTr("Send compressed folder to...")
+        text: qsTr("Wyślij spakowany folder do…")
         onTriggered: {
           platformUtilities.sendCompressedFolderTo(itemMenu.itemPath);
         }
@@ -655,7 +655,7 @@ Page {
         height: enabled ? 48 : 0
         leftPadding: Theme.menuItemLeftPadding
 
-        text: qsTr("Upload folder to WebDAV server")
+        text: qsTr("Wyślij folder na serwer WebDAV")
         onTriggered: {
           if (webdavConnectionLoader.item) {
             webdavConnectionLoader.item.uploadPaths([itemMenu.itemPath]);
@@ -673,7 +673,7 @@ Page {
         height: enabled ? 48 : 0
         leftPadding: Theme.menuItemLeftPadding
 
-        text: qsTr("Download folder from WebDAV server")
+        text: qsTr("Pobierz folder z serwera WebDAV")
         onTriggered: {
           if (webdavConnectionLoader.item) {
             webdavConnectionLoader.item.downloadPath(itemMenu.itemPath);

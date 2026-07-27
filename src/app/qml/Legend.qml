@@ -354,7 +354,7 @@ ListView {
 
             onClicked: {
               if (ReadOnly) {
-                displayToast(qsTr('This layer is configured as "Read-Only" which disables adding, deleting and editing features.'));
+                displayToast(qsTr('Warstwa jest oznaczona jako "tylko do odczytu" — dodawanie, usuwanie i edycja obiektów są wyłączone.'));
               } else {
                 displayToast(qsTr('The permissions configuration of this layer disables feature addition.'));
               }

@@ -95,6 +95,9 @@ class AppInterface : public QObject
     //! Sets the project CRS from \a authid, returns false when invalid.
     Q_INVOKABLE bool setProjectCrs( const QString &authid );
 
+    //! Writes \a content into a text file at \a path.
+    Q_INVOKABLE bool writeTextFile( const QString &path, const QString &content );
+
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 
