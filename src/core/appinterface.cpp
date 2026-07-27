@@ -668,7 +668,7 @@ bool AppInterface::addRasterLayerToProject( const QString &path, const QString &
     colorRampShader = QgsColorRampShader( 0.0, 40.0 );
     colorRampShader.setColorRampType( Qgis::ShaderInterpolationMethod::Discrete );
     const QList<QPair<double, QString>> classes = {
-      { 1.0, QStringLiteral( "#30123B" ) }, { 5.0, QStringLiteral( "#3E63CD" ) },
+      { 1.0, QStringLiteral( "#1030123B" ) }, { 5.0, QStringLiteral( "#903E63CD" ) },
       { 10.0, QStringLiteral( "#3E9BFE" ) }, { 15.0, QStringLiteral( "#46F884" ) },
       { 20.0, QStringLiteral( "#E1DD37" ) }, { 25.0, QStringLiteral( "#FA7D20" ) },
       { 30.0, QStringLiteral( "#D23105" ) }, { 10000.0, QStringLiteral( "#7A0403" ) } };
@@ -871,4 +871,49 @@ QStringList AppInterface::listFiles( const QString &dirPath, const QString &name
 {
   QDir dir( dirPath );
   return dir.entryList( QStringList() << nameFilter, QDir::Files, QDir::Name );
+}
+
+bool AppInterface::clipMergeRasters( const QStringList &inputPaths, double xmin, double ymin, double xmax, double ymax, const QString &outputPath )
+{
+  if ( inputPaths.isEmpty() )
+    return false;
+
+  GDALAllRegister();
+  QDir().mkpath( QFileInfo( outputPath ).absolutePath() );
+  QFile::remove( outputPath );
+
+  QVector<GDALDatasetH> inputs;
+  for ( const QString &path : inputPaths )
+  {
+    GDALDatasetH dataset = GDALOpen( path.toUtf8().constData(), GA_ReadOnly );
+    if ( dataset )
+      inputs << dataset;
+  }
+  if ( inputs.isEmpty() )
+    return false;
+
+  char **argv = nullptr;
+  argv = CSLAddString( argv, "-s_srs" );
+  argv = CSLAddString( argv, "EPSG:2180" );
+  argv = CSLAddString( argv, "-t_srs" );
+  argv = CSLAddString( argv, "EPSG:2180" );
+  argv = CSLAddString( argv, "-te" );
+  argv = CSLAddString( argv, QByteArray::number( xmin, 'f', 2 ).constData() );
+  argv = CSLAddString( argv, QByteArray::number( ymin, 'f', 2 ).constData() );
+  argv = CSLAddString( argv, QByteArray::number( xmax, 'f', 2 ).constData() );
+  argv = CSLAddString( argv, QByteArray::number( ymax, 'f', 2 ).constData() );
+  argv = CSLAddString( argv, "-co" );
+  argv = CSLAddString( argv, "COMPRESS=DEFLATE" );
+
+  GDALWarpAppOptions *options = GDALWarpAppOptionsNew( argv, nullptr );
+  CSLDestroy( argv );
+  int usageError = FALSE;
+  GDALDatasetH output = GDALWarp( outputPath.toUtf8().constData(), nullptr, inputs.size(), inputs.data(), options, &usageError );
+  GDALWarpAppOptionsFree( options );
+  for ( GDALDatasetH dataset : inputs )
+    GDALClose( dataset );
+  if ( !output )
+    return false;
+  GDALClose( output );
+  return true;
 }

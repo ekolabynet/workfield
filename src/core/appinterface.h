@@ -122,6 +122,9 @@ class AppInterface : public QObject
     //! Lists file names in \a dirPath matching \a nameFilter (e.g. "*.asc").
     Q_INVOKABLE QStringList listFiles( const QString &dirPath, const QString &nameFilter ) const;
 
+    //! Clips and merges \a inputPaths rasters into one mosaic at \a outputPath, cut to the given EPSG:2180 extent.
+    Q_INVOKABLE bool clipMergeRasters( const QStringList &inputPaths, double xmin, double ymin, double xmax, double ymax, const QString &outputPath );
+
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 
