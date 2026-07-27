@@ -98,6 +98,21 @@ class AppInterface : public QObject
     //! Writes \a content into a text file at \a path.
     Q_INVOKABLE bool writeTextFile( const QString &path, const QString &content );
 
+    //! Returns the user-preferred data directory, or empty when unset/invalid.
+    Q_INVOKABLE QString preferredDataDir() const;
+
+    //! Persists the user-preferred data directory (empty clears the preference).
+    Q_INVOKABLE void setPreferredDataDir( const QString &path );
+
+    //! Returns free space at \a path in gigabytes.
+    Q_INVOKABLE double storageFreeGb( const QString &path ) const;
+
+    //! Effective data root: preferred dir when set, first app data dir otherwise.
+    Q_INVOKABLE QString dataRoot() const;
+
+    //! Copies data content from \a source to \a destination; removes source content when \a removeSource.
+    Q_INVOKABLE bool migrateDataDir( const QString &source, const QString &destination, bool removeSource );
+
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 

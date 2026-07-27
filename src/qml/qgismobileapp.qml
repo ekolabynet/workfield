@@ -4900,6 +4900,20 @@ ApplicationWindow {
   }
 
   Timer {
+    id: projectAutoSaveTimer
+    interval: Math.max(1, qfieldSettings.projectAutoSaveInterval) * 60000
+    repeat: true
+    running: qfieldSettings.projectAutoSaveInterval > 0 && qgisProject && qgisProject.fileName !== "" && qgisProject.fileName.indexOf("/templates/") === -1
+    onTriggered: {
+      if (ProjectUtils.isProjectDirty(qgisProject)) {
+        if (ProjectUtils.saveProject(qgisProject)) {
+          displayToast(qsTr("Autozapis projektu"));
+        }
+      }
+    }
+  }
+
+  Timer {
     id: readProjectTimer
 
     interval: 250

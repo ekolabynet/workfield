@@ -27,11 +27,7 @@ Page {
   focus: visible
 
   function templatesDataRoot() {
-    const dirs = platformUtilities.appDataDirs();
-    if (dirs.length === 0) {
-      return "";
-    }
-    return dirs[0].endsWith("/") ? dirs[0] : dirs[0] + "/";
+    return iface.dataRoot();
   }
 
   function createProjectFromTemplate(templatePath, projectName) {
