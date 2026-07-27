@@ -262,7 +262,7 @@ ListView {
           horizontalAlignment: Text.AlignLeft
           font.pointSize: Theme.tipFont.pointSize
           font.bold: Type == FlatLayerTreeModel.Group || (Type == FlatLayerTreeModel.Layer && VectorLayerPointer && VectorLayerPointer == activeLayer) ? true : false
-          elide: Text.ElideRight
+          elide: Text.ElideMiddle
           opacity: Visible ? 1 : 0.25
           color: {
             if (isSelectedLayer)

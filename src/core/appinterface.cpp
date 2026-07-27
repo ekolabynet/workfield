@@ -666,7 +666,7 @@ void AppInterface::downloadFile( const QString &url, const QString &destinationP
   } );
 }
 
-bool AppInterface::addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid )
+bool AppInterface::addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style )
 {
   QgsRasterLayer *layer = new QgsRasterLayer( path, name );
   if ( !layer->isValid() )
@@ -677,19 +677,35 @@ bool AppInterface::addRasterLayerToProject( const QString &path, const QString &
   if ( !crsAuthid.isEmpty() )
     layer->setCrs( QgsCoordinateReferenceSystem( crsAuthid ) );
 
-  const QgsRasterBandStats stats = layer->dataProvider()->bandStatistics( 1 );
-  QgsColorRampShader colorRampShader( stats.minimumValue, stats.maximumValue );
-  colorRampShader.setColorRampType( Qgis::ShaderInterpolationMethod::Linear );
+  QgsColorRampShader colorRampShader;
   QList<QgsColorRampShader::ColorRampItem> items;
-  const QList<QPair<double, QString>> turbo = {
-    { 0.00, QStringLiteral( "#30123B" ) }, { 0.17, QStringLiteral( "#3E9BFE" ) },
-    { 0.33, QStringLiteral( "#46F884" ) }, { 0.50, QStringLiteral( "#E1DD37" ) },
-    { 0.67, QStringLiteral( "#FA7D20" ) }, { 0.83, QStringLiteral( "#D23105" ) },
-    { 1.00, QStringLiteral( "#7A0403" ) } };
-  for ( const auto &stop : turbo )
+  if ( style == QStringLiteral( "chm" ) )
   {
-    const double value = stats.minimumValue + stop.first * ( stats.maximumValue - stats.minimumValue );
-    items << QgsColorRampShader::ColorRampItem( value, QColor( stop.second ), QString::number( value, 'f', 1 ) );
+    colorRampShader = QgsColorRampShader( 0.0, 40.0 );
+    colorRampShader.setColorRampType( Qgis::ShaderInterpolationMethod::Discrete );
+    const QList<QPair<double, QString>> classes = {
+      { 1.0, QStringLiteral( "#30123B" ) }, { 5.0, QStringLiteral( "#3E63CD" ) },
+      { 10.0, QStringLiteral( "#3E9BFE" ) }, { 15.0, QStringLiteral( "#46F884" ) },
+      { 20.0, QStringLiteral( "#E1DD37" ) }, { 25.0, QStringLiteral( "#FA7D20" ) },
+      { 30.0, QStringLiteral( "#D23105" ) }, { 10000.0, QStringLiteral( "#7A0403" ) } };
+    for ( const auto &cls : classes )
+      items << QgsColorRampShader::ColorRampItem( cls.first, QColor( cls.second ), cls.first > 100 ? QStringLiteral( "> 30 m" ) : QStringLiteral( "<= %1 m" ).arg( cls.first ) );
+  }
+  else
+  {
+    const QgsRasterBandStats stats = layer->dataProvider()->bandStatistics( 1 );
+    colorRampShader = QgsColorRampShader( stats.minimumValue, stats.maximumValue );
+    colorRampShader.setColorRampType( Qgis::ShaderInterpolationMethod::Linear );
+    const QList<QPair<double, QString>> turbo = {
+      { 0.00, QStringLiteral( "#30123B" ) }, { 0.17, QStringLiteral( "#3E9BFE" ) },
+      { 0.33, QStringLiteral( "#46F884" ) }, { 0.50, QStringLiteral( "#E1DD37" ) },
+      { 0.67, QStringLiteral( "#FA7D20" ) }, { 0.83, QStringLiteral( "#D23105" ) },
+      { 1.00, QStringLiteral( "#7A0403" ) } };
+    for ( const auto &stop : turbo )
+    {
+      const double value = stats.minimumValue + stop.first * ( stats.maximumValue - stats.minimumValue );
+      items << QgsColorRampShader::ColorRampItem( value, QColor( stop.second ), QString::number( value, 'f', 1 ) );
+    }
   }
   colorRampShader.setColorRampItemList( items );
   QgsRasterShader *shader = new QgsRasterShader();
@@ -848,6 +864,7 @@ bool AppInterface::demProcessing( const QString &tool, const QString &inputPath,
 
 bool AppInterface::rasterDifference( const QString &pathA, const QString &pathB, const QString &outputPath )
 {
+  QDir().mkpath( QFileInfo( outputPath ).absolutePath() );
   std::unique_ptr<QgsRasterLayer> layerA = std::make_unique<QgsRasterLayer>( pathA, QStringLiteral( "A" ) );
   std::unique_ptr<QgsRasterLayer> layerB = std::make_unique<QgsRasterLayer>( pathB, QStringLiteral( "B" ) );
   if ( !layerA->isValid() || !layerB->isValid() )

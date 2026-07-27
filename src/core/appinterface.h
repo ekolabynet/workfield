@@ -126,7 +126,7 @@ class AppInterface : public QObject
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 
     //! Adds raster at \a path to the project with a turbo pseudocolor renderer.
-    Q_INVOKABLE bool addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid );
+    Q_INVOKABLE bool addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style = QString() );
 
     //! Sample points (grid x grid) covering the visible extent, reprojected to EPSG:2180.
     Q_INVOKABLE QVariantList visibleExtentPointsIn2180( QgsQuickMapSettings *mapSettings, int grid );
