@@ -113,6 +113,15 @@ class AppInterface : public QObject
     //! Copies data content from \a source to \a destination; removes source content when \a removeSource.
     Q_INVOKABLE bool migrateDataDir( const QString &source, const QString &destination, bool removeSource );
 
+    //! Runs a GDAL DEM tool (slope, aspect, hillshade, TRI, TPI, roughness) on \a inputPath.
+    Q_INVOKABLE bool demProcessing( const QString &tool, const QString &inputPath, const QString &outputPath );
+
+    //! Computes rasterA - rasterB (e.g. CHM = NMPT - NMT) into \a outputPath.
+    Q_INVOKABLE bool rasterDifference( const QString &pathA, const QString &pathB, const QString &outputPath );
+
+    //! Lists file names in \a dirPath matching \a nameFilter (e.g. "*.asc").
+    Q_INVOKABLE QStringList listFiles( const QString &dirPath, const QString &nameFilter ) const;
+
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 

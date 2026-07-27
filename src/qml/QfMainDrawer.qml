@@ -135,6 +135,48 @@ Drawer {
       xhr.send();
     }
 
+    function godloOf(fileName) {
+      const m = fileName.match(/[A-Z]-\d{2}-[0-9A-Za-z-]+/);
+      return m ? m[0] : "";
+    }
+
+    function computeChm() {
+      const home = qgisProject.homePath;
+      const nmtFiles = iface.listFiles(home + "/NMT", "*.asc").concat(iface.listFiles(home + "/NMT", "*.tif"));
+      const nmptFiles = iface.listFiles(home + "/NMPT", "*.asc").concat(iface.listFiles(home + "/NMPT", "*.tif"));
+      if (nmtFiles.length === 0 || nmptFiles.length === 0) {
+        displayToast(qsTr("Najpierw pobierz NMT i NMPT dla obszaru (foldery NMT/ i NMPT/ w projekcie)"), "warning");
+        return;
+      }
+      const nmtByGodlo = {};
+      for (const f of nmtFiles) {
+        const g = godloOf(f);
+        if (g !== "") {
+          nmtByGodlo[g] = f;
+        }
+      }
+      let pairs = 0;
+      let done = 0;
+      for (const f of nmptFiles) {
+        const g = godloOf(f);
+        if (g === "" || !nmtByGodlo[g]) {
+          continue;
+        }
+        pairs++;
+        const outPath = home + "/CHM/CHM_" + g + ".tif";
+        displayToast(qsTr("Liczę CHM dla arkusza %1…").arg(g));
+        if (iface.rasterDifference(home + "/NMPT/" + f, home + "/NMT/" + nmtByGodlo[g], outPath)) {
+          if (iface.addRasterLayerToProject(outPath, "CHM " + g, "EPSG:2180")) {
+            done++;
+          }
+        }
+      }
+      if (pairs === 0) {
+        displayToast(qsTr("Brak par NMT/NMPT o wspólnym godle — pobierz oba modele dla tego samego obszaru"), "warning");
+      } else {
+        displayToast(qsTr("CHM gotowe: %1 z %2 arkuszy").arg(done).arg(pairs));
+      }
+    }
     function startDownloads(urls, type) {
       const capped = urls.slice(0, 4);
       if (urls.length > 4) {
@@ -290,7 +332,8 @@ Drawer {
             { "label": qsTr("Wtyczki"), "action": "plugins" },
             { "label": qsTr("Zablokuj ekran"), "action": "lockScreen" },
             { "label": qsTr("Pobierz NMT (obszar mapy)"), "action": "nmt" },
-            { "label": qsTr("Pobierz NMPT (obszar mapy)"), "action": "nmpt" }
+            { "label": qsTr("Pobierz NMPT (obszar mapy)"), "action": "nmpt" },
+            { "label": qsTr("Policz CHM (NMPT \u2212 NMT)"), "action": "chm" }
           ]
 
           delegate: MenuItem {
@@ -327,6 +370,10 @@ Drawer {
                 break;
               case "nmpt":
                 demDownloader.request("NMPT");
+                dashBoard.close();
+                break;
+              case "chm":
+                demDownloader.computeChm();
                 dashBoard.close();
                 break;
               }
