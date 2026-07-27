@@ -45,7 +45,7 @@ Drawer {
 
       Text {
         Layout.fillWidth: true
-        text: qsTr("Dane")
+        text: qsTr("Projekt")
         font: t.strongFont
         color: t.mainTextColor
       }
@@ -186,6 +186,21 @@ Drawer {
           font.pointSize: t.tinyFont.pointSize
           enabled: projectSection.filePath !== ""
           onClicked: deleteProjectConfirm.open()
+        }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Folder aplikacji")
+          font.pointSize: t.tinyFont.pointSize
+          icon.source: t.getThemeVectorIcon("wf_project_new")
+          icon.color: "transparent"
+          icon.width: 26
+          icon.height: 26
+          onClicked: {
+            dataDrawer.close();
+            qfieldLocalDataPickerScreen.projectFolderView = true;
+            qfieldLocalDataPickerScreen.model.resetToPath(platformUtilities.appDataDirs()[0]);
+            qfieldLocalDataPickerScreen.visible = true;
+          }
         }
         Button {
           Layout.fillWidth: true

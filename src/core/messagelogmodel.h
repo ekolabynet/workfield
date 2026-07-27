@@ -72,6 +72,9 @@ class MessageLogModel : public QAbstractListModel
     //! Clears any messages from the log
     Q_INVOKABLE void clear();
 
+    //! Returns all log entries as plain text (for sharing/debugging).
+    Q_INVOKABLE QString toPlainText() const;
+
   private slots:
     void onMessageReceived( const QString &message, const QString &tag, Qgis::MessageLevel level, Qgis::StringFormat format );
 

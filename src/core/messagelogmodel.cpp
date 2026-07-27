@@ -133,3 +133,18 @@ void MessageLogModel::onMessageReceived( const QString &message, const QString &
   }
   endInsertRows();
 }
+
+QString MessageLogModel::toPlainText() const
+{
+  QStringList lines;
+  const QHash<int, QByteArray> roles = roleNames();
+  for ( int row = 0; row < rowCount( QModelIndex() ); row++ )
+  {
+    QStringList parts;
+    const QModelIndex idx = index( row, 0 );
+    for ( auto it = roles.constBegin(); it != roles.constEnd(); ++it )
+      parts << QStringLiteral( "%1: %2" ).arg( QString::fromUtf8( it.value() ), data( idx, it.key() ).toString() );
+    lines << parts.join( QStringLiteral( " | " ) );
+  }
+  return lines.join( QStringLiteral( "\n" ) );
+}

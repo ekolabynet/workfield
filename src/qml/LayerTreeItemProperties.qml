@@ -1261,7 +1261,7 @@ QfPopup {
           textFormat: Text.RichText
           text: {
             if (isReadOnly) {
-              return qsTr('Read-only layer');
+              return qsTr('Warstwa tylko do odczytu');
             } else if (isFeatureAdditionLocked || isAttributeEditingLocked || isGeometryEditingLocked || isFeatureDeletionLocked) {
               let locks = [];
               if (isFeatureAdditionLocked) {

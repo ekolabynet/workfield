@@ -369,6 +369,23 @@ Drawer {
           }
         }
 
+        MenuItem {
+          Layout.fillWidth: true
+          font: Theme.defaultFont
+          text: qsTr("Udostępnij dziennik (debug)")
+          onClicked: {
+            const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");
+            const path = platformUtilities.appDataDirs()[0] + "logs/workfield_log_" + stamp + ".txt";
+            if (iface.writeTextFile(path, messageLogModel.toPlainText())) {
+              displayToast(qsTr("Dziennik zapisany: %1").arg(path));
+              platformUtilities.sendDatasetTo(path);
+            } else {
+              displayToast(qsTr("Nie udało się zapisać dziennika"), "error");
+            }
+            dashBoard.close();
+          }
+        }
+
         Item {
           Layout.fillHeight: true
         }
