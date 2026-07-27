@@ -725,3 +725,86 @@ bool AppInterface::writeTextFile( const QString &path, const QString &content )
   file.close();
   return true;
 }
+
+QString AppInterface::preferredDataDir() const
+{
+  QSettings settings;
+  const QString path = settings.value( QStringLiteral( "workfield/preferredDataDir" ) ).toString();
+  if ( path.isEmpty() || !QDir( path ).exists() )
+    return QString();
+  return path;
+}
+
+void AppInterface::setPreferredDataDir( const QString &path )
+{
+  QSettings settings;
+  if ( path.isEmpty() )
+    settings.remove( QStringLiteral( "workfield/preferredDataDir" ) );
+  else
+    settings.setValue( QStringLiteral( "workfield/preferredDataDir" ), path );
+}
+
+#include <QStorageInfo>
+#include "platforms/platformutilities.h"
+
+double AppInterface::storageFreeGb( const QString &path ) const
+{
+  const QStorageInfo info( path );
+  return info.isValid() ? info.bytesAvailable() / 1073741824.0 : 0.0;
+}
+
+QString AppInterface::dataRoot() const
+{
+  QString root = preferredDataDir();
+  if ( root.isEmpty() )
+    root = PlatformUtilities::instance()->appDataDirs().value( 0 );
+  if ( !root.isEmpty() && !root.endsWith( QLatin1Char( '/' ) ) )
+    root += QLatin1Char( '/' );
+  return root;
+}
+
+static bool wfCopyRecursively( const QString &source, const QString &destination )
+{
+  QDir sourceDir( source );
+  if ( !sourceDir.exists() )
+    return false;
+  QDir().mkpath( destination );
+  const QFileInfoList entries = sourceDir.entryInfoList( QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot );
+  for ( const QFileInfo &entry : entries )
+  {
+    const QString target = destination + QLatin1Char( '/' ) + entry.fileName();
+    if ( entry.isDir() )
+    {
+      if ( !wfCopyRecursively( entry.absoluteFilePath(), target ) )
+        return false;
+    }
+    else
+    {
+      QFile::remove( target );
+      if ( !QFile::copy( entry.absoluteFilePath(), target ) )
+        return false;
+    }
+  }
+  return true;
+}
+
+bool AppInterface::migrateDataDir( const QString &source, const QString &destination, bool removeSource )
+{
+  if ( source.isEmpty() || destination.isEmpty() || source == destination )
+    return false;
+  if ( !wfCopyRecursively( source, destination ) )
+    return false;
+  if ( removeSource )
+  {
+    QDir sourceDir( source );
+    const QFileInfoList entries = sourceDir.entryInfoList( QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot );
+    for ( const QFileInfo &entry : entries )
+    {
+      if ( entry.isDir() )
+        QDir( entry.absoluteFilePath() ).removeRecursively();
+      else
+        QFile::remove( entry.absoluteFilePath() );
+    }
+  }
+  return true;
+}

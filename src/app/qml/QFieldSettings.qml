@@ -32,6 +32,7 @@ Page {
   onCurrentPanelChanged: if (currentPanel !== "")
     openCategory(currentPanel)
 
+  property alias projectAutoSaveInterval: registry.projectAutoSaveInterval
   property alias showScaleBar: registry.showScaleBar
   property alias showZoomControls: registry.showZoomControls
   property alias fullScreenIdentifyView: registry.fullScreenIdentifyView
@@ -158,6 +159,7 @@ Page {
     property bool enableMapRotation: true
     property double quality: 1.0
     property int coordinateCursorShape: 3
+    property int projectAutoSaveInterval: 5
     property bool previewJobsEnabled: true
 
     property bool snapToCommonAngleIsEnabled: false

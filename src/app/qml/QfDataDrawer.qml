@@ -198,7 +198,7 @@ Drawer {
           onClicked: {
             dataDrawer.close();
             qfieldLocalDataPickerScreen.projectFolderView = true;
-            qfieldLocalDataPickerScreen.model.resetToPath(platformUtilities.appDataDirs()[0]);
+            qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot());
             qfieldLocalDataPickerScreen.visible = true;
           }
         }
