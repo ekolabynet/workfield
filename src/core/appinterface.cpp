@@ -612,6 +612,8 @@ bool AppInterface::setProjectCrs( const QString &authid )
   return true;
 }
 
+#include <qgslayertree.h>
+#include <qgslayertreegroup.h>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <qgsrasterlayer.h>
@@ -650,7 +652,7 @@ void AppInterface::downloadFile( const QString &url, const QString &destinationP
   } );
 }
 
-bool AppInterface::addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style )
+bool AppInterface::addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style, const QString &groupName )
 {
   QgsRasterLayer *layer = new QgsRasterLayer( path, name );
   if ( !layer->isValid() )
@@ -696,7 +698,18 @@ bool AppInterface::addRasterLayerToProject( const QString &path, const QString &
   shader->setRasterShaderFunction( new QgsColorRampShader( colorRampShader ) );
   layer->setRenderer( new QgsSingleBandPseudoColorRenderer( layer->dataProvider(), 1, shader ) );
   layer->setOpacity( 0.7 );
-  QgsProject::instance()->addMapLayer( layer );
+  if ( groupName.isEmpty() )
+  {
+    QgsProject::instance()->addMapLayer( layer );
+  }
+  else
+  {
+    QgsLayerTreeGroup *group = QgsProject::instance()->layerTreeRoot()->findGroup( groupName );
+    if ( !group )
+      group = QgsProject::instance()->layerTreeRoot()->insertGroup( 0, groupName );
+    QgsProject::instance()->addMapLayer( layer, false );
+    group->addLayer( layer );
+  }
   return true;
 }
 
