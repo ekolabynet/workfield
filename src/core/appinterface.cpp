@@ -945,3 +945,20 @@ bool AppInterface::addXyzBasemap( const QString &name, const QString &url, int z
   root->insertLayer( root->children().count(), layer );
   return true;
 }
+
+QVariantMap AppInterface::transformPointToProjectCrs( double x, double y, const QString &fromAuthid ) const
+{
+  QVariantMap result;
+  const QgsCoordinateReferenceSystem fromCrs( fromAuthid );
+  const QgsCoordinateTransform transform( fromCrs, QgsProject::instance()->crs(), QgsProject::instance() );
+  try
+  {
+    const QgsPointXY pt = transform.transform( QgsPointXY( x, y ) );
+    result.insert( QStringLiteral( "x" ), pt.x() );
+    result.insert( QStringLiteral( "y" ), pt.y() );
+  }
+  catch ( const QgsCsException & )
+  {
+  }
+  return result;
+}
