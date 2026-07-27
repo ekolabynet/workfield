@@ -69,6 +69,10 @@ Drawer {
     id: demDownloader
 
     property int active: 0
+    property var mosaicBbox: null
+    property string activeType: ""
+    property string areaName: "Obszar 1"
+    property int areaCounter: 1
 
     property string pendingType: ""
 
@@ -84,6 +88,19 @@ Drawer {
         displayToast(qsTr("Nie udalo sie wyznaczyc zasiegu mapy"), "warning");
         return;
       }
+      let bx0 = points[0].x;
+      let by0 = points[0].y;
+      let bx1 = points[0].x;
+      let by1 = points[0].y;
+      for (const pt of points) {
+        bx0 = Math.min(bx0, pt.x);
+        by0 = Math.min(by0, pt.y);
+        bx1 = Math.max(bx1, pt.x);
+        by1 = Math.max(by1, pt.y);
+      }
+      const bufferMeters = Math.max(100, (bx1 - bx0) * 0.1);
+      mosaicBbox = { "xmin": bx0 - bufferMeters, "ymin": by0 - bufferMeters, "xmax": bx1 + bufferMeters, "ymax": by1 + bufferMeters };
+      activeType = type;
       displayToast(qsTr("Szukam arkuszy %1 dla obszaru mapy...").arg(type));
       queryService(services, 0, points, type, newestOnly);
     }
@@ -172,6 +189,34 @@ Drawer {
 
     function computeChm() {
       const home = qgisProject.homePath;
+      const nmtMosaics = iface.listFiles(home + "/NMT", "NMT_*.tif");
+      const nmptMosaics = iface.listFiles(home + "/NMPT", "NMPT_*.tif");
+      const nmptSet = {};
+      for (const m of nmptMosaics) {
+        nmptSet[m.replace("NMPT_", "")] = m;
+      }
+      const mosaicPairs = [];
+      for (const m of nmtMosaics) {
+        const suffix = m.replace("NMT_", "");
+        if (nmptSet[suffix]) {
+          mosaicPairs.push({ "suffix": suffix, "nmt": m, "nmpt": nmptSet[suffix] });
+        }
+      }
+      if (mosaicPairs.length > 0) {
+        displayToast(qsTr("Licze CHM z mozaik: %1 obszarow...").arg(mosaicPairs.length));
+        Qt.callLater(function () {
+          let doneMosaics = 0;
+          for (const pair of mosaicPairs) {
+            const chmOut = home + "/CHM/CHM_" + pair.suffix;
+            const areaLabel = pair.suffix.replace(".tif", "").replace(/_/g, " ");
+            if (iface.rasterDifference(home + "/NMPT/" + pair.nmpt, home + "/NMT/" + pair.nmt, chmOut) && iface.addRasterLayerToProject(chmOut, areaLabel + " CHM", "EPSG:2180", "chm")) {
+              doneMosaics++;
+            }
+          }
+          displayToast(qsTr("CHM gotowe: %1 z %2 obszarow").arg(doneMosaics).arg(mosaicPairs.length));
+        });
+        return;
+      }
       const nmtFiles = iface.listFiles(home + "/NMT", "*.asc").concat(iface.listFiles(home + "/NMT", "*.tif"));
       const nmptFiles = iface.listFiles(home + "/NMPT", "*.asc").concat(iface.listFiles(home + "/NMPT", "*.tif"));
       if (nmtFiles.length === 0 || nmptFiles.length === 0) {
@@ -225,6 +270,35 @@ Drawer {
         });
       });
     }
+    function mergeMosaic(type) {
+      if (!mosaicBbox) {
+        return;
+      }
+      const home = qgisProject.homePath;
+      const names = iface.listFiles(home + "/" + type, "*.asc").concat(iface.listFiles(home + "/" + type, "*.tif"));
+      const inputs = [];
+      for (const n of names) {
+        if (n.indexOf("_obszar") === -1) {
+          inputs.push(home + "/" + type + "/" + n);
+        }
+      }
+      if (inputs.length === 0) {
+        return;
+      }
+      displayToast(qsTr("Skladam mozaike %1 z %2 arkuszy...").arg(type).arg(inputs.length));
+      const areaSafe = areaName.replace(/[^\w-]/g, "_");
+      const outPath = home + "/" + type + "/" + type + "_" + areaSafe + ".tif";
+      Qt.callLater(function () {
+        if (iface.clipMergeRasters(inputs, mosaicBbox.xmin, mosaicBbox.ymin, mosaicBbox.xmax, mosaicBbox.ymax, outPath)) {
+          if (iface.addRasterLayerToProject(outPath, areaName + " " + type, "EPSG:2180")) {
+            displayToast(qsTr("%1 %2 gotowe - jedna warstwa, wspolna skala barw").arg(areaName).arg(type));
+            areaCounter++;
+          }
+        } else {
+          displayToast(qsTr("Nie udalo sie zlozyc mozaiki %1").arg(type), "error");
+        }
+      });
+    }
     function startDownloads(urls, type) {
       const capped = urls.slice(0, 4);
       if (urls.length > 4) {
@@ -262,11 +336,29 @@ Drawer {
         wrapMode: Text.WordWrap
       }
 
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+
+        Label {
+          text: qsTr("Nazwa obszaru:")
+          font: Theme.tipFont
+          color: Theme.secondaryTextColor
+        }
+
+        TextField {
+          id: areaNameField
+          Layout.fillWidth: true
+          font: Theme.defaultFont
+          text: demDownloader.areaName
+        }
+      }
       Button {
         Layout.fillWidth: true
         text: qsTr("Najnowsze arkusze")
         font.pointSize: Theme.tinyFont.pointSize
         onClicked: {
+          demDownloader.areaName = areaNameField.text.trim() !== "" ? areaNameField.text.trim() : "Obszar " + demDownloader.areaCounter;
           demScopeDialog.close();
           demDownloader.requestScoped(demDownloader.pendingType, true);
         }
@@ -277,6 +369,7 @@ Drawer {
         text: qsTr("Wszystkie roczniki")
         font.pointSize: Theme.tinyFont.pointSize
         onClicked: {
+          demDownloader.areaName = areaNameField.text.trim() !== "" ? areaNameField.text.trim() : "Obszar " + demDownloader.areaCounter;
           demScopeDialog.close();
           demDownloader.requestScoped(demDownloader.pendingType, false);
         }
@@ -300,11 +393,9 @@ Drawer {
       }
       demDownloader.active--;
       const fileName = path.split("/").pop();
-      const typePrefix = path.indexOf("/NMPT/") !== -1 ? "NMPT " : path.indexOf("/NMT/") !== -1 ? "NMT " : "";
-      if (iface.addRasterLayerToProject(path, typePrefix + fileName, "EPSG:2180")) {
-        displayToast(qsTr("Wczytano %1").arg(fileName));
-      } else {
-        displayToast(qsTr("Pobrano, ale nie udalo sie wczytac %1").arg(fileName), "warning");
+      displayToast(qsTr("Pobrano %1").arg(fileName));
+      if (demDownloader.active === 0 && demDownloader.activeType !== "") {
+        demDownloader.mergeMosaic(demDownloader.activeType);
       }
     }
 
