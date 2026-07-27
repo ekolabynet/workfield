@@ -170,6 +170,16 @@ QStringList AndroidPlatformUtilities::appDataDirs() const
 
 QString AndroidPlatformUtilities::applicationDirectory() const
 {
+  const QSettings settings;
+  const QString preferred = settings.value( QStringLiteral( "workfield/preferredDataDir" ) ).toString();
+  if ( !preferred.isEmpty() && QDir( preferred ).exists() )
+  {
+    QString cleaned = preferred;
+    while ( cleaned.endsWith( QLatin1Char( '/' ) ) )
+      cleaned.chop( 1 );
+    return cleaned;
+  }
+
   if ( mActivity.isValid() )
   {
     QJniObject rootDirs = mActivity.callObjectMethod<jstring>( "getApplicationDirectory" );

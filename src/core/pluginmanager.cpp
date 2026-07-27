@@ -408,7 +408,7 @@ void PluginManager::installFromUrl( const QString &url )
   } );
 
   connect( reply, &QNetworkReply::finished, this, [this, reply, url]() {
-    const QString dataDir = PlatformUtilities::instance()->appDataDirs().at( 0 );
+    const QString dataDir = PlatformUtilities::instance()->applicationDirectory() + QLatin1Char( '/' );
     QString error;
     if ( !dataDir.isEmpty() && reply->error() == QNetworkReply::NoError )
     {

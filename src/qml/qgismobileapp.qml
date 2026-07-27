@@ -469,7 +469,7 @@ ApplicationWindow {
     elevationCorrectionMode: positioningSettings.elevationCorrectionMode
     antennaHeight: positioningSettings.antennaHeightActivated ? positioningSettings.antennaHeight : 0
 
-    loggingPath: platformUtilities.appDataDirs()[0] + "/logs"
+    loggingPath: iface.dataRoot() + "logs"
     logging: positioningSettings.logging
 
     enableNtrip: positioningSettings.enableNtrip
