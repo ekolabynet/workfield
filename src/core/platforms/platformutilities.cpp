@@ -16,6 +16,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <QSettings>
 #include "appinterface.h"
 #include "fileutils.h"
 #include "platformutilities.h"
@@ -248,6 +249,15 @@ bool PlatformUtilities::renameFile( const QString &oldFilePath, const QString &n
 
 QString PlatformUtilities::applicationDirectory() const
 {
+  const QSettings settings;
+  const QString preferred = settings.value( QStringLiteral( "workfield/preferredDataDir" ) ).toString();
+  if ( !preferred.isEmpty() && QDir( preferred ).exists() )
+  {
+    QString cleaned = preferred;
+    while ( cleaned.endsWith( QLatin1Char( '/' ) ) )
+      cleaned.chop( 1 );
+    return cleaned;
+  }
   return QStandardPaths::standardLocations( QStandardPaths::DocumentsLocation ).first() + QStringLiteral( "/QField Documents/" );
 }
 
