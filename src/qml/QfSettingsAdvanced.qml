@@ -102,6 +102,10 @@ ColumnLayout {
       Layout.columnSpan: 2
       spacing: 2
 
+      ButtonGroup {
+        id: dirButtonGroup
+      }
+
       Repeater {
         model: platformUtilities.appDataDirs()
 
@@ -110,6 +114,7 @@ ColumnLayout {
 
           RadioButton {
             id: dirRadio
+            ButtonGroup.group: dirButtonGroup
             width: parent.width
             font: Theme.defaultFont
             text: (modelData.indexOf("emulated") !== -1 ? qsTr("Pamięć wewnętrzna") : modelData.indexOf("/storage/") === 0 ? qsTr("Karta SD") : qsTr("Dysk lokalny")) + " — " + iface.storageFreeGb(modelData).toFixed(1) + qsTr(" GB wolne")
