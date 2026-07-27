@@ -362,7 +362,7 @@ Drawer {
             text: model.Name
             font: t.defaultFont
             color: isCurrent ? t.mainOverlayColor : t.mainTextColor
-            elide: Text.ElideRight
+            elide: Text.ElideMiddle
           }
 
           Text {
