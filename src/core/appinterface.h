@@ -125,6 +125,9 @@ class AppInterface : public QObject
     //! Clips and merges \a inputPaths rasters into one mosaic at \a outputPath, cut to the given EPSG:2180 extent.
     Q_INVOKABLE bool clipMergeRasters( const QStringList &inputPaths, double xmin, double ymin, double xmax, double ymax, const QString &outputPath );
 
+    //! Adds an XYZ basemap layer at the bottom of the layer tree.
+    Q_INVOKABLE bool addXyzBasemap( const QString &name, const QString &url, int zmax );
+
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 

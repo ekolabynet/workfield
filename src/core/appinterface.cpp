@@ -930,3 +930,18 @@ bool AppInterface::clipMergeRasters( const QStringList &inputPaths, double xmin,
   GDALClose( output );
   return true;
 }
+
+bool AppInterface::addXyzBasemap( const QString &name, const QString &url, int zmax )
+{
+  const QString uri = QStringLiteral( "type=xyz&url=%1&zmin=0&zmax=%2" ).arg( QString( QUrl::toPercentEncoding( url ) ), QString::number( zmax ) );
+  QgsRasterLayer *layer = new QgsRasterLayer( uri, name, QStringLiteral( "wms" ) );
+  if ( !layer->isValid() )
+  {
+    delete layer;
+    return false;
+  }
+  QgsProject::instance()->addMapLayer( layer, false );
+  QgsLayerTree *root = QgsProject::instance()->layerTreeRoot();
+  root->insertLayer( root->children().count(), layer );
+  return true;
+}
