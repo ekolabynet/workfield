@@ -128,6 +128,9 @@ class AppInterface : public QObject
     //! Adds an XYZ basemap layer at the bottom of the layer tree.
     Q_INVOKABLE bool addXyzBasemap( const QString &name, const QString &url, int zmax );
 
+    //! Transforms a point from \a fromAuthid into the current project CRS.
+    Q_INVOKABLE QVariantMap transformPointToProjectCrs( double x, double y, const QString &fromAuthid ) const;
+
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 

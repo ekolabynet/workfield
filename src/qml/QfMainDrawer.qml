@@ -26,6 +26,9 @@ Drawer {
     }
   }
 
+  property var pendingBlankCenter: null
+  property bool pendingBlankSetup: false
+
   function requestDem(demType) {
     demDownloader.request(demType);
   }
@@ -404,6 +407,21 @@ Drawer {
   Connections {
     target: iface
 
+    function onLoadProjectEnded(path, name) {
+      if (!dashBoard.pendingBlankSetup) {
+        return;
+      }
+      dashBoard.pendingBlankSetup = false;
+      iface.setProjectCrs("EPSG:2178");
+      iface.addXyzBasemap("Esri World Imagery", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", 19);
+      if (dashBoard.pendingBlankCenter) {
+        const c = iface.transformPointToProjectCrs(dashBoard.pendingBlankCenter.x, dashBoard.pendingBlankCenter.y, "EPSG:2180");
+        if (c.x !== undefined) {
+          mapCanvas.mapSettings.extent = Qt.rect(c.x - 50, c.y - 50, 100, 100);
+        }
+      }
+    }
+
     function onDownloadFinished(path) {
       if (demDownloader.active <= 0) {
         return;
@@ -745,6 +763,9 @@ Drawer {
             const destination = root + "Imported Projects/" + safeName;
             if (projectNameDialog.mode === "blank") {
               platformUtilities.createDir(root + "Imported Projects", safeName);
+              const centerPoints = iface.visibleExtentPointsIn2180(dashBoard.mapSettings, 2);
+              dashBoard.pendingBlankCenter = centerPoints.length > 4 ? centerPoints[4] : null;
+              dashBoard.pendingBlankSetup = true;
               if (iface.createBlankProject(destination + "/projekt.qgs")) {
                 dataDrawer.close();
                 iface.loadFile(destination + "/projekt.qgs", name);
