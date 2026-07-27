@@ -189,6 +189,20 @@ Drawer {
         }
         Button {
           Layout.fillWidth: true
+          text: qsTr("Folder projektu")
+          font.pointSize: t.tinyFont.pointSize
+          icon.source: t.getThemeVectorIcon("wf_project_template")
+          icon.color: "transparent"
+          icon.width: 26
+          icon.height: 26
+          enabled: projectSection.filePath !== ""
+          onClicked: {
+            dataDrawer.close();
+            dashBoard.showProjectFolder();
+          }
+        }
+        Button {
+          Layout.fillWidth: true
           text: qsTr("Folder aplikacji")
           font.pointSize: t.tinyFont.pointSize
           icon.source: t.getThemeVectorIcon("wf_project_new")
