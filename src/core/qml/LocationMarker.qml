@@ -61,10 +61,10 @@ Item {
   Item {
     id: compassDirectionMarker
     visible: orientation > -1
-    width: 48
-    height: 48
+    width: 30
+    height: 30
     scale: locationMarker.sizeScale
-    opacity: 0.6
+    opacity: 0.3
 
     x: screenLocation.x - width / 2
     y: screenLocation.y - height
@@ -213,10 +213,10 @@ Item {
 
   Shape {
     id: movementMarker
-    visible: speed > 0 && isOnMapCanvas
+    visible: speed > 0.5 && isOnMapCanvas
     width: 26
     height: 26
-    scale: locationMarker.sizeScale
+    scale: locationMarker.sizeScale * 0.62
 
     x: screenLocation.x - width / 2
     y: screenLocation.y - height / 2
@@ -264,8 +264,8 @@ Item {
     id: positionMarker
     visible: !movementMarker.visible && isOnMapCanvas
 
-    width: 14 * locationMarker.sizeScale
-    height: 14 * locationMarker.sizeScale
+    width: 10 * locationMarker.sizeScale
+    height: 10 * locationMarker.sizeScale
 
     x: screenLocation.x - width / 2
     y: screenLocation.y - height / 2

@@ -408,6 +408,11 @@ Drawer {
     target: iface
 
     function onLoadProjectEnded(path, name) {
+      // domyslnie tryb digitalizacji - dopiero po zaladowaniu projektu
+      if (stateMachine.state === "browse") {
+        stateMachine.state = "digitize";
+      }
+
       if (!dashBoard.pendingBlankSetup) {
         return;
       }

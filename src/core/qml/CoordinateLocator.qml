@@ -207,7 +207,7 @@ Item {
     property real halfWidth: width / 2
     property real arcSpacing: isSnapped ? 0 : 20
 
-    width: (isSnapped ? 32 : 48) * locator.cursorSizeScale
+    width: (isSnapped ? 16 : 22) * locator.cursorSizeScale
     height: width
 
     x: displayPosition.x - halfWidth
