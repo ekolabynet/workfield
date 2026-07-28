@@ -146,7 +146,7 @@ Page {
     property bool showZoomControls: false
     property bool fullScreenIdentifyView: false
     property bool locatorKeepScale: false
-    property bool autoOpenFormSingleIdentify: false
+    property bool autoOpenFormSingleIdentify: true
     property bool autoZoomToIdentifiedFeature: false
     property bool numericalDigitizingInformation: false
     property bool showBookmarks: true
