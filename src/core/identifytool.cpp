@@ -72,6 +72,10 @@ void IdentifyTool::identify( const QPointF &point ) const
     if ( !layer->flags().testFlag( QgsMapLayer::Identifiable ) )
       continue;
 
+    // WorkField: warstwy moga byc wylaczone z reagowania na dotkniecie mapy
+    if ( !layer->customProperty( QStringLiteral( "workfield/selectable" ), true ).toBool() )
+      continue;
+
     if ( QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer ) )
     {
       QList<IdentifyResult> results = identifyVectorLayer( vl, mapPoint );

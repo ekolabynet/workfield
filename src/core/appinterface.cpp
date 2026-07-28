@@ -613,6 +613,7 @@ bool AppInterface::setProjectCrs( const QString &authid )
 }
 
 #include <qgsvectorlayer.h>
+#include <qgsmaplayer.h>
 #include <qgslayertree.h>
 #include <qgslayertreegroup.h>
 #include <QNetworkAccessManager>
@@ -1030,4 +1031,19 @@ QString AppInterface::layerInfoLabel( QgsVectorLayer *layer ) const
       break;
   }
   return QStringLiteral( "%1 \u00b7 %2" ).arg( geometry ).arg( layer->featureCount() );
+}
+
+bool AppInterface::layerSelectable( QgsMapLayer *layer ) const
+{
+  if ( !layer )
+    return false;
+  return layer->customProperty( QStringLiteral( "workfield/selectable" ), true ).toBool();
+}
+
+void AppInterface::setLayerSelectable( QgsMapLayer *layer, bool selectable )
+{
+  if ( !layer )
+    return;
+  layer->setCustomProperty( QStringLiteral( "workfield/selectable" ), selectable );
+  QgsProject::instance()->setDirty( true );
 }
