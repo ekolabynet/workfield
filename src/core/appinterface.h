@@ -36,6 +36,7 @@ class QFieldXmlHttpRequest;
  */
 class QgsQuickMapSettings;
 class QgsVectorLayer;
+class QgsMapLayer;
 
 class AppInterface : public QObject
 {
@@ -137,6 +138,12 @@ class AppInterface : public QObject
 
     //! Short info label for a vector layer: geometry type and feature count.
     Q_INVOKABLE QString layerInfoLabel( QgsVectorLayer *layer ) const;
+
+    //! Returns whether the layer reacts to map taps (identify).
+    Q_INVOKABLE bool layerSelectable( QgsMapLayer *layer ) const;
+
+    //! Sets whether the layer reacts to map taps (identify).
+    Q_INVOKABLE void setLayerSelectable( QgsMapLayer *layer, bool selectable );
 
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );

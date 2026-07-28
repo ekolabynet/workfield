@@ -494,7 +494,11 @@ Drawer {
         font: Theme.tipFont
       }
       TabButton {
-        text: qsTr("Stylizacja warstw")
+        text: qsTr("Warstwy")
+        font: Theme.tipFont
+      }
+      TabButton {
+        text: qsTr("Stylizacja")
         font: Theme.tipFont
       }
     }
@@ -716,7 +720,12 @@ Drawer {
         }
       }
         }
-      
+      }
+
+      // ── Warstwy ─────────────────────────────────────────────
+      ColumnLayout {
+        spacing: 0
+
         Text {
           Layout.fillWidth: true
           Layout.leftMargin: 8
@@ -805,7 +814,7 @@ Drawer {
       id: projectLayersList
 
       Layout.fillWidth: true
-      Layout.preferredHeight: Math.min(contentHeight, 240)
+      Layout.fillHeight: true
       clip: true
       model: dashBoard.layerTree
 
@@ -853,6 +862,24 @@ Drawer {
             font: t.tinyFont
             color: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
             opacity: 0.7
+          }
+
+          QfToolButton {
+            id: selectableToggle
+            width: 30
+            height: 30
+            padding: 0
+            bgcolor: "transparent"
+            property bool selectable: isVector ? iface.layerSelectable(model.VectorLayerPointer) : true
+            iconSource: t.getThemeVectorIcon(selectable ? "ic_show_green_48dp" : "ic_hide_green_48dp")
+            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+            opacity: selectable ? 1.0 : 0.35
+            onClicked: {
+              const next = !selectable;
+              iface.setLayerSelectable(model.VectorLayerPointer, next);
+              selectable = next;
+              displayToast(next ? qsTr("%1: reaguje na dotknięcie").arg(model.Name) : qsTr("%1: nie reaguje na dotknięcie").arg(model.Name));
+            }
           }
 
           QfToolButton {
@@ -930,11 +957,7 @@ Drawer {
             }
           }
         }
-
       }
-
-
-
 
       // ── Legenda ─────────────────────────────────────────────
       ColumnLayout {
