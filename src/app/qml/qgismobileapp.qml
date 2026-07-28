@@ -3022,10 +3022,10 @@ ApplicationWindow {
 
     Column {
       id: locationToolbar
-      anchors.right: parent.right
-      anchors.rightMargin: mainWindow.sceneRightMargin + 4
-      anchors.bottom: digitizingToolbarContainer.top
-      anchors.bottomMargin: 4
+      anchors.left: parent.left
+      anchors.leftMargin: mainWindow.sceneLeftMargin + 4
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: mainWindow.sceneBottomMargin + 4
 
       spacing: 4
 
@@ -3129,28 +3129,28 @@ ApplicationWindow {
         ]
 
         onClicked: {
+          // Dwa stany: kursor na pozycji GNSS albo kursor odpiety (wskazywanie na mapie).
+          // Pozycjonowanie zostaje wlaczone; wylaczyc mozna z menu (dlugie przytrzymanie).
           if (!positionSource.active) {
             positionSource.jumpToPosition = true;
             positioningSettings.positioningActivated = true;
-            positioningSettings.positioningCoordinateLock = false;
-            displayToast(qsTr("Pozycja włączona — kursor podąża za mapą"));
+            positioningSettings.positioningCoordinateLock = true;
+            displayToast(qsTr("Kursor na pozycji GNSS"));
             return;
           }
 
           if (!positioningSettings.positioningCoordinateLock) {
             if (!positionSource.projectedPosition.x) {
-              displayToast(qsTr("Waiting for location"));
+              displayToast(qsTr("Czekam na pozycję…"));
               return;
             }
             positioningSettings.positioningCoordinateLock = true;
-            jumpToLocation();
-            displayToast(qsTr("Kursor przypięty do pozycji GNSS"));
+            displayToast(qsTr("Kursor na pozycji GNSS"));
             return;
           }
 
           positioningSettings.positioningCoordinateLock = false;
-          positioningSettings.positioningActivated = false;
-          displayToast(qsTr("Pozycja wyłączona"));
+          displayToast(qsTr("Kursor odpięty — wskazuj na mapie"));
         }
 
         onPressAndHold: {
@@ -4734,7 +4734,7 @@ ApplicationWindow {
 
     extentController.keepScale: qfieldSettings.locatorKeepScale
 
-    selectionColor: "#ff7777"
+    selectionColor: "#80FFEB3B"
 
     onShowMessage: displayToast(message)
 
@@ -5600,7 +5600,20 @@ ApplicationWindow {
   QFieldLocalDataPickerScreen {
     id: qfieldLocalDataPickerScreen
 
+    readonly property var rasterExtensions: ["tif", "tiff", "asc", "vrt", "jp2", "img", "jpg", "png", "webp"]
+
     onDatasetPicked: path => {
+      const ext = path.split(".").pop().toLowerCase();
+      if (rasterExtensions.indexOf(ext) !== -1) {
+        const layerName = path.split("/").pop();
+        if (iface.addRasterLayerToProject(path, layerName, "")) {
+          displayToast(qsTr("Wczytano warstwę rastrową: %1").arg(layerName));
+        } else {
+          displayToast(qsTr("Nie udało się wczytać rastra %1").arg(layerName), "error");
+        }
+        qfieldLocalDataPickerScreen.visible = false;
+        return;
+      }
       subLayerPicker.openFor(path);
     }
 

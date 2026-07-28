@@ -34,7 +34,7 @@ QfVisibilityFadingRow {
   signal requestJumpToPoint(var center, real scale, bool handleMargins)
   signal requestPosition(var item, bool fromCoordinateLocator)
 
-  spacing: 4
+  spacing: 16
 
   /* This signal is emitted when the digitized geometry has been confirmed.
    * The correspoding handler is \c onConfirmed.
@@ -73,6 +73,9 @@ QfVisibilityFadingRow {
 
   QfToolButton {
     id: cancelButton
+
+    width: 44
+    height: 44
     iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
     visible: rubberbandModel && rubberbandModel.vertexCount > 1
     round: true
@@ -92,6 +95,9 @@ QfVisibilityFadingRow {
 
   QfToolButton {
     id: confirmButton
+
+    width: 56
+    height: 56
     iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
     visible: {
       if (!showConfirmButton) {
@@ -162,6 +168,9 @@ QfVisibilityFadingRow {
 
   QfToolButton {
     id: removeVertexButton
+
+    width: 48
+    height: 48
     iconSource: Theme.getThemeVectorIcon("ic_remove_white_24dp")
     iconColor: Theme.toolButtonColor
     visible: rubberbandModel && rubberbandModel.vertexCount > 1
@@ -184,6 +193,8 @@ QfVisibilityFadingRow {
   QfToolButton {
     id: addVertexButton
     round: true
+    width: 72
+    height: 72
     enabled: (cogoEnabled && cogoExecutor.isReady) || (!cogoEnabled && !screenHovering)
     bgcolor: {
       if (!enabled) {
