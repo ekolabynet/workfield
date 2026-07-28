@@ -35,6 +35,7 @@ class QFieldXmlHttpRequest;
  * \ingroup core
  */
 class QgsQuickMapSettings;
+class QgsVectorLayer;
 
 class AppInterface : public QObject
 {
@@ -130,6 +131,12 @@ class AppInterface : public QObject
 
     //! Transforms a point from \a fromAuthid into the current project CRS.
     Q_INVOKABLE QVariantMap transformPointToProjectCrs( double x, double y, const QString &fromAuthid ) const;
+
+    //! Zooms the map to the combined extent of non-basemap project layers.
+    Q_INVOKABLE bool zoomToProjectData( QgsQuickMapSettings *mapSettings );
+
+    //! Short info label for a vector layer: geometry type and feature count.
+    Q_INVOKABLE QString layerInfoLabel( QgsVectorLayer *layer ) const;
 
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
