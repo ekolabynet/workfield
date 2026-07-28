@@ -621,6 +621,40 @@ Drawer {
         }
         Button {
           Layout.fillWidth: true
+          text: qsTr("Powiększ do danych")
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            if (!iface.zoomToProjectData(dashBoard.mapSettings)) {
+              const e = dashBoard.mapSettings.extent;
+              const cx = e.x + e.width / 2;
+              const cy = e.y + e.height / 2;
+              dashBoard.mapSettings.extent = Qt.rect(cx - 500, cy - 500, 1000, 1000);
+            }
+            dashBoard.close();
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Importuj projekt (folder)")
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            dashBoard.close();
+            platformUtilities.importProjectFolder();
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Importuj projekt (ZIP)")
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            dashBoard.close();
+            platformUtilities.importProjectArchive();
+          }
+        }
+
+
+        Button {
+          Layout.fillWidth: true
           text: qsTr("Folder projektu")
           font.pointSize: t.tinyFont.pointSize
           icon.source: t.getThemeVectorIcon("wf_folder_project")
@@ -794,7 +828,7 @@ Drawer {
           }
 
           Text {
-            text: isVector ? model.VectorLayerPointer.crs.authid : ""
+            text: isVector ? model.VectorLayerPointer.crs.authid + "  " + iface.layerInfoLabel(model.VectorLayerPointer) : ""
             font: t.tinyFont
             color: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
             opacity: 0.7
@@ -837,6 +871,45 @@ Drawer {
         }
       }
     }
+
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.leftMargin: 8
+          Layout.rightMargin: 8
+          spacing: 8
+
+          Button {
+            Layout.fillWidth: true
+            text: qsTr("Pola")
+            font.pointSize: t.tinyFont.pointSize
+            enabled: dashBoard.activeLayer !== null && dashBoard.activeLayer !== undefined
+            onClicked: layerFieldsScreen.openFor(dashBoard.activeLayer)
+          }
+
+          Button {
+            Layout.fillWidth: true
+            text: qsTr("Eksportuj")
+            font.pointSize: t.tinyFont.pointSize
+            enabled: dashBoard.activeLayer !== null && dashBoard.activeLayer !== undefined
+            onClicked: {
+              dashBoard.close();
+              exportDialog.openFor(dashBoard.activeLayer);
+            }
+          }
+
+          Button {
+            Layout.fillWidth: true
+            text: qsTr("Usuń")
+            font.pointSize: t.tinyFont.pointSize
+            enabled: dashBoard.activeLayer !== null && dashBoard.activeLayer !== undefined
+            onClicked: {
+              removeLayerConfirm.targetLayer = dashBoard.activeLayer;
+              removeLayerConfirm.targetName = dashBoard.activeLayer.name;
+              removeLayerConfirm.open();
+            }
+          }
+        }
+
       }
 
 

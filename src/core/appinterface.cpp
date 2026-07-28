@@ -612,6 +612,7 @@ bool AppInterface::setProjectCrs( const QString &authid )
   return true;
 }
 
+#include <qgsvectorlayer.h>
 #include <qgslayertree.h>
 #include <qgslayertreegroup.h>
 #include <QNetworkAccessManager>
@@ -961,4 +962,58 @@ QVariantMap AppInterface::transformPointToProjectCrs( double x, double y, const 
   {
   }
   return result;
+}
+
+bool AppInterface::zoomToProjectData( QgsQuickMapSettings *mapSettings )
+{
+  if ( !mapSettings )
+    return false;
+  QgsRectangle combined;
+  const QMap<QString, QgsMapLayer *> layers = QgsProject::instance()->mapLayers();
+  for ( QgsMapLayer *layer : layers )
+  {
+    if ( layer->providerType() == QStringLiteral( "wms" ) )
+      continue;
+    QgsRectangle extent = layer->extent();
+    if ( extent.isEmpty() )
+      continue;
+    try
+    {
+      const QgsCoordinateTransform transform( layer->crs(), QgsProject::instance()->crs(), QgsProject::instance() );
+      extent = transform.transformBoundingBox( extent );
+    }
+    catch ( const QgsCsException & )
+    {
+      continue;
+    }
+    combined.combineExtentWith( extent );
+  }
+  if ( combined.isEmpty() )
+    return false;
+  combined.scale( 1.1 );
+  mapSettings->setExtent( combined );
+  return true;
+}
+
+QString AppInterface::layerInfoLabel( QgsVectorLayer *layer ) const
+{
+  if ( !layer )
+    return QString();
+  QString geometry;
+  switch ( layer->geometryType() )
+  {
+    case Qgis::GeometryType::Point:
+      geometry = tr( "punkty" );
+      break;
+    case Qgis::GeometryType::Line:
+      geometry = tr( "linie" );
+      break;
+    case Qgis::GeometryType::Polygon:
+      geometry = tr( "poligony" );
+      break;
+    default:
+      geometry = tr( "tabela" );
+      break;
+  }
+  return QStringLiteral( "%1 \u00b7 %2" ).arg( geometry ).arg( layer->featureCount() );
 }
