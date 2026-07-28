@@ -63,7 +63,6 @@ Item {
     visible: orientation > -1
     width: 30
     height: 30
-    scale: locationMarker.sizeScale
     opacity: 0.3
 
     x: screenLocation.x - width / 2
@@ -71,6 +70,13 @@ Item {
 
     rotation: orientation + mapSettings.rotation
     transformOrigin: Item.Bottom
+    // skala musi obracac sie wokol tego samego punktu co rotacja (dol = pozycja GPS)
+    transform: Scale {
+      origin.x: compassDirectionMarker.width / 2
+      origin.y: compassDirectionMarker.height
+      xScale: locationMarker.sizeScale
+      yScale: locationMarker.sizeScale
+    }
 
     property real wideness: 58.0
 
