@@ -612,6 +612,10 @@ bool AppInterface::setProjectCrs( const QString &authid )
   return true;
 }
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <qgsexpressioncontextutils.h>
 #include <qgsvectorlayer.h>
 #include <qgsmaplayer.h>
 #include <qgslayertree.h>
@@ -1046,4 +1050,137 @@ void AppInterface::setLayerSelectable( QgsMapLayer *layer, bool selectable )
     return;
   layer->setCustomProperty( QStringLiteral( "workfield/selectable" ), selectable );
   QgsProject::instance()->setDirty( true );
+}
+
+QString AppInterface::projectVariable( const QString &name ) const
+{
+  std::unique_ptr<QgsExpressionContextScope> scope( QgsExpressionContextUtils::projectScope( QgsProject::instance() ) );
+  return scope ? scope->variable( name ).toString() : QString();
+}
+
+void AppInterface::setProjectVariable( const QString &name, const QString &value )
+{
+  QgsExpressionContextUtils::setProjectVariable( QgsProject::instance(), name, value );
+  QgsProject::instance()->setDirty( true );
+}
+
+double AppInterface::sampleRasterAt( QgsMapLayer *layer, double x, double y ) const
+{
+  QgsRasterLayer *rl = qobject_cast<QgsRasterLayer *>( layer );
+  if ( !rl || !rl->dataProvider() )
+    return std::numeric_limits<double>::quiet_NaN();
+
+  QgsPointXY point( x, y );
+  if ( rl->crs() != QgsProject::instance()->crs() )
+  {
+    try
+    {
+      const QgsCoordinateTransform transform( QgsProject::instance()->crs(), rl->crs(), QgsProject::instance() );
+      point = transform.transform( point );
+    }
+    catch ( const QgsCsException & )
+    {
+      return std::numeric_limits<double>::quiet_NaN();
+    }
+  }
+
+  bool ok = false;
+  const double value = rl->dataProvider()->sample( point, 1, &ok );
+  return ok ? value : std::numeric_limits<double>::quiet_NaN();
+}
+
+double AppInterface::sampleRasterByName( const QString &nameFragment, double x, double y ) const
+{
+  const QMap<QString, QgsMapLayer *> layers = QgsProject::instance()->mapLayers();
+  for ( QgsMapLayer *layer : layers )
+  {
+    if ( qobject_cast<QgsRasterLayer *>( layer ) && layer->name().contains( nameFragment, Qt::CaseInsensitive ) )
+      return sampleRasterAt( layer, x, y );
+  }
+  return std::numeric_limits<double>::quiet_NaN();
+}
+
+double AppInterface::sampleRasterBuffered( const QString &nameFragment, double x, double y, double radiusMeters, const QString &statistic ) const
+{
+  QgsRasterLayer *target = nullptr;
+  const QMap<QString, QgsMapLayer *> layers = QgsProject::instance()->mapLayers();
+  for ( QgsMapLayer *layer : layers )
+  {
+    if ( QgsRasterLayer *rl = qobject_cast<QgsRasterLayer *>( layer ) )
+    {
+      if ( rl->name().contains( nameFragment, Qt::CaseInsensitive ) )
+      {
+        target = rl;
+        break;
+      }
+    }
+  }
+  if ( !target || !target->dataProvider() )
+    return std::numeric_limits<double>::quiet_NaN();
+
+  // krok probkowania: rozmiar piksela rastra, min 0.5 m
+  const double pixelSize = std::max( 0.5, target->rasterUnitsPerPixelX() );
+  const int steps = std::max( 1, static_cast<int>( radiusMeters / pixelSize ) );
+
+  QVector<double> values;
+  for ( int i = -steps; i <= steps; i++ )
+  {
+    for ( int j = -steps; j <= steps; j++ )
+    {
+      const double dx = i * pixelSize;
+      const double dy = j * pixelSize;
+      if ( std::sqrt( dx * dx + dy * dy ) > radiusMeters )
+        continue;
+      const double value = sampleRasterAt( target, x + dx, y + dy );
+      if ( !std::isnan( value ) )
+        values << value;
+    }
+  }
+  if ( values.isEmpty() )
+    return std::numeric_limits<double>::quiet_NaN();
+
+  if ( statistic.compare( QLatin1String( "median" ), Qt::CaseInsensitive ) == 0 )
+  {
+    std::sort( values.begin(), values.end() );
+    const int mid = values.size() / 2;
+    return values.size() % 2 == 0 ? ( values[mid - 1] + values[mid] ) / 2.0 : values[mid];
+  }
+
+  double sum = 0.0;
+  for ( double v : values )
+    sum += v;
+  return sum / values.size();
+}
+
+QVariantMap AppInterface::rasterContextFor( QgsVectorLayer *layer, double x, double y ) const
+{
+  QVariantMap result;
+  if ( !layer )
+    return result;
+
+  const QList<QPair<QString, QPair<QString, QString>>> rules = {
+    { QStringLiteral( "chm" ), { QStringLiteral( "CHM" ), QStringLiteral( "median" ) } },
+    { QStringLiteral( "nmt" ), { QStringLiteral( "NMT" ), QStringLiteral( "mean" ) } },
+    { QStringLiteral( "npm" ), { QStringLiteral( "NMT" ), QStringLiteral( "mean" ) } },
+    { QStringLiteral( "twi" ), { QStringLiteral( "TWI" ), QStringLiteral( "mean" ) } },
+    { QStringLiteral( "swiat" ), { QStringLiteral( "SWIATLO" ), QStringLiteral( "mean" ) } },
+    { QStringLiteral( "nachyl" ), { QStringLiteral( "NACHYLENIE" ), QStringLiteral( "mean" ) } },
+    { QStringLiteral( "ekspoz" ), { QStringLiteral( "EKSPOZYCJA" ), QStringLiteral( "mean" ) } }
+  };
+
+  const QgsFields fields = layer->fields();
+  for ( const QgsField &field : fields )
+  {
+    const QString lower = field.name().toLower();
+    for ( const auto &rule : rules )
+    {
+      if ( !lower.startsWith( rule.first ) )
+        continue;
+      const double value = sampleRasterBuffered( rule.second.first, x, y, 1.5, rule.second.second );
+      if ( !std::isnan( value ) )
+        result.insert( field.name(), QString::number( value, 'f', 2 ).toDouble() );
+      break;
+    }
+  }
+  return result;
 }

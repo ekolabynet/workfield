@@ -3447,7 +3447,7 @@ ApplicationWindow {
                 if (overlayFeatureFormDrawer.featureForm.model.constraintsHardValid && !overlayFeatureFormDrawer.featureForm.featureAdditionLocked) {
                   // when the constrainst are fulfilled
                   // indirect action, no need to check for success and display a toast, the log is enough
-                  overlayFeatureFormDrawer.featureModel.featureCreated = overlayFeatureFormDrawer.featureModel.create();
+                  overlayFeatureFormDrawer.featureForm.featureCreated = overlayFeatureFormDrawer.featureModel.create();
                 }
               } else {
                 // indirect action, no need to check for success and display a toast, the log is enough

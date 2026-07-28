@@ -62,6 +62,30 @@ Column {
     }
   ]
 
+  QfToolButton {
+    id: fastModeButton
+
+    width: 48
+    height: 48
+    round: true
+    anchors.horizontalCenter: parent.horizontalCenter
+
+    bgcolor: qfieldSettings.fastMode ? "#FFC107" : Theme.toolButtonBackgroundSemiOpaqueColor
+    iconSource: Theme.getThemeVectorIcon(qfieldSettings.fastMode ? "ic_flash_on_black_24dp" : "ic_flash_off_black_24dp")
+    iconColor: qfieldSettings.fastMode ? "#3E2723" : Theme.toolButtonColor
+
+    onClicked: {
+      qfieldSettings.fastMode = !qfieldSettings.fastMode;
+      displayToast(qfieldSettings.fastMode ? qsTr("Tryb szybki: bez potwierdzeń, kontekst z automatu") : qsTr("Tryb dokładny: formularze i potwierdzenia"));
+    }
+  }
+
+  Item {
+    width: 1
+    height: 28
+  }
+
+
   property var resolvedLayers: []
   property var pendingLayer: null
   property var pendingFeature: null
@@ -111,6 +135,27 @@ Column {
     }
   }
 
+  // uzupelnia pola kontekstowe wartosciami z rastrow (dopasowanie po prefiksie w C++)
+  function applyRasterContext(feature, layer) {
+    if (!layer || !feature) {
+      return feature;
+    }
+    const pos = positionSource.projectedPosition;
+    if (!pos || !pos.x) {
+      return feature;
+    }
+    const context = iface.rasterContextFor(layer, pos.x, pos.y);
+    let filled = [];
+    for (const fieldName in context) {
+      feature.setAttribute(fieldName, context[fieldName]);
+      filled.push(fieldName + "=" + context[fieldName]);
+    }
+    if (filled.length > 0) {
+      console.log("Kontekst rastrowy:", filled.join(", "));
+    }
+    return feature;
+  }
+
   function openPendingForm(photoPath) {
     if (!pendingLayer) {
       return;
@@ -119,10 +164,24 @@ Column {
     if (photoPath && photoPath !== "") {
       feature.setAttribute("foto", photoPath);
     }
+    feature = applyRasterContext(feature, pendingLayer);
     // celowo bez dotykania dashBoard.activeLayer - przypisanie imperatywne,
     // binding do warstwy aktywnej odtwarzany przy zamknieciu szuflady
     overlayFeatureFormDrawer.featureModel.currentLayer = pendingLayer;
     overlayFeatureFormDrawer.featureModel.feature = feature;
+    if (qfieldSettings.fastMode) {
+      // tryb szybki: zapis bez otwierania formularza
+      if (overlayFeatureFormDrawer.featureModel.create()) {
+        displayToast(qsTr("Zapisano: %1").arg(pendingLayer.name));
+      } else {
+        displayToast(qsTr("Nie udało się zapisać obiektu"), "error");
+      }
+      overlayFeatureFormDrawer.featureModel.currentLayer = Qt.binding(() => dashBoard.activeLayer);
+      pendingLayer = null;
+      pendingFeature = null;
+      cameraSource = null;
+      return;
+    }
     overlayFeatureFormDrawer.state = "Add";
     overlayFeatureFormDrawer.open();
     pendingLayer = null;
@@ -217,8 +276,12 @@ Column {
         onClicked: {
           if (modelData.mode === "digitize") {
             dashBoard.activeLayer = modelData.layer;
+            stateMachine.state = "digitize";
             displayToast(modelData.tooltip, "info");
           } else {
+            if (stateMachine.state === "digitize") {
+              stateMachine.state = "browse";
+            }
             quickCaptureBar.captureInto(modelData.layer);
           }
         }
