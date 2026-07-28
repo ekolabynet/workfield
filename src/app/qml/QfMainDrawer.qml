@@ -478,6 +478,22 @@ Drawer {
       color: Theme.controlBorderColor
     }
 
+    TabBar {
+      id: dashTabs
+
+      Layout.fillWidth: true
+      currentIndex: 0
+
+      TabButton {
+        text: qsTr("Projekt")
+        font: Theme.tipFont
+      }
+      TabButton {
+        text: qsTr("Stylizacja warstw")
+        font: Theme.tipFont
+      }
+    }
+
     StackLayout {
       id: dashStack
 
@@ -959,21 +975,7 @@ Drawer {
       // ── Narzędzia ───────────────────────────────────────────
     }
 
-    TabBar {
-      id: dashTabs
-
-      Layout.fillWidth: true
-      currentIndex: 0
-
-      TabButton {
-        text: qsTr("Projekt")
-        font: Theme.tipFont
-      }
-      TabButton {
-        text: qsTr("Stylizacja warstw")
-        font: Theme.tipFont
-      }
-    }
+    
   }
 
   Popup {
