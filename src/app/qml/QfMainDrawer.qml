@@ -601,6 +601,26 @@ Drawer {
         }
         Button {
           Layout.fillWidth: true
+          text: qsTr("Otwórz projekt")
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            dashBoard.close();
+            qfieldLocalDataPickerScreen.projectFolderView = false;
+            qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot() + "Imported Projects");
+            qfieldLocalDataPickerScreen.visible = true;
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Ekran startowy")
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            dashBoard.close();
+            returnHome();
+          }
+        }
+        Button {
+          Layout.fillWidth: true
           text: qsTr("Folder projektu")
           font.pointSize: t.tinyFont.pointSize
           icon.source: t.getThemeVectorIcon("wf_folder_project")
@@ -641,7 +661,186 @@ Drawer {
         }
       }
         }
+      
+        Text {
+          Layout.fillWidth: true
+          Layout.leftMargin: 8
+          Layout.topMargin: 10
+          text: qsTr("Dane")
+          font: t.strongFont
+          color: t.mainTextColor
+        }
+
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.margins: 8
+      spacing: 8
+
+      Button {
+        id: newLayerButton
+        Layout.fillWidth: true
+        text: qsTr("Nowa warstwa")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          dashBoard.close();
+          newLayerDialog.openDialog();
+        }
       }
+
+      Button {
+        id: addBasemapButton
+        Layout.fillWidth: true
+        text: qsTr("Podkład")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          dashBoard.close();
+          basemapScreen.open();
+        }
+      }
+
+      Button {
+        id: addLayerButton
+        Layout.fillWidth: true
+        text: qsTr("Dodaj z pliku")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          dashBoard.close();
+          dataDrawer.addExistingRequested();
+        }
+      }
+    }
+
+        RowLayout {
+          Layout.fillWidth: true
+          Layout.leftMargin: 8
+          Layout.rightMargin: 8
+          spacing: 8
+
+          Button {
+            Layout.fillWidth: true
+            text: qsTr("NMT")
+            font.pointSize: t.tinyFont.pointSize
+            onClicked: demDownloader.request("NMT")
+          }
+
+          Button {
+            Layout.fillWidth: true
+            text: qsTr("NMPT")
+            font.pointSize: t.tinyFont.pointSize
+            onClicked: demDownloader.request("NMPT")
+          }
+
+          Button {
+            Layout.fillWidth: true
+            text: qsTr("CHM")
+            font.pointSize: t.tinyFont.pointSize
+            onClicked: demDownloader.computeChm()
+          }
+        }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.margins: 8
+      text: qsTr("Warstwa robocza")
+      font: t.strongTipFont
+      color: t.mainTextColor
+    }
+
+    ListView {
+      id: projectLayersList
+
+      Layout.fillWidth: true
+      Layout.preferredHeight: Math.min(contentHeight, 240)
+      clip: true
+      model: dashBoard.layerTree
+
+      delegate: ItemDelegate {
+        required property int index
+        required property var model
+
+        readonly property bool isVector: model.LayerType === "vectorlayer" && model.VectorLayerPointer
+        readonly property bool isWritable: isVector && !model.VectorLayerPointer.readOnly
+        readonly property bool isCurrent: isVector && model.VectorLayerPointer === dashBoard.activeLayer
+
+        width: projectLayersList.width
+        height: isWritable ? 44 : 0
+        visible: isWritable
+
+        background: Rectangle {
+          color: isCurrent ? t.mainColor : "transparent"
+        }
+
+        contentItem: RowLayout {
+          spacing: 8
+
+          QfToolButton {
+            Layout.leftMargin: 4
+            width: 22
+            height: 22
+            padding: 0
+            enabled: false
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon("ic_create_white_24dp")
+            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+            opacity: isCurrent ? 1.0 : 0.3
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: model.Name
+            font: t.defaultFont
+            color: isCurrent ? t.mainOverlayColor : t.mainTextColor
+            elide: Text.ElideMiddle
+          }
+
+          Text {
+            text: isVector ? model.VectorLayerPointer.crs.authid : ""
+            font: t.tinyFont
+            color: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+            opacity: 0.7
+          }
+
+          QfToolButton {
+            width: 30
+            height: 30
+            padding: 0
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon("ic_edit_attributes_white_24dp")
+            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+
+            onClicked: {
+              dashBoard.close();
+              layerFieldsScreen.openFor(model.VectorLayerPointer);
+            }
+          }
+
+          QfToolButton {
+            Layout.rightMargin: 4
+            width: 30
+            height: 30
+            padding: 0
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon("ic_delete_forever_white_24dp")
+            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+
+            onClicked: {
+              removeLayerConfirm.targetLayer = model.VectorLayerPointer;
+              removeLayerConfirm.targetName = model.Name;
+              removeLayerConfirm.open();
+            }
+          }
+        }
+
+        onClicked: {
+          if (isWritable)
+            dashBoard.activeLayer = model.VectorLayerPointer;
+        }
+      }
+    }
+      }
+
+
+
 
       // ── Legenda ─────────────────────────────────────────────
       ColumnLayout {

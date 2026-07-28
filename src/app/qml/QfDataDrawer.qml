@@ -88,8 +88,6 @@ Drawer {
             { "label": qsTr("Zakładki przestrzenne"), "action": "bookmarks" },
             { "label": qsTr("Wtyczki"), "action": "plugins" },
             { "label": qsTr("Zablokuj ekran"), "action": "lockScreen" },
-            { "label": qsTr("Pobierz NMT (obszar mapy)"), "action": "nmt" },
-            { "label": qsTr("Pobierz NMPT (obszar mapy)"), "action": "nmpt" },
             { "label": qsTr("Policz CHM (NMPT \u2212 NMT)"), "action": "chm" }
           ]
 
@@ -119,18 +117,6 @@ Drawer {
                 break;
               case "lockScreen":
                 dashBoard.lockScreen();
-                dataDrawer.close();
-                break;
-              case "nmt":
-                dashBoard.requestDem("NMT");
-                dataDrawer.close();
-                break;
-              case "nmpt":
-                dashBoard.requestDem("NMPT");
-                dataDrawer.close();
-                break;
-              case "chm":
-                dashBoard.computeChmAction();
                 dataDrawer.close();
                 break;
               }
@@ -184,142 +170,25 @@ Drawer {
       color: t.controlBorderColor
     }
 
+
     RowLayout {
       Layout.fillWidth: true
-      Layout.margins: 8
+      Layout.leftMargin: 8
+      Layout.rightMargin: 8
       spacing: 8
 
-      Button {
-        id: newLayerButton
+      Label {
         Layout.fillWidth: true
-        text: qsTr("Nowa warstwa")
-        font.pointSize: t.tinyFont.pointSize
-        onClicked: {
-          dataDrawer.close();
-          newLayerDialog.openDialog();
-        }
+        text: dataDrawer.activeLayer ? qsTr("Warstwa robocza: %1").arg(dataDrawer.activeLayer.name) : qsTr("Nie wybrano warstwy roboczej")
+        font: t.defaultFont
+        color: t.mainTextColor
+        elide: Text.ElideMiddle
       }
 
       Button {
-        id: addBasemapButton
-        Layout.fillWidth: true
-        text: qsTr("Podkład")
+        text: qsTr("Zmień…")
         font.pointSize: t.tinyFont.pointSize
-        onClicked: {
-          dataDrawer.close();
-          basemapScreen.open();
-        }
-      }
-
-      Button {
-        id: addLayerButton
-        Layout.fillWidth: true
-        text: qsTr("Dodaj z pliku")
-        font.pointSize: t.tinyFont.pointSize
-        onClicked: {
-          dataDrawer.close();
-          dataDrawer.addExistingRequested();
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      Layout.margins: 8
-      text: qsTr("Warstwa robocza")
-      font: t.strongTipFont
-      color: t.mainTextColor
-    }
-
-    ListView {
-      id: editableLayers
-
-      Layout.fillWidth: true
-      Layout.preferredHeight: Math.min(contentHeight, 240)
-      clip: true
-      model: dataDrawer.layerTree
-
-      delegate: ItemDelegate {
-        required property int index
-        required property var model
-
-        readonly property bool isVector: model.LayerType === "vectorlayer" && model.VectorLayerPointer
-        readonly property bool isWritable: isVector && !model.VectorLayerPointer.readOnly
-        readonly property bool isCurrent: isVector && model.VectorLayerPointer === dataDrawer.activeLayer
-
-        width: editableLayers.width
-        height: isWritable ? 44 : 0
-        visible: isWritable
-
-        background: Rectangle {
-          color: isCurrent ? t.mainColor : "transparent"
-        }
-
-        contentItem: RowLayout {
-          spacing: 8
-
-          QfToolButton {
-            Layout.leftMargin: 4
-            width: 22
-            height: 22
-            padding: 0
-            enabled: false
-            bgcolor: "transparent"
-            iconSource: t.getThemeVectorIcon("ic_create_white_24dp")
-            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
-            opacity: isCurrent ? 1.0 : 0.3
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: model.Name
-            font: t.defaultFont
-            color: isCurrent ? t.mainOverlayColor : t.mainTextColor
-            elide: Text.ElideMiddle
-          }
-
-          Text {
-            text: isVector ? model.VectorLayerPointer.crs.authid : ""
-            font: t.tinyFont
-            color: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
-            opacity: 0.7
-          }
-
-          QfToolButton {
-            width: 30
-            height: 30
-            padding: 0
-            bgcolor: "transparent"
-            iconSource: t.getThemeVectorIcon("ic_edit_attributes_white_24dp")
-            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
-
-            onClicked: {
-              dataDrawer.close();
-              layerFieldsScreen.openFor(model.VectorLayerPointer);
-            }
-          }
-
-          QfToolButton {
-            Layout.rightMargin: 4
-            width: 30
-            height: 30
-            padding: 0
-            bgcolor: "transparent"
-            iconSource: t.getThemeVectorIcon("ic_delete_forever_white_24dp")
-            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
-
-            onClicked: {
-              removeLayerConfirm.targetLayer = model.VectorLayerPointer;
-              removeLayerConfirm.targetName = model.Name;
-              removeLayerConfirm.open();
-            }
-          }
-        }
-
-        onClicked: {
-          if (isWritable)
-            dataDrawer.layerActivated(model.VectorLayerPointer);
-        }
+        onClicked: layerPickerDialog.open()
       }
     }
 
@@ -420,6 +289,37 @@ Drawer {
       TabButton {
         text: qsTr("System")
         font: t.tipFont
+      }
+    }
+  }
+
+  Dialog {
+    id: layerPickerDialog
+
+    parent: mainWindow.contentItem
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(mainWindow.width - 40, 420)
+    height: Math.min(mainWindow.height - 120, 520)
+    modal: true
+    title: qsTr("Wybierz warstwę roboczą")
+
+    ListView {
+      anchors.fill: parent
+      clip: true
+      model: dataDrawer.layerTree
+
+      delegate: ItemDelegate {
+        width: ListView.view.width
+        visible: model.LayerType === "vectorlayer" && model.VectorLayerPointer && !model.VectorLayerPointer.readOnly
+        height: visible ? implicitHeight : 0
+        font: t.defaultFont
+        text: model.Name !== undefined ? model.Name : ""
+
+        onClicked: {
+          dataDrawer.layerActivated(model.VectorLayerPointer);
+          layerPickerDialog.close();
+        }
       }
     }
   }
