@@ -145,6 +145,24 @@ class AppInterface : public QObject
     //! Sets whether the layer reacts to map taps (identify).
     Q_INVOKABLE void setLayerSelectable( QgsMapLayer *layer, bool selectable );
 
+    //! Returns a project-level expression variable.
+    Q_INVOKABLE QString projectVariable( const QString &name ) const;
+
+    //! Sets a project-level expression variable (available as @name in expressions).
+    Q_INVOKABLE void setProjectVariable( const QString &name, const QString &value );
+
+    //! Samples the first band of a raster layer at the given map coordinates; NaN when no data.
+    Q_INVOKABLE double sampleRasterAt( QgsMapLayer *layer, double x, double y ) const;
+
+    //! Samples the first raster layer whose name contains \a nameFragment (case-insensitive).
+    Q_INVOKABLE double sampleRasterByName( const QString &nameFragment, double x, double y ) const;
+
+    //! Samples a raster in a buffer around the point; \a statistic is "median" or "mean".
+    Q_INVOKABLE double sampleRasterBuffered( const QString &nameFragment, double x, double y, double radiusMeters, const QString &statistic ) const;
+
+    //! Returns a map of field name -> sampled raster value for context fields of \a layer.
+    Q_INVOKABLE QVariantMap rasterContextFor( QgsVectorLayer *layer, double x, double y ) const;
+
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 

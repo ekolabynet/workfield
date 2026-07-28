@@ -408,10 +408,6 @@ Drawer {
     target: iface
 
     function onLoadProjectEnded(path, name) {
-      // domyslnie tryb digitalizacji - dopiero po zaladowaniu projektu
-      if (stateMachine.state === "browse") {
-        stateMachine.state = "digitize";
-      }
 
       if (!dashBoard.pendingBlankSetup) {
         return;
@@ -1161,6 +1157,9 @@ Drawer {
 
     onOpened: {
       projectTitleField.text = iface.projectTitle();
+      objectNameField.text = iface.projectVariable("obiekt_nazwa");
+      objectShortField.text = iface.projectVariable("obiekt_skrot");
+      objectCategoryField.text = iface.projectVariable("obiekt_kategoria");
       crsCurrentLabel.refresh();
       customCrsField.text = "";
     }
@@ -1186,6 +1185,55 @@ Drawer {
         id: projectTitleField
         Layout.fillWidth: true
         font: t.defaultFont
+      }
+
+      Text {
+        Layout.fillWidth: true
+        Layout.topMargin: 6
+        text: qsTr("Obiekt (dostępne w wyrażeniach jako @obiekt_nazwa, @obiekt_skrot, @obiekt_kategoria)")
+        font: t.tipFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+
+        TextField {
+          id: objectNameField
+          Layout.fillWidth: true
+          font: t.defaultFont
+          placeholderText: qsTr("Nazwa obiektu")
+          onEditingFinished: iface.setProjectVariable("obiekt_nazwa", text.trim())
+        }
+
+        TextField {
+          id: objectShortField
+          Layout.preferredWidth: 90
+          font: t.defaultFont
+          placeholderText: qsTr("Skrót")
+          onEditingFinished: iface.setProjectVariable("obiekt_skrot", text.trim().toUpperCase())
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+
+        Text {
+          text: qsTr("Kategoria:")
+          font: t.tipFont
+          color: t.secondaryTextColor
+        }
+
+        TextField {
+          id: objectCategoryField
+          Layout.fillWidth: true
+          font: t.defaultFont
+          placeholderText: qsTr("APPL / SCI / …")
+          onEditingFinished: iface.setProjectVariable("obiekt_kategoria", text.trim().toUpperCase())
+        }
       }
 
       Text {
