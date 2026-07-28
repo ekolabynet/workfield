@@ -783,6 +783,20 @@ QString AppInterface::preferredDataDir() const
 
 void AppInterface::setPreferredDataDir( const QString &path )
 {
+  const QString markerPath = PlatformUtilities::instance()->appDataDirs().value( 0 ) + QStringLiteral( "/.preferred_data_dir" );
+  if ( path.isEmpty() )
+  {
+    QFile::remove( markerPath );
+  }
+  else
+  {
+    QFile marker( markerPath );
+    if ( marker.open( QIODevice::WriteOnly | QIODevice::Text ) )
+    {
+      marker.write( path.toUtf8() );
+      marker.close();
+    }
+  }
   QSettings settings;
   if ( path.isEmpty() )
     settings.remove( QStringLiteral( "workfield/preferredDataDir" ) );

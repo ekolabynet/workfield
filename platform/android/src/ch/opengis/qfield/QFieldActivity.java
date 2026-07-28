@@ -1339,6 +1339,20 @@ public class QFieldActivity extends QtActivity {
     }
 
     private File getApplicationDir() {
+        java.io.File preferredMarker = new java.io.File(getExternalFilesDir(null), "QField/.preferred_data_dir");
+        if (preferredMarker.exists()) {
+            try {
+                String preferredPath = new String(java.nio.file.Files.readAllBytes(preferredMarker.toPath())).trim();
+                if (!preferredPath.isEmpty()) {
+                    java.io.File preferredDir = new java.io.File(preferredPath);
+                    if (preferredDir.exists() && preferredDir.isDirectory()) {
+                        return preferredDir;
+                    }
+                }
+            } catch (Exception e) {
+            }
+        }
+
         File applicationDirectory = getExternalFilesDir(null);
         if (applicationDirectory == null) {
             // On some Android devices, getExternalFilesDir(null) can return a

@@ -63,6 +63,26 @@ Drawer {
       color: t.controlBorderColor
     }
 
+    TabBar {
+      id: drawerTabs
+
+      Layout.fillWidth: true
+      currentIndex: 0
+
+      TabButton {
+        text: qsTr("Narzędzia")
+        font: t.tipFont
+      }
+      TabButton {
+        text: qsTr("Algorytmy")
+        font: t.tipFont
+      }
+      TabButton {
+        text: qsTr("System")
+        font: t.tipFont
+      }
+    }
+
     StackLayout {
       id: drawerStack
 
@@ -272,25 +292,7 @@ Drawer {
       }
     }
 
-    TabBar {
-      id: drawerTabs
-
-      Layout.fillWidth: true
-      currentIndex: 0
-
-      TabButton {
-        text: qsTr("Narzędzia")
-        font: t.tipFont
-      }
-      TabButton {
-        text: qsTr("Algorytmy")
-        font: t.tipFont
-      }
-      TabButton {
-        text: qsTr("System")
-        font: t.tipFont
-      }
-    }
+    
   }
 
   Dialog {
