@@ -88,24 +88,46 @@ ApplicationWindow {
           elide: Text.ElideRight
         }
 
-        Text {
+        RowLayout {
           Layout.fillWidth: true
-          color: Theme.mainOverlayColor
-          opacity: 0.75
-          font.pointSize: Theme.tinyFont.pointSize
-          elide: Text.ElideRight
-          text: {
-            let parts = [];
-            if (mapCanvas.mapSettings.destinationCrs)
-              parts.push(mapCanvas.mapSettings.destinationCrs.authid);
-            if (positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid) {
-              const acc = positionSource.positionInformation.hacc;
-              if (acc < 1)
-                parts.push("±" + (acc * 100).toFixed(0) + " cm");
-              else if (acc < 100)
-                parts.push("±" + acc.toFixed(1) + " m");
+          spacing: 6
+
+          Text {
+            Layout.fillWidth: true
+            color: Theme.mainOverlayColor
+            opacity: 0.75
+            font.pointSize: Theme.tinyFont.pointSize
+            elide: Text.ElideMiddle
+            text: {
+              let parts = [];
+              if (mapCanvas.mapSettings.destinationCrs)
+                parts.push(mapCanvas.mapSettings.destinationCrs.authid);
+              const pos = positionSource.active ? positionSource.projectedPosition : null;
+              if (pos && pos.x) {
+                const isDegrees = Math.abs(pos.x) < 360 && Math.abs(pos.y) < 360;
+                const digits = isDegrees ? 6 : 1;
+                parts.push(pos.x.toFixed(digits) + ", " + pos.y.toFixed(digits));
+              }
+              if (positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid) {
+                const acc = positionSource.positionInformation.hacc;
+                if (acc < 1)
+                  parts.push("±" + (acc * 100).toFixed(0) + " cm");
+                else if (acc < 100)
+                  parts.push("±" + acc.toFixed(1) + " m");
+              }
+              return parts.join("  ·  ");
             }
-            return parts.join("  ·  ");
+          }
+
+          Text {
+            id: gnssQualityClass
+
+            readonly property real acc: positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid ? positionSource.positionInformation.hacc : -1
+
+            font.pointSize: Theme.tinyFont.pointSize
+            font.bold: true
+            text: acc < 0 ? qsTr("BRAK") : acc <= 0.03 ? "FIX" : acc <= 0.10 ? "FLOAT+" : acc <= 0.25 ? "FLOAT" : acc <= 0.50 ? "FLOAT-" : "GPS"
+            color: acc < 0 ? "#EF5350" : acc <= 0.03 ? "#00E676" : acc <= 0.10 ? "#B2FF59" : acc <= 0.25 ? "#FFEB3B" : acc <= 0.50 ? "#FFA726" : "#EF5350"
           }
         }
       }
