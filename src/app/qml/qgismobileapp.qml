@@ -81,6 +81,16 @@ ApplicationWindow {
 
         Text {
           Layout.fillWidth: true
+          visible: mainWindow.projectTitle !== ""
+          text: mainWindow.projectTitle
+          color: Theme.mainOverlayColor
+          opacity: 0.75
+          font.pointSize: Theme.tinyFont.pointSize
+          elide: Text.ElideRight
+        }
+
+        Text {
+          Layout.fillWidth: true
           text: dashBoard.activeLayer ? dashBoard.activeLayer.name : qsTr("Brak aktywnej warstwy")
           color: Theme.mainOverlayColor
           font.pointSize: Theme.tipFont.pointSize
@@ -142,6 +152,12 @@ ApplicationWindow {
         onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
       }
     }
+  }
+
+  // WorkField: tytul projektu do paska stanu i szuflady
+  property string projectTitle: ""
+  function refreshProjectTitle() {
+    projectTitle = qgisProject && qgisProject.fileName !== "" ? iface.projectTitle() : "";
   }
 
   property bool sceneLoaded: false
@@ -5034,6 +5050,7 @@ ApplicationWindow {
     }
 
     function onLoadProjectEnded(path, name) {
+      mainWindow.refreshProjectTitle();
       if (path.indexOf("/templates/") !== -1) {
         templateGuardDialog.templatePath = path;
         templateGuardDialog.open();

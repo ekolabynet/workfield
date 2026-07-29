@@ -531,9 +531,10 @@ Drawer {
 
         Text {
           Layout.fillWidth: true
-          text: qsTr("Projekt")
+          text: mainWindow.projectTitle !== "" ? mainWindow.projectTitle : qsTr("Projekt")
           font: t.strongTipFont
           color: t.mainTextColor
+          elide: Text.ElideRight
         }
 
         Text {
@@ -1355,6 +1356,7 @@ Drawer {
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
             iface.setProjectTitle(projectTitleField.text);
+            mainWindow.refreshProjectTitle();
             let requestedCrs = customCrsField.text.trim() !== "" ? "EPSG:" + customCrsField.text.trim() : crsCombo.currentValue;
             if (requestedCrs && requestedCrs !== "" && requestedCrs !== iface.projectCrsAuthid()) {
               if (!iface.setProjectCrs(requestedCrs)) {
