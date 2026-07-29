@@ -1,81 +1,84 @@
-[![Read the Docs](https://img.shields.io/badge/Read-the%20Docs-green.svg)](https://docs.qfield.org/)
-[![Community Platform](https://img.shields.io/discourse/topics?server=https://community.qfield.org)](https://community.qfield.org)
-[![Sponsor](https://img.shields.io/static/v1?label=Support&message=%E2%9D%A4)](https://github.com/sponsors/opengisch)
-[![Contribute](https://img.shields.io/static/v1?label=Contribute&message=💪)](#contribute)
-[![Release](https://img.shields.io/github/release/opengisch/QField.svg?label=Release)](https://github.com/opengisch/QField/releases)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/8392/badge)](https://www.bestpractices.dev/projects/8392)
-[![Digital Public Good](https://img.shields.io/badge/Digital%20Public%20Good-verified-brightgreen)](https://www.digitalpublicgoods.net/r/qfield)
-[![QFieldCloud](https://img.shields.io/badge/QFieldCloud-GitHub-blue)](https://github.com/opengisch/QFieldCloud)
+# WorkField
 
-# QField for QGIS
+**A field-focused derivative of [QField](https://github.com/opengisch/QField),
+tuned for vegetation inventory and surveying workflows in Poland.**
 
-A simplified touch-optimized interface for QGIS in the field.
+> ⚠️ **This is not QField.** WorkField is an independent fork and is **not
+> created, endorsed, or supported by OPENGIS.ch or the QField project**.
+> Looking for the official app? Get the **Official Packages** at
+> [qfield.org](https://qfield.org/) — professionally maintained, widely
+> tested, regularly updated. Full attribution and details: [NOTICE.md](NOTICE.md).
 
-[![Visit QField's homepage](https://github.com/user-attachments/assets/88771ae0-3701-4cf4-8d8c-cd295c0831b1)](https://qfield.org)
+## What is this?
 
-## 🧭 About QField
+WorkField adapts QField to one narrow job: **collecting vegetation inventory
+data in the field, in Poland, often one-handed and in gloves.** It is a
+personal, opinionated build — not a general-purpose replacement for QField.
 
-QField works fully offline or connected, and supports seamless synchronization with the optional [**QFieldCloud** platform](https://qfield.cloud) for collaborative field-to-office workflows.
-You can find the open-source QFieldCloud backend on GitHub here: [github.com/opengisch/QFieldCloud](https://github.com/opengisch/QFieldCloud)
+Main differences from upstream:
 
-QField is officially recognized as a [Digital Public Good](https://digitalpublicgoods.net/r/qfield) for its contributions to open, inclusive, and sustainable digital development.
+- **Material 3 interface** — a Material Design 3 based theme with large
+  touch targets for gloved outdoor use, and a GNSS status bar showing
+  coordinates and quality class (FIX/FLOAT/GPS).
+- **Camera** — shot presets (lens + zoom), continuous shooting series with no
+  lost frames, Android orientation correction, flash and haptic feedback in
+  fast capture mode, relative photo paths.
+- **Capture workflow** — quick capture bar, fast mode taking positions
+  directly from the GNSS source, series counter, project variables
+  (`obiekt_*`), buffered raster value sampling.
+- **Basemaps** — WMS/WMTS presets for Polish national services (GUGiK).
+- **Branding** — distinct name, icon and splash to avoid confusion with
+  official QField packages.
 
-Explore the full documentation at [docs.qfield.org](https://docs.qfield.org/)
+See [NOTICE.md](NOTICE.md) for the full statement and
+[opengisch/QField](https://github.com/opengisch/QField) for the upstream
+project this work builds on.
 
-## 📲 Get QField
-<p align="center">
-  <a href="https://play.google.com/store/apps/details?id=ch.opengis.qfield"><img src="https://qfield.org/images/play_store.png" alt="Get it on Google Play" height="60"/></a>
-  <a href="https://apps.microsoft.com/detail/xp99h3bcx4bw7f"><img src="https://qfield.org/images/download_windows.png" alt="Get it on Microsoft Store" height="60"/></a>
-  <a href="https://apps.apple.com/app/qfield-for-qgis/id1531726814"><img src="https://qfield.org/images/app_store.png" alt="Get it on the App Store" height="60"/></a>
-</p>
-<p align="center">
-  <a href="https://qfield.org/get-latest?platform=linux"><img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg" alt="Linux" width="20"/>Download for Linux</a>
-  <a href="https://qfield.org/get-latest?platform=macos"><img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/apple/apple-original.svg" alt="macOS" width="20"/>Download for macOS</a>
-</p>
+## Status
 
-### All Platforms
-📦 Prefer direct downloads or older versions?  Check out the full list of releases on [GitHub Releases](https://github.com/opengisch/QField/releases)
+Experimental, developed for the author's own field work. There are **no
+official releases, no prebuilt packages, and no support guarantees.** Things
+may break between commits. If you need a dependable field GIS, use
+[QField](https://qfield.org/).
 
-### Get master (unstable) version
+Bug reports for WorkField are welcome **in this repository only** — please
+never report issues from this fork to the QField project.
 
-We automatically publish the latest master build to a [dedicated channel on the playstore](https://play.google.com/store/apps/details?id=ch.opengis.qfield_dev). You'll need to [join the beta program](https://play.google.com/apps/testing/ch.opengis.qfield_dev) to start getting the latest version.
+## Building
 
-Please remember that this is the latest development build and is not meant for production.
+WorkField builds the same way as QField (see upstream
+[developer documentation](https://github.com/opengisch/QField/blob/master/doc/dev.md)).
+In short:
 
-## Contribute
+```bash
+# Desktop (Linux)
+cmake -S . -B build-sys -Wno-dev
+cmake --build build-sys -j$(nproc)
+./build-sys/output/bin/qfield
 
-QField is an open source project, licensed under the terms of the GPLv2 or later. This means that it is free to use and modify and will stay like that.
+# Android (Docker, takes hours)
+triplet=arm64-android ./scripts/build.sh
+```
 
-We are very happy if this app helps you to get your job done or in whatever creative way you may use it.
+Branding assets live in [`brand/`](brand/); defaults for `APP_NAME`,
+`APP_ICON` and `APP_THEME_PATH` are set in `CMakeLists.txt`.
 
-If you found it useful, we will be even happier if you could give something back. A couple of things you can do are
+## License
 
- * Rate the app [★★★★★](https://play.google.com/store/apps/details?id=ch.opengis.qfield&hl=en#details-reviews)
- * Write about your experience (please [let us know](mailto:sales@qfield.cloud)!)
- * [Help with the documentation](https://github.com/opengisch/QField-docs#documentation-process)
- * [Translate the documentation](https://github.com/opengisch/QField-docs#translation-process) or [the app](https://explore.transifex.com/opengisch/qfield-for-qgis/)
- * [Sponsor a feature](https://qfield.org/support-us/)
- * And just drop by to say thank you or have a beer with us next time you meet OPENGIS.ch at a conference
+**GPL-2.0-or-later**, same as QField — see [LICENSE](LICENSE).
+Original copyright © OPENGIS.ch and the QField contributors.
+WorkField-specific changes © their respective authors, under the same license.
 
-## Share
+## Acknowledgements
 
-The world loves to hear about the usage of QField, follow us or share your story on your favorite channel
+WorkField exists thanks to the excellent open-source work of
+[OPENGIS.ch](https://www.opengis.ch/), the QField community, and the
+[QGIS](https://qgis.org/) project underneath it all. If QField helps you,
+consider [supporting them](https://qfield.org/support-us/).
 
-[![share on linkedin](images/icons/linkedin.svg)](https://www.linkedin.com/products/opengisch-qfield/)
-[![share on bluesky](images/icons/bluesky.svg)](https://bsky.app/profile/qfield.bsky.social/share?text=Looking%20for%20a%20good%20tool%20for%20field%20work%20in%20GIS?%20Check%20out%20%23QField!)
-[![share on mastodon](images/icons/mastodon.svg)](https://mastodon.social/share?text=Looking%20for%20a%20good%20tool%20for%20field%20work%20in%20GIS?%20Check%20out%20%23QField!)
-[![share on X](images/icons/twitter-x.svg)](https://x.com/QFieldForQGIS)
+---
 
-## Development
-
-For development information, refer to the dedicated [developer documentation](doc/dev.md).
-
-## Verify Authenticity of the App packages (Android only)
-
-SHA-256 hash of signing certificate:
-
-```5a7dd946a4b700c081a5bd375dbc8f0d11aa89d53832567ce5b8a92088e0e898```
-
-Use the following command to verify the hash of the signing certificate:
-
-```apksigner verify --print-certs [filename.apk] | grep "5a7dd946a4b700c081a5bd375dbc8f0d11aa89d53832567ce5b8a92088e0e898"```
+**Po polsku:** WorkField to niezależny fork QFielda pod terenową
+inwentaryzację zieleni w Polsce (presety GUGiK, interfejs pod pracę w
+rękawicach). To nie jest oficjalny QField — ten znajdziesz na
+[qfield.org](https://qfield.org/). Szczegóły: [NOTICE.md](NOTICE.md).
