@@ -25,13 +25,15 @@ Main differences from upstream:
 - **Material 3 interface** — a Material Design 3 based theme with large
   touch targets for gloved outdoor use, and a GNSS status bar showing
   coordinates and quality class (FIX/FLOAT/GPS).
+- **From Field to Room** — an ability to start, configure and work on a project directly in the field.
 - **Camera** — shot presets (lens + zoom), continuous shooting series with no
   lost frames, Android orientation correction, flash and haptic feedback in
   fast capture mode, relative photo paths.
 - **Capture workflow** — quick capture bar, fast mode taking positions
   directly from the GNSS source, series counter, project variables
   (`obiekt_*`), buffered raster value sampling.
-- **Basemaps** — WMS/WMTS presets for Polish national services (GUGiK).
+- **Vector, Raster and XYX,WMS/WMTS data from worldwide and Polish national services (GUGiK) loadable, confugurable and often stylable in the field**.
+- **Field DTM/DSM/CHM data download**
 - **Branding** — distinct name, icon and splash to avoid confusion with
   official QField packages.
 
