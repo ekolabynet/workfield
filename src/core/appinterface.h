@@ -163,6 +163,12 @@ class AppInterface : public QObject
     //! Returns a map of field name -> sampled raster value for context fields of \a layer.
     Q_INVOKABLE QVariantMap rasterContextFor( QgsVectorLayer *layer, double x, double y ) const;
 
+    //! Returns "robocza", "wektor", "raster" or "podklad" for the given layer.
+    Q_INVOKABLE QString layerKind( QgsMapLayer *layer ) const;
+
+    //! Removes any layer from the project.
+    Q_INVOKABLE bool removeLayer( QgsMapLayer *layer );
+
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 

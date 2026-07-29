@@ -1184,3 +1184,29 @@ QVariantMap AppInterface::rasterContextFor( QgsVectorLayer *layer, double x, dou
   }
   return result;
 }
+
+QString AppInterface::layerKind( QgsMapLayer *layer ) const
+{
+  if ( !layer )
+    return QString();
+
+  if ( layer->providerType() == QStringLiteral( "wms" ) || layer->providerType() == QStringLiteral( "vectortile" ) || layer->providerType() == QStringLiteral( "xyzvectortiles" ) )
+    return QStringLiteral( "podklad" );
+
+  if ( QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer ) )
+    return vl->readOnly() ? QStringLiteral( "wektor" ) : QStringLiteral( "robocza" );
+
+  if ( qobject_cast<QgsRasterLayer *>( layer ) )
+    return QStringLiteral( "raster" );
+
+  return QStringLiteral( "wektor" );
+}
+
+bool AppInterface::removeLayer( QgsMapLayer *layer )
+{
+  if ( !layer )
+    return false;
+  QgsProject::instance()->removeMapLayer( layer->id() );
+  QgsProject::instance()->setDirty( true );
+  return true;
+}

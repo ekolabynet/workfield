@@ -163,6 +163,9 @@ Column {
     let feature = pendingFeature;
     if (photoPath && photoPath !== "") {
       feature.setAttribute("foto", photoPath);
+      if (cameraSource && cameraSource.photoShotType) {
+        feature.setAttribute("ujecie", cameraSource.photoShotType);
+      }
     }
     feature = applyRasterContext(feature, pendingLayer);
     // celowo bez dotykania dashBoard.activeLayer - przypisanie imperatywne,

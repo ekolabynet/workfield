@@ -3047,7 +3047,7 @@ ApplicationWindow {
       anchors.left: parent.left
       anchors.leftMargin: mainWindow.sceneLeftMargin + 4
       anchors.bottom: parent.bottom
-      anchors.bottomMargin: mainWindow.sceneBottomMargin + 4
+      anchors.bottomMargin: mainWindow.sceneBottomMargin + 96
 
       spacing: 4
 
