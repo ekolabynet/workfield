@@ -883,6 +883,17 @@ public class QFieldActivity extends QtActivity {
 
         Intent intent = isVideo ? new Intent(MediaStore.ACTION_VIDEO_CAPTURE)
                                 : new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (!isVideo) {
+            // WorkField: preferuj OpenCamera, gdy zainstalowana.
+            // Od Androida 11 gola intencja IMAGE_CAPTURE zawsze odpala aparat
+            // fabryczny; aparat firm trzecich wymaga jawnego wskazania pakietu.
+            Intent openCamera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            openCamera.setPackage("net.sourceforge.opencamera");
+            if (openCamera.resolveActivity(getPackageManager()) != null) {
+                Log.d("QField", "WorkField: using OpenCamera");
+                intent = openCamera;
+            }
+        }
         if (intent.resolveActivity(getPackageManager()) != null) {
             Log.d("QField", "Camera intent resolved");
             File storageDir =

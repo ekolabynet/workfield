@@ -331,6 +331,8 @@
     </service>
   </application>
   <queries>
+    <!-- WorkField: preferowany zewnetrzny aparat -->
+    <package android:name="net.sourceforge.opencamera" />
     <!-- Camera -->
     <intent>
         <action android:name="android.media.action.IMAGE_CAPTURE" />
