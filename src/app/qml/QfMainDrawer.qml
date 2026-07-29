@@ -768,6 +768,17 @@ Drawer {
           dataDrawer.addExistingRequested();
         }
       }
+
+      Button {
+        id: photoGalleryButton
+        Layout.fillWidth: true
+        text: qsTr("Galeria")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          dashBoard.close();
+          photoGallery.open();
+        }
+      }
     }
 
         RowLayout {
