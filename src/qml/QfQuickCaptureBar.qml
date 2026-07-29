@@ -374,6 +374,32 @@ Column {
     }
   }
 
+  // WorkField: wejscie do galerii zdjec projektu
+  Rectangle {
+    width: 56
+    height: 56
+    radius: 6
+    color: "#FFFFFF"
+    border.color: "#003D33"
+    border.width: 2
+    opacity: 0.92
+    visible: quickCaptureBar.resolvedLayers && quickCaptureBar.resolvedLayers.length > 0
+
+    Text {
+      anchors.centerIn: parent
+      text: "FOTO"
+      font.pointSize: Theme.tinyFont.pointSize
+      font.bold: true
+      color: "#003D33"
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: photoGallery.open()
+      onPressAndHold: displayToast(qsTr("Galeria zdjęć projektu"), "info")
+    }
+  }
+
   Loader {
     id: qfCameraLoader
 

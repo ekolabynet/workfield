@@ -5700,6 +5700,11 @@ ApplicationWindow {
     t: Theme
   }
 
+  QfPhotoGallery {
+    id: photoGallery
+    t: Theme
+  }
+
   QfColorPicker {
     id: colorPicker
     t: Theme

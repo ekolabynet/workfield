@@ -54,7 +54,6 @@
         <file>QFieldSettings.qml</file>
         <file>QfSettingsAdvanced.qml</file>
         <file>QfSettingsIndex.qml</file>
-        <file>QfSettingsIndex.qml</file>
         <file>QfSettingsMapCanvas.qml</file>
         <file>QfSettingsDigitizing.qml</file>
         <file>QfSettingsInterface.qml</file>
@@ -109,10 +108,9 @@
         <file>QfDataDrawer.qml</file>
         <file>QfMainDrawer.qml</file>
         <file>QfQuickCaptureBar.qml</file>
+        <file>QfPhotoGallery.qml</file>
         <file>QfLegendScreen.qml</file>
         <file>QfColorPicker.qml</file>
-        <file>QfLayerFieldsScreen.qml</file>
-        <file>QfBasemapScreen.qml</file>
         <file>QfLayerFieldsScreen.qml</file>
         <file>QfBasemapScreen.qml</file>
         <file>VertexRubberband.qml</file>
