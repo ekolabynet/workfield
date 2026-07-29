@@ -18,6 +18,9 @@ Popup {
   property bool isPortraitMode: mainWindow.height > mainWindow.width
 
   property string currentPath: ''
+  // rodzaj ujecia: plat / dol / gora / gatunek
+  property string photoShotType: "dol"
+  property int shotCount: 0
   property var currentPosition: PositioningUtils.createEmptyGnssPositionInformation()
   property var currentProjectedPosition: undefined
 
@@ -245,6 +248,15 @@ Popup {
               }
 
               onPreviewChanged: {
+                if (qfieldSettings.fastMode) {
+                  // tryb szybki: bez ekranu akceptacji, aparat zostaje otwarty
+                  if (positionSource.active) {
+                    FileUtils.addImageMetadata(cameraItem.currentPath, positionSource.positionInformation);
+                  }
+                  cameraItem.finished(cameraItem.currentPath);
+                  cameraItem.shotCount++;
+                  return;
+                }
                 cameraItem.state = "PhotoPreview";
               }
             }
@@ -464,6 +476,50 @@ Popup {
           height: cameraItem.isPortraitMode ? parent.height - mainWindow.sceneBottomMargin : parent.height
           color: "transparent"
 
+          Row {
+            id: shotTypeRow
+
+            visible: cameraItem.state == "PhotoCapture"
+            spacing: 6
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: captureRing.top
+            anchors.bottomMargin: 12
+
+            Repeater {
+              model: [
+                { "key": "plat", "label": qsTr("PŁAT") },
+                { "key": "dol", "label": qsTr("DÓŁ") },
+                { "key": "gora", "label": qsTr("GÓRA") },
+                { "key": "gatunek", "label": qsTr("GATUNEK") }
+              ]
+
+              delegate: Rectangle {
+                required property var modelData
+
+                width: shotLabel.implicitWidth + 20
+                height: 34
+                radius: 17
+                color: cameraItem.photoShotType === modelData.key ? Theme.mainColor : Theme.darkGraySemiOpaque
+                border.color: "white"
+                border.width: cameraItem.photoShotType === modelData.key ? 2 : 0
+
+                Text {
+                  id: shotLabel
+                  anchors.centerIn: parent
+                  text: modelData.label
+                  color: "white"
+                  font: Theme.tipFont
+                  font.bold: cameraItem.photoShotType === modelData.key
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  onClicked: cameraItem.photoShotType = modelData.key
+                }
+              }
+            }
+          }
+
           Rectangle {
             id: captureRing
             anchors.centerIn: parent
@@ -495,6 +551,7 @@ Popup {
                   platformUtilities.createDir(qgisProject.homePath, 'DCIM');
                   captureLoader.item.imageCapture.captureToFile(qgisProject.homePath + '/DCIM/');
                   captureFlashAnimation.start();
+                  platformUtilities.vibrate(30);
                   captureLoader.item.orientationNormalizer.recordCaptureOrientation();
                   if (positionSource.active) {
                     currentPosition = positionSource.positionInformation;
@@ -744,7 +801,7 @@ Popup {
           videoPreview.stop();
           cameraItem.state = "VideoCapture";
         } else {
-          if (currentPath != '') {
+          if (currentPath != '' && !qfieldSettings.fastMode) {
             platformUtilities.rmFile(currentPath);
           }
           cameraItem.canceled();

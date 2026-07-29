@@ -819,12 +819,15 @@ Drawer {
         required property var model
 
         readonly property bool isVector: model.LayerType === "vectorlayer" && model.VectorLayerPointer
+        readonly property var mapLayer: model.MapLayerPointer ? model.MapLayerPointer : (model.VectorLayerPointer ? model.VectorLayerPointer : null)
+        readonly property string layerKind: mapLayer ? iface.layerKind(mapLayer) : ""
+        readonly property bool isLayerRow: mapLayer !== null && model.Name !== undefined && model.Name !== ""
         readonly property bool isWritable: isVector && !model.VectorLayerPointer.readOnly
         readonly property bool isCurrent: isVector && model.VectorLayerPointer === dashBoard.activeLayer
 
         width: projectLayersList.width
-        height: isWritable ? 44 : 0
-        visible: isWritable
+        height: isLayerRow ? 44 : 0
+        visible: isLayerRow
 
         background: Rectangle {
           color: isCurrent ? t.mainColor : "transparent"
@@ -854,7 +857,7 @@ Drawer {
           }
 
           Text {
-            text: isVector ? model.VectorLayerPointer.crs.authid + "  " + iface.layerInfoLabel(model.VectorLayerPointer) : ""
+            text: isWritable ? model.VectorLayerPointer.crs.authid + "  " + iface.layerInfoLabel(model.VectorLayerPointer) : layerKind === "podklad" ? qsTr("PODKŁAD") : layerKind === "raster" ? qsTr("RASTER") : qsTr("tylko odczyt")
             font: t.tinyFont
             color: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
             opacity: 0.7
@@ -902,7 +905,7 @@ Drawer {
             iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
 
             onClicked: {
-              removeLayerConfirm.targetLayer = model.VectorLayerPointer;
+              removeLayerConfirm.targetLayer = mapLayer;
               removeLayerConfirm.targetName = model.Name;
               removeLayerConfirm.open();
             }
@@ -1418,7 +1421,7 @@ Drawer {
 
           onClicked: {
             if (removeLayerConfirm.targetLayer) {
-              ProjectUtils.removeMapLayer(qgisProject, removeLayerConfirm.targetLayer);
+              iface.removeLayer(removeLayerConfirm.targetLayer);
               displayToast(qsTr("Usunięto warstwę %1").arg(removeLayerConfirm.targetName));
             }
             removeLayerConfirm.close();
