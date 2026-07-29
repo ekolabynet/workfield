@@ -4,8 +4,8 @@ set -e
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"/..
 
-export APK_VERSION_CODE=${APK_VERSION_CODE:-708}
-export APP_VERSION_STR=${APP_VERSION_STR:-0.7.8}
+export APK_VERSION_CODE=${APK_VERSION_CODE:-709}
+export APP_VERSION_STR=${APP_VERSION_STR:-0.7.9}
 export STOREPASS=${STOREPASS:-workfield2026}
 export KEYNAME=${KEYNAME:-workfield}
 export KEYPASS=${KEYPASS:-workfield2026}
