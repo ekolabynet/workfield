@@ -80,6 +80,34 @@ ColumnLayout {
     }
 
     Label {
+      text: qsTr("Aparat")
+      font: Theme.strongFont
+      color: Theme.mainTextColor
+      Layout.fillWidth: true
+      Layout.topMargin: 10
+      Layout.columnSpan: 2
+    }
+
+    Label {
+      text: qsTr("Korekta obrotu podglądu i zdjęć (gdy obraz jest odwrócony):")
+      font: Theme.defaultFont
+      color: Theme.mainTextColor
+      wrapMode: Text.WordWrap
+      Layout.fillWidth: true
+    }
+
+    ComboBox {
+      font: Theme.defaultFont
+      model: ["0°", "90°", "180°", "270°"]
+      currentIndex: settingsRegistry ? settingsRegistry.cameraRotationOffset / 90 : 0
+      onActivated: {
+        if (settingsRegistry) {
+          settingsRegistry.cameraRotationOffset = currentIndex * 90;
+        }
+      }
+    }
+
+    Label {
       text: qsTr("Katalog danych")
       font: Theme.strongFont
       color: Theme.mainTextColor

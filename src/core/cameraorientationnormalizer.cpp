@@ -102,7 +102,6 @@ void CameraOrientationNormalizer::handleScreenOrientationChanged( Qt::ScreenOrie
 
 void CameraOrientationNormalizer::updatePreviewRotation()
 {
-#if defined( Q_OS_IOS ) || defined( Q_OS_WIN )
   const QScreen *screen = QGuiApplication::primaryScreen();
   if ( !screen )
   {
@@ -111,12 +110,38 @@ void CameraOrientationNormalizer::updatePreviewRotation()
 
   const int screenAngle = screen->angleBetween( screen->nativeOrientation(), mCurrentOrientation );
   const bool isLandscape = ( screenAngle == 90 || screenAngle == 270 );
+#if defined( Q_OS_ANDROID )
+  // urzadzenia z czujnikiem obroconym wzgledem ekranu: korekta w pionie, poziom bez zmian
+  const int rotation = isLandscape ? 0 : 180;
+#else
   const int rotation = isLandscape ? 180 : 0;
+#endif
 
   if ( rotation != mPreviewRotation )
   {
     mPreviewRotation = rotation;
     emit previewRotationChanged();
   }
-#endif
+}
+
+bool CameraOrientationNormalizer::rotateImageFile( const QString &path, int degrees )
+{
+  const int normalized = ( ( degrees % 360 ) + 360 ) % 360;
+  if ( path.isEmpty() || normalized == 0 )
+    return false;
+
+  QImageReader reader( path );
+  reader.setAutoTransform( false );
+  QImage image = reader.read();
+  if ( image.isNull() )
+    return false;
+
+  QTransform transform;
+  transform.rotate( normalized );
+  image = image.transformed( transform, Qt::SmoothTransformation );
+
+  QImageWriter writer( path );
+  writer.setTransformation( QImageIOHandler::TransformationNone );
+  writer.setQuality( 95 );
+  return writer.write( image );
 }

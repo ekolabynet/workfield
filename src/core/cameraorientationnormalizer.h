@@ -59,6 +59,9 @@ class CameraOrientationNormalizer : public QObject
      */
     Q_INVOKABLE bool normalizeImageOrientation( const QString &path );
 
+    //! Rotates the image file at \a path by \a degrees (90/180/270), rewriting it in place.
+    Q_INVOKABLE bool rotateImageFile( const QString &path, int degrees );
+
   signals:
     void previewRotationChanged();
 
