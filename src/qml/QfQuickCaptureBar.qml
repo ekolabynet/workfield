@@ -113,6 +113,22 @@ Column {
     console.log("QuickCapture refresh:", qgisProject ? qgisProject.fileName : "brak projektu", "| znaleziono warstw:", found.length);
   }
 
+  // warstwa aktywnej serii zdjec (tryb ciagly)
+  property var seriesLayer: null
+  property int seriesCount: 0
+
+  // buduje obiekt w biezacej pozycji GNSS
+  function makeFeatureAt(layer) {
+    const pos = positionSource.projectedPosition;
+    if (!layer || !pos || !pos.x) {
+      return null;
+    }
+    const wkt = "POINT(" + pos.x + " " + pos.y + ")";
+    const geomMap = GeometryUtils.createGeometryFromWkt(wkt);
+    const geomLayer = GeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, layer.crs);
+    return FeatureUtils.createFeature(layer, geomLayer, positionSource.positionInformation);
+  }
+
   function captureInto(layer) {
     if (!positionSource.active || !positionSource.positionInformation || !positionSource.positionInformation.latitudeValid) {
       displayToast(qsTr("Brak pozycji GNSS — włącz pozycjonowanie"), "warning");
@@ -126,6 +142,8 @@ Column {
 
     // najpierw aparat, formularz otwiera sie po zdjeciu (lub po anulowaniu, bez foto)
     pendingLayer = layer;
+    seriesLayer = layer;
+    seriesCount = 0;
     pendingFeature = feature;
     const fileName = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss") + ".jpg";
     if (!(platformUtilities.capabilities & PlatformUtilities.NativeCamera) || !settings.valueBool("nativeCamera2", true)) {
@@ -164,7 +182,15 @@ Column {
 
   function openPendingForm(photoPath) {
     if (!pendingLayer) {
-      return;
+      // seria ciagla: obiekt buduj na miejscu, zeby zadne zdjecie nie przepadlo
+      if (seriesLayer && qfieldSettings.fastMode) {
+        pendingLayer = seriesLayer;
+        pendingFeature = makeFeatureAt(seriesLayer);
+      }
+      if (!pendingLayer || !pendingFeature) {
+        displayToast(qsTr("Zdjęcie zapisane, ale bez obiektu (brak pozycji?)"), "warning");
+        return;
+      }
     }
     let feature = pendingFeature;
     if (photoPath && photoPath !== "") {
@@ -322,7 +348,16 @@ Column {
 
       onFinished: path => {
         quickCaptureBar.cameraSource = quickCaptureCamera;
-        quickCaptureBar.openPendingForm(path);
+        // pole "foto" oczekuje sciezki wzglednej wobec katalogu projektu
+        let relativePhotoPath = path;
+        const home = qgisProject.homePath;
+        if (home !== "" && relativePhotoPath.indexOf(home) === 0) {
+          relativePhotoPath = relativePhotoPath.substring(home.length);
+          while (relativePhotoPath.startsWith("/")) {
+            relativePhotoPath = relativePhotoPath.substring(1);
+          }
+        }
+        quickCaptureBar.openPendingForm(relativePhotoPath);
         if (!qfieldSettings.fastMode) {
           qfCameraLoader.active = false;
         }

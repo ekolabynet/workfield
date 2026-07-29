@@ -283,17 +283,24 @@ Popup {
               onImageSaved: (requestId, path) => {
                 currentPath = path;
                 orientationNormalizer.normalizeImageOrientation(currentPath);
+                const totalRotation = orientationNormalizer.previewRotation + qfieldSettings.cameraRotationOffset;
+                if (totalRotation % 360 !== 0) {
+                  orientationNormalizer.rotateImageFile(currentPath, totalRotation);
+                }
+                if (qfieldSettings.fastMode) {
+                  // tryb szybki: plik gotowy - oddaj sciezke, zostan w podgladzie
+                  if (positionSource.active) {
+                    FileUtils.addImageMetadata(currentPath, positionSource.positionInformation);
+                  }
+                  cameraItem.shotCount++;
+                  cameraItem.finished(currentPath);
+                }
                 photoPreview.source = "file://" + currentPath;
               }
 
               onPreviewChanged: {
                 if (qfieldSettings.fastMode) {
-                  // tryb szybki: bez ekranu akceptacji, aparat zostaje otwarty
-                  if (positionSource.active) {
-                    FileUtils.addImageMetadata(cameraItem.currentPath, positionSource.positionInformation);
-                  }
-                  cameraItem.finished(cameraItem.currentPath);
-                  cameraItem.shotCount++;
+                  // seria ciagla: zostajemy w podgladzie kamery
                   return;
                 }
                 cameraItem.state = "PhotoPreview";
