@@ -128,6 +128,12 @@ Column {
     pendingLayer = layer;
     pendingFeature = feature;
     const fileName = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss") + ".jpg";
+    if (!(platformUtilities.capabilities & PlatformUtilities.NativeCamera) || !settings.valueBool("nativeCamera2", true)) {
+      // wbudowany aparat: ujecia, seria ciagla, blysk i wibracja
+      platformUtilities.createDir(qgisProject.homePath, "DCIM");
+      qfCameraLoader.active = true;
+      return;
+    }
     cameraSource = platformUtilities.getCameraPicture(qgisProject.homePath + "/", fileName, "jpg", quickCaptureBar);
     console.log("QuickCapture camera source:", cameraSource);
     if (!cameraSource) {
@@ -289,6 +295,44 @@ Column {
           }
         }
         onPressAndHold: displayToast(modelData.tooltip, "info")
+      }
+    }
+  }
+
+  Loader {
+    id: qfCameraLoader
+
+    active: false
+    sourceComponent: qfCameraComponent
+  }
+
+  Component {
+    id: qfCameraComponent
+
+    QFieldCamera {
+      id: quickCaptureCamera
+
+      visible: false
+      allowCaptureModeToggle: false
+
+      Component.onCompleted: {
+        state = "PhotoCapture";
+        open();
+      }
+
+      onFinished: path => {
+        quickCaptureBar.cameraSource = quickCaptureCamera;
+        quickCaptureBar.openPendingForm(path);
+        if (!qfieldSettings.fastMode) {
+          qfCameraLoader.active = false;
+        }
+      }
+
+      onCanceled: {
+        quickCaptureBar.cameraSource = null;
+        qfCameraLoader.active = false;
+        quickCaptureBar.pendingLayer = null;
+        quickCaptureBar.pendingFeature = null;
       }
     }
   }

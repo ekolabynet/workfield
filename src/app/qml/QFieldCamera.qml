@@ -508,7 +508,7 @@ Popup {
                   anchors.centerIn: parent
                   text: modelData.label
                   color: "white"
-                  font: Theme.tipFont
+                  font.pointSize: Theme.tipFont.pointSize
                   font.bold: cameraItem.photoShotType === modelData.key
                 }
 
