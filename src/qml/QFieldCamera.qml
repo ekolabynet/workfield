@@ -152,6 +152,10 @@ Popup {
     }
   }
 
+  CaptureAttitude {
+    id: captureAttitude
+  }
+
   Settings {
     id: cameraSettings
     property bool stamping: false
@@ -222,7 +226,7 @@ Popup {
             id: videoOutput
             anchors.fill: parent
             visible: cameraItem.state == "PhotoCapture" || cameraItem.state == "VideoCapture"
-            orientation: orientationNormalizer.previewRotation
+            orientation: orientationNormalizer.previewRotation + qfieldSettings.cameraRotationOffset
           }
 
           CaptureSession {
@@ -285,7 +289,10 @@ Popup {
                 orientationNormalizer.normalizeImageOrientation(currentPath);
                 const totalRotation = orientationNormalizer.previewRotation + qfieldSettings.cameraRotationOffset;
                 if (totalRotation % 360 !== 0) {
-                  orientationNormalizer.rotateImageFile(currentPath, totalRotation);
+                  if (!orientationNormalizer.setExifOrientation(currentPath, totalRotation)) {
+                    // nietypowa struktura pliku - awaryjnie stara sciezka pikselowa
+                    orientationNormalizer.rotateImageFile(currentPath, totalRotation);
+                  }
                 }
                 if (qfieldSettings.fastMode) {
                   // tryb szybki: plik gotowy - oddaj sciezke, zostan w podgladzie
@@ -599,6 +606,7 @@ Popup {
                   captureFlashAnimation.start();
                   platformUtilities.vibrate(30);
                   captureLoader.item.orientationNormalizer.recordCaptureOrientation();
+                  captureAttitude.snapshot();
                   if (positionSource.active) {
                     currentPosition = positionSource.positionInformation;
                     currentProjectedPosition = positionSource.projectedPosition;
@@ -621,6 +629,7 @@ Popup {
                   if (cameraItem.state == "PhotoPreview") {
                     if (cameraSettings.geoTagging && positionSource.active) {
                       FileUtils.addImageMetadata(currentPath, currentPosition);
+                      captureAttitude.writePoseMetadata(currentPath, currentPosition.orientationValid ? currentPosition.orientation : NaN);
                     }
                     if (cameraSettings.stamping || iface.readProjectBoolEntry("qfieldsync", "forceStamping")) {
                       stampExpressionEvaluator.expressionText = iface.readProjectEntry("qfieldsync", "stampingDetailsTemplate", stampExpressionEvaluator.defaultTextTemplate);

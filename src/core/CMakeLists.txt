@@ -82,6 +82,7 @@ set(QFIELD_CORE_SRCS
     bookmarkmodel.cpp
     clipboardmanager.cpp
     cameraorientationnormalizer.cpp
+    captureattitude.cpp
     changelogcontents.cpp
     digitizinglogger.cpp
     distancearea.cpp
@@ -236,6 +237,7 @@ set(QFIELD_CORE_HDRS
     bookmarkmodel.h
     clipboardmanager.h
     cameraorientationnormalizer.h
+    captureattitude.h
     changelogcontents.h
     digitizinglogger.h
     distancearea.h

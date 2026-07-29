@@ -380,7 +380,7 @@ void FileUtils::addImageMetadata( const QString &imagePath, const GnssPositionIn
     if ( positionInformation.elevationValid() )
     {
       metadata["Exif.GPSInfo.GPSAltitude"] = std::abs( positionInformation.elevation() );
-      metadata["Exif.GPSInfo.GPSAltitudeRef"] = positionInformation.elevation() >= 0 ? "1" : "0";
+      metadata["Exif.GPSInfo.GPSAltitudeRef"] = positionInformation.elevation() >= 0 ? "0" : "1";
     }
   }
   if ( positionInformation.orientationValid() )
