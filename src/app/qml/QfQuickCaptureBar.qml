@@ -118,9 +118,15 @@ Column {
   property int seriesCount: 0
 
   // buduje obiekt w biezacej pozycji GNSS
+  // JEDYNE miejsce liczenia pozycji: pelne strazniki na wspolrzedne-smieci.
+  // Nie wymagamy fixa (decyzja projektowa): bierzemy to, co daje projectedPosition,
+  // odrzucamy tylko wartosci bezuzyteczne (brak zrodla, NaN, dokladnie 0,0).
   function makeFeatureAt(layer) {
+    if (!layer) {
+      return null;
+    }
     const pos = positionSource.projectedPosition;
-    if (!layer || !pos || !pos.x) {
+    if (!pos || !isFinite(pos.x) || !isFinite(pos.y) || (pos.x === 0 && pos.y === 0)) {
       return null;
     }
     const wkt = "POINT(" + pos.x + " " + pos.y + ")";
@@ -130,15 +136,15 @@ Column {
   }
 
   function captureInto(layer) {
-    if (!positionSource.active || !positionSource.positionInformation || !positionSource.positionInformation.latitudeValid) {
-      displayToast(qsTr("Brak pozycji GNSS — włącz pozycjonowanie"), "warning");
+    const feature = makeFeatureAt(layer);
+    if (!feature) {
+      displayToast(qsTr("Brak użytecznej pozycji — punkt nie powstanie"), "warning");
       return;
     }
-    const pos = positionSource.projectedPosition;
-    const wkt = "POINT(" + pos.x + " " + pos.y + ")";
-    const geometryInMapCrs = GeometryUtils.createGeometryFromWkt(wkt);
-    const geometryInLayerCrs = GeometryUtils.reprojectGeometry(geometryInMapCrs, mapCanvas.mapSettings.destinationCrs, layer.crs);
-    const feature = FeatureUtils.createFeature(layer, geometryInLayerCrs, positionSource.positionInformation);
+    if (!positionSource.positionInformation || !positionSource.positionInformation.latitudeValid) {
+      // zapisujemy mimo braku fixa, ale uczciwie ostrzegamy
+      displayToast(qsTr("Pozycja bez fixa — dokładność ograniczona"), "warning");
+    }
 
     // najpierw aparat, formularz otwiera sie po zdjeciu (lub po anulowaniu, bez foto)
     pendingLayer = layer;
@@ -149,7 +155,14 @@ Column {
     if (!(platformUtilities.capabilities & PlatformUtilities.NativeCamera) || !settings.valueBool("nativeCamera2", true)) {
       // wbudowany aparat: ujecia, seria ciagla, blysk i wibracja
       platformUtilities.createDir(qgisProject.homePath, "DCIM");
-      qfCameraLoader.active = true;
+      if (qfCameraLoader.active && qfCameraLoader.item) {
+        // pas i szelki: Loader nie powinien przezyc onClosed, ale gdyby -
+        // otwieramy wprost, bo onCompleted juz nie strzeli
+        qfCameraLoader.item.state = "PhotoCapture";
+        qfCameraLoader.item.open();
+      } else {
+        qfCameraLoader.active = true;
+      }
       return;
     }
     cameraSource = platformUtilities.getCameraPicture(qgisProject.homePath + "/", fileName, "jpg", quickCaptureBar);
@@ -181,47 +194,65 @@ Column {
   }
 
   function openPendingForm(photoPath) {
-    if (!pendingLayer) {
-      // seria ciagla: obiekt buduj na miejscu, zeby zadne zdjecie nie przepadlo
-      if (seriesLayer && qfieldSettings.fastMode) {
-        pendingLayer = seriesLayer;
-        pendingFeature = makeFeatureAt(seriesLayer);
-      }
-      if (!pendingLayer || !pendingFeature) {
-        displayToast(qsTr("Zdjęcie zapisane, ale bez obiektu (brak pozycji?)"), "warning");
-        return;
+    // tryb szybki: geometria ZAWSZE z chwili nadejscia zdjecia, nie z chwili
+    // tapniecia kafelka - dotyczy takze pierwszego zdjecia serii (wczesniej
+    // pierwsze dostawalo pozycje sprzed kilkudziesieciu sekund marszu)
+    if (qfieldSettings.fastMode) {
+      const targetLayer = pendingLayer || seriesLayer;
+      if (targetLayer) {
+        const fresh = makeFeatureAt(targetLayer);
+        if (fresh) {
+          pendingLayer = targetLayer;
+          pendingFeature = fresh;
+        }
+        // fresh == null: zostaje obiekt z chwili tapniecia (lepszy niz zaden)
       }
     }
+    if (!pendingLayer || !pendingFeature) {
+      displayToast(qsTr("Zdjęcie zapisane, ale bez obiektu (brak pozycji?)"), "warning");
+      return;
+    }
     let feature = pendingFeature;
-    if (photoPath && photoPath !== "") {
+    const fieldNames = feature.fields.names;
+    if (photoPath && photoPath !== "" && fieldNames.indexOf("foto") >= 0) {
       feature.setAttribute("foto", photoPath);
-      if (cameraSource && cameraSource.photoShotType) {
+      if (cameraSource && cameraSource.photoShotType && fieldNames.indexOf("ujecie") >= 0) {
         feature.setAttribute("ujecie", cameraSource.photoShotType);
       }
     }
     feature = applyRasterContext(feature, pendingLayer);
+    if (qfieldSettings.fastMode) {
+      // cichy zapis WLASNYM modelem: create() sam otwiera i domyka sesje
+      // edycji, a szuflada formularza i jej bindingi zostaja nietkniete
+      silentFeatureModel.currentLayer = pendingLayer;
+      silentFeatureModel.feature = feature;
+      if (silentFeatureModel.create()) {
+        seriesCount += 1;
+        displayToast(qsTr("Zapisano: %1 (%2. w serii)").arg(pendingLayer.name).arg(seriesCount));
+      } else {
+        displayToast(qsTr("NIE zapisano obiektu — zdjęcie ocalone: %1").arg(photoPath), "error");
+      }
+      pendingLayer = null;
+      pendingFeature = null;
+      // cameraSource zostaje: seria trwa, kolejne zdjecia niosa photoShotType
+      return;
+    }
+    // tryb dokladny: formularz przez szuflade
     // celowo bez dotykania dashBoard.activeLayer - przypisanie imperatywne,
     // binding do warstwy aktywnej odtwarzany przy zamknieciu szuflady
     overlayFeatureFormDrawer.featureModel.currentLayer = pendingLayer;
     overlayFeatureFormDrawer.featureModel.feature = feature;
-    if (qfieldSettings.fastMode) {
-      // tryb szybki: zapis bez otwierania formularza
-      if (overlayFeatureFormDrawer.featureModel.create()) {
-        displayToast(qsTr("Zapisano: %1").arg(pendingLayer.name));
-      } else {
-        displayToast(qsTr("Nie udało się zapisać obiektu"), "error");
-      }
-      overlayFeatureFormDrawer.featureModel.currentLayer = Qt.binding(() => dashBoard.activeLayer);
-      pendingLayer = null;
-      pendingFeature = null;
-      cameraSource = null;
-      return;
-    }
     overlayFeatureFormDrawer.state = "Add";
     overlayFeatureFormDrawer.open();
     pendingLayer = null;
     pendingFeature = null;
     cameraSource = null;
+  }
+
+  // model do cichego zapisu w trybie szybkim - niezalezny od szuflady formularza
+  FeatureModel {
+    id: silentFeatureModel
+    project: qgisProject
   }
 
   Connections {
@@ -233,6 +264,15 @@ Column {
     }
 
     function onResourceCanceled(path) {
+      if (qfieldSettings.fastMode) {
+        // tryb szybki: anulowanie aparatu = swiadoma rezygnacja, bez zapisu
+        // (wczesniej powstawal punkt bez zdjecia)
+        quickCaptureBar.pendingLayer = null;
+        quickCaptureBar.pendingFeature = null;
+        quickCaptureBar.cameraSource = null;
+        displayToast(qsTr("Anulowano — bez zapisu"));
+        return;
+      }
       quickCaptureBar.openPendingForm("");
     }
   }
@@ -253,6 +293,15 @@ Column {
     }
 
     function onLayersAdded(layers) {
+      quickCaptureBar.refreshLayers();
+    }
+
+    function onLayersRemoved(layerIds) {
+      // bez tego resolvedLayers trzyma wiszace wskazniki po zmianie projektu
+      quickCaptureBar.refreshLayers();
+    }
+
+    function onCleared() {
       quickCaptureBar.refreshLayers();
     }
   }
@@ -359,15 +408,25 @@ Column {
         }
         quickCaptureBar.openPendingForm(relativePhotoPath);
         if (!qfieldSettings.fastMode) {
-          qfCameraLoader.active = false;
+          // tryb dokladny: jedno zdjecie, zamykamy; dezaktywacja w onClosed
+          close();
         }
+        // tryb szybki: aparat zostaje otwarty na serie
       }
 
       onCanceled: {
-        quickCaptureBar.cameraSource = null;
-        qfCameraLoader.active = false;
         quickCaptureBar.pendingLayer = null;
         quickCaptureBar.pendingFeature = null;
+        close();
+      }
+
+      onClosed: {
+        // JEDYNE miejsce dezaktywacji Loadera. Kazda sciezka zamkniecia
+        // (finished, cancel, systemowy back) przechodzi tedy, wiec kolejne
+        // otwarcie zawsze startuje od zera i przechodzi przez onCompleted.
+        // To byl terenowy bug "aparat nie otwiera sie ponownie po wyjsciu".
+        quickCaptureBar.cameraSource = null;
+        qfCameraLoader.active = false;
       }
     }
   }

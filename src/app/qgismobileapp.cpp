@@ -35,6 +35,8 @@
 #endif
 #include "appinterface.h"
 #include "barcodeimageprovider.h"
+#include "cameraorientationnormalizer.h"
+#include "captureattitude.h"
 #include "cogoregistry.h"
 #include "distancearea.h"
 #include "featurehistory.h"
@@ -423,6 +425,8 @@ void QgisMobileapp::initDeclarative( QQmlEngine *engine )
   QFieldCore::registerQmlTypes();
   QFieldGui::registerQmlTypes();
   QFieldApp::registerQmlTypes();
+  qmlRegisterType<CameraOrientationNormalizer>( "org.qfield", 1, 0, "CameraOrientationNormalizer" );
+  qmlRegisterType<CaptureAttitude>( "org.qfield", 1, 0, "CaptureAttitude" );
 
 
 #ifdef WITH_BLUETOOTH

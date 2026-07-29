@@ -62,6 +62,16 @@ class CameraOrientationNormalizer : public QObject
     //! Rotates the image file at \a path by \a degrees (90/180/270), rewriting it in place.
     Q_INVOKABLE bool rotateImageFile( const QString &path, int degrees );
 
+    /**
+     * Zapisuje orientacje \a degrees jako znacznik EXIF Orientation w pliku
+     * JPEG \a path - bez re-enkodowania pikseli, bezstratnie i z zachowaniem
+     * wszystkich metadanych (geotag, czas, model aparatu).
+     * Zwraca false, gdy plik nie jest JPEG albo znacznika nie da sie
+     * bezpiecznie ustawic; wolajacy moze wtedy uzyc rotateImageFile()
+     * jako awaryjnej sciezki pikselowej.
+     */
+    Q_INVOKABLE bool setExifOrientation( const QString &path, int degrees );
+
   signals:
     void previewRotationChanged();
 

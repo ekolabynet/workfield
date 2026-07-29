@@ -77,6 +77,7 @@ set(QFIELD_CORE_SRCS
     barcodedecoder.cpp
     bookmarkmodel.cpp
     cameraorientationnormalizer.cpp
+    captureattitude.cpp
     digitizinglogger.cpp
     distancearea.cpp
     drawingcanvas.cpp
@@ -202,6 +203,7 @@ set(QFIELD_CORE_HDRS
     barcodedecoder.h
     bookmarkmodel.h
     cameraorientationnormalizer.h
+    captureattitude.h
     digitizinglogger.h
     distancearea.h
     drawingcanvas.h
