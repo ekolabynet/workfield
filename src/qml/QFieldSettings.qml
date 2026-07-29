@@ -34,6 +34,7 @@ Page {
 
   property alias projectAutoSaveInterval: registry.projectAutoSaveInterval
   property alias fastMode: registry.fastMode
+  property alias cameraRotationOffset: registry.cameraRotationOffset
   property alias showScaleBar: registry.showScaleBar
   property alias showZoomControls: registry.showZoomControls
   property alias fullScreenIdentifyView: registry.fullScreenIdentifyView
@@ -162,6 +163,7 @@ Page {
     property int coordinateCursorShape: 3
     property int projectAutoSaveInterval: 5
     property bool fastMode: false
+    property int cameraRotationOffset: 0
     property bool previewJobsEnabled: true
 
     property bool snapToCommonAngleIsEnabled: false

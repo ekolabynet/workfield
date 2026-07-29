@@ -165,7 +165,20 @@ void AndroidPlatformUtilities::executeQfAction() const
 QStringList AndroidPlatformUtilities::appDataDirs() const
 {
   const QString dataDirs = getIntentExtra( "QFIELD_APP_DATA_DIRS" );
-  return ( !dataDirs.isEmpty() ? dataDirs.split( "--;--" ) : QStringList() );
+  if ( dataDirs.isEmpty() )
+    return QStringList();
+
+  // odsiej puste wpisy (separator na koncu ciagu) i duplikaty
+  QStringList result;
+  const QStringList parts = dataDirs.split( QStringLiteral( "--;--" ) );
+  for ( const QString &part : parts )
+  {
+    const QString trimmed = part.trimmed();
+    if ( trimmed.isEmpty() || result.contains( trimmed ) )
+      continue;
+    result << trimmed;
+  }
+  return result;
 }
 
 QString AndroidPlatformUtilities::applicationDirectory() const
