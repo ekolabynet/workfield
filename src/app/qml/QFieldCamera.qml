@@ -287,7 +287,7 @@ Popup {
               onImageSaved: (requestId, path) => {
                 currentPath = path;
                 orientationNormalizer.normalizeImageOrientation(currentPath);
-                const totalRotation = orientationNormalizer.previewRotation + qfieldSettings.cameraRotationOffset;
+                const totalRotation = qfieldSettings.cameraRotationOffset;
                 if (totalRotation % 360 !== 0) {
                   if (!orientationNormalizer.setExifOrientation(currentPath, totalRotation)) {
                     // nietypowa struktura pliku - awaryjnie stara sciezka pikselowa
@@ -298,6 +298,7 @@ Popup {
                   // tryb szybki: plik gotowy - oddaj sciezke, zostan w podgladzie
                   if (positionSource.active) {
                     FileUtils.addImageMetadata(currentPath, positionSource.positionInformation);
+                    captureAttitude.writePoseMetadata(currentPath, positionSource.positionInformation.orientationValid ? positionSource.positionInformation.orientation : NaN);
                   }
                   cameraItem.shotCount++;
                   cameraItem.finished(currentPath);
