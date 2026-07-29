@@ -170,6 +170,7 @@ ApplicationWindow {
     property string screenConfiguration: ''
 
     Component.onCompleted: {
+
       if (Qt.platform.os !== "ios" && Qt.platform.os !== "android") {
         let currentScreensConfiguration = `${Qt.application.screens.length}`;
         for (let screen of Qt.application.screens) {

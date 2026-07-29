@@ -256,6 +256,9 @@ QString PlatformUtilities::applicationDirectory() const
     QString cleaned = preferred;
     while ( cleaned.endsWith( QLatin1Char( '/' ) ) )
       cleaned.chop( 1 );
+    // preferencja moze zawierac segment QField - warstwa wyzsza dokleja go sama
+    if ( cleaned.endsWith( QStringLiteral( "/QField" ) ) )
+      cleaned.chop( 7 );
     return cleaned;
   }
   return QStandardPaths::standardLocations( QStandardPaths::DocumentsLocation ).first() + QStringLiteral( "/QField Documents/" );

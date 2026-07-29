@@ -20,6 +20,45 @@ Popup {
   property string currentPath: ''
   // rodzaj ujecia: plat / dol / gora / gatunek
   property string photoShotType: "dol"
+
+  // presety ujec: zoom i wybor obiektywu
+  readonly property var shotPresets: ({
+      "plat": {
+        "zoom": 0.6,
+        "front": false
+      },
+      "dol": {
+        "zoom": 1.0,
+        "front": false
+      },
+      "gora": {
+        "zoom": 1.0,
+        "front": true
+      },
+      "gatunek": {
+        "zoom": 2.0,
+        "front": false
+      }
+    })
+
+  function applyShotPreset(shotType) {
+    photoShotType = shotType;
+    const preset = shotPresets[shotType];
+    if (!preset || !captureLoader.item) {
+      return;
+    }
+    const cam = captureLoader.item.camera;
+    const wantFront = preset.front === true;
+    for (const device of mediaDevices.videoInputs) {
+      const isFront = device.position === CameraDevice.FrontFace;
+      if (isFront === wantFront && cam.cameraDevice !== device) {
+        cam.cameraDevice = device;
+        break;
+      }
+    }
+    cam.zoomFactor = Math.max(cam.minimumZoomFactor, Math.min(preset.zoom, cam.maximumZoomFactor));
+  }
+
   property int shotCount: 0
   property var currentPosition: PositioningUtils.createEmptyGnssPositionInformation()
   property var currentProjectedPosition: undefined
@@ -514,7 +553,7 @@ Popup {
 
                 MouseArea {
                   anchors.fill: parent
-                  onClicked: cameraItem.photoShotType = modelData.key
+                  onClicked: cameraItem.applyShotPreset(modelData.key)
                 }
               }
             }

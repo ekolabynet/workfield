@@ -1345,6 +1345,14 @@ public class QFieldActivity extends QtActivity {
             try {
                 String preferredPath = new String(java.nio.file.Files.readAllBytes(preferredMarker.toPath())).trim();
                 if (!preferredPath.isEmpty()) {
+                    // preferencja moze byc zapisana z segmentem QField - obetnij,
+                    // bo warstwa C++ dokleja go samodzielnie
+                    while (preferredPath.endsWith("/")) {
+                        preferredPath = preferredPath.substring(0, preferredPath.length() - 1);
+                    }
+                    if (preferredPath.endsWith("/QField")) {
+                        preferredPath = preferredPath.substring(0, preferredPath.length() - 7);
+                    }
                     java.io.File preferredDir = new java.io.File(preferredPath);
                     if (preferredDir.exists() && preferredDir.isDirectory()) {
                         return preferredDir;
