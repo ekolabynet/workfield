@@ -21,19 +21,23 @@ WorkField currently adapts QField to one narrow job:
 It is a personal, opinionated build — not a general-purpose replacement for QField.
 
 Main differences from upstream:
-
 - **Material 3 interface** — a Material Design 3 based theme with large
   touch targets for gloved outdoor use, and a GNSS status bar showing
   coordinates and quality class (FIX/FLOAT/GPS).
-- **From Field to Room** — an ability to start, configure and work on a project directly in the field.
-- **Camera** — shot presets (lens + zoom), continuous shooting series with no
-  lost frames, Android orientation correction, flash and haptic feedback in
-  fast capture mode, relative photo paths.
+- **Field-first projects** — start, configure and grow a project directly
+  in the field, without a desktop session in between.
 - **Capture workflow** — quick capture bar, fast mode taking positions
   directly from the GNSS source, series counter, project variables
   (`obiekt_*`), buffered raster value sampling.
-- **Vector, Raster and XYX,WMS/WMTS data from worldwide and Polish national services (GUGiK) loadable, confugurable and often stylable in the field**.
-- **Field DTM/DSM/CHM data download**
+- **Camera** — shot presets (lens + zoom), continuous shooting series with no
+  lost frames, Android orientation correction, flash and haptic feedback in
+  fast capture mode, relative photo paths.
+- **Basemaps for Poland and beyond** — XYZ/WMS/WMTS sources with presets for
+  Polish national services (GUGiK), loadable, configurable and styled
+  in the field.
+- **Terrain and vegetation at a glance** — a workflow for using DTM/DSM/CHM
+  rasters as styled basemaps, so canopy height and terrain are visible
+  while capturing.
 - **Branding** — distinct name, icon and splash to avoid confusion with
   official QField packages.
 
