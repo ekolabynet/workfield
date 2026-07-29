@@ -16,9 +16,9 @@ tuned for vegetation inventory and surveying workflows in Poland.**
 
 ## What is this?
 
-WorkField adapts QField to one narrow job: **collecting vegetation inventory
-data in the field, in Poland, often one-handed and in gloves.** It is a
-personal, opinionated build — not a general-purpose replacement for QField.
+WorkField currently adapts QField to one narrow job: 
+**collecting vegetation inventory data in the field, in Poland, often one-handed and in gloves.** 
+It is a personal, opinionated build — not a general-purpose replacement for QField.
 
 Main differences from upstream:
 
