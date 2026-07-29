@@ -25,3 +25,7 @@ __pycache__
 *~
 /site*.bak
 brand/workfield.keystore
+
+# WorkField: dane terenowe nigdy do repo
+*.gpkg
+DCIM/
