@@ -78,6 +78,7 @@ set(QFIELD_CORE_SRCS
     bookmarkmodel.cpp
     cameraorientationnormalizer.cpp
     captureattitude.cpp
+    phototagstore.cpp
     digitizinglogger.cpp
     distancearea.cpp
     drawingcanvas.cpp
@@ -204,6 +205,7 @@ set(QFIELD_CORE_HDRS
     bookmarkmodel.h
     cameraorientationnormalizer.h
     captureattitude.h
+    phototagstore.h
     digitizinglogger.h
     distancearea.h
     drawingcanvas.h
