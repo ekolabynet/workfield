@@ -323,8 +323,8 @@ Column {
       width: 56
       height: 56
       radius: modelData.shape === "circle" ? width / 2 : modelData.shape === "rounded" ? 16 : 6
-      color: modelData.shape === "polygon" ? "transparent" : modelData.color
-      border.color: modelData.shape === "polygon" ? "transparent" : "#003D33"
+      color: modelData.color
+      border.color: "#003D33"
       border.width: 2
       opacity: 0.92
 
