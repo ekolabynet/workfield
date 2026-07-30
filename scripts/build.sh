@@ -4,11 +4,18 @@ set -e
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"/..
 
-export APK_VERSION_CODE=${APK_VERSION_CODE:-804}
-export APP_VERSION_STR=${APP_VERSION_STR:-0.8.4}
-export STOREPASS=${STOREPASS:-workfield2026}
+export APK_VERSION_CODE=${APK_VERSION_CODE:-805}
+export APP_VERSION_STR=${APP_VERSION_STR:-0.8.5}
+
+# Sekrety podpisu NIE mieszkaja w repo. Zrodlo: scripts/signing.env
+# (gitignore) albo zmienne srodowiskowe.
+if [ -f "$SRC_DIR/scripts/signing.env" ]; then
+  source "$SRC_DIR/scripts/signing.env"
+fi
+: "${STOREPASS:?Brak STOREPASS - utworz scripts/signing.env (patrz signing.env.example)}"
+: "${KEYPASS:?Brak KEYPASS - utworz scripts/signing.env}"
+export STOREPASS KEYPASS
 export KEYNAME=${KEYNAME:-workfield}
-export KEYPASS=${KEYPASS:-workfield2026}
 
 triplet=${triplet:-arm64-android}
 
