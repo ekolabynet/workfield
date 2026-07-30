@@ -48,6 +48,7 @@
 #include "barcodeimageprovider.h"
 #include "cameraorientationnormalizer.h"
 #include "captureattitude.h"
+#include "phototagstore.h"
 #include "changelogcontents.h"
 #include "cogoexecutor.h"
 #include "cogooperation.h"
@@ -507,6 +508,7 @@ void QgisMobileapp::initDeclarative( QQmlEngine *engine )
   qmlRegisterType<GridModel>( "org.qfield", 1, 0, "GridModel" );
   qmlRegisterType<CameraOrientationNormalizer>( "org.qfield", 1, 0, "CameraOrientationNormalizer" );
   qmlRegisterType<CaptureAttitude>( "org.qfield", 1, 0, "CaptureAttitude" );
+  qmlRegisterType<PhotoTagStore>( "org.qfield", 1, 0, "PhotoTagStore" );
   qmlRegisterUncreatableType<GridAnnotation>( "org.qfield", 1, 0, "gridAnnotation", "Used for property values" );
   qmlRegisterUncreatableMetaObject( GridAnnotation::staticMetaObject, "org.qfield", 1, 0, "GridAnnotation", "Used to access enum values" );
 

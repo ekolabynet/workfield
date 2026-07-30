@@ -83,6 +83,7 @@ set(QFIELD_CORE_SRCS
     clipboardmanager.cpp
     cameraorientationnormalizer.cpp
     captureattitude.cpp
+    phototagstore.cpp
     changelogcontents.cpp
     digitizinglogger.cpp
     distancearea.cpp
@@ -238,6 +239,7 @@ set(QFIELD_CORE_HDRS
     clipboardmanager.h
     cameraorientationnormalizer.h
     captureattitude.h
+    phototagstore.h
     changelogcontents.h
     digitizinglogger.h
     distancearea.h
