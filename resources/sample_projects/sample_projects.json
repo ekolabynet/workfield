@@ -1,17 +1,17 @@
 [
   {
-    "title": "Bee Farming Sample Project",
-    "thumbnail": "bees.qgz.jpg",
-    "link": "http://qfield.org/sample-projects/bees.zip"
+    "title": "Inwentaryzacja botaniczna ZZW",
+    "thumbnail": "szablon_inw_zzw.jpg",
+    "link": "https://github.com/ekolabynet/workfield/releases/latest/download/szablon_inw_zzw.zip"
   },
   {
-    "title": "Wasterwater Management Sample Project",
-    "thumbnail": "wastewater.qgz.jpg",
-    "link": "http://qfield.org/sample-projects/wastewater.zip"
+    "title": "Obserwacje roślinności",
+    "thumbnail": "szablon_obs_roslinnosc.jpg",
+    "link": "https://github.com/ekolabynet/workfield/releases/latest/download/szablon_obs_roslinnosc.zip"
   },
   {
-    "title": "Live QField Users Survey",
-    "thumbnail": "live_qfield_users_survey.qgs.jpg",
-    "link": "http://qfield.org/sample-projects/live_qfield_users_survey.zip"
+    "title": "Szybkie obserwacje terenowe",
+    "thumbnail": "szablon_obs_szybkie.jpg",
+    "link": "https://github.com/ekolabynet/workfield/releases/latest/download/szablon_obs_szybkie.zip"
   }
 ]
