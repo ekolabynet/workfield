@@ -29,3 +29,6 @@ brand/workfield.keystore
 # WorkField: dane terenowe nigdy do repo
 *.gpkg
 DCIM/
+
+# WorkField: sekrety podpisu APK
+scripts/signing.env
