@@ -6052,21 +6052,27 @@ ApplicationWindow {
     steps: [
       {
         "type": "information",
-        "title": qsTr("Dashboard"),
-        "description": qsTr("This button opens the dashboard. With the dashboard you can interact with the legend and map theme, or start digitizing by activating the editing mode. Long-pressing the button gives you immediate access to the main menu."),
-        "target": () => [menuButton]
+        "title": qsTr("Projekt, warstwy, stylizacja"),
+        "description": qsTr("Ten przycisk otwiera <b>lewą szufladę</b>. Zakładka <b>Projekt</b> — otwieranie i właściwości projektu, tytuł widoczny w pasku, galeria zdjęć. <b>Warstwy</b> — widoczność, przezroczystość, przybliżanie do warstwy (przytrzymaj warstwę, by otworzyć jej ustawienia). <b>Stylizacja</b> — wygląd warstw na mapie."),
+        "target": () => [dashBoard]
       },
       {
         "type": "information",
-        "title": qsTr("Positioning"),
-        "description": qsTr("This button toggles the positioning system. When enabled, a position marker will appear top of the map. Long-pressing the button will open the positioning menu where additional functionalities can be explored."),
-        "target": () => [gnssButton]
+        "title": qsTr("Narzędzia i ustawienia"),
+        "description": qsTr("<b>Prawa szuflada</b> to narzędzia pomiarowe, algorytmy przetwarzania, ustawienia GNSS i systemowe opcje aplikacji. Tutaj włączysz też pozycjonowanie i skonfigurujesz odbiornik zewnętrzny."),
+        "target": () => [mainMenuBar]
       },
       {
         "type": "information",
-        "title": qsTr("Search"),
-        "description": qsTr("The search bar provides you with a quick way to find features within your project, jump to a typed latitude and longitude point, and much more."),
-        "target": () => [locatorItem]
+        "title": qsTr("Szybkie przechwytywanie"),
+        "description": qsTr("Kolorowe przyciski odpowiadają warstwom szablonu: <b>jedno dotknięcie tworzy obiekt w bieżącej pozycji GNSS</b> i otwiera formularz, gdzie dopiszesz szczegóły i zrobisz zdjęcie. Przycisk FOTO otwiera galerię zdjęć projektu wraz z tagowaniem gatunków."),
+        "target": () => [iface.findItemByObjectName('quickCaptureBar')]
+      },
+      {
+        "type": "information",
+        "title": qsTr("Tryb szybki"),
+        "description": qsTr("Żółty przycisk przełącza <b>tryb szybki</b>: obiekty powstają bez otwierania formularza, wprost z pozycji GNSS — do pracy w marszu, w rękawicach, gdy liczy się tempo. W trybie dokładnym każdy obiekt potwierdzasz formularzem."),
+        "target": () => [iface.findItemByObjectName('fastModeButton')]
       }
     ]
 
@@ -6107,15 +6113,15 @@ ApplicationWindow {
       },
       {
         "type": "information",
-        "title": qsTr("Print"),
-        "description": qsTr("Export the map canvas to PDF using configured project print and atlas layouts."),
+        "title": qsTr("Zgłoś uwagę"),
+        "description": qsTr("Coś nie działa albo czegoś brakuje? Zakładka Projekt → <b>Zgłoś uwagę</b> otwiera wiadomość z automatycznie dołączonym kontekstem (wersja, projekt). Zrzut ekranu bardzo pomaga."),
         "target": () => [iface.findItemByObjectName('printItemButton')]
       },
       {
         "type": "information",
-        "title": qsTr("QFieldCloud"),
-        "description": qsTr("Upload local changes, synchronize or discard changes to and from QFieldCloud when a cloud project is opened."),
-        "target": () => [iface.findItemByObjectName('cloudButton')]
+        "title": qsTr("Galeria i tagowanie"),
+        "description": qsTr("Zakładka Warstwy → <b>Galeria</b> pokazuje wszystkie zdjęcia projektu. W podglądzie zdjęcia przycisk 🏷 otwiera panel tagowania: przypisujesz gatunek (podpowiedzi ze słownika projektu) i pokrycie w procentach. Tagi zapisują się osobno, dane terenowe pozostają nietknięte."),
+        "target": () => [iface.findItemByObjectName('projectFolderButton')]
       },
       {
         "type": "information",
@@ -6128,7 +6134,8 @@ ApplicationWindow {
     Connections {
       id: dashBoardConnections
       target: dashBoard
-      enabled: settings ? settings.valueBool("/QField/showDashboardGuide", true) : false
+      // WorkField: wlasny przewodnik startowy zastapil ten zestaw
+      enabled: false
 
       function onOpened() {
         dashBoardConnections.enabled = false;

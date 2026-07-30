@@ -114,6 +114,13 @@ Page {
   focus: visible
 
   Component.onCompleted: {
+    // WorkField: jednorazowa migracja przy aktualizacji - aparat systemowy jest
+    // warunkiem dzialania OpenCamera. Wykonana raz; pozniejsze wylaczenie przez
+    // uzytkownika (albo przez ochrone po awarii ponizej) zostaje uszanowane.
+    if (!settings.valueBool('WorkField/cameraMigrationDone', false)) {
+      nativeCamera2 = true;
+      settings.setValue('WorkField/cameraMigrationDone', true);
+    }
     if (settings.valueBool('nativeCameraLaunched', false)) {
       // a crash occured while the native camera was launched, disable it
       nativeCamera2 = false;
@@ -152,7 +159,7 @@ Page {
     property bool autoZoomToIdentifiedFeature: false
     property bool numericalDigitizingInformation: false
     property bool showBookmarks: true
-    property bool nativeCamera2: false
+    property bool nativeCamera2: true  // WorkField: wymagane dla OpenCamera
     property bool digitizingVolumeKeys: platformUtilities.capabilities & PlatformUtilities.VolumeKeys
     property bool autoSave: false
     property bool fingerTapDigitizing: false
@@ -303,8 +310,8 @@ Page {
       isVisible: true
     }
     ListElement {
-      title: qsTr("Use native camera")
-      description: qsTr("If enabled, the native camera provided by the operating system will be used.")
+      title: qsTr("Używaj aparatu systemowego")
+      description: qsTr("Wymagane do pracy z OpenCamera. Gdy włączone, zdjęcia robi aparat systemowy — WorkField użyje OpenCamera, jeśli jest zainstalowana, w przeciwnym razie aparatu fabrycznego. Wyłączenie przywraca prosty aparat wbudowany w aplikację.")
       settingAlias: "nativeCamera2"
       isVisible: true
     }

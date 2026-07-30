@@ -17,6 +17,7 @@ import Theme
  */
 Column {
   id: quickCaptureBar
+  objectName: 'quickCaptureBar'
 
   // rozpoznawane warstwy szablonow: nazwa -> etykieta, litera, kolor
   readonly property var captureTargets: [
@@ -64,6 +65,7 @@ Column {
 
   QfToolButton {
     id: fastModeButton
+    objectName: 'fastModeButton'
 
     width: 48
     height: 48
