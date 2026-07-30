@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
+import org.qfield
 import Theme
 
 /**
@@ -67,6 +68,21 @@ Popup {
     layerList = pl;
     if (layerFilter !== "" && pl.indexOf(layerFilter) < 0)
       layerFilter = "";
+  }
+
+  PhotoTagStore {
+    id: tagStore
+  }
+
+  Connections {
+    target: photoGallery
+    function onOpened() {
+      if (photoGallery.projectDir !== "") {
+        tagStore.author = settings.value("workfield/podpisTerenowy", "workfield");
+        const ok = tagStore.open(photoGallery.projectDir);
+        console.log("PhotoTagStore:", ok ? "otwarty: " + tagStore.storagePath : "BLAD otwarcia");
+      }
+    }
   }
 
   FolderListModel {
@@ -334,11 +350,18 @@ Popup {
     property var items: []
     property int idx: -1
     readonly property var cur: (idx >= 0 && idx < items.length) ? items[idx] : null
+    readonly property string curRel: cur ? cur.path.substring(photoGallery.projectDir.length + 1) : ""
+    property var curTags: []
+
+    function refreshTags() {
+      curTags = curRel !== "" ? tagStore.tagsForPhoto(curRel) : [];
+    }
 
     function openList(list, i) {
       items = list;
       idx = i;
       open();
+      refreshTags();
       Qt.callLater(fitToScreen);
     }
 
@@ -348,7 +371,18 @@ Popup {
       flick.contentY = 0;
     }
 
-    onIdxChanged: Qt.callLater(fitToScreen)
+    onIdxChanged: {
+      Qt.callLater(fitToScreen);
+      refreshTags();
+    }
+
+    Connections {
+      target: tagStore
+      function onTagsChanged(foto) {
+        if (foto === viewer.curRel)
+          viewer.refreshTags();
+      }
+    }
 
     background: Rectangle {
       color: "black"
@@ -486,6 +520,178 @@ Popup {
       onClicked: viewer.close()
     }
 
+    RoundButton {
+      text: "🏷"
+      width: 64
+      height: 64
+      font.pointSize: 22
+      Material.background: tagPanel.visible ? "#AA00695C" : "#AA263238"
+      Material.foreground: "white"
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.rightMargin: 8
+      anchors.bottomMargin: 56
+      onClicked: {
+        tagPanel.visible = !tagPanel.visible;
+        if (tagPanel.visible) {
+          viewer.refreshTags();
+          tagPanel.updateSuggestions();
+          tagInput.forceActiveFocus();
+        }
+      }
+    }
+
+    Rectangle {
+      id: tagPanel
+
+      property var suggestions: []
+
+      function updateSuggestions() {
+        const wzor = tagInput.text.trim().toLowerCase();
+        const all = tagStore.knownTags();
+        const out = [];
+        for (let i = 0; i < all.length && out.length < 8; i++) {
+          if (wzor === "" || all[i].toLowerCase().indexOf(wzor) === 0)
+            out.push(all[i]);
+        }
+        suggestions = out;
+      }
+
+      visible: false
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: 44
+      color: "#DD263238"
+      height: panelCol.implicitHeight + 20
+
+      ColumnLayout {
+        id: panelCol
+        anchors.fill: parent
+        anchors.margins: 10
+        spacing: 8
+
+        Flow {
+          Layout.fillWidth: true
+          spacing: 6
+          visible: viewer.curTags.length > 0
+
+          Repeater {
+            model: viewer.curTags
+
+            delegate: Rectangle {
+              radius: height / 2
+              height: 34
+              width: tagChipRow.implicitWidth + 20
+              color: "#00695C"
+
+              RowLayout {
+                id: tagChipRow
+                anchors.centerIn: parent
+                spacing: 6
+
+                Text {
+                  text: modelData.tag + (modelData.pokrycie !== undefined && modelData.pokrycie !== null ? " " + modelData.pokrycie + "%" : "")
+                  color: "white"
+                  font: photoGallery.t.tipFont
+                }
+
+                Text {
+                  text: "✕"
+                  color: "#FFCDD2"
+                  font: photoGallery.t.tipFont
+
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -8
+                    onClicked: tagStore.removeTag(modelData.fid)
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 8
+
+          TextField {
+            id: tagInput
+            Layout.fillWidth: true
+            placeholderText: qsTr("Gatunek lub etykieta…")
+            color: "white"
+            placeholderTextColor: "#90A4AE"
+            onTextChanged: tagPanel.updateSuggestions()
+            onAccepted: addTagButton.clicked()
+          }
+
+          TextField {
+            id: pokInput
+            Layout.preferredWidth: 70
+            placeholderText: "%"
+            color: "white"
+            placeholderTextColor: "#90A4AE"
+            inputMethodHints: Qt.ImhDigitsOnly
+            validator: IntValidator {
+              bottom: 0
+              top: 100
+            }
+          }
+
+          Button {
+            id: addTagButton
+            text: qsTr("Dodaj")
+            enabled: tagInput.text.trim() !== ""
+            onClicked: {
+              const pok = pokInput.text !== "" ? parseInt(pokInput.text) : -1;
+              const fid = tagStore.addTag(viewer.curRel, tagInput.text, pok);
+              if (fid >= 0) {
+                tagInput.text = "";
+                pokInput.text = "";
+                tagInput.forceActiveFocus();
+              } else {
+                displayToast(qsTr("Nie udało się zapisać tagu"));
+              }
+            }
+          }
+        }
+
+        Flow {
+          Layout.fillWidth: true
+          spacing: 6
+          visible: tagPanel.suggestions.length > 0
+
+          Repeater {
+            model: tagPanel.suggestions
+
+            delegate: Rectangle {
+              radius: height / 2
+              height: 30
+              width: sugText.width + 20
+              color: "#455A64"
+
+              Text {
+                id: sugText
+                anchors.centerIn: parent
+                text: modelData
+                color: "white"
+                font: photoGallery.t.tipFont
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                  tagInput.text = modelData;
+                  pokInput.forceActiveFocus();
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     Rectangle {
       anchors.left: parent.left
       anchors.right: parent.right
@@ -504,6 +710,12 @@ Popup {
           color: "white"
           font: photoGallery.t.tipFont
           elide: Text.ElideMiddle
+        }
+
+        Text {
+          text: viewer.curTags.length > 0 ? "🏷 " + viewer.curTags.length : ""
+          color: "#80CBC4"
+          font: photoGallery.t.tinyFont
         }
 
         Text {
