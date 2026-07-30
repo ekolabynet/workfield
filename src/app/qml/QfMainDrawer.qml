@@ -715,6 +715,22 @@ Drawer {
           enabled: projectSection.filePath !== ""
           onClicked: projectPropertiesPopup.open()
         }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Zgłoś uwagę")
+          icon.source: t.getThemeVectorIcon("ic_send_white_24dp")
+          icon.width: 26
+          icon.height: 26
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            // WorkField: zgloszenie z terenu — mail z gotowym kontekstem
+            const adres = "workfield@ekolaby.net";
+            const temat = "WorkField " + appVersionStr + " — uwaga z terenu";
+            const tresc = qsTr("Opisz, co się działo (jedno zdanie wystarczy). Zrzut ekranu bardzo pomaga — dołącz go do tej wiadomości.") + "\n\n\n---\n" + "Wersja: " + appVersionStr + "\n" + "Projekt: " + (mainWindow.projectTitle !== "" ? mainWindow.projectTitle + " (" + FileUtils.fileName(projectSection.filePath) + ")" : FileUtils.fileName(projectSection.filePath)) + "\n" + "System: " + Qt.platform.os + "\n" + "Data: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm");
+            Qt.openUrlExternally("mailto:" + adres + "?subject=" + encodeURIComponent(temat) + "&body=" + encodeURIComponent(tresc));
+            displayToast(qsTr("Otwieram szkic zgłoszenia…"));
+          }
+        }
       }
         }
       }
