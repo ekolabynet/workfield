@@ -4,8 +4,8 @@ set -e
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"/..
 
-export APK_VERSION_CODE=${APK_VERSION_CODE:-806}
-export APP_VERSION_STR=${APP_VERSION_STR:-0.8.6}
+export APK_VERSION_CODE=${APK_VERSION_CODE:-807}
+export APP_VERSION_STR=${APP_VERSION_STR:-0.8.7}
 
 # Sekrety podpisu NIE mieszkaja w repo. Zrodlo: scripts/signing.env
 # (gitignore) albo zmienne srodowiskowe.
