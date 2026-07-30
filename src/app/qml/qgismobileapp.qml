@@ -3184,6 +3184,7 @@ ApplicationWindow {
               return;
             }
             positioningSettings.positioningCoordinateLock = true;
+            gnssButton.centerOnPosition();
             displayToast(qsTr("Kursor na pozycji GNSS"));
             return;
           }
@@ -3194,6 +3195,18 @@ ApplicationWindow {
 
         onPressAndHold: {
           gnssMenu.popup(locationToolbar.x + locationToolbar.width - gnssMenu.width, locationToolbar.y + locationToolbar.height - gnssMenu.height);
+        }
+
+        // WorkField: kliknięcie ikony lokalizacji wraca z pozycją na środek ekranu
+        function centerOnPosition() {
+          if (!positionSource.projectedPosition.x)
+            return;
+          if (stateMachine.state === '3d') {
+            gnssButton.jumpToLocation();
+            return;
+          }
+          gnssButton.followActiveSkipExtentChanged = true;
+          mapCanvas.mapSettings.setCenter(positionSource.projectedPosition, true);
         }
 
         property bool jumpedOnce: false
