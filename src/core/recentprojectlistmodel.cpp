@@ -23,6 +23,12 @@
 #include <QFile>
 #include <QSettings>
 
+// WorkField: podbij przy kazdej zmianie listy szablonow w sample_projects.json
+static constexpr int WORKFIELD_SAMPLE_PROJECTS_VERSION = 2;
+
+// WorkField: 3 szablony + miejsce na projekty terenowe
+static constexpr int WORKFIELD_RECENT_PROJECTS_LIMIT = 10;
+
 RecentProjectListModel::RecentProjectListModel( QObject *parent )
   : QAbstractListModel( parent )
 {
@@ -49,9 +55,18 @@ void RecentProjectListModel::reloadModel()
 
   mRecentProjects = recentProjects( true );
 
-  const bool sampleProjectsAdded = settings.value( QStringLiteral( "QField/recentProjectsAdded" ), false ).toBool();
-  if ( !sampleProjectsAdded )
+  const int sampleProjectsVersion = settings.value( QStringLiteral( "WorkField/sampleProjectsVersion" ), 0 ).toInt();
+  if ( sampleProjectsVersion < WORKFIELD_SAMPLE_PROJECTS_VERSION )
   {
+    // WorkField: usun poprzednie wpisy-linki (szablony ze starej listy)
+    QList<RecentProject> kept;
+    for ( const RecentProject &project : std::as_const( mRecentProjects ) )
+    {
+      if ( project.type != LinkProject )
+        kept.append( project );
+    }
+    mRecentProjects = kept;
+
     const QString sampleProjectsDirectory = PlatformUtilities::instance()->systemLocalDataLocation( QLatin1String( "sample_projects" ) );
     const QString sampleProjectsJson = QStringLiteral( "%1/sample_projects.json" ).arg( sampleProjectsDirectory );
     if ( QFileInfo::exists( sampleProjectsJson ) )
@@ -89,15 +104,11 @@ void RecentProjectListModel::reloadModel()
                                                  valueObject.value( QStringLiteral( "link" ) ).toString(),
                                                  QStringLiteral( "%1/%2" ).arg( sampleProjectsDirectory, valueObject.value( QStringLiteral( "thumbnail" ) ).toString() ) ) );
 
-          settings.beginGroup( QStringLiteral( "/qgis/recentProjects/%1" ).arg( mRecentProjects.count() ) );
-          settings.setValue( QStringLiteral( "title" ), mRecentProjects.last().title );
-          settings.setValue( QStringLiteral( "path" ), mRecentProjects.last().path );
-          settings.setValue( QStringLiteral( "thumbnail" ), mRecentProjects.last().thumbnail );
-          settings.endGroup();
         }
       }
     }
-    settings.setValue( QStringLiteral( "QField/recentProjectsAdded" ), true );
+    saveRecentProjects( mRecentProjects );
+    settings.setValue( QStringLiteral( "WorkField/sampleProjectsVersion" ), WORKFIELD_SAMPLE_PROJECTS_VERSION );
   }
 
   endResetModel();
@@ -224,7 +235,7 @@ void RecentProjectListModel::saveRecentProjects( const QList<RecentProject> &pro
 {
   QSettings settings;
   settings.remove( QStringLiteral( "/qgis/recentProjects" ) );
-  for ( int idx = 0; idx < projects.count() && idx < 5; idx++ )
+  for ( int idx = 0; idx < projects.count() && idx < WORKFIELD_RECENT_PROJECTS_LIMIT; idx++ )
   {
     settings.beginGroup( QStringLiteral( "/qgis/recentProjects/%1" ).arg( idx ) );
     settings.setValue( QStringLiteral( "title" ), projects.at( idx ).title );
