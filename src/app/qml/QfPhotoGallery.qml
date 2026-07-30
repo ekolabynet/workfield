@@ -46,6 +46,13 @@ Popup {
     return m ? m[1] : base;
   }
 
+  function tagColor(t) {
+    let h = 0;
+    for (let i = 0; i < t.length; i++)
+      h = (h * 31 + t.charCodeAt(i)) % 360;
+    return Qt.hsla(h / 360, 0.55, 0.45, 1);
+  }
+
   function rebuildPhotos() {
     const arr = [];
     const prefixes = {};
@@ -353,8 +360,53 @@ Popup {
     readonly property string curRel: cur ? cur.path.substring(photoGallery.projectDir.length + 1) : ""
     property var curTags: []
 
+    function relFor(i) {
+      return (i >= 0 && i < items.length) ? items[i].path.substring(photoGallery.projectDir.length + 1) : "";
+    }
+
     function refreshTags() {
-      curTags = curRel !== "" ? tagStore.tagsForPhoto(curRel) : [];
+      const rel = relFor(idx);
+      let t = rel !== "" ? tagStore.tagsForPhoto(rel) : [];
+      t.sort(function (a, b) {
+        const pa = (a.pokrycie === undefined || a.pokrycie === null) ? -1 : a.pokrycie;
+        const pb = (b.pokrycie === undefined || b.pokrycie === null) ? -1 : b.pokrycie;
+        if (pb !== pa)
+          return pb - pa;
+        return a.tag.localeCompare(b.tag);
+      });
+      curTags = t;
+    }
+
+    property int editFid: -1
+
+    function startEdit(m) {
+      tagInput.text = m.tag;
+      pokInput.text = (m.pokrycie !== undefined && m.pokrycie !== null) ? String(m.pokrycie) : "";
+      editFid = m.fid;
+      if (!tagPanel.visible) {
+        tagPanel.visible = true;
+        tagPanel.updateSuggestions();
+      }
+      pokInput.forceActiveFocus();
+    }
+
+    function commitPending() {
+      if (tagPanel.visible && tagInput.text.trim() !== "")
+        addTagButton.clicked();
+    }
+
+    function goPrev() {
+      if (idx > 0) {
+        commitPending();
+        idx--;
+      }
+    }
+
+    function goNext() {
+      if (idx < items.length - 1) {
+        commitPending();
+        idx++;
+      }
     }
 
     function openList(list, i) {
@@ -372,9 +424,14 @@ Popup {
     }
 
     onIdxChanged: {
-      Qt.callLater(fitToScreen);
+      editFid = -1;
       refreshTags();
+      if (tagPanel.visible)
+        tagPanel.updateSuggestions();
+      Qt.callLater(fitToScreen);
     }
+
+    onClosed: commitPending()
 
     Connections {
       target: tagStore
@@ -391,7 +448,8 @@ Popup {
     Flickable {
       id: flick
       anchors.fill: parent
-      anchors.bottomMargin: 44
+      anchors.bottomMargin: 64
+      anchors.rightMargin: tagPanel.visible ? tagPanel.width : 0
       contentWidth: width
       contentHeight: height
       boundsBehavior: Flickable.StopAtBounds
@@ -443,10 +501,10 @@ Popup {
               const dx = mouse.x - pressX;
               const dy = mouse.y - pressY;
               if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) {
-                if (dx < 0 && viewer.idx < viewer.items.length - 1)
-                  viewer.idx++;
-                else if (dx > 0 && viewer.idx > 0)
-                  viewer.idx--;
+                if (dx < 0)
+                  viewer.goNext();
+                else
+                  viewer.goPrev();
               }
             }
           }
@@ -486,7 +544,7 @@ Popup {
       visible: viewer.items.length > 1
       enabled: viewer.idx > 0
       opacity: 0.85
-      onClicked: viewer.idx--
+      onClicked: viewer.goPrev()
     }
 
     RoundButton {
@@ -497,12 +555,12 @@ Popup {
       Material.background: "#AA263238"
       Material.foreground: "white"
       anchors.right: parent.right
-      anchors.rightMargin: 8
+      anchors.rightMargin: tagPanel.visible ? tagPanel.width + 8 : 8
       anchors.verticalCenter: flick.verticalCenter
       visible: viewer.items.length > 1
       enabled: viewer.idx < viewer.items.length - 1
       opacity: 0.85
-      onClicked: viewer.idx++
+      onClicked: viewer.goNext()
     }
 
     RoundButton {
@@ -516,6 +574,7 @@ Popup {
       anchors.right: parent.right
       anchors.margins: 8
       anchors.topMargin: 56
+      anchors.rightMargin: tagPanel.visible ? tagPanel.width + 8 : 8
       opacity: 0.85
       onClicked: viewer.close()
     }
@@ -529,7 +588,7 @@ Popup {
       Material.foreground: "white"
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      anchors.rightMargin: 8
+      anchors.rightMargin: tagPanel.visible ? tagPanel.width + 8 : 8
       anchors.bottomMargin: 56
       onClicked: {
         tagPanel.visible = !tagPanel.visible;
@@ -544,94 +603,225 @@ Popup {
     Rectangle {
       id: tagPanel
 
+      property bool sortAZ: String(settings.value("workfield/tagSortAZ", "true")) === "true"
       property var suggestions: []
+      property int maxN: 1
+
+      onSortAZChanged: {
+        settings.setValue("workfield/tagSortAZ", sortAZ);
+        updateSuggestions();
+      }
 
       function updateSuggestions() {
         const wzor = tagInput.text.trim().toLowerCase();
-        const all = tagStore.knownTags();
+        const stats = tagStore.tagStats(500);
+        const seen = ({});
         const out = [];
-        for (let i = 0; i < all.length && out.length < 8; i++) {
-          if (wzor === "" || all[i].toLowerCase().indexOf(wzor) === 0)
-            out.push(all[i]);
+        const dodaj = (nazwa, n) => {
+          const k = nazwa.toLowerCase();
+          if (!seen[k]) {
+            seen[k] = true;
+            out.push({
+                "name": nazwa,
+                "n": n
+              });
+          }
+        };
+        for (let i = 0; i < stats.length; i++) {
+          if (wzor === "" || stats[i].tag.toLowerCase().indexOf(wzor) >= 0)
+            dodaj(stats[i].tag, stats[i].n);
         }
+        const sp = tagStore.projectSpecies();
+        for (let i = 0; i < sp.length; i++) {
+          if (wzor === "" || sp[i].toLowerCase().indexOf(wzor) >= 0)
+            dodaj(sp[i], 0);
+        }
+        const fs = tagStore.formSpecies();
+        for (let i = 0; i < fs.length; i++) {
+          if (wzor === "" || fs[i].toLowerCase().indexOf(wzor) >= 0)
+            dodaj(fs[i], 0);
+        }
+        out.sort(function (a, b) {
+          if (!tagPanel.sortAZ && b.n !== a.n)
+            return b.n - a.n;
+          return a.name.localeCompare(b.name);
+        });
+        let m = 1;
+        for (let i = 0; i < out.length; i++)
+          m = Math.max(m, out[i].n);
+        maxN = m;
         suggestions = out;
       }
 
       visible: false
-      anchors.left: parent.left
-      anchors.right: parent.right
+      anchors.top: parent.top
       anchors.bottom: parent.bottom
+      anchors.right: parent.right
       anchors.bottomMargin: 44
-      color: "#DD263238"
-      height: panelCol.implicitHeight + 20
+      width: Math.min(parent.width * 0.45, 320)
+      color: "#EE263238"
 
       ColumnLayout {
-        id: panelCol
         anchors.fill: parent
-        anchors.margins: 10
-        spacing: 8
+        anchors.margins: 8
+        spacing: 6
 
-        Flow {
+        RowLayout {
           Layout.fillWidth: true
           spacing: 6
+
+          Text {
+            Layout.fillWidth: true
+            text: viewer.cur ? viewer.cur.name : ""
+            color: "#80CBC4"
+            font: photoGallery.t.tinyFont
+            elide: Text.ElideLeft
+          }
+
+          ToolButton {
+            text: tagPanel.sortAZ ? "A–Z" : "№↓"
+            font.pointSize: photoGallery.t.tinyFont.pointSize
+            onClicked: tagPanel.sortAZ = !tagPanel.sortAZ
+          }
+        }
+
+        ListView {
+          id: curTagList
+          Layout.fillWidth: true
+          Layout.preferredHeight: Math.min(contentHeight, tagPanel.height * 0.35)
+          clip: true
           visible: viewer.curTags.length > 0
+          model: viewer.curTags
 
-          Repeater {
-            model: viewer.curTags
+          delegate: RowLayout {
+            width: curTagList.width
+            height: 28
+            spacing: 6
 
-            delegate: Rectangle {
-              radius: height / 2
-              height: 34
-              width: tagChipRow.implicitWidth + 20
-              color: "#00695C"
+            Rectangle {
+              width: 12
+              height: 12
+              radius: 2
+              color: photoGallery.tagColor(modelData.tag)
+            }
 
-              RowLayout {
-                id: tagChipRow
-                anchors.centerIn: parent
-                spacing: 6
+            Text {
+              Layout.fillWidth: true
+              text: modelData.tag
+              color: "white"
+              font: photoGallery.t.tipFont
+              elide: Text.ElideRight
 
-                Text {
-                  text: modelData.tag + (modelData.pokrycie !== undefined && modelData.pokrycie !== null ? " " + modelData.pokrycie + "%" : "")
-                  color: "white"
-                  font: photoGallery.t.tipFont
-                }
+              MouseArea {
+                anchors.fill: parent
+                onClicked: viewer.startEdit(modelData)
+              }
+            }
 
-                Text {
-                  text: "✕"
-                  color: "#FFCDD2"
-                  font: photoGallery.t.tipFont
+            Text {
+              text: modelData.pokrycie !== undefined && modelData.pokrycie !== null ? modelData.pokrycie + "%" : ""
+              color: "#B0BEC5"
+              font: photoGallery.t.tinyFont
+            }
 
-                  MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -8
-                    onClicked: tagStore.removeTag(modelData.fid)
-                  }
-                }
+            Text {
+              text: "✕"
+              color: "#EF9A9A"
+              font: photoGallery.t.tipFont
+
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -8
+                onClicked: tagStore.removeTag(modelData.fid)
               }
             }
           }
         }
 
+        Rectangle {
+          Layout.fillWidth: true
+          height: 1
+          color: "#455A64"
+          visible: viewer.curTags.length > 0
+        }
+
+        ListView {
+          id: sugList
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          model: tagPanel.suggestions
+
+          ScrollBar.vertical: ScrollBar {
+          }
+
+          delegate: ItemDelegate {
+            width: sugList.width
+            height: 34
+
+            Rectangle {
+              anchors.left: parent.left
+              anchors.top: parent.top
+              anchors.bottom: parent.bottom
+              width: parent.width * modelData.n / tagPanel.maxN
+              color: "#2280CBC4"
+              visible: !tagPanel.sortAZ && modelData.n > 0
+            }
+
+            contentItem: RowLayout {
+              spacing: 6
+
+              Rectangle {
+                width: 12
+                height: 12
+                radius: 2
+                color: photoGallery.tagColor(modelData.name)
+              }
+
+              Text {
+                Layout.fillWidth: true
+                text: modelData.name
+                color: "white"
+                font: photoGallery.t.tipFont
+                elide: Text.ElideRight
+              }
+
+              Text {
+                text: modelData.n > 0 ? modelData.n : ""
+                color: "#78909C"
+                font: photoGallery.t.tinyFont
+              }
+            }
+
+            onClicked: {
+              tagInput.text = modelData.name;
+              pokInput.forceActiveFocus();
+            }
+          }
+        }
+
+        TextField {
+          id: tagInput
+          Layout.fillWidth: true
+          placeholderText: qsTr("Główny gatunek…")
+          color: "white"
+          placeholderTextColor: "#90A4AE"
+          font: photoGallery.t.tipFont
+          onTextChanged: tagPanel.updateSuggestions()
+          onAccepted: addTagButton.clicked()
+        }
+
         RowLayout {
           Layout.fillWidth: true
-          spacing: 8
-
-          TextField {
-            id: tagInput
-            Layout.fillWidth: true
-            placeholderText: qsTr("Gatunek lub etykieta…")
-            color: "white"
-            placeholderTextColor: "#90A4AE"
-            onTextChanged: tagPanel.updateSuggestions()
-            onAccepted: addTagButton.clicked()
-          }
+          spacing: 6
 
           TextField {
             id: pokInput
-            Layout.preferredWidth: 70
+            Layout.preferredWidth: 64
             placeholderText: "%"
             color: "white"
             placeholderTextColor: "#90A4AE"
+            font: photoGallery.t.tipFont
             inputMethodHints: Qt.ImhDigitsOnly
             validator: IntValidator {
               bottom: 0
@@ -641,14 +831,20 @@ Popup {
 
           Button {
             id: addTagButton
-            text: qsTr("Dodaj")
+            Layout.fillWidth: true
+            text: viewer.editFid >= 0 ? qsTr("Zapisz") : qsTr("Dodaj")
             enabled: tagInput.text.trim() !== ""
             onClicked: {
               const pok = pokInput.text !== "" ? parseInt(pokInput.text) : -1;
+              if (viewer.editFid >= 0) {
+                tagStore.removeTag(viewer.editFid);
+                viewer.editFid = -1;
+              }
               const fid = tagStore.addTag(viewer.curRel, tagInput.text, pok);
               if (fid >= 0) {
                 tagInput.text = "";
                 pokInput.text = "";
+                tagPanel.updateSuggestions();
                 tagInput.forceActiveFocus();
               } else {
                 displayToast(qsTr("Nie udało się zapisać tagu"));
@@ -656,37 +852,57 @@ Popup {
             }
           }
         }
+      }
+    }
 
-        Flow {
-          Layout.fillWidth: true
-          spacing: 6
-          visible: tagPanel.suggestions.length > 0
+    Rectangle {
+      id: tagStrip
 
-          Repeater {
-            model: tagPanel.suggestions
+      visible: viewer.curTags.length > 0
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: 44
+      anchors.rightMargin: tagPanel.visible ? tagPanel.width : 0
+      height: 20
+      color: "#CC000000"
 
-            delegate: Rectangle {
-              radius: height / 2
-              height: 30
-              width: sugText.width + 20
-              color: "#455A64"
+      ListView {
+        anchors.fill: parent
+        anchors.leftMargin: 8
+        anchors.rightMargin: 8
+        orientation: ListView.Horizontal
+        spacing: 12
+        clip: true
+        model: viewer.curTags
 
-              Text {
-                id: sugText
-                anchors.centerIn: parent
-                text: modelData
-                color: "white"
-                font: photoGallery.t.tipFont
-              }
+        delegate: Item {
+          width: stripRow.implicitWidth
+          height: 20
 
-              MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                  tagInput.text = modelData;
-                  pokInput.forceActiveFocus();
-                }
-              }
+          Row {
+            id: stripRow
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 4
+
+            Rectangle {
+              width: 8
+              height: 8
+              radius: 2
+              anchors.verticalCenter: parent.verticalCenter
+              color: photoGallery.tagColor(modelData.tag)
             }
+
+            Text {
+              text: modelData.tag + (modelData.pokrycie !== undefined && modelData.pokrycie !== null ? " " + modelData.pokrycie + "%" : "")
+              color: "white"
+              font.pointSize: Math.max(6, photoGallery.t.tinyFont.pointSize - 2)
+            }
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            onClicked: viewer.startEdit(modelData)
           }
         }
       }
