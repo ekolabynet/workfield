@@ -361,6 +361,7 @@ Popup {
       contentWidth: width
       contentHeight: height
       boundsBehavior: Flickable.StopAtBounds
+      interactive: contentWidth > width + 5 || contentHeight > height + 5
       clip: true
 
       PinchArea {
@@ -395,6 +396,26 @@ Popup {
 
         MouseArea {
           anchors.fill: parent
+
+          property real pressX: 0
+          property real pressY: 0
+
+          onPressed: mouse => {
+            pressX = mouse.x;
+            pressY = mouse.y;
+          }
+          onReleased: mouse => {
+            if (!flick.interactive) {
+              const dx = mouse.x - pressX;
+              const dy = mouse.y - pressY;
+              if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) {
+                if (dx < 0 && viewer.idx < viewer.items.length - 1)
+                  viewer.idx++;
+                else if (dx > 0 && viewer.idx > 0)
+                  viewer.idx--;
+              }
+            }
+          }
           onDoubleClicked: mouse => {
             if (flick.contentWidth > flick.width * 1.05) {
               viewer.fitToScreen();
@@ -420,7 +441,11 @@ Popup {
 
     RoundButton {
       text: "‹"
-      font.pointSize: 18
+      width: 64
+      height: 64
+      font.pointSize: 26
+      Material.background: "#AA263238"
+      Material.foreground: "white"
       anchors.left: parent.left
       anchors.leftMargin: 8
       anchors.verticalCenter: flick.verticalCenter
@@ -432,7 +457,11 @@ Popup {
 
     RoundButton {
       text: "›"
-      font.pointSize: 18
+      width: 64
+      height: 64
+      font.pointSize: 26
+      Material.background: "#AA263238"
+      Material.foreground: "white"
       anchors.right: parent.right
       anchors.rightMargin: 8
       anchors.verticalCenter: flick.verticalCenter
@@ -444,9 +473,15 @@ Popup {
 
     RoundButton {
       text: "✕"
+      width: 56
+      height: 56
+      font.pointSize: 18
+      Material.background: "#AA263238"
+      Material.foreground: "white"
       anchors.top: parent.top
       anchors.right: parent.right
       anchors.margins: 8
+      anchors.topMargin: 56
       opacity: 0.85
       onClicked: viewer.close()
     }
