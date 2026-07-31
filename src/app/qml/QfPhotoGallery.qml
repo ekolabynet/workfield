@@ -612,13 +612,23 @@ Popup {
     Rectangle {
       id: tagPanel
 
-      property bool sortAZ: String(settings.value("workfield/tagSortAZ", "true")) === "true"
+      // uwaga: context property "settings" nie jest dostepne w inicjalizatorach
+      // wlasciwosci (tworzenie komponentu) - czytamy je w Component.onCompleted
+      property bool sortAZ: true
       property var suggestions: []
       property int maxN: 1
 
       onSortAZChanged: {
         settings.setValue("workfield/tagSortAZ", sortAZ);
         updateSuggestions();
+      }
+
+      Component.onCompleted: {
+        sortAZ = String(settings.value("workfield/tagSortAZ", "true")) === "true";
+        const w = Number(settings.value("workfield/tagPanelWidth", 320));
+        if (w > 0) {
+          savedWidth = w;
+        }
       }
 
       function updateSuggestions() {
@@ -672,7 +682,7 @@ Popup {
       anchors.bottomMargin: 44
 
       // szerokosc: przeciaganie lewej krawedzi, ostatnia wartosc pamietana
-      property real savedWidth: Number(settings.value("workfield/tagPanelWidth", 320))
+      property real savedWidth: 320
       width: Math.max(200, Math.min(parent.width * 0.7, savedWidth))
       color: "#EE263238"
 
