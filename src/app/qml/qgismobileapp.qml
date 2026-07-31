@@ -3496,6 +3496,7 @@ ApplicationWindow {
         }
 
         onCancel: {
+          quickCaptureBar.abortGeometryCapture();
           coordinateLocator.sourceLocation = undefined;
           if (stateMachine.state === 'measure' && elevationProfileButton.elevationProfileActive) {
             informationDrawer.elevationProfile.clear();
@@ -3514,6 +3515,14 @@ ApplicationWindow {
         }
 
         onConfirmed: {
+          // WorkField: przeplyw "najpierw zdjecie, potem geometria" - obiekt
+          // ze zdjeciem sklada pasek szybkiego zapisu, rdzen oddaje mu pole
+          if (!geometryRequested && quickCaptureBar.pendingGeomPhoto !== "" && quickCaptureBar.finishGeometryCapture(digitizingFeature)) {
+            coordinateLocator.flash();
+            digitizingRubberband.model.reset();
+            coordinateLocator.sourceLocation = undefined;
+            return;
+          }
           if (geometryRequested) {
             if (overlayFeatureFormDrawer.isAdding) {
               overlayFeatureFormDrawer.open();
