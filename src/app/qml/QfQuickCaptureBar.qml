@@ -132,7 +132,7 @@ Column {
     MouseArea {
       anchors.fill: parent
       onClicked: layerPicker.open()
-      onPressAndHold: displayToast(qsTr("Dodaj klawisz szybkiego zapisu"), "info")
+      onPressAndHold: captureSettings.openDialog()
     }
   }
 
@@ -148,6 +148,8 @@ Column {
   // obok ewentualnych warstw szablonu.
   property var customLayerNames: []
   property bool pickAfterCreate: false
+
+  property var distancePresets: [25, 50, 100, 200]
 
   readonly property var customColors: ["#B0BEC5", "#FFAB91", "#CE93D8", "#80DEEA", "#E6EE9C", "#F48FB1"]
 
@@ -305,6 +307,38 @@ Column {
     return "workfield/quickCaptureLayers/" + (qgisProject ? qgisProject.fileName : "");
   }
 
+  // ---- definicje klawiszy: plik w katalogu projektu ----
+  function defsPath() {
+    return qgisProject && qgisProject.homePath !== "" ? qgisProject.homePath + "/workfield_klawisze.json" : "";
+  }
+
+  function loadDefinitions() {
+    const sciezka = defsPath();
+    if (sciezka === "" || !FileUtils.fileExists(sciezka)) {
+      return null;
+    }
+    try {
+      const tresc = String(FileUtils.readFileContent(sciezka));
+      const dane = JSON.parse(tresc);
+      return dane && dane.klawisze ? dane : null;
+    } catch (e) {
+      console.log("Klawisze: plik definicji nieczytelny -", e);
+      return null;
+    }
+  }
+
+  function saveDefinitions(dane) {
+    const sciezka = defsPath();
+    if (sciezka === "") {
+      return false;
+    }
+    const ok = FileUtils.writeFileContent(sciezka, JSON.stringify(dane, null, 2));
+    if (ok) {
+      refreshLayers();
+    }
+    return ok;
+  }
+
   function loadCustomNames() {
     const raw = String(settings.value(projectKey(), ""));
     customLayerNames = raw === "" ? [] : raw.split("|").filter(n => n !== "");
@@ -436,6 +470,34 @@ Column {
 
   function refreshLayers() {
     const found = [];
+
+    // definicje z pliku projektu maja pierwszenstwo przed automatem
+    const defs = loadDefinitions();
+    if (defs) {
+      distancePresets = defs.odleglosci && defs.odleglosci.length > 0 ? defs.odleglosci : [25, 50, 100, 200];
+      for (let i = 0; i < defs.klawisze.length; i++) {
+        const d = defs.klawisze[i];
+        const l = findLayerByName(d.warstwa);
+        if (!l || !layerWritable(l)) {
+          continue;
+        }
+        const g = l.geometryType();
+        const punkt = g === Qgis.GeometryType.Point;
+        found.push({
+            "layer": l,
+            "letter": d.etykieta,
+            "tooltip": qsTr("Zapis do: %1").arg(d.warstwa),
+            "color": d.kolor,
+            "shape": punkt ? "circle" : g === Qgis.GeometryType.Line ? "rounded" : "square",
+            "mode": punkt ? "capture" : (d.zdjecie === false ? "digitize" : "photogeom"),
+            "custom": false
+          });
+      }
+      resolvedLayers = found;
+      console.log("QuickCapture: definicje z pliku,", found.length, "klawiszy");
+      return;
+    }
+
     for (const target of captureTargets) {
       const layer = findLayerByName(target.layerName);
       if (layer) {
@@ -845,7 +907,7 @@ Column {
         spacing: 8
 
         Repeater {
-          model: [25, 50, 100, 200]
+          model: quickCaptureBar.distancePresets
 
           delegate: Button {
             text: modelData + " m"
