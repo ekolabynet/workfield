@@ -83,6 +83,34 @@ Column {
     }
   }
 
+  // WorkField: tryb odlegly - obiekt daleko (teleobiektyw, gatunki inwazyjne)
+  Rectangle {
+    width: 56
+    height: 56
+    radius: width / 2
+    color: quickCaptureBar.distantMode ? "#FFC107" : "#546E7A"
+    border.color: "#003D33"
+    border.width: 2
+    opacity: 0.92
+
+    Text {
+      anchors.centerIn: parent
+      text: "ODL"
+      font.pointSize: Theme.tinyFont.pointSize
+      font.bold: true
+      color: quickCaptureBar.distantMode ? "#3E2723" : "#ECEFF1"
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: {
+        quickCaptureBar.distantMode = !quickCaptureBar.distantMode;
+        displayToast(quickCaptureBar.distantMode ? qsTr("Tryb odległy: następne zdjęcie z podaniem odległości") : qsTr("Tryb odległy wyłączony"));
+      }
+      onPressAndHold: displayToast(quickCaptureBar.bearing1Valid ? qsTr("Czeka pierwszy namiar — zrób drugie ujęcie z innego miejsca") : qsTr("Obiekt daleko: zdjęcie + odległość albo dwa namiary"), "info")
+    }
+  }
+
   // WorkField: klawisz "dodaj" - stale miejsce pod przyciskiem trybu
   Rectangle {
     width: 56
@@ -123,6 +151,151 @@ Column {
 
   readonly property var customColors: ["#B0BEC5", "#FFAB91", "#CE93D8", "#80DEEA", "#E6EE9C", "#F48FB1"]
 
+  // ---- tryb odlegly: obiekt daleko od obserwatora (teleobiektyw) ----
+  property bool distantMode: false          // uzbrojony na nastepne zdjecie
+  property bool distantFlow: false          // zdjecie robi sie wlasnie teraz
+  property var distantLayer: null
+  property string distantPhoto: ""
+  property real distantAz: NaN              // azymut w chwili migawki
+  property real distantX: 0
+  property real distantY: 0
+  // pierwszy namiar metody przeciecia
+  property bool bearing1Valid: false
+  property real bearing1X: 0
+  property real bearing1Y: 0
+  property real bearing1Az: NaN
+
+  // azymut siatki mapy: kompas + poprawka do polnocy ukladu
+  function currentAzimuth() {
+    if (!positionSource || isNaN(positionSource.orientation)) {
+      return NaN;
+    }
+    let az = positionSource.orientation + positionSource.bearingTrueNorth;
+    while (az < 0)
+      az += 360;
+    return az % 360;
+  }
+
+  // przesuniecie o dystans wzdluz azymutu, we wspolrzednych mapy
+  function offsetPoint(x, y, azDeg, dist) {
+    const r = azDeg * Math.PI / 180;
+    let d = dist;
+    // Web Mercator klamie o odleglosciach - korekta przez szerokosc geograficzna
+    if (String(mapCanvas.mapSettings.destinationCrs.authid) === "EPSG:3857" && positionSource.positionInformation && positionSource.positionInformation.latitudeValid) {
+      d = dist / Math.cos(positionSource.positionInformation.latitude * Math.PI / 180);
+    }
+    return {
+      "x": x + d * Math.sin(r),
+      "y": y + d * Math.cos(r)
+    };
+  }
+
+  // przeciecie dwoch namiarow; zwraca null, gdy kat zbyt ostry
+  function intersectBearings(x1, y1, az1, x2, y2, az2) {
+    const r1 = az1 * Math.PI / 180;
+    const r2 = az2 * Math.PI / 180;
+    const dx1 = Math.sin(r1), dy1 = Math.cos(r1);
+    const dx2 = Math.sin(r2), dy2 = Math.cos(r2);
+    const det = dx1 * (-dy2) - (-dx2) * dy1;
+    if (Math.abs(det) < 1e-9) {
+      return null;
+    }
+    const t = ((x2 - x1) * (-dy2) - (-dx2) * (y2 - y1)) / det;
+    if (t <= 0) {
+      return null; // przeciecie za plecami obserwatora
+    }
+    let kat = Math.abs(az1 - az2) % 360;
+    if (kat > 180)
+      kat = 360 - kat;
+    return {
+      "x": x1 + t * dx1,
+      "y": y1 + t * dy1,
+      "kat": kat,
+      "dist": t
+    };
+  }
+
+  // zapis obiektu odleglego wraz z metryczka pochodzenia
+  function saveDistantFeature(px, py, dist, metoda, kat) {
+    const wkt = "POINT(" + px + " " + py + ")";
+    const geomMap = GeometryUtils.createGeometryFromWkt(wkt);
+    const geomLayer = GeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, distantLayer.crs);
+    let feature = FeatureUtils.createFeature(distantLayer, geomLayer, positionSource.positionInformation);
+    if (!feature) {
+      displayToast(qsTr("Nie udało się utworzyć obiektu"), "error");
+      return;
+    }
+    const pola = feature.fields.names;
+    const wpisz = (nazwa, wartosc) => {
+      if (pola.indexOf(nazwa) >= 0) {
+        feature.setAttribute(nazwa, wartosc);
+      }
+    };
+    if (distantPhoto !== "") {
+      wpisz("foto", distantPhoto);
+      if (cameraSource && cameraSource.photoShotType) {
+        wpisz("ujecie", cameraSource.photoShotType);
+      }
+    }
+    wpisz("azymut", Math.round(distantAz * 10) / 10);
+    wpisz("odleglosc_m", Math.round(dist * 10) / 10);
+    wpisz("obs_x", Math.round(distantX * 100) / 100);
+    wpisz("obs_y", Math.round(distantY * 100) / 100);
+    wpisz("metoda", metoda);
+    if (!isNaN(kat)) {
+      wpisz("kat_przeciecia", Math.round(kat * 10) / 10);
+    }
+    feature = applyRasterContext(feature, distantLayer);
+    overlayFeatureFormDrawer.featureModel.currentLayer = distantLayer;
+    overlayFeatureFormDrawer.featureModel.feature = feature;
+    overlayFeatureFormDrawer.state = "Add";
+    overlayFeatureFormDrawer.open();
+    distantPhoto = "";
+    distantLayer = null;
+    cameraSource = null;
+    distantMode = false;
+  }
+
+  function finishDistant(dist) {
+    if (!distantLayer || isNaN(distantAz)) {
+      displayToast(qsTr("Brak azymutu — kompas nie odpowiada"), "warning");
+      return;
+    }
+    const cel = offsetPoint(distantX, distantY, distantAz, dist);
+    saveDistantFeature(cel.x, cel.y, dist, "dystans", NaN);
+  }
+
+  // "nie wiem": pierwszy namiar czeka na drugi z innego stanowiska
+  function keepBearing() {
+    if (isNaN(distantAz)) {
+      displayToast(qsTr("Brak azymutu — kompas nie odpowiada"), "warning");
+      return;
+    }
+    if (!bearing1Valid) {
+      bearing1Valid = true;
+      bearing1X = distantX;
+      bearing1Y = distantY;
+      bearing1Az = distantAz;
+      distantPhoto = "";
+      distantLayer = null;
+      displayToast(qsTr("Namiar zapisany — przejdź w bok (ok. połowy odległości) i namierz ponownie"));
+      return;
+    }
+    const p = intersectBearings(bearing1X, bearing1Y, bearing1Az, distantX, distantY, distantAz);
+    if (!p) {
+      displayToast(qsTr("Namiary równoległe — przejdź dalej w bok"), "warning");
+      return;
+    }
+    if (p.kat < 15) {
+      displayToast(qsTr("Kąt przecięcia %1° — za mało, przejdź dalej w bok").arg(Math.round(p.kat)), "warning");
+      return;
+    }
+    if (p.kat < 30) {
+      displayToast(qsTr("Kąt %1° — punkt niepewny, dokładność ograniczona").arg(Math.round(p.kat)), "warning");
+    }
+    bearing1Valid = false;
+    saveDistantFeature(p.x, p.y, p.dist, "przeciecie", p.kat);
+  }
   // przeplyw "najpierw zdjecie, potem geometria" (linie i poligony)
   property string pendingGeomPhoto: ""
   property var pendingGeomLayer: null
@@ -336,6 +509,23 @@ Column {
   }
 
   function captureInto(layer) {
+    if (distantMode) {
+      const pos = positionSource.projectedPosition;
+      if (!pos || !isFinite(pos.x) || !isFinite(pos.y) || (pos.x === 0 && pos.y === 0)) {
+        displayToast(qsTr("Brak użytecznej pozycji obserwatora"), "warning");
+        return;
+      }
+      distantLayer = layer;
+      distantX = pos.x;
+      distantY = pos.y;
+      distantAz = currentAzimuth();
+      distantPhoto = "";
+      distantFlow = true;
+      pendingLayer = null;
+      pendingFeature = null;
+      openCameraFor(layer);
+      return;
+    }
     const feature = makeFeatureAt(layer);
     if (!feature) {
       displayToast(qsTr("Brak użytecznej pozycji — punkt nie powstanie"), "warning");
@@ -398,6 +588,16 @@ Column {
   }
 
   function openPendingForm(photoPath) {
+    if (distantFlow) {
+      distantFlow = false;
+      if (!photoPath || photoPath === "") {
+        distantLayer = null;
+        return;
+      }
+      distantPhoto = photoPath;
+      distancePicker.open();
+      return;
+    }
     if (geomFlow) {
       // zdjecie mamy; obiekt powstanie po narysowaniu geometrii
       geomFlow = false;
@@ -597,6 +797,102 @@ Column {
           } else {
             displayToast(modelData.tooltip, "info");
           }
+        }
+      }
+    }
+  }
+
+  // WorkField: ile stad do obiektu?
+  Popup {
+    id: distancePicker
+
+    parent: mainWindow.contentItem
+    width: Math.min(360, mainWindow.width - 32)
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    modal: true
+    closePolicy: Popup.CloseOnEscape
+
+    background: Rectangle {
+      color: "#EE263238"
+      radius: 8
+      border.color: "#455A64"
+      border.width: 1
+    }
+
+    ColumnLayout {
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Jak daleko jest obiekt?")
+        color: "#80CBC4"
+        font: Theme.strongFont
+        wrapMode: Text.Wrap
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: isNaN(quickCaptureBar.distantAz) ? qsTr("Brak azymutu — kompas nie odpowiada") : qsTr("Azymut %1°").arg(Math.round(quickCaptureBar.distantAz))
+        color: isNaN(quickCaptureBar.distantAz) ? Theme.warningColor : "#B0BEC5"
+        font: Theme.tinyFont
+      }
+
+      Flow {
+        Layout.fillWidth: true
+        spacing: 8
+
+        Repeater {
+          model: [25, 50, 100, 200]
+
+          delegate: Button {
+            text: modelData + " m"
+            font.pointSize: Theme.tipFont.pointSize
+            onClicked: {
+              distancePicker.close();
+              quickCaptureBar.finishDistant(modelData);
+            }
+          }
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+
+        TextField {
+          id: customDistance
+          Layout.fillWidth: true
+          placeholderText: qsTr("inna, w metrach")
+          color: "white"
+          placeholderTextColor: "#90A4AE"
+          font: Theme.tipFont
+          inputMethodHints: Qt.ImhDigitsOnly
+          validator: IntValidator {
+            bottom: 1
+            top: 5000
+          }
+        }
+
+        Button {
+          text: qsTr("Zapisz")
+          enabled: customDistance.text !== ""
+          onClicked: {
+            distancePicker.close();
+            quickCaptureBar.finishDistant(parseInt(customDistance.text));
+            customDistance.text = "";
+          }
+        }
+      }
+
+      Button {
+        Layout.fillWidth: true
+        text: quickCaptureBar.bearing1Valid ? qsTr("Nie wiem — to drugi namiar") : qsTr("Nie wiem — zrobię drugi namiar")
+        onClicked: {
+          distancePicker.close();
+          quickCaptureBar.keepBearing();
         }
       }
     }
