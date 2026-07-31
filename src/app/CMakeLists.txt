@@ -135,6 +135,25 @@ set(QFIELD_APP_QML_FILES
     qml/QFieldSettings.qml
     qml/QFieldSketcher.qml
     qml/ScreenLocker.qml
+    qml/QfBasemapScreen.qml
+    qml/QfCaptureSettings.qml
+    qml/QfColorPicker.qml
+    qml/QfDataDrawer.qml
+    qml/QfLayerExportDialog.qml
+    qml/QfLayerFieldsScreen.qml
+    qml/QfLegendScreen.qml
+    qml/QfMainDrawer.qml
+    qml/QfNewLayerDialog.qml
+    qml/QfPhotoGallery.qml
+    qml/QfQuickCaptureBar.qml
+    qml/QfSettingsAdvanced.qml
+    qml/QfSettingsDigitizing.qml
+    qml/QfSettingsIndex.qml
+    qml/QfSettingsInterface.qml
+    qml/QfSettingsMapCanvas.qml
+    qml/QfSubLayerPicker.qml
+    qml/SettingsNetwork.qml
+    qml/SideMenu.qml
     qml/qgismobileapp.qml)
 
 qt_add_resources(
