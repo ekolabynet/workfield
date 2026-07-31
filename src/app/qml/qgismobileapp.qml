@@ -130,6 +130,32 @@ ApplicationWindow {
           }
 
           Text {
+            id: ntripAgeIndicator
+
+            property double nowMs: Date.now()
+
+            readonly property double ageSeconds: {
+              const dt = positionSource.ntripLastBytesReceivedUtcDateTime;
+              if (!dt || isNaN(dt.getTime()))
+                return -1;
+              return Math.max(0, (nowMs - dt.getTime()) / 1000);
+            }
+
+            visible: positionSource.active && positionSource.enableNtrip
+            font.pointSize: Theme.tinyFont.pointSize
+            font.bold: true
+            text: ageSeconds < 0 ? "RTCM \u00b7" : "RTCM " + Math.round(ageSeconds) + "s"
+            color: ageSeconds < 0 ? "#FFA726" : ageSeconds <= 5 ? "#00E676" : ageSeconds <= 15 ? "#FFEB3B" : "#EF5350"
+
+            Timer {
+              running: ntripAgeIndicator.visible
+              interval: 1000
+              repeat: true
+              onTriggered: ntripAgeIndicator.nowMs = Date.now()
+            }
+          }
+
+          Text {
             id: gnssQualityClass
 
             readonly property real acc: positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid ? positionSource.positionInformation.hacc : -1
