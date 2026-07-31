@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Shapes
+import QtQuick.Layouts
 import org.qgis
 import org.qfield
 import Theme
@@ -89,12 +90,33 @@ Column {
 
 
   property var resolvedLayers: []
+
+  // WorkField: projekt bez warstw szablonu dostaje jeden "pusty" klawisz,
+  // ktoremu uzytkownik sam wskazuje warstwe docelowa (pamietana per projekt).
+  property string customLayerName: ""
+  property bool pickAfterCreate: false
+
+  function projectKey() {
+    return "workfield/quickCaptureLayer/" + (qgisProject ? qgisProject.fileName : "");
+  }
+
+  function chooseLayer(layer) {
+    if (!layer) {
+      return;
+    }
+    customLayerName = layer.name;
+    settings.setValue(projectKey(), customLayerName);
+    layerPicker.close();
+    refreshLayers();
+    displayToast(qsTr("Klawisz szybkiego zapisu: %1").arg(customLayerName));
+  }
+
   property var pendingLayer: null
   property var pendingFeature: null
   property var cameraSource: null
 
   spacing: 10
-  visible: resolvedLayers.length > 0 && !overlayFeatureFormDrawer.opened && stateMachine.state !== "measure" && stateMachine.state !== "3d"
+  visible: (resolvedLayers.length > 0 || (qgisProject && qgisProject.fileName !== "")) && !overlayFeatureFormDrawer.opened && stateMachine.state !== "measure" && stateMachine.state !== "3d"
 
   function refreshLayers() {
     const found = [];
@@ -109,6 +131,24 @@ Column {
             "shape": target.shape,
             "mode": target.mode
           });
+      }
+    }
+    if (found.length === 0) {
+      // brak warstw szablonu: sprobuj warstwe wskazana recznie dla tego projektu
+      customLayerName = String(settings.value(projectKey(), ""));
+      const custom = customLayerName !== "" ? LayerUtils.vectorLayerByName(qgisProject, customLayerName) : null;
+      if (custom) {
+        found.push({
+            "layer": custom,
+            "letter": customLayerName.substring(0, 2).toUpperCase(),
+            "tooltip": qsTr("Zapis do: %1 (przytrzymaj, aby zmienić)").arg(customLayerName),
+            "color": "#B0BEC5",
+            "shape": "circle",
+            "mode": "capture",
+            "custom": true
+          });
+      } else {
+        customLayerName = "";
       }
     }
     resolvedLayers = found;
@@ -371,7 +411,137 @@ Column {
             quickCaptureBar.captureInto(modelData.layer);
           }
         }
-        onPressAndHold: displayToast(modelData.tooltip, "info")
+        onPressAndHold: {
+          if (modelData.custom === true) {
+            layerPicker.open();
+          } else {
+            displayToast(modelData.tooltip, "info");
+          }
+        }
+      }
+    }
+  }
+
+  // WorkField: pusty klawisz - projekt bez rozpoznanych warstw szablonu
+  Rectangle {
+    width: 56
+    height: 56
+    radius: width / 2
+    color: "#CFD8DC"
+    border.color: "#003D33"
+    border.width: 2
+    opacity: 0.92
+    visible: quickCaptureBar.resolvedLayers.length === 0
+
+    Text {
+      anchors.centerIn: parent
+      text: "+"
+      font.pointSize: Theme.strongFont.pointSize + 8
+      font.bold: true
+      color: "#003D33"
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: layerPicker.open()
+      onPressAndHold: displayToast(qsTr("Wskaż warstwę dla szybkiego zapisu"), "info")
+    }
+  }
+
+  // WorkField: wybor warstwy docelowej dla pustego klawisza
+  Popup {
+    id: layerPicker
+
+    parent: mainWindow.contentItem
+    width: Math.min(420, mainWindow.width - 32)
+    height: Math.min(520, mainWindow.height - 96)
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    modal: true
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+    background: Rectangle {
+      color: "#EE263238"
+      radius: 8
+      border.color: "#455A64"
+      border.width: 1
+    }
+
+    ColumnLayout {
+      anchors.fill: parent
+      anchors.margins: 12
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Warstwa dla szybkiego zapisu")
+        color: "#80CBC4"
+        font: Theme.strongFont
+        wrapMode: Text.Wrap
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Ten projekt nie ma warstw szablonu. Wskaż warstwę punktową, do której ma trafiać szybki zapis.")
+        color: "#B0BEC5"
+        font: Theme.tinyFont
+        wrapMode: Text.Wrap
+      }
+
+      ListView {
+        id: pickerList
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+
+        model: MapLayerModel {
+          project: qgisProject
+        }
+
+        ScrollBar.vertical: ScrollBar {
+        }
+
+        delegate: ItemDelegate {
+          // MapLayerModel nie przyjmuje filtrow z QML (Qgis.LayerFilter nie
+          // jest wystawione), wiec odsiewamy warstwy nie-wektorowe tutaj
+          readonly property bool isVector: model.LayerType === Qgis.LayerType.Vector
+
+          width: pickerList.width
+          height: isVector ? 48 : 0
+          visible: isVector
+
+          contentItem: Text {
+            text: model.Name
+            color: "white"
+            font: Theme.tipFont
+            elide: Text.ElideRight
+            verticalAlignment: Text.AlignVCenter
+          }
+
+          onClicked: quickCaptureBar.chooseLayer(model.LayerPointer)
+        }
+      }
+
+      Button {
+        Layout.fillWidth: true
+        text: qsTr("Nowa pusta warstwa…")
+        onClicked: {
+          quickCaptureBar.pickAfterCreate = true;
+          layerPicker.close();
+          newLayerDialog.openDialog();
+        }
+      }
+    }
+  }
+
+  Connections {
+    target: newLayerDialog
+    ignoreUnknownSignals: true
+
+    function onLayerCreated(layer) {
+      if (quickCaptureBar.pickAfterCreate) {
+        quickCaptureBar.pickAfterCreate = false;
+        quickCaptureBar.chooseLayer(layer);
       }
     }
   }
