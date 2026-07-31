@@ -83,6 +83,31 @@ Column {
     }
   }
 
+  // WorkField: klawisz "dodaj" - stale miejsce pod przyciskiem trybu
+  Rectangle {
+    width: 56
+    height: 56
+    radius: width / 2
+    color: "#8899A6"
+    border.color: "#003D33"
+    border.width: 2
+    opacity: 0.92
+
+    Text {
+      anchors.centerIn: parent
+      text: "+"
+      font.pointSize: Theme.strongFont.pointSize + 8
+      font.bold: true
+      color: "#003D33"
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: layerPicker.open()
+      onPressAndHold: displayToast(qsTr("Dodaj klawisz szybkiego zapisu"), "info")
+    }
+  }
+
   Item {
     width: 1
     height: 28
@@ -91,24 +116,107 @@ Column {
 
   property var resolvedLayers: []
 
-  // WorkField: projekt bez warstw szablonu dostaje jeden "pusty" klawisz,
-  // ktoremu uzytkownik sam wskazuje warstwe docelowa (pamietana per projekt).
-  property string customLayerName: ""
+  // WorkField: dowolna liczba wlasnych klawiszy, pamietanych per projekt,
+  // obok ewentualnych warstw szablonu.
+  property var customLayerNames: []
   property bool pickAfterCreate: false
 
+  readonly property var customColors: ["#B0BEC5", "#FFAB91", "#CE93D8", "#80DEEA", "#E6EE9C", "#F48FB1"]
+
+  // przeplyw "najpierw zdjecie, potem geometria" (linie i poligony)
+  property string pendingGeomPhoto: ""
+  property var pendingGeomLayer: null
+  property bool geomFlow: false
+
   function projectKey() {
-    return "workfield/quickCaptureLayer/" + (qgisProject ? qgisProject.fileName : "");
+    return "workfield/quickCaptureLayers/" + (qgisProject ? qgisProject.fileName : "");
+  }
+
+  function loadCustomNames() {
+    const raw = String(settings.value(projectKey(), ""));
+    customLayerNames = raw === "" ? [] : raw.split("|").filter(n => n !== "");
+  }
+
+  function saveCustomNames() {
+    settings.setValue(projectKey(), customLayerNames.join("|"));
   }
 
   function chooseLayer(layer) {
     if (!layer) {
       return;
     }
-    customLayerName = layer.name;
-    settings.setValue(projectKey(), customLayerName);
+    const names = customLayerNames.slice();
+    if (names.indexOf(layer.name) < 0) {
+      names.push(layer.name);
+    }
+    customLayerNames = names;
+    saveCustomNames();
     layerPicker.close();
     refreshLayers();
-    displayToast(qsTr("Klawisz szybkiego zapisu: %1").arg(customLayerName));
+    displayToast(qsTr("Dodano klawisz: %1").arg(layer.name));
+  }
+
+  function dropLayer(name) {
+    const names = customLayerNames.filter(n => n !== name);
+    if (names.length === customLayerNames.length) {
+      return;
+    }
+    customLayerNames = names;
+    saveCustomNames();
+    refreshLayers();
+    displayToast(qsTr("Usunięto klawisz: %1 (dane nietknięte)").arg(name));
+  }
+
+  function captureGeometryFlow(layer) {
+    if (!layer) {
+      return;
+    }
+    pendingGeomLayer = layer;
+    pendingGeomPhoto = "";
+    geomFlow = true;
+    pendingLayer = null;
+    pendingFeature = null;
+    openCameraFor(layer);
+  }
+
+  // przerwane rysowanie: zdjecie zostaje na dysku, obiekt nie powstaje
+  function abortGeometryCapture() {
+    if (pendingGeomPhoto === "") {
+      return;
+    }
+    displayToast(qsTr("Przerwano — zdjęcie zostało w DCIM, bez obiektu"), "warning");
+    pendingGeomPhoto = "";
+    pendingGeomLayer = null;
+    geomFlow = false;
+  }
+
+  // geometria narysowana: obiekt dostaje zdjecie i formularz
+  function finishGeometryCapture(digFeature) {
+    if (pendingGeomPhoto === "" || !pendingGeomLayer || !digFeature) {
+      return false;
+    }
+    digFeature.geometry.applyRubberband();
+    digFeature.applyGeometry();
+    let feature = digFeature.feature;
+    if (!feature) {
+      return false;
+    }
+    const fieldNames = feature.fields.names;
+    if (fieldNames.indexOf("foto") >= 0) {
+      feature.setAttribute("foto", pendingGeomPhoto);
+      if (cameraSource && cameraSource.photoShotType && fieldNames.indexOf("ujecie") >= 0) {
+        feature.setAttribute("ujecie", cameraSource.photoShotType);
+      }
+    }
+    feature = applyRasterContext(feature, pendingGeomLayer);
+    overlayFeatureFormDrawer.featureModel.currentLayer = pendingGeomLayer;
+    overlayFeatureFormDrawer.featureModel.feature = feature;
+    overlayFeatureFormDrawer.state = "Add";
+    overlayFeatureFormDrawer.open();
+    pendingGeomPhoto = "";
+    pendingGeomLayer = null;
+    cameraSource = null;
+    return true;
   }
 
   property var pendingLayer: null
@@ -133,23 +241,35 @@ Column {
           });
       }
     }
-    if (found.length === 0) {
-      // brak warstw szablonu: sprobuj warstwe wskazana recznie dla tego projektu
-      customLayerName = String(settings.value(projectKey(), ""));
-      const custom = customLayerName !== "" ? LayerUtils.vectorLayerByName(qgisProject, customLayerName) : null;
-      if (custom) {
-        found.push({
-            "layer": custom,
-            "letter": customLayerName.substring(0, 2).toUpperCase(),
-            "tooltip": qsTr("Zapis do: %1 (przytrzymaj, aby zmienić)").arg(customLayerName),
-            "color": "#B0BEC5",
-            "shape": "circle",
-            "mode": "capture",
-            "custom": true
-          });
-      } else {
-        customLayerName = "";
+    // wlasne klawisze uzytkownika - niezaleznie od warstw szablonu
+    loadCustomNames();
+    const zywe = [];
+    for (let i = 0; i < customLayerNames.length; i++) {
+      const nazwa = customLayerNames[i];
+      const custom = LayerUtils.vectorLayerByName(qgisProject, nazwa);
+      if (!custom) {
+        continue; // warstwa zniknela z projektu - klawisz wypada
       }
+      const gt = custom.geometryType();
+      if (gt !== Qgis.GeometryType.Point && gt !== Qgis.GeometryType.Line && gt !== Qgis.GeometryType.Polygon) {
+        continue; // tabela bez geometrii nie ma czego zapisywac
+      }
+      const punktowa = gt === Qgis.GeometryType.Point;
+      zywe.push(nazwa);
+      found.push({
+          "layer": custom,
+          "letter": nazwa.substring(0, 2).toUpperCase(),
+          "tooltip": punktowa ? qsTr("Zapis do: %1 (przytrzymaj, aby usunąć klawisz)").arg(nazwa) : qsTr("Zdjęcie, potem rysowanie: %1 (przytrzymaj, aby usunąć klawisz)").arg(nazwa),
+          "color": customColors[zywe.length % customColors.length],
+          "shape": punktowa ? "circle" : gt === Qgis.GeometryType.Line ? "rounded" : "square",
+          "mode": punktowa ? "capture" : "photogeom",
+          "custom": true,
+          "customName": nazwa
+        });
+    }
+    if (zywe.length !== customLayerNames.length) {
+      customLayerNames = zywe;
+      saveCustomNames();
     }
     resolvedLayers = found;
     console.log("QuickCapture refresh:", qgisProject ? qgisProject.fileName : "brak projektu", "| znaleziono warstw:", found.length);
@@ -193,6 +313,10 @@ Column {
     seriesLayer = layer;
     seriesCount = 0;
     pendingFeature = feature;
+    openCameraFor(layer);
+  }
+
+  function openCameraFor(layer) {
     const fileName = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss") + ".jpg";
     if (!(platformUtilities.capabilities & PlatformUtilities.NativeCamera) || !settings.valueBool("nativeCamera2", true)) {
       // wbudowany aparat: ujecia, seria ciagla, blysk i wibracja
@@ -236,6 +360,19 @@ Column {
   }
 
   function openPendingForm(photoPath) {
+    if (geomFlow) {
+      // zdjecie mamy; obiekt powstanie po narysowaniu geometrii
+      geomFlow = false;
+      if (!photoPath || photoPath === "") {
+        pendingGeomLayer = null;
+        return;
+      }
+      pendingGeomPhoto = photoPath;
+      dashBoard.activeLayer = pendingGeomLayer;
+      stateMachine.state = "digitize";
+      displayToast(qsTr("Zdjęcie zapisane — obrysuj obiekt i zatwierdź"));
+      return;
+    }
     // tryb szybki: geometria ZAWSZE z chwili nadejscia zdjecia, nie z chwili
     // tapniecia kafelka - dotyczy takze pierwszego zdjecia serii (wczesniej
     // pierwsze dostawalo pozycje sprzed kilkudziesieciu sekund marszu)
@@ -400,7 +537,12 @@ Column {
       MouseArea {
         anchors.fill: parent
         onClicked: {
-          if (modelData.mode === "digitize") {
+          if (modelData.mode === "photogeom") {
+            if (stateMachine.state === "digitize") {
+              stateMachine.state = "browse";
+            }
+            quickCaptureBar.captureGeometryFlow(modelData.layer);
+          } else if (modelData.mode === "digitize") {
             dashBoard.activeLayer = modelData.layer;
             stateMachine.state = "digitize";
             displayToast(modelData.tooltip, "info");
@@ -413,38 +555,12 @@ Column {
         }
         onPressAndHold: {
           if (modelData.custom === true) {
-            layerPicker.open();
+            quickCaptureBar.dropLayer(modelData.customName);
           } else {
             displayToast(modelData.tooltip, "info");
           }
         }
       }
-    }
-  }
-
-  // WorkField: pusty klawisz - projekt bez rozpoznanych warstw szablonu
-  Rectangle {
-    width: 56
-    height: 56
-    radius: width / 2
-    color: "#CFD8DC"
-    border.color: "#003D33"
-    border.width: 2
-    opacity: 0.92
-    visible: quickCaptureBar.resolvedLayers.length === 0
-
-    Text {
-      anchors.centerIn: parent
-      text: "+"
-      font.pointSize: Theme.strongFont.pointSize + 8
-      font.bold: true
-      color: "#003D33"
-    }
-
-    MouseArea {
-      anchors.fill: parent
-      onClicked: layerPicker.open()
-      onPressAndHold: displayToast(qsTr("Wskaż warstwę dla szybkiego zapisu"), "info")
     }
   }
 
@@ -504,7 +620,7 @@ Column {
         delegate: ItemDelegate {
           // MapLayerModel nie przyjmuje filtrow z QML (Qgis.LayerFilter nie
           // jest wystawione), wiec odsiewamy warstwy nie-wektorowe tutaj
-          readonly property bool isVector: model.LayerType === Qgis.LayerType.Vector
+          readonly property bool isVector: model.LayerType === Qgis.LayerType.Vector && (model.GeometryType === Qgis.GeometryType.Point || model.GeometryType === Qgis.GeometryType.Line || model.GeometryType === Qgis.GeometryType.Polygon) && quickCaptureBar.customLayerNames.indexOf(model.Name) < 0
 
           width: pickerList.width
           height: isVector ? 48 : 0
