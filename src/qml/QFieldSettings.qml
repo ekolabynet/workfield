@@ -45,7 +45,10 @@ Page {
   property alias showBookmarks: registry.showBookmarks
   property alias nativeCamera2: registry.nativeCamera2
   property alias digitizingVolumeKeys: registry.digitizingVolumeKeys
-  property alias autoSave: registry.autoSave
+  // WorkField: autozapis wylaczony na stale. Sciezka autozapisu przy rysowaniu
+  // wola featureForm.create(), ktore nie istnieje - kazdy wierzcholek konczyl
+  // sie proba zapisu niegotowej geometrii i wycofaniem transakcji.
+  readonly property bool autoSave: false
   property alias fingerTapDigitizing: registry.fingerTapDigitizing
   property alias mouseAsTouchScreen: registry.mouseAsTouchScreen
   property alias enableInfoCollection: registry.enableInfoCollection
@@ -307,7 +310,7 @@ Page {
       title: qsTr("Enable auto-save mode")
       description: qsTr("If enabled, newly-added features are stored as soon as it has having a valid geometry and the constraints are fulfilled and edited atributes are commited immediately.")
       settingAlias: "autoSave"
-      isVisible: true
+      isVisible: false
     }
     ListElement {
       title: qsTr("Używaj aparatu systemowego")
