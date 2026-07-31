@@ -616,3 +616,46 @@ void PositioningSource::setCompassSmoothingWindowMs( int window )
   mCompassReadings.clear();
   emit compassSmoothingWindowMsChanged();
 }
+
+// WorkField: elevation mask via UBX-CFG-VALSET (CFG-NAVSPG-INFIL_MINELEV, RAM layer)
+void PositioningSource::setGnssMinimumElevation( int degrees )
+{
+  if ( !mReceiver )
+  {
+    return;
+  }
+
+  const qint8 value = static_cast<qint8>( qBound( 0, degrees, 90 ) );
+
+  QByteArray payload;
+  payload.append( char( 0x00 ) ); // version
+  payload.append( char( 0x01 ) ); // layers: RAM only
+  payload.append( char( 0x00 ) ); // reserved
+  payload.append( char( 0x00 ) ); // reserved
+  payload.append( char( 0xA4 ) ); // key CFG-NAVSPG-INFIL_MINELEV = 0x201100A4 (LE)
+  payload.append( char( 0x00 ) );
+  payload.append( char( 0x11 ) );
+  payload.append( char( 0x20 ) );
+  payload.append( char( value ) );
+
+  QByteArray frame;
+  frame.append( char( 0xB5 ) );
+  frame.append( char( 0x62 ) );
+  frame.append( char( 0x06 ) ); // class CFG
+  frame.append( char( 0x8A ) ); // id VALSET
+  frame.append( char( payload.size() & 0xFF ) );
+  frame.append( char( ( payload.size() >> 8 ) & 0xFF ) );
+  frame.append( payload );
+
+  quint8 ckA = 0;
+  quint8 ckB = 0;
+  for ( int i = 2; i < frame.size(); i++ )
+  {
+    ckA += static_cast<quint8>( frame.at( i ) );
+    ckB += ckA;
+  }
+  frame.append( char( ckA ) );
+  frame.append( char( ckB ) );
+
+  mReceiver->onCorrectionDataReceived( frame );
+}

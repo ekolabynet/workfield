@@ -442,6 +442,25 @@ Drawer {
           text: "\u2193 " + gnssDiagPopup.fmtBytes(positionSource.ntripBytesReceived) + "    \u2191 " + gnssDiagPopup.fmtBytes(positionSource.ntripBytesSent)
           font: t.tipFont; color: t.mainTextColor
         }
+
+        Text { text: qsTr("Maska elewacji"); font: t.tipFont; color: t.secondaryTextColor }
+        RowLayout {
+          spacing: 6
+
+          Repeater {
+            model: [10, 15, 20]
+
+            Button {
+              text: modelData + "°"
+              font.pointSize: t.tinyFont.pointSize
+              enabled: positionSource.active && positionSource.deviceId !== ""
+              onClicked: {
+                positionSource.setGnssMinimumElevation(modelData);
+                displayToast(qsTr("Maska elewacji %1° wysłana (obowiązuje do restartu odbiornika)").arg(modelData));
+              }
+            }
+          }
+        }
       }
 
       RowLayout {

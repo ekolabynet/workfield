@@ -387,6 +387,7 @@ class Positioning : public QObject
     // Signals forwarded to positioning source
     void triggerConnectDevice();
     void triggerDisconnectDevice();
+    void setGnssMinimumElevation( int degrees );
 
     // Positioning signal
     void coordinateTransformerChanged();

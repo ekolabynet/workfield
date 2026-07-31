@@ -333,6 +333,13 @@ class PositioningSource : public QObject
     void triggerConnectDevice();
     void triggerDisconnectDevice();
 
+    /**
+     * WorkField: sends UBX-CFG-VALSET to the connected GNSS receiver setting
+     * the minimum satellite elevation filter. RAM layer only - the value is
+     * cleared when the receiver is power cycled.
+     */
+    void setGnssMinimumElevation( int degrees );
+
   private slots:
 
     void lastGnssPositionInformationChanged( const GnssPositionInformation &lastGnssPositionInformation );

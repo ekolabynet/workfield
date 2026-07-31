@@ -105,6 +105,7 @@ void Positioning::setupSource()
 
   connect( this, SIGNAL( triggerConnectDevice() ), mPositioningSourceReplica.data(), SLOT( triggerConnectDevice() ) );
   connect( this, SIGNAL( triggerDisconnectDevice() ), mPositioningSourceReplica.data(), SLOT( triggerDisconnectDevice() ) );
+  connect( this, SIGNAL( setGnssMinimumElevation( int ) ), mPositioningSourceReplica.data(), SLOT( setGnssMinimumElevation( int ) ) );
 
   // Synchronize properties
   const QList<QString> properties = mProperties.keys();
