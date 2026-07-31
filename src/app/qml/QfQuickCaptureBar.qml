@@ -226,10 +226,45 @@ Column {
   spacing: 10
   visible: (resolvedLayers.length > 0 || (qgisProject && qgisProject.fileName !== "")) && !overlayFeatureFormDrawer.opened && stateMachine.state !== "measure" && stateMachine.state !== "3d"
 
+  // czy do warstwy da sie w ogole dodac obiekt (dane w ZIP, WMS, tylko odczyt)
+  function layerWritable(layer) {
+    if (!layer) {
+      return false;
+    }
+    if (layer.readOnly) {
+      return false;
+    }
+    return !LayerUtils.isFeatureAdditionLocked(layer);
+  }
+
+  // QFieldSync nazywa warstwy "plik — warstwa", wiec obok nazwy doslownej
+  // przyjmujemy tez koncowke po myslniku
+  function findLayerByName(nazwa) {
+    const doslownie = LayerUtils.vectorLayerByName(qgisProject, nazwa);
+    if (doslownie) {
+      return doslownie;
+    }
+    if (!qgisProject) {
+      return null;
+    }
+    const wszystkie = ProjectUtils.mapLayers(qgisProject);
+    for (const id in wszystkie) {
+      const l = wszystkie[id];
+      if (!l || !l.name) {
+        continue;
+      }
+      const n = String(l.name);
+      if (n === nazwa || n.endsWith("\u2014 " + nazwa) || n.endsWith("- " + nazwa)) {
+        return l;
+      }
+    }
+    return null;
+  }
+
   function refreshLayers() {
     const found = [];
     for (const target of captureTargets) {
-      const layer = LayerUtils.vectorLayerByName(qgisProject, target.layerName);
+      const layer = findLayerByName(target.layerName);
       if (layer) {
         found.push({
             "layer": layer,
@@ -246,9 +281,12 @@ Column {
     const zywe = [];
     for (let i = 0; i < customLayerNames.length; i++) {
       const nazwa = customLayerNames[i];
-      const custom = LayerUtils.vectorLayerByName(qgisProject, nazwa);
+      const custom = findLayerByName(nazwa);
       if (!custom) {
         continue; // warstwa zniknela z projektu - klawisz wypada
+      }
+      if (!layerWritable(custom)) {
+        continue; // dane tylko do odczytu (np. w archiwum ZIP) - bez klawisza
       }
       const gt = custom.geometryType();
       if (gt !== Qgis.GeometryType.Point && gt !== Qgis.GeometryType.Line && gt !== Qgis.GeometryType.Polygon) {
@@ -620,7 +658,7 @@ Column {
         delegate: ItemDelegate {
           // MapLayerModel nie przyjmuje filtrow z QML (Qgis.LayerFilter nie
           // jest wystawione), wiec odsiewamy warstwy nie-wektorowe tutaj
-          readonly property bool isVector: model.LayerType === Qgis.LayerType.Vector && (model.GeometryType === Qgis.GeometryType.Point || model.GeometryType === Qgis.GeometryType.Line || model.GeometryType === Qgis.GeometryType.Polygon) && quickCaptureBar.customLayerNames.indexOf(model.Name) < 0
+          readonly property bool isVector: model.LayerType === Qgis.LayerType.Vector && (model.GeometryType === Qgis.GeometryType.Point || model.GeometryType === Qgis.GeometryType.Line || model.GeometryType === Qgis.GeometryType.Polygon) && quickCaptureBar.layerWritable(model.LayerPointer) && quickCaptureBar.customLayerNames.indexOf(model.Name) < 0
 
           width: pickerList.width
           height: isVector ? 48 : 0
