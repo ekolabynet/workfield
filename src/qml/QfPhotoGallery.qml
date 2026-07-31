@@ -478,8 +478,17 @@ Popup {
 
         Image {
           id: fullImage
-          width: flick.contentWidth
-          height: flick.contentHeight
+
+          // Ergonomia: zdjecie bez EXIF Orientation (typowo pionowo w dol,
+          // gdzie "gora" nie istnieje) kladziemy wzdluz dluzszej osi
+          // ekranu, zeby wypelnialo kadr - kierunek obrotu bez znaczenia.
+          readonly property bool noExif: viewer.cur ? !tagStore.hasExifOrientation(viewer.cur.path) : false
+          readonly property bool sideways: noExif && status == Image.Ready && sourceSize.width !== sourceSize.height && ((sourceSize.width > sourceSize.height) !== (flick.width > flick.height))
+
+          width: sideways ? flick.contentHeight : flick.contentWidth
+          height: sideways ? flick.contentWidth : flick.contentHeight
+          anchors.centerIn: parent
+          rotation: sideways ? 90 : 0
           source: viewer.cur ? "file://" + viewer.cur.path : ""
           fillMode: Image.PreserveAspectFit
           asynchronous: true
@@ -617,7 +626,10 @@ Popup {
         const stats = tagStore.tagStats(500);
         const seen = ({});
         const out = [];
-        const dodaj = (nazwa, n) => {
+        const dodaj = (surowa, n) => {
+          const nazwa = String(surowa).trim().replace(/\s+/g, " ");
+          if (nazwa === "")
+            return;
           const k = nazwa.toLowerCase();
           if (!seen[k]) {
             seen[k] = true;
@@ -658,12 +670,52 @@ Popup {
       anchors.bottom: parent.bottom
       anchors.right: parent.right
       anchors.bottomMargin: 44
-      width: Math.min(parent.width * 0.45, 320)
+
+      // szerokosc: przeciaganie lewej krawedzi, ostatnia wartosc pamietana
+      property real savedWidth: Number(settings.value("workfield/tagPanelWidth", 320))
+      width: Math.max(200, Math.min(parent.width * 0.7, savedWidth))
       color: "#EE263238"
+
+      Rectangle {
+        id: panelGrip
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 14
+        color: gripArea.pressed ? "#3380CBC4" : "transparent"
+        z: 10
+
+        Rectangle {
+          anchors.centerIn: parent
+          width: 3
+          height: 36
+          radius: 1.5
+          color: "#607D8B"
+        }
+
+        MouseArea {
+          id: gripArea
+          anchors.fill: parent
+          anchors.margins: -6
+          cursorShape: Qt.SizeHorCursor
+
+          property real startX: 0
+
+          onPressed: mouse => {
+            startX = mouse.x;
+          }
+          onPositionChanged: mouse => {
+            if (pressed)
+              tagPanel.savedWidth = Math.max(200, Math.min(tagPanel.parent.width * 0.7, tagPanel.width - (mouse.x - startX)));
+          }
+          onReleased: settings.setValue("workfield/tagPanelWidth", Math.round(tagPanel.width))
+        }
+      }
 
       ColumnLayout {
         anchors.fill: parent
         anchors.margins: 8
+        anchors.leftMargin: 18
         spacing: 6
 
         RowLayout {
@@ -682,121 +734,6 @@ Popup {
             text: tagPanel.sortAZ ? "A–Z" : "№↓"
             font.pointSize: photoGallery.t.tinyFont.pointSize
             onClicked: tagPanel.sortAZ = !tagPanel.sortAZ
-          }
-        }
-
-        ListView {
-          id: curTagList
-          Layout.fillWidth: true
-          Layout.preferredHeight: Math.min(contentHeight, tagPanel.height * 0.35)
-          clip: true
-          visible: viewer.curTags.length > 0
-          model: viewer.curTags
-
-          delegate: RowLayout {
-            width: curTagList.width
-            height: 28
-            spacing: 6
-
-            Rectangle {
-              width: 12
-              height: 12
-              radius: 2
-              color: photoGallery.tagColor(modelData.tag)
-            }
-
-            Text {
-              Layout.fillWidth: true
-              text: modelData.tag
-              color: "white"
-              font: photoGallery.t.tipFont
-              elide: Text.ElideRight
-
-              MouseArea {
-                anchors.fill: parent
-                onClicked: viewer.startEdit(modelData)
-              }
-            }
-
-            Text {
-              text: modelData.pokrycie !== undefined && modelData.pokrycie !== null ? modelData.pokrycie + "%" : ""
-              color: "#B0BEC5"
-              font: photoGallery.t.tinyFont
-            }
-
-            Text {
-              text: "✕"
-              color: "#EF9A9A"
-              font: photoGallery.t.tipFont
-
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -8
-                onClicked: tagStore.removeTag(modelData.fid)
-              }
-            }
-          }
-        }
-
-        Rectangle {
-          Layout.fillWidth: true
-          height: 1
-          color: "#455A64"
-          visible: viewer.curTags.length > 0
-        }
-
-        ListView {
-          id: sugList
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          clip: true
-          model: tagPanel.suggestions
-
-          ScrollBar.vertical: ScrollBar {
-          }
-
-          delegate: ItemDelegate {
-            width: sugList.width
-            height: 34
-
-            Rectangle {
-              anchors.left: parent.left
-              anchors.top: parent.top
-              anchors.bottom: parent.bottom
-              width: parent.width * modelData.n / tagPanel.maxN
-              color: "#2280CBC4"
-              visible: !tagPanel.sortAZ && modelData.n > 0
-            }
-
-            contentItem: RowLayout {
-              spacing: 6
-
-              Rectangle {
-                width: 12
-                height: 12
-                radius: 2
-                color: photoGallery.tagColor(modelData.name)
-              }
-
-              Text {
-                Layout.fillWidth: true
-                text: modelData.name
-                color: "white"
-                font: photoGallery.t.tipFont
-                elide: Text.ElideRight
-              }
-
-              Text {
-                text: modelData.n > 0 ? modelData.n : ""
-                color: "#78909C"
-                font: photoGallery.t.tinyFont
-              }
-            }
-
-            onClicked: {
-              tagInput.text = modelData.name;
-              pokInput.forceActiveFocus();
-            }
           }
         }
 
@@ -849,6 +786,122 @@ Popup {
               } else {
                 displayToast(qsTr("Nie udało się zapisać tagu"));
               }
+            }
+          }
+        }
+
+        ListView {
+          id: curTagList
+          Layout.fillWidth: true
+          Layout.preferredHeight: Math.min(contentHeight, tagPanel.height * 0.35)
+          clip: true
+          visible: viewer.curTags.length > 0
+          model: viewer.curTags
+
+          delegate: RowLayout {
+            width: curTagList.width
+            height: Math.max(28, implicitHeight + 4)
+            spacing: 6
+
+            Rectangle {
+              width: 12
+              height: 12
+              radius: 2
+              color: photoGallery.tagColor(modelData.tag)
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: modelData.tag
+              color: "white"
+              font: photoGallery.t.tipFont
+              wrapMode: Text.Wrap
+
+              MouseArea {
+                anchors.fill: parent
+                onClicked: viewer.startEdit(modelData)
+              }
+            }
+
+            Text {
+              text: modelData.pokrycie !== undefined && modelData.pokrycie !== null ? modelData.pokrycie + "%" : ""
+              color: "#B0BEC5"
+              font: photoGallery.t.tinyFont
+            }
+
+            Text {
+              text: "✕"
+              color: "#EF9A9A"
+              font: photoGallery.t.tipFont
+
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -8
+                onClicked: tagStore.removeTag(modelData.fid)
+              }
+            }
+          }
+        }
+
+        Rectangle {
+          Layout.fillWidth: true
+          height: 1
+          color: "#455A64"
+          visible: viewer.curTags.length > 0
+        }
+
+        ListView {
+          id: sugList
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          model: tagPanel.suggestions
+
+          ScrollBar.vertical: ScrollBar {
+          }
+
+          delegate: ItemDelegate {
+            width: sugList.width
+            height: Math.max(34, sugText.implicitHeight + 14)
+
+            Rectangle {
+              anchors.left: parent.left
+              anchors.top: parent.top
+              anchors.bottom: parent.bottom
+              width: parent.width * modelData.n / tagPanel.maxN
+              color: "#2280CBC4"
+              visible: !tagPanel.sortAZ && modelData.n > 0
+            }
+
+            contentItem: RowLayout {
+              spacing: 6
+
+              Rectangle {
+                width: 12
+                height: 12
+                radius: 2
+                color: photoGallery.tagColor(modelData.name)
+              }
+
+              Text {
+                id: sugText
+                Layout.fillWidth: true
+                text: modelData.name
+                color: "white"
+                font: photoGallery.t.tipFont
+                wrapMode: Text.Wrap
+              }
+
+              Text {
+                text: modelData.n > 0 ? modelData.n : ""
+                color: "#78909C"
+                font: photoGallery.t.tinyFont
+              }
+            }
+
+            onClicked: {
+              tagInput.text = modelData.name;
+              pokInput.forceActiveFocus();
             }
           }
         }

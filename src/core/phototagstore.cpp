@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QImageReader>
 #include <QVariantMap>
 #include <sqlite3.h>
 
@@ -417,4 +418,11 @@ QStringList PhotoTagStore::formSpecies()
   mFormSpecies.sort( Qt::CaseInsensitive );
   qInfo() << "PhotoTagStore: slownik z formularzy:" << mFormSpecies.count() << "pozycji";
   return mFormSpecies;
+}
+
+bool PhotoTagStore::hasExifOrientation( const QString &path ) const
+{
+  QImageReader reader( path );
+  reader.setAutoTransform( false );
+  return reader.transformation() != QImageIOHandler::TransformationNone;
 }

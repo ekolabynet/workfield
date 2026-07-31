@@ -51,6 +51,9 @@ class PhotoTagStore : public QObject
     //! Gatunki z kolumn gatunek/GATUNEK we wszystkich GPKG projektu (odczyt).
     Q_INVOKABLE QStringList projectSpecies();
 
+    //! Czy plik JPEG ma znacznik EXIF Orientation (True takze dla luster).
+    Q_INVOKABLE bool hasExifOrientation( const QString &path ) const;
+
     //! Slownik gatunkow tak, jak widza go formularze: z konfiguracji
     //! widzetu pola "gatunek" (ValueMap/ValueRelation) warstw projektu.
     Q_INVOKABLE QStringList formSpecies();
