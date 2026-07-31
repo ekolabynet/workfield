@@ -748,14 +748,13 @@ Drawer {
           color: t.mainTextColor
         }
 
-    RowLayout {
+    Flow {
       Layout.fillWidth: true
       Layout.margins: 8
       spacing: 8
 
       Button {
         id: newLayerButton
-        Layout.fillWidth: true
         text: qsTr("Nowa warstwa")
         font.pointSize: t.tinyFont.pointSize
         onClicked: {
@@ -766,7 +765,6 @@ Drawer {
 
       Button {
         id: addBasemapButton
-        Layout.fillWidth: true
         text: qsTr("Podkład")
         font.pointSize: t.tinyFont.pointSize
         onClicked: {
@@ -777,7 +775,6 @@ Drawer {
 
       Button {
         id: addLayerButton
-        Layout.fillWidth: true
         text: qsTr("Dodaj z pliku")
         font.pointSize: t.tinyFont.pointSize
         onClicked: {
@@ -788,7 +785,6 @@ Drawer {
 
       Button {
         id: photoGalleryButton
-        Layout.fillWidth: true
         text: qsTr("Galeria")
         font.pointSize: t.tinyFont.pointSize
         onClicked: {
@@ -798,28 +794,25 @@ Drawer {
       }
     }
 
-        RowLayout {
+        Flow {
           Layout.fillWidth: true
           Layout.leftMargin: 8
           Layout.rightMargin: 8
           spacing: 8
 
           Button {
-            Layout.fillWidth: true
             text: qsTr("NMT")
             font.pointSize: t.tinyFont.pointSize
             onClicked: demDownloader.request("NMT")
           }
 
           Button {
-            Layout.fillWidth: true
             text: qsTr("NMPT")
             font.pointSize: t.tinyFont.pointSize
             onClicked: demDownloader.request("NMPT")
           }
 
           Button {
-            Layout.fillWidth: true
             text: qsTr("CHM")
             font.pointSize: t.tinyFont.pointSize
             onClicked: demDownloader.computeChm()
@@ -829,7 +822,7 @@ Drawer {
     Text {
       Layout.fillWidth: true
       Layout.margins: 8
-      text: qsTr("Warstwa robocza")
+      text: qgisProject && qgisProject.crs && qgisProject.crs.authid !== "" ? qsTr("Warstwa robocza") + "  \u00b7  " + qgisProject.crs.authid : qsTr("Warstwa robocza")
       font: t.strongTipFont
       color: t.mainTextColor
     }
@@ -853,8 +846,16 @@ Drawer {
         readonly property bool isWritable: isVector && !model.VectorLayerPointer.readOnly
         readonly property bool isCurrent: isVector && model.VectorLayerPointer === dashBoard.activeLayer
 
+        // geometria jako mikroikona - miejsce oddane nazwie warstwy
+        readonly property int geomType: isVector ? model.VectorLayerPointer.geometryType() : -1
+        readonly property string geomIcon: geomType === Qgis.GeometryType.Point ? "ic_vectorlayer_point_18dp" : geomType === Qgis.GeometryType.Line ? "ic_vectorlayer_line_18dp" : geomType === Qgis.GeometryType.Polygon ? "ic_vectorlayer_polygon_18dp" : "ic_vectorlayer_table_18dp"
+        readonly property string featureCountText: isVector ? String(iface.layerInfoLabel(model.VectorLayerPointer)).split("\u00b7").pop().trim() : ""
+        readonly property string layerCrs: isVector && model.VectorLayerPointer.crs ? model.VectorLayerPointer.crs.authid : ""
+        // uklad pokazujemy TYLKO, gdy inny niz projektu - wtedy to ostrzezenie
+        readonly property bool crsDiffers: layerCrs !== "" && qgisProject && qgisProject.crs && layerCrs !== qgisProject.crs.authid
+
         width: projectLayersList.width
-        height: isLayerRow ? 44 : 0
+        height: isLayerRow ? Math.max(44, layerNameText.implicitHeight + 16) : 0
         visible: isLayerRow
 
         background: Rectangle {
@@ -877,18 +878,53 @@ Drawer {
           }
 
           Text {
+            id: layerNameText
             Layout.fillWidth: true
             text: model.Name
-            font: t.defaultFont
+            font: t.tipFont
             color: isCurrent ? t.mainOverlayColor : t.mainTextColor
-            elide: Text.ElideMiddle
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
+          }
+
+          // uklad odmienny od projektu: krotkie ostrzezenie tekstem
+          Text {
+            visible: crsDiffers
+            text: layerCrs
+            font: t.tinyFont
+            color: t.warningColor
+          }
+
+          QfToolButton {
+            visible: isVector
+            width: 18
+            height: 18
+            padding: 0
+            enabled: false
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon(geomIcon)
+            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+            opacity: 0.85
           }
 
           Text {
-            text: isWritable ? model.VectorLayerPointer.crs.authid + "  " + iface.layerInfoLabel(model.VectorLayerPointer) : layerKind === "podklad" ? qsTr("PODKŁAD") : layerKind === "raster" ? qsTr("RASTER") : qsTr("tylko odczyt")
+            text: isVector ? featureCountText : layerKind === "podklad" ? qsTr("PODKŁAD") : layerKind === "raster" ? qsTr("RASTER") : ""
             font: t.tinyFont
             color: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
             opacity: 0.7
+          }
+
+          QfToolButton {
+            visible: isVector && !isWritable
+            width: 18
+            height: 18
+            padding: 0
+            enabled: false
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon("ic_lock_white_24dp")
+            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+            opacity: 0.6
           }
 
           QfToolButton {
