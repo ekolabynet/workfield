@@ -395,6 +395,7 @@ Column {
     pendingGeomPhoto = "";
     pendingGeomLayer = null;
     geomFlow = false;
+    stateMachine.state = "browse";
   }
 
   // geometria narysowana: obiekt dostaje zdjecie i formularz
@@ -423,6 +424,8 @@ Column {
     pendingGeomPhoto = "";
     pendingGeomLayer = null;
     cameraSource = null;
+    // rysowanie skonczone - wracamy do przegladania (nie ma juz przelacznika)
+    stateMachine.state = "browse";
     return true;
   }
 
@@ -843,9 +846,15 @@ Column {
             }
             quickCaptureBar.captureGeometryFlow(modelData.layer);
           } else if (modelData.mode === "digitize") {
-            dashBoard.activeLayer = modelData.layer;
-            stateMachine.state = "digitize";
-            displayToast(modelData.tooltip, "info");
+            if (stateMachine.state === "digitize" && dashBoard.activeLayer === modelData.layer) {
+              // drugie tapniecie tego samego kafla = powrot do przegladania
+              stateMachine.state = "browse";
+              displayToast(qsTr("Przeglądanie"), "info");
+            } else {
+              dashBoard.activeLayer = modelData.layer;
+              stateMachine.state = "digitize";
+              displayToast(modelData.tooltip, "info");
+            }
           } else {
             if (stateMachine.state === "digitize") {
               stateMachine.state = "browse";

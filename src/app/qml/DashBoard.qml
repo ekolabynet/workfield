@@ -444,7 +444,8 @@ Drawer {
 
       MenuItem {
         id: homeButton
-        width: parent.width - modeSwitch.width - modeSwitchLabel.width - 12
+        // WorkField: przelacznik trybu ukryty - trybem steruja kafle paska
+        width: parent.width - (modeSwitch.visible ? modeSwitch.width + modeSwitchLabel.width + 12 : 0)
         height: parent.height
         anchors.verticalCenter: parent.verticalCenter
         icon.source: Theme.getThemeVectorIcon("ic_home_black_24dp")
@@ -458,6 +459,7 @@ Drawer {
 
       Text {
         id: modeSwitchLabel
+        visible: false
         anchors.right: modeSwitch.left
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
@@ -469,6 +471,7 @@ Drawer {
       QfSwitch {
         id: modeSwitch
         objectName: "modeSwitch"
+        visible: false
         height: Theme.toolButtonSize
         width: height * 1.9
         leftPadding: height / 3
