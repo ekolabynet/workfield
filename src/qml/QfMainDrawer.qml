@@ -784,6 +784,16 @@ Drawer {
       }
 
       Button {
+        id: captureSettingsButton
+        text: qsTr("Klawisze")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          dashBoard.close();
+          captureSettings.openDialog();
+        }
+      }
+
+      Button {
         id: photoGalleryButton
         text: qsTr("Galeria")
         font.pointSize: t.tinyFont.pointSize

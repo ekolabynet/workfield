@@ -108,6 +108,7 @@
         <file>QfDataDrawer.qml</file>
         <file>QfMainDrawer.qml</file>
         <file>QfQuickCaptureBar.qml</file>
+        <file>QfCaptureSettings.qml</file>
         <file>QfPhotoGallery.qml</file>
         <file>QfLegendScreen.qml</file>
         <file>QfColorPicker.qml</file>

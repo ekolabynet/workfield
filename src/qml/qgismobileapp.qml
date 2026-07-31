@@ -5754,6 +5754,11 @@ ApplicationWindow {
     t: Theme
   }
 
+  QfCaptureSettings {
+    id: captureSettings
+    t: Theme
+  }
+
   QfSubLayerPicker {
     id: subLayerPicker
     t: Theme
