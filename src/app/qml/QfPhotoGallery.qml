@@ -609,6 +609,53 @@ Popup {
       }
     }
 
+    // Usuwanie zdjecia: nie kasuje pliku, przenosi do DCIM/.kosz
+    RoundButton {
+      text: "🗑"
+      width: 56
+      height: 56
+      font.pointSize: 18
+      Material.background: "#AA5D4037"
+      Material.foreground: "white"
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.rightMargin: tagPanel.visible ? tagPanel.width + 8 : 8
+      anchors.bottomMargin: 128
+      opacity: 0.9
+      visible: viewer.cur !== null
+      onClicked: potwierdzUsuniecie.open()
+    }
+
+    QfDialog {
+      id: potwierdzUsuniecie
+      title: qsTr("Usunąć zdjęcie?")
+      parent: mainWindow.contentItem
+      focus: visible
+      standardButtons: Dialog.Yes | Dialog.No
+
+      Label {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        text: viewer.cur ? qsTr("%1\n\nZdjęcie trafi do kosza projektu (DCIM/.kosz) razem z tagami. Można je stamtąd odzyskać.").arg(FileUtils.fileName(viewer.cur.path)) : ""
+      }
+
+      onAccepted: {
+        if (!viewer.cur) {
+          return;
+        }
+        const sciezka = viewer.cur.path;
+        const nazwa = FileUtils.fileName(sciezka);
+        const wKoszu = tagStore.moveToTrash(sciezka);
+        if (wKoszu === "") {
+          displayToast(qsTr("Nie udało się usunąć %1").arg(nazwa), "error");
+          return;
+        }
+        viewer.close();
+        photoGallery.rebuildPhotos();
+        displayToast(qsTr("Usunięto %1 — w koszu: %2").arg(nazwa).arg(tagStore.trashCount()));
+      }
+    }
+
     Rectangle {
       id: tagPanel
 

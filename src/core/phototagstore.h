@@ -54,6 +54,20 @@ class PhotoTagStore : public QObject
     //! Czy plik JPEG ma znacznik EXIF Orientation (True takze dla luster).
     Q_INVOKABLE bool hasExifOrientation( const QString &path ) const;
 
+    /**
+     * Przenosi zdjecie do kosza projektu (DCIM/.kosz) i usuwa jego tagi.
+     * Swiadomie NIE kasuje pliku - w terenie pomylka jest tania do naprawienia
+     * tylko wtedy, gdy plik jeszcze istnieje.
+     * Zwraca sciezke w koszu albo pusty ciag przy niepowodzeniu.
+     */
+    Q_INVOKABLE QString moveToTrash( const QString &path );
+
+    //! Ile zdjec czeka w koszu - do pokazania w interfejsie.
+    Q_INVOKABLE int trashCount() const;
+
+    //! Przywraca zdjecie z kosza na pierwotne miejsce.
+    Q_INVOKABLE bool restoreFromTrash( const QString &trashPath );
+
     //! Slownik gatunkow tak, jak widza go formularze: z konfiguracji
     //! widzetu pola "gatunek" (ValueMap/ValueRelation) warstw projektu.
     Q_INVOKABLE QStringList formSpecies();

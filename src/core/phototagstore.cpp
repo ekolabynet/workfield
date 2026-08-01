@@ -6,7 +6,10 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QFileInfo>
 #include <QImageReader>
+#include <QRegularExpression>
+#include <QUrl>
 #include <QVariantMap>
 #include <sqlite3.h>
 
@@ -418,6 +421,89 @@ QStringList PhotoTagStore::formSpecies()
   mFormSpecies.sort( Qt::CaseInsensitive );
   qInfo() << "PhotoTagStore: slownik z formularzy:" << mFormSpecies.count() << "pozycji";
   return mFormSpecies;
+}
+
+QString PhotoTagStore::moveToTrash( const QString &path )
+{
+  const QString czysta = path.startsWith( QStringLiteral( "file://" ) )
+                           ? QUrl( path ).toLocalFile()
+                           : path;
+  QFileInfo info( czysta );
+  if ( !info.exists() )
+  {
+    qWarning() << "Kosz: plik nie istnieje" << czysta;
+    return QString();
+  }
+
+  QDir kosz( info.absolutePath() + QStringLiteral( "/.kosz" ) );
+  if ( !kosz.exists() && !kosz.mkpath( QStringLiteral( "." ) ) )
+  {
+    qWarning() << "Kosz: nie udalo sie utworzyc" << kosz.absolutePath();
+    return QString();
+  }
+
+  // datownik w nazwie: dwa usuniecia tego samego pliku sie nie zderza
+  const QString znacznik = QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_hhmmss" ) );
+  QString cel = kosz.absoluteFilePath( znacznik + QStringLiteral( "_" ) + info.fileName() );
+  int i = 1;
+  while ( QFile::exists( cel ) )
+  {
+    cel = kosz.absoluteFilePath( QStringLiteral( "%1_%2_%3" ).arg( znacznik ).arg( i++ ).arg( info.fileName() ) );
+  }
+
+  if ( !QFile::rename( czysta, cel ) )
+  {
+    qWarning() << "Kosz: nie udalo sie przeniesc" << czysta << "->" << cel;
+    return QString();
+  }
+
+  // tagi ida razem ze zdjeciem - inaczej zostalyby sierotami
+  if ( mDb )
+  {
+    QString wzgledna = czysta;
+    if ( !mProjectDir.isEmpty() && wzgledna.startsWith( mProjectDir ) )
+      wzgledna = wzgledna.mid( mProjectDir.length() + 1 );
+    sqlite3_stmt *stmt = nullptr;
+    if ( sqlite3_prepare_v2( mDb, "DELETE FROM FOTO_TAGI WHERE foto = ?1", -1, &stmt, nullptr ) == SQLITE_OK )
+    {
+      const QByteArray bajty = wzgledna.toUtf8();
+      sqlite3_bind_text( stmt, 1, bajty.constData(), -1, SQLITE_TRANSIENT );
+      sqlite3_step( stmt );
+      sqlite3_finalize( stmt );
+    }
+  }
+
+  qInfo() << "Kosz: przeniesiono" << czysta << "->" << cel;
+  return cel;
+}
+
+int PhotoTagStore::trashCount() const
+{
+  if ( mProjectDir.isEmpty() )
+    return 0;
+  QDir kosz( mProjectDir + QStringLiteral( "/DCIM/.kosz" ) );
+  if ( !kosz.exists() )
+    return 0;
+  return kosz.entryList( QStringList() << QStringLiteral( "*.jpg" ) << QStringLiteral( "*.jpeg" ),
+                         QDir::Files )
+    .count();
+}
+
+bool PhotoTagStore::restoreFromTrash( const QString &trashPath )
+{
+  QFileInfo info( trashPath );
+  if ( !info.exists() )
+    return false;
+  QString nazwa = info.fileName();
+  static const QRegularExpression wzor( QStringLiteral( "^\\d{8}_\\d{6}(_\\d+)?_" ) );
+  nazwa.remove( wzor );
+  const QString cel = QFileInfo( info.absolutePath() ).absolutePath() + QStringLiteral( "/" ) + nazwa;
+  if ( QFile::exists( cel ) )
+  {
+    qWarning() << "Kosz: plik o tej nazwie juz istnieje" << cel;
+    return false;
+  }
+  return QFile::rename( trashPath, cel );
 }
 
 bool PhotoTagStore::hasExifOrientation( const QString &path ) const
