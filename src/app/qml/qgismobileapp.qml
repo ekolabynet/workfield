@@ -5752,9 +5752,6 @@ ApplicationWindow {
       qfieldLocalDataPickerScreen.visible = true;
     }
 
-    onModeToggled: digitize => {
-      stateMachine.state = digitize ? "digitize" : "browse";
-    }
   }
 
   QfBasemapScreen {

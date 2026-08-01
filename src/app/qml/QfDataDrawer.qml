@@ -14,7 +14,6 @@ Drawer {
   property var activeLayer
 
   signal layerActivated(var layer)
-  signal modeToggled(bool digitize)
   signal addExistingRequested
 
   edge: Qt.RightEdge
@@ -152,41 +151,6 @@ Drawer {
       // ── Algorytmy ───────────────────────────────────────────
       ColumnLayout {
         spacing: 0
-
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: t.controlBorderColor
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.margins: 8
-      spacing: 8
-
-      ColumnLayout {
-        Layout.fillWidth: true
-        spacing: 0
-
-        Text {
-          text: qsTr("Tryb pracy")
-          font: t.strongTipFont
-          color: t.mainTextColor
-        }
-
-        Text {
-          text: modeToggle.checked ? qsTr("Digitalizacja") : qsTr("Przeglądanie")
-          font: t.tipFont
-          color: modeToggle.checked ? t.mainColor : t.secondaryTextColor
-        }
-      }
-
-      Switch {
-        id: modeToggle
-        checked: stateMachine.state === "digitize"
-        onToggled: dataDrawer.modeToggled(checked)
-      }
-    }
 
     Rectangle {
       Layout.fillWidth: true
