@@ -553,6 +553,13 @@ Drawer {
         elide: Text.ElideMiddle
       }
 
+      Text {
+        Layout.fillWidth: true
+        Layout.topMargin: 6
+        text: qsTr("Wszystkie projekty")
+        font: t.tinyFont
+        color: t.secondaryTextColor
+      }
       GridLayout {
         Layout.fillWidth: true
         columns: 2
@@ -584,6 +591,71 @@ Drawer {
         }
         Button {
           Layout.fillWidth: true
+          text: qsTr("Otwórz projekt")
+          icon.source: t.getThemeVectorIcon("ic_open_black_24dp")
+          icon.width: 26
+          icon.height: 26
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            dashBoard.close();
+            qfieldLocalDataPickerScreen.projectFolderView = false;
+            qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot() + "Imported Projects");
+            qfieldLocalDataPickerScreen.visible = true;
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Importuj projekt (folder)")
+          icon.source: t.getThemeVectorIcon("ic_folder_open_black_24dp")
+          icon.width: 26
+          icon.height: 26
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            dashBoard.close();
+            platformUtilities.importProjectFolder();
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Importuj projekt (ZIP)")
+          icon.source: t.getThemeVectorIcon("ic_download_white_24dp")
+          icon.width: 26
+          icon.height: 26
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            dashBoard.close();
+            platformUtilities.importProjectArchive();
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Ekran startowy")
+          icon.source: t.getThemeVectorIcon("ic_home_black_24dp")
+          icon.width: 26
+          icon.height: 26
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            dashBoard.close();
+            returnHome();
+          }
+        }
+      }
+      Text {
+        Layout.fillWidth: true
+        Layout.topMargin: 6
+        text: qsTr("Bieżący projekt")
+        font: t.tinyFont
+        color: t.secondaryTextColor
+        opacity: projectSection.filePath !== "" ? 1.0 : 0.4
+      }
+      GridLayout {
+        Layout.fillWidth: true
+        columns: 2
+        columnSpacing: 4
+        rowSpacing: 4
+
+        Button {
+          Layout.fillWidth: true
           text: qsTr("Zapisz")
           icon.source: t.getThemeVectorIcon("wf_project_save")
           icon.color: "transparent"
@@ -613,38 +685,10 @@ Drawer {
         }
         Button {
           Layout.fillWidth: true
-          text: qsTr("Usuń projekt")
-          icon.source: t.getThemeVectorIcon("wf_project_delete")
-          icon.color: "transparent"
+          text: qsTr("Powiększ do danych")
+          icon.source: t.getThemeVectorIcon("zoom_out_map_24dp")
           icon.width: 26
           icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
-          enabled: projectSection.filePath !== ""
-          onClicked: deleteProjectConfirm.open()
-        }
-        Button {
-          Layout.fillWidth: true
-          text: qsTr("Otwórz projekt")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: {
-            dashBoard.close();
-            qfieldLocalDataPickerScreen.projectFolderView = false;
-            qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot() + "Imported Projects");
-            qfieldLocalDataPickerScreen.visible = true;
-          }
-        }
-        Button {
-          Layout.fillWidth: true
-          text: qsTr("Ekran startowy")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: {
-            dashBoard.close();
-            returnHome();
-          }
-        }
-        Button {
-          Layout.fillWidth: true
-          text: qsTr("Powiększ do danych")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
             if (!iface.zoomToProjectData(dashBoard.mapSettings)) {
@@ -656,27 +700,7 @@ Drawer {
         }
         Button {
           Layout.fillWidth: true
-          text: qsTr("Importuj projekt (folder)")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: {
-            dashBoard.close();
-            platformUtilities.importProjectFolder();
-          }
-        }
-        Button {
-          Layout.fillWidth: true
-          text: qsTr("Importuj projekt (ZIP)")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: {
-            dashBoard.close();
-            platformUtilities.importProjectArchive();
-          }
-        }
-
-
-        Button {
-          Layout.fillWidth: true
-          text: qsTr("Folder projektu")
+          text: qsTr("Pliki projektu")
           font.pointSize: t.tinyFont.pointSize
           icon.source: t.getThemeVectorIcon("wf_folder_project")
           icon.color: "transparent"
@@ -688,6 +712,42 @@ Drawer {
             dashBoard.showProjectFolder();
           }
         }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Właściwości")
+          icon.source: t.getThemeVectorIcon("wf_project_properties")
+          icon.color: "transparent"
+          icon.width: 26
+          icon.height: 26
+          font.pointSize: t.tinyFont.pointSize
+          enabled: projectSection.filePath !== ""
+          onClicked: projectPropertiesPopup.open()
+        }
+        Button {
+          Layout.fillWidth: true
+          text: qsTr("Usuń projekt")
+          icon.source: t.getThemeVectorIcon("wf_project_delete")
+          icon.color: "transparent"
+          icon.width: 26
+          icon.height: 26
+          font.pointSize: t.tinyFont.pointSize
+          enabled: projectSection.filePath !== ""
+          onClicked: deleteProjectConfirm.open()
+        }
+      }
+      Text {
+        Layout.fillWidth: true
+        Layout.topMargin: 6
+        text: qsTr("Aplikacja")
+        font: t.tinyFont
+        color: t.secondaryTextColor
+      }
+      GridLayout {
+        Layout.fillWidth: true
+        columns: 2
+        columnSpacing: 4
+        rowSpacing: 4
+
         Button {
           Layout.fillWidth: true
           text: qsTr("Folder aplikacji")
@@ -702,17 +762,6 @@ Drawer {
             qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot());
             qfieldLocalDataPickerScreen.visible = true;
           }
-        }
-        Button {
-          Layout.fillWidth: true
-          text: qsTr("Właściwości")
-          icon.source: t.getThemeVectorIcon("wf_project_properties")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
-          enabled: projectSection.filePath !== ""
-          onClicked: projectPropertiesPopup.open()
         }
         Button {
           Layout.fillWidth: true
