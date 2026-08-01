@@ -32,3 +32,11 @@ DCIM/
 
 # WorkField: sekrety podpisu APK
 scripts/signing.env
+
+# dane projektowe nigdy nie należą do repozytorium aplikacji
+brand/*/DCIM/
+brand/*/NMT/
+brand/*/NMPT/
+brand/*/CHM/
+*.asc
+*.gpkg
