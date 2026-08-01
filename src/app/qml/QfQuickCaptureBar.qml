@@ -1117,7 +1117,7 @@ Column {
 
     MouseArea {
       anchors.fill: parent
-      onClicked: photoGallery.open()
+      onClicked: photoGallery.openPhotos()
       onPressAndHold: displayToast(qsTr("Galeria zdjęć projektu"), "info")
     }
   }

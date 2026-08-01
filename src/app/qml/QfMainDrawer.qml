@@ -598,6 +598,8 @@ Drawer {
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
             dashBoard.close();
+            // przegladarka QFielda TYLKO tutaj: umie rozpoznac .qgs/.qgz
+            // i otworzyc projekt. Zawsze startuje z tego samego katalogu.
             qfieldLocalDataPickerScreen.projectFolderView = false;
             qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot() + "Imported Projects");
             qfieldLocalDataPickerScreen.visible = true;
@@ -708,8 +710,10 @@ Drawer {
           icon.height: 26
           enabled: projectSection.filePath !== ""
           onClicked: {
+            // nasza galeria, zakladka Pliki - jedno narzedzie do ogladania
+            // zawartosci zamiast przegladarki QFielda
             dashBoard.close();
-            dashBoard.showProjectFolder();
+            photoGallery.openFiles(qgisProject ? qgisProject.homePath : "");
           }
         }
         Button {
@@ -758,9 +762,7 @@ Drawer {
           icon.height: 26
           onClicked: {
             dashBoard.close();
-            qfieldLocalDataPickerScreen.projectFolderView = true;
-            qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot());
-            qfieldLocalDataPickerScreen.visible = true;
+            photoGallery.openFiles(iface.dataRoot());
           }
         }
         Button {
@@ -847,7 +849,7 @@ Drawer {
         font.pointSize: t.tinyFont.pointSize
         onClicked: {
           dashBoard.close();
-          photoGallery.open();
+          photoGallery.openPhotos();
         }
       }
     }

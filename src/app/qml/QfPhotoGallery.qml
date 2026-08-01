@@ -30,9 +30,33 @@ Popup {
   modal: true
   focus: true
 
+  // katalog, od ktorego zaczyna zakladka Pliki; pusty = katalog projektu
+  property string startowyKatalog: ""
+  // ktora zakladka ma byc widoczna po otwarciu (0 zdjecia, 1 pliki)
+  property int startowaZakladka: 0
+
   onOpened: {
-    filesPage.browsePath = projectDir;
+    filesPage.browsePath = startowyKatalog !== "" ? startowyKatalog : projectDir;
+    galleryTabs.currentIndex = startowaZakladka;
     rebuildPhotos();
+  }
+
+  /**
+   * Otwiera galerie od razu na zakladce Pliki, w podanym katalogu.
+   * Dzieki temu zawartosc projektu i katalogu aplikacji oglada sie jednym
+   * narzedziem, zamiast trzema roznymi przegladarkami.
+   */
+  function openFiles(sciezka) {
+    startowyKatalog = sciezka ? sciezka : projectDir;
+    startowaZakladka = 1;
+    open();
+  }
+
+  //! Otwiera galerie na zdjeciach projektu (zachowanie domyslne).
+  function openPhotos() {
+    startowyKatalog = "";
+    startowaZakladka = 0;
+    open();
   }
   onLayerFilterChanged: rebuildPhotos()
 
@@ -255,6 +279,8 @@ Popup {
         id: filesPage
 
         property string browsePath: photoGallery.projectDir
+        // korzen przegladania: wyzej sie nie wychodzi
+        readonly property string korzen: photoGallery.startowyKatalog !== "" ? photoGallery.startowyKatalog : photoGallery.projectDir
 
         spacing: 6
 
@@ -263,13 +289,13 @@ Popup {
 
           ToolButton {
             text: "↑"
-            enabled: filesPage.browsePath.length > photoGallery.projectDir.length
+            enabled: filesPage.browsePath.length > filesPage.korzen.length
             onClicked: filesPage.browsePath = filesPage.browsePath.substring(0, filesPage.browsePath.lastIndexOf("/"))
           }
 
           Text {
             Layout.fillWidth: true
-            text: filesPage.browsePath.length > photoGallery.projectDir.length ? filesPage.browsePath.substring(photoGallery.projectDir.length + 1) : qsTr("(katalog projektu)")
+            text: filesPage.browsePath.length > filesPage.korzen.length ? filesPage.browsePath.substring(filesPage.korzen.length + 1) : (filesPage.korzen === photoGallery.projectDir ? qsTr("(katalog projektu)") : qsTr("(katalog aplikacji)"))
             font: photoGallery.t.tipFont
             color: photoGallery.t.secondaryTextColor
             elide: Text.ElideMiddle
