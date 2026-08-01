@@ -418,7 +418,8 @@ Drawer {
       if (dashBoard.pendingBlankCenter) {
         const c = iface.transformPointToProjectCrs(dashBoard.pendingBlankCenter.x, dashBoard.pendingBlankCenter.y, "EPSG:2180");
         if (c.x !== undefined) {
-          mapCanvas.mapSettings.extent = Qt.rect(c.x - 50, c.y - 50, 100, 100);
+          // extent oczekuje QgsRectangle - Qt.rect() daje QRectF i nie przechodzi
+          mapCanvas.mapSettings.setExtentFromPoints([GeometryUtils.point(c.x - 50, c.y - 50), GeometryUtils.point(c.x + 50, c.y + 50)]);
         }
       }
     }
@@ -647,10 +648,8 @@ Drawer {
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
             if (!iface.zoomToProjectData(dashBoard.mapSettings)) {
-              const e = dashBoard.mapSettings.extent;
-              const cx = e.x + e.width / 2;
-              const cy = e.y + e.height / 2;
-              dashBoard.mapSettings.extent = Qt.rect(cx - 500, cy - 500, 1000, 1000);
+              const c = dashBoard.mapSettings.getCenter();
+              dashBoard.mapSettings.setExtentFromPoints([GeometryUtils.point(c.x - 500, c.y - 500), GeometryUtils.point(c.x + 500, c.y + 500)]);
             }
             dashBoard.close();
           }
