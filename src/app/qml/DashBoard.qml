@@ -65,17 +65,6 @@ Drawer {
     }
   }
 
-  Connections {
-    target: stateMachine
-
-    function onStateChanged() {
-      if (stateMachine.state === "measure") {
-        return;
-      }
-      modeSwitch.checked = stateMachine.state === "digitize";
-    }
-  }
-
   background: Rectangle {
     anchors.fill: parent
     color: Theme.mainBackgroundColor
@@ -444,101 +433,19 @@ Drawer {
 
       MenuItem {
         id: homeButton
-        // WorkField: przelacznik trybu ukryty - trybem steruja kafle paska
-        width: parent.width - (modeSwitch.visible ? modeSwitch.width + modeSwitchLabel.width + 12 : 0)
-        height: parent.height
+        // WorkField: przelacznika trybu nie ma - warstwe do edycji wybiera sie
+        // olowkiem w liscie warstw, a rysowanie zaczynaja kafle paska zapisu.
+        width: parent.width
+        height: Theme.toolButtonSize
         anchors.verticalCenter: parent.verticalCenter
-        icon.source: Theme.getThemeVectorIcon("ic_home_black_24dp")
-        icon.width: Theme.toolButtonSize / 2
-        icon.height: Theme.toolButtonSize / 2
+        leftPadding: Theme.menuItemLeftPadding
+
         font: Theme.defaultFont
-        text: qsTr("Return home")
+        icon.source: Theme.getThemeVectorIcon("ic_home_black_24dp")
+
+        text: qsTr("Home")
 
         onClicked: returnHome()
-      }
-
-      Text {
-        id: modeSwitchLabel
-        visible: false
-        anchors.right: modeSwitch.left
-        anchors.rightMargin: 6
-        anchors.verticalCenter: parent.verticalCenter
-        text: modeSwitch.checked ? qsTr("Digitalizacja") : qsTr("Przeglądanie")
-        font: Theme.tipFont
-        color: modeSwitch.checked ? Theme.mainColor : Theme.secondaryTextColor
-      }
-
-      QfSwitch {
-        id: modeSwitch
-        objectName: "modeSwitch"
-        visible: false
-        height: Theme.toolButtonSize
-        width: height * 1.9
-        leftPadding: height / 3
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        indicator: Rectangle {
-          implicitHeight: modeSwitch.height * 0.75
-          implicitWidth: modeSwitch.height * 1.5
-          x: modeSwitch.leftPadding
-          radius: modeSwitch.height / 12
-          color: "#24212121"
-          border.color: "#14FFFFFF"
-          anchors.verticalCenter: parent.verticalCenter
-          Image {
-            width: modeSwitch.height * 0.58
-            height: width
-            anchors.left: parent.left
-            anchors.leftMargin: modeSwitch.height / 12
-            anchors.verticalCenter: parent.verticalCenter
-            source: Theme.getThemeVectorIcon('ic_map_white_24dp')
-            sourceSize.width: parent.height * screen.devicePixelRatio
-            sourceSize.height: parent.width * screen.devicePixelRatio
-            opacity: 0.6
-          }
-          Image {
-            width: modeSwitch.height * 0.58
-            height: width
-            anchors.right: parent.right
-            anchors.rightMargin: modeSwitch.height / 12
-            anchors.verticalCenter: parent.verticalCenter
-            source: Theme.getThemeVectorIcon('ic_create_white_24dp')
-            sourceSize.width: parent.height * screen.devicePixelRatio
-            sourceSize.height: parent.width * screen.devicePixelRatio
-            opacity: 0.6
-          }
-          Rectangle {
-            x: modeSwitch.checked ? parent.width - width : 0
-            width: modeSwitch.height * 0.75
-            height: width
-            radius: modeSwitch.height / 12
-            color: projectInfo.insertRights ? Theme.mainColor : Theme.darkTheme ? Theme.mainBackgroundColorSemiOpaque : Theme.lightestGray
-            border.color: Theme.mainOverlayColor
-            Image {
-              width: modeSwitch.height * 0.58
-              height: width
-              anchors.centerIn: parent
-              source: modeSwitch.checked ? Theme.getThemeVectorIcon('ic_create_white_24dp') : Theme.getThemeVectorIcon('ic_map_white_24dp')
-              sourceSize.width: parent.height * screen.devicePixelRatio
-              sourceSize.height: parent.width * screen.devicePixelRatio
-            }
-            Behavior on x {
-              PropertyAnimation {
-                duration: 100
-                easing.type: Easing.OutQuart
-              }
-            }
-          }
-        }
-
-        onClicked: {
-          if (projectInfo.insertRights) {
-            mainWindow.toggleDigitizeMode();
-          } else {
-            checked = false;
-            displayToast(qsTr("The project is read-only."));
-          }
-        }
       }
     }
   }

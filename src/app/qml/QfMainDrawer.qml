@@ -874,16 +874,36 @@ Drawer {
         contentItem: RowLayout {
           spacing: 8
 
+          // olowek: wybor warstwy do edycji (zastapil przelacznik trybu)
           QfToolButton {
             Layout.leftMargin: 4
-            width: 22
-            height: 22
+            width: 30
+            height: 30
             padding: 0
-            enabled: false
-            bgcolor: "transparent"
+            enabled: isWritable
+            round: true
+
+            // warstwa, w ktorej wlasnie rysujemy: jasnozielone kolo z olowkiem
+            readonly property bool rysujemy: isCurrent && stateMachine.state === "digitize"
+
             iconSource: t.getThemeVectorIcon("ic_create_white_24dp")
-            iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
-            opacity: isCurrent ? 1.0 : 0.3
+            bgcolor: rysujemy ? "#00E676" : "transparent"
+            iconColor: rysujemy ? "#062E12" : isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+            opacity: !isWritable ? 0.25 : rysujemy ? 1.0 : isCurrent ? 0.9 : 0.55
+
+            onClicked: {
+              if (!isWritable) {
+                displayToast(qsTr("Warstwa tylko do odczytu"), "warning");
+                return;
+              }
+              const juz = isCurrent && stateMachine.state === "digitize";
+              dashBoard.activeLayer = model.VectorLayerPointer;
+              stateMachine.state = juz ? "browse" : "digitize";
+              displayToast(juz ? qsTr("Przeglądanie") : qsTr("Rysowanie: %1").arg(model.Name));
+              if (!juz) {
+                dashBoard.close();
+              }
+            }
           }
 
           Text {
