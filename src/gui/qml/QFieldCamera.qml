@@ -630,7 +630,13 @@ Popup {
                   if (cameraItem.state == "PhotoPreview") {
                     if (cameraSettings.geoTagging && positionSource.active) {
                       FileUtils.addImageMetadata(currentPath, currentPosition);
-                      captureAttitude.writePoseMetadata(currentPath, currentPosition.orientationValid ? currentPosition.orientation : NaN);
+                    }
+                    captureAttitude.writePoseMetadata(currentPath, currentPosition.orientationValid ? currentPosition.orientation : NaN);
+                    // pozycja z naszego odbiornika, gdy plik jej nie ma: bez tego
+                    // 239 z 254 zdjec wbudowanego aparatu wyszlo bez wspolrzednych
+                    if (currentPosition.latitudeValid && currentPosition.longitudeValid) {
+                      captureAttitude.fillMissingPosition(currentPath, currentPosition.latitude, currentPosition.longitude,
+                                                          currentPosition.elevationValid ? currentPosition.elevation : NaN);
                     }
                     if (cameraSettings.stamping || iface.readProjectBoolEntry("qfieldsync", "forceStamping")) {
                       stampExpressionEvaluator.expressionText = iface.readProjectEntry("qfieldsync", "stampingDetailsTemplate", stampExpressionEvaluator.defaultTextTemplate);
