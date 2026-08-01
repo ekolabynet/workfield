@@ -429,6 +429,22 @@ Column {
     return true;
   }
 
+  // Poza aparatu przy migawce. Wbudowany aparat zapisuje ja sam
+  // (QFieldCamera), ale sciezka aparatu systemowego omijala ten krok -
+  // przez co zdjecia z niego nie mialy ani azymutu, ani pochylenia.
+  CaptureAttitude {
+    id: captureAttitude
+  }
+
+  function zapiszPoze(sciezka) {
+    if (!sciezka || sciezka === "") {
+      return;
+    }
+    const poz = positionSource.positionInformation;
+    const azymut = poz && poz.orientationValid ? poz.orientation + positionSource.bearingTrueNorth : NaN;
+    captureAttitude.writePoseMetadata(sciezka, azymut);
+  }
+
   property var pendingLayer: null
   property var pendingFeature: null
   property var cameraSource: null
@@ -624,6 +640,8 @@ Column {
       }
       return;
     }
+    // poza musi byc zamrozona ZANIM telefon przejdzie do aparatu systemowego
+    captureAttitude.snapshot();
     cameraSource = platformUtilities.getCameraPicture(qgisProject.homePath + "/", fileName, "jpg", quickCaptureBar);
     console.log("QuickCapture camera source:", cameraSource);
     if (!cameraSource) {
@@ -653,6 +671,7 @@ Column {
   }
 
   function openPendingForm(photoPath) {
+    zapiszPoze(photoPath ? qgisProject.homePath + "/" + photoPath : "");
     if (distantFlow) {
       distantFlow = false;
       if (!photoPath || photoPath === "") {

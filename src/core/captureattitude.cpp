@@ -138,7 +138,16 @@ bool CaptureAttitude::writePoseMetadata( const QString &path, double headingDegr
   bool ok = true;
   for ( auto it = metadata.constBegin(); it != metadata.constEnd(); ++it )
   {
-    ok = QgsExifTools::tagImage( path, it.key(), it.value() ) && ok;
+    const bool zapisany = QgsExifTools::tagImage( path, it.key(), it.value() );
+    if ( !zapisany )
+    {
+      qWarning() << "CaptureAttitude: NIE zapisano znacznika" << it.key() << "=" << it.value();
+    }
+    ok = zapisany && ok;
+  }
+  if ( !mHasSnapshot )
+  {
+    qWarning() << "CaptureAttitude: brak zamrozonej pozy przy zapisie - pitch/roll pominiete";
   }
   return ok;
 }
