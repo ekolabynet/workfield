@@ -51,6 +51,21 @@ class CaptureAttitude : public QObject
      */
     Q_INVOKABLE bool writePoseMetadata( const QString &path, double headingDegrees );
 
+    /**
+     * Czy plik ma juz poze zapisana przez aplikacje aparatu (OpenCamera pisze
+     * Yaw/Pitch/Roll w chwili migawki). Takiej pozy nie wolno nadpisywac -
+     * jest prawdziwa, a nasza, zamrozona przed przejsciem do aparatu, nie jest:
+     * czujniki orientacji spia, gdy aplikacja jest w tle.
+     */
+    Q_INVOKABLE bool hasExternalPose( const QString &path ) const;
+
+    /**
+     * Dopisuje wspolrzedne z naszego GNSS, ale TYLKO gdy plik ich nie ma.
+     * Aparat systemowy Samsunga nie geotaguje wcale - tak przepadl caly
+     * dzien dokumentacji z 30 lipca.
+     */
+    Q_INVOKABLE bool fillMissingPosition( const QString &path, double latitude, double longitude, double elevation );
+
   signals:
     void attitudeChanged();
 

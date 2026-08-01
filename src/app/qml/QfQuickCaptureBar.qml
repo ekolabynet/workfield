@@ -436,13 +436,25 @@ Column {
     id: captureAttitude
   }
 
-  function zapiszPoze(sciezka) {
+  // Uzupelnienie metadanych po powrocie z APARATU ZEWNETRZNEGO.
+  //
+  // Pozy tu NIE zapisujemy: czujniki orientacji spia, gdy aplikacja jest w tle,
+  // wiec odczyt zamrozony przed przejsciem do aparatu klamie (test 1.08.2026:
+  // zdjecia pionowo w dol i poziomo dostawaly ten sam przypadkowy pitch, a
+  // azymut rozjezdzal sie z aparatowym nawet o 50 stopni). Prawdziwa poze
+  // zapisuje sama OpenCamera - tej nie wolno tknac.
+  //
+  // Dopisujemy natomiast POZYCJE, gdy aparat jej nie zapisal (aparat systemowy
+  // Samsunga nie geotaguje) - nasza jest i tak dokladniejsza, bo z odbiornika RTK.
+  function uzupelnijMetadane(sciezka) {
     if (!sciezka || sciezka === "") {
       return;
     }
     const poz = positionSource.positionInformation;
-    const azymut = poz && poz.orientationValid ? poz.orientation + positionSource.bearingTrueNorth : NaN;
-    captureAttitude.writePoseMetadata(sciezka, azymut);
+    if (poz && poz.latitudeValid && poz.longitudeValid) {
+      captureAttitude.fillMissingPosition(sciezka, poz.latitude, poz.longitude,
+                                          poz.elevationValid ? poz.elevation : NaN);
+    }
   }
 
   property var pendingLayer: null
@@ -640,8 +652,6 @@ Column {
       }
       return;
     }
-    // poza musi byc zamrozona ZANIM telefon przejdzie do aparatu systemowego
-    captureAttitude.snapshot();
     cameraSource = platformUtilities.getCameraPicture(qgisProject.homePath + "/", fileName, "jpg", quickCaptureBar);
     console.log("QuickCapture camera source:", cameraSource);
     if (!cameraSource) {
@@ -671,7 +681,7 @@ Column {
   }
 
   function openPendingForm(photoPath) {
-    zapiszPoze(photoPath ? qgisProject.homePath + "/" + photoPath : "");
+    uzupelnijMetadane(photoPath ? qgisProject.homePath + "/" + photoPath : "");
     if (distantFlow) {
       distantFlow = false;
       if (!photoPath || photoPath === "") {

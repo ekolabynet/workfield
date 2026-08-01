@@ -91,10 +91,63 @@ void CaptureAttitude::snapshot()
   mHasSnapshot = true;
 }
 
+bool CaptureAttitude::hasExternalPose( const QString &path ) const
+{
+  if ( path.isEmpty() || !QFileInfo::exists( path ) )
+  {
+    return false;
+  }
+  const QString komentarz = QgsExifTools::readTag( path, QStringLiteral( "Exif.Photo.UserComment" ) ).toString();
+  // OpenCamera: "Yaw:57.86,Pitch:-39.51,Roll:3.42"
+  return komentarz.contains( QStringLiteral( "Pitch" ), Qt::CaseInsensitive );
+}
+
+bool CaptureAttitude::fillMissingPosition( const QString &path, double latitude, double longitude, double elevation )
+{
+  if ( path.isEmpty() || !QFileInfo::exists( path ) )
+  {
+    return false;
+  }
+  const QVariant istniejaca = QgsExifTools::readTag( path, QStringLiteral( "Exif.GPSInfo.GPSLatitude" ) );
+  if ( istniejaca.isValid() && !istniejaca.toString().isEmpty() )
+  {
+    return false; // aparat zapisal wlasna pozycje - nie ruszamy
+  }
+  if ( !std::isfinite( latitude ) || !std::isfinite( longitude ) )
+  {
+    return false;
+  }
+
+  QVariantMap metadata;
+  metadata[QStringLiteral( "Exif.GPSInfo.GPSLatitude" )] = std::abs( latitude );
+  metadata[QStringLiteral( "Exif.GPSInfo.GPSLatitudeRef" )] = latitude >= 0 ? QStringLiteral( "N" ) : QStringLiteral( "S" );
+  metadata[QStringLiteral( "Exif.GPSInfo.GPSLongitude" )] = std::abs( longitude );
+  metadata[QStringLiteral( "Exif.GPSInfo.GPSLongitudeRef" )] = longitude >= 0 ? QStringLiteral( "E" ) : QStringLiteral( "W" );
+  if ( std::isfinite( elevation ) )
+  {
+    metadata[QStringLiteral( "Exif.GPSInfo.GPSAltitude" )] = std::abs( elevation );
+    metadata[QStringLiteral( "Exif.GPSInfo.GPSAltitudeRef" )] = elevation >= 0 ? QStringLiteral( "0" ) : QStringLiteral( "1" );
+  }
+
+  bool ok = true;
+  for ( auto it = metadata.constBegin(); it != metadata.constEnd(); ++it )
+  {
+    ok = QgsExifTools::tagImage( path, it.key(), it.value() ) && ok;
+  }
+  qInfo() << "CaptureAttitude: dopisano brakujaca pozycje" << path << latitude << longitude;
+  return ok;
+}
+
 bool CaptureAttitude::writePoseMetadata( const QString &path, double headingDegrees )
 {
   if ( path.isEmpty() || !QFileInfo::exists( path ) )
   {
+    return false;
+  }
+  if ( hasExternalPose( path ) )
+  {
+    // aparat zapisal poze w chwili migawki - nasza byla zamrozona wczesniej
+    qInfo() << "CaptureAttitude: poza z aparatu juz w pliku, nie nadpisuje" << path;
     return false;
   }
 
