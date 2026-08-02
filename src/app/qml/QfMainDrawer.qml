@@ -631,6 +631,38 @@ Drawer {
         }
         Button {
           Layout.fillWidth: true
+          Layout.preferredHeight: 44
+          flat: true
+          text: qsTr("Szablony projektów")
+          icon.source: t.getThemeVectorIcon("ic_cloud_download_24dp")
+          icon.width: 26
+          icon.height: 26
+          font: t.tipFont
+          display: AbstractButton.TextBesideIcon
+          // gotowe projekty do skopiowania na telefon
+          onClicked: {
+            dashBoard.close();
+            Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/tag/szablony");
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 44
+          flat: true
+          text: qsTr("Szablony projektów")
+          icon.source: t.getThemeVectorIcon("ic_cloud_download_24dp")
+          icon.width: 26
+          icon.height: 26
+          font: t.tipFont
+          display: AbstractButton.TextBesideIcon
+          // gotowe projekty do skopiowania na telefon
+          onClicked: {
+            dashBoard.close();
+            Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/tag/szablony");
+          }
+        }
+        Button {
+          Layout.fillWidth: true
           text: qsTr("Ekran startowy")
           icon.source: t.getThemeVectorIcon("ic_home_black_24dp")
           icon.width: 26
@@ -763,6 +795,38 @@ Drawer {
           onClicked: {
             dashBoard.close();
             photoGallery.openFiles(iface.dataRoot());
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 44
+          flat: true
+          text: qsTr("Aktualizacja aplikacji")
+          icon.source: t.getThemeVectorIcon("ic_download_white_24dp")
+          icon.width: 26
+          icon.height: 26
+          font: t.tipFont
+          display: AbstractButton.TextBesideIcon
+          // zawsze najnowsze wydanie; wygodniej przez Obtainium
+          onClicked: {
+            dashBoard.close();
+            Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/latest");
+          }
+        }
+        Button {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 44
+          flat: true
+          text: qsTr("Aktualizacja aplikacji")
+          icon.source: t.getThemeVectorIcon("ic_download_white_24dp")
+          icon.width: 26
+          icon.height: 26
+          font: t.tipFont
+          display: AbstractButton.TextBesideIcon
+          // zawsze najnowsze wydanie; wygodniej przez Obtainium
+          onClicked: {
+            dashBoard.close();
+            Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/latest");
           }
         }
         Button {
