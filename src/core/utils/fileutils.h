@@ -157,6 +157,13 @@ class QFIELD_CORE_EXPORT FileUtils : public QObject
     static bool unzip( const QString &zipFilename, const QString &dir, QStringList &files, bool checkConsistency );
 
     /**
+     * Rozpakowuje archiwum do wskazanego katalogu. Wariant dla QML: bez listy
+     * plikow i bez scislej kontroli spojnosci, ktorej zwykle archiwum nie
+     * przechodzi. Zwraca TRUE przy powodzeniu.
+     */
+    Q_INVOKABLE static bool unzipTo( const QString &zipFilename, const QString &dir );
+
+    /**
      * Checks if a file can be safely deleted.
      * Security checks:
      * - File must be within application or cloud directories

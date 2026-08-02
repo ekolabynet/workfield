@@ -635,8 +635,10 @@ Drawer {
           display: AbstractButton.TextBesideIcon
           // gotowe projekty do skopiowania na telefon
           onClicked: {
+            // szablony pobiera się w aplikacji: przeglądarka zapisywała paczkę
+            // do Pobranych, skąd trzeba było ją wyjąć i rozpakować ręcznie
             dashBoard.close();
-            Qt.openUrlExternally("https://ekolaby.net/cloud/index.php/s/sDoGaZ627ATqZHp");
+            photoGallery.openCloud();
           }
         }
         Button {

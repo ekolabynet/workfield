@@ -780,6 +780,21 @@ QVariantMap FileUtils::getFileInfo( const QString &filePath, bool fetchContent )
   return info;
 }
 
+bool FileUtils::unzipTo( const QString &zipFilename, const QString &dir )
+{
+  const QString zrodlo = zipFilename.startsWith( QStringLiteral( "file://" ) )
+                           ? QUrl( zipFilename ).toLocalFile()
+                           : zipFilename;
+  QDir().mkpath( dir );
+  QStringList pliki;
+  const bool ok = unzip( zrodlo, dir, pliki, false );
+  if ( ok )
+    qInfo() << "Rozpakowano" << zrodlo << "->" << dir << ":" << pliki.count() << "plikow";
+  else
+    qWarning() << "Nie udalo sie rozpakowac" << zrodlo;
+  return ok;
+}
+
 bool FileUtils::unzip( const QString &zipFilename, const QString &dir, QStringList &files, bool checkConsistency )
 {
   files.clear();

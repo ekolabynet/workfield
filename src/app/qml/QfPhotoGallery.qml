@@ -52,6 +52,132 @@ Popup {
     return "";
   }
 
+  // Publiczna pula szablonów: WebDAV linku publicznego. Login to token z adresu
+  // udostępnienia, hasło puste — dzięki temu pobieranie działa bez logowania.
+  readonly property string chmuraSerwer: "https://ekolaby.net/cloud"
+  readonly property string chmuraToken: "sDoGaZ627ATqZHp"
+  property var chmuraLista: []
+  //! ścieżka względna w drzewie chmury ("" = korzeń udostępnienia)
+  property string chmuraSciezka: ""
+  property string chmuraStan: ""
+  property string chmuraPobierany: ""
+
+  //! Katalog, do którego trafiają pobrane szablony.
+  function katalogSzablonow() {
+    return iface.dataRoot() + "Szablony";
+  }
+
+  /**
+   * Lista paczek w publicznej puli. PROPFIND zwraca XML, z którego bierzemy
+   * nazwę, rozmiar i datę — tyle wystarczy, żeby wybrać właściwy szablon.
+   */
+  function chmuraOdswiez() {
+    chmuraStan = qsTr("pobieram listę…");
+    chmuraLista = [];
+    const xhr = new XMLHttpRequest();
+    const adres = chmuraSerwer + "/public.php/webdav/" + chmuraSciezka;
+    xhr.open("PROPFIND", adres, true);
+    xhr.setRequestHeader("Depth", "1");
+    xhr.setRequestHeader("Authorization", "Basic " + Qt.btoa(chmuraToken + ":"));
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== XMLHttpRequest.DONE) {
+        return;
+      }
+      if (xhr.status !== 207 && xhr.status !== 200) {
+        chmuraStan = qsTr("nie udało się połączyć (kod %1)").arg(xhr.status);
+        return;
+      }
+      const wynik = [];
+      const tekst = xhr.responseText;
+      const czesci = tekst.split("<d:response>");
+      for (let i = 1; i < czesci.length; i++) {
+        const cz = czesci[i];
+        const href = /<d:href>([^<]*)<\/d:href>/.exec(cz);
+        if (!href) {
+          continue;
+        }
+        // pierwszy wpis PROPFIND to katalog bieżący — pomijamy go
+        const czesciSciezki = href[1].replace(/\/$/, "").split("/");
+        const nazwaWpisu = decodeURIComponent(czesciSciezki[czesciSciezki.length - 1]);
+        const jestKatalogiem = href[1].endsWith("/");
+        if (jestKatalogiem && (chmuraSciezka === "" ? czesciSciezki.length <= 4
+                                                    : decodeURIComponent(href[1]).indexOf(chmuraSciezka) < 0
+                                                      || decodeURIComponent(href[1]).replace(/\/$/, "").endsWith(chmuraSciezka.replace(/\/$/, "")))) {
+          continue;
+        }
+        const nazwa = decodeURIComponent(href[1].split("/").pop());
+        const rozmiar = /<d:getcontentlength>(\d+)<\/d:getcontentlength>/.exec(cz);
+        const data = /<d:getlastmodified>([^<]*)<\/d:getlastmodified>/.exec(cz);
+        wynik.push({
+          "nazwa": nazwaWpisu,
+          "katalog": jestKatalogiem,
+          "url": chmuraSerwer + "/public.php/dav/files/" + chmuraToken + "/"
+                 + chmuraSciezka + encodeURIComponent(nazwaWpisu),
+          "rozmiar": rozmiar ? parseInt(rozmiar[1]) : 0,
+          "data": data ? data[1].substring(5, 16) : ""
+        });
+      }
+      wynik.sort(function (x, y) {
+        if (x.katalog !== y.katalog)
+          return x.katalog ? -1 : 1;
+        return x.nazwa.localeCompare(y.nazwa);
+      });
+      chmuraLista = wynik;
+      chmuraStan = wynik.length > 0 ? "" : qsTr("pula jest pusta");
+    };
+    xhr.send();
+  }
+
+  //! Wchodzi do podkatalogu w chmurze.
+  function chmuraWejdz(nazwa) {
+    chmuraSciezka = chmuraSciezka === "" ? nazwa + "/" : chmuraSciezka + nazwa + "/";
+    chmuraOdswiez();
+  }
+
+  //! Wraca poziom wyżej; w korzeniu nie robi nic.
+  function chmuraWyzej() {
+    if (chmuraSciezka === "")
+      return;
+    const czesci = chmuraSciezka.replace(/\/$/, "").split("/");
+    czesci.pop();
+    chmuraSciezka = czesci.length > 0 ? czesci.join("/") + "/" : "";
+    chmuraOdswiez();
+  }
+
+  //! Pobiera paczkę i rozpakowuje do katalogu Szablony.
+  function chmuraPobierz(pozycja) {
+    chmuraPobierany = pozycja.nazwa;
+    chmuraStan = qsTr("pobieram %1…").arg(pozycja.nazwa);
+    const cel = katalogSzablonow() + "/" + pozycja.nazwa;
+    iface.downloadFile(pozycja.url, cel);
+  }
+
+  Connections {
+    target: iface
+
+    function onDownloadFinished(sciezka) {
+      if (photoGallery.chmuraPobierany === "") {
+        return;
+      }
+      const katalog = photoGallery.katalogSzablonow();
+      if (FileUtils.unzipTo(sciezka, katalog)) {
+        photoGallery.chmuraStan = qsTr("gotowe: %1").arg(photoGallery.chmuraPobierany);
+        displayToast(qsTr("Szablon pobrany: %1").arg(photoGallery.chmuraPobierany));
+      } else {
+        photoGallery.chmuraStan = qsTr("pobrano, ale nie udało się rozpakować");
+      }
+      photoGallery.chmuraPobierany = "";
+    }
+
+    function onDownloadFailed(blad, sciezka) {
+      if (photoGallery.chmuraPobierany === "") {
+        return;
+      }
+      photoGallery.chmuraStan = qsTr("błąd pobierania: %1").arg(blad);
+      photoGallery.chmuraPobierany = "";
+    }
+  }
+
   onOpened: {
     filesPage.browsePath = startowyKatalog !== "" ? startowyKatalog : projectDir;
     galleryTabs.currentIndex = startowaZakladka;
@@ -70,6 +196,13 @@ Popup {
   }
 
   //! Otwiera galerie na zdjeciach projektu (zachowanie domyslne).
+  //! Otwiera galerię od razu na zakładce Chmura.
+  function openCloud() {
+    startowyKatalog = "";
+    startowaZakladka = 2;
+    open();
+  }
+
   function openPhotos() {
     startowyKatalog = "";
     startowaZakladka = 0;
@@ -202,12 +335,21 @@ Popup {
       TabButton {
         text: qsTr("Pliki")
       }
+      TabButton {
+        text: qsTr("Chmura")
+      }
     }
 
     StackLayout {
       Layout.fillWidth: true
       Layout.fillHeight: true
       currentIndex: galleryTabs.currentIndex
+      // lista z chmury pobiera się przy pierwszym wejściu na zakładkę
+      onCurrentIndexChanged: {
+        if (currentIndex === 2 && photoGallery.chmuraLista.length === 0) {
+          photoGallery.chmuraOdswiez();
+        }
+      }
 
       // ── Zdjęcia ────────────────────────────────────────────
       ColumnLayout {
@@ -443,6 +585,118 @@ Popup {
               }
             }
           }
+        }
+      }
+
+      // ── Chmura ─────────────────────────────────────────────
+      ColumnLayout {
+        id: cloudPage
+        spacing: 6
+
+        RowLayout {
+          Layout.fillWidth: true
+
+          ToolButton {
+            text: "↑"
+            enabled: photoGallery.chmuraSciezka !== ""
+            onClicked: photoGallery.chmuraWyzej()
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: photoGallery.chmuraStan !== ""
+                  ? photoGallery.chmuraStan
+                  : (photoGallery.chmuraSciezka !== ""
+                     ? photoGallery.chmuraSciezka.replace(/\/$/, "")
+                     : qsTr("szablony — %1").arg(photoGallery.chmuraSerwer.replace("https://", "")))
+            font: photoGallery.t.tipFont
+            color: photoGallery.t.secondaryTextColor
+            elide: Text.ElideRight
+          }
+
+          ToolButton {
+            text: qsTr("Odśwież")
+            font: photoGallery.t.tipFont
+            onClicked: photoGallery.chmuraOdswiez()
+          }
+        }
+
+        ListView {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          spacing: 2
+          model: photoGallery.chmuraLista
+
+          ScrollBar.vertical: ScrollBar {
+          }
+
+          delegate: Rectangle {
+            width: ListView.view.width
+            height: 60
+            color: "transparent"
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: modelData.katalog
+              onClicked: photoGallery.chmuraWejdz(modelData.nazwa)
+            }
+
+            RowLayout {
+              anchors.fill: parent
+              anchors.leftMargin: 4
+              anchors.rightMargin: 4
+              spacing: 8
+
+              Image {
+                source: modelData.katalog
+                        ? photoGallery.t.getThemeVectorIcon("ic_folder_open_black_24dp")
+                        : photoGallery.t.getThemeVectorIcon("wf_project_template")
+                sourceSize.width: 26
+                sourceSize.height: 26
+                Layout.preferredWidth: 26
+                Layout.preferredHeight: 26
+                fillMode: Image.PreserveAspectFit
+              }
+
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+
+                Text {
+                  Layout.fillWidth: true
+                  text: modelData.katalog ? modelData.nazwa : modelData.nazwa.replace(".zip", "")
+                  font: photoGallery.t.tipFont
+                  color: photoGallery.t.mainTextColor
+                  elide: Text.ElideMiddle
+                }
+
+                Text {
+                  visible: !modelData.katalog
+                  text: FileUtils.representFileSize(modelData.rozmiar) + "   " + modelData.data
+                  font: photoGallery.t.tinyFont
+                  color: photoGallery.t.secondaryTextColor
+                }
+              }
+
+              Button {
+                visible: !modelData.katalog
+                text: photoGallery.chmuraPobierany === modelData.nazwa
+                      ? qsTr("pobieram…") : qsTr("Pobierz")
+                enabled: photoGallery.chmuraPobierany === ""
+                font: photoGallery.t.tipFont
+                onClicked: photoGallery.chmuraPobierz(modelData)
+              }
+            }
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+          text: qsTr("Pobrane szablony trafiają do katalogu Szablony i są od razu dostępne w „Nowe zadanie”.")
+          font: photoGallery.t.tinyFont
+          color: photoGallery.t.secondaryTextColor
         }
       }
     }
