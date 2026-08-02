@@ -629,6 +629,41 @@ bool AppInterface::setProjectCrs( const QString &authid )
 #include <qgsrasterbandstats.h>
 #include "qgsquickmapsettings.h"
 
+void AppInterface::downloadFileAuth( const QString &url, const QString &destinationPath, const QString &user, const QString &password )
+{
+  static QNetworkAccessManager sManagerAuth;
+  sManagerAuth.setRedirectPolicy( QNetworkRequest::NoLessSafeRedirectPolicy );
+  QNetworkRequest request( ( QUrl( url ) ) );
+  if ( !user.isEmpty() )
+  {
+    const QByteArray dane = QStringLiteral( "%1:%2" ).arg( user, password ).toUtf8().toBase64();
+    request.setRawHeader( "Authorization", QByteArrayLiteral( "Basic " ) + dane );
+  }
+  QNetworkReply *reply = sManagerAuth.get( request );
+  connect( reply, &QNetworkReply::finished, this, [this, reply, destinationPath]() {
+    if ( reply->error() != QNetworkReply::NoError )
+    {
+      emit downloadFailed( reply->errorString(), destinationPath );
+    }
+    else
+    {
+      QDir().mkpath( QFileInfo( destinationPath ).absolutePath() );
+      QFile file( destinationPath );
+      if ( file.open( QIODevice::WriteOnly ) )
+      {
+        file.write( reply->readAll() );
+        file.close();
+        emit downloadFinished( destinationPath );
+      }
+      else
+      {
+        emit downloadFailed( QStringLiteral( "Cannot write file" ), destinationPath );
+      }
+    }
+    reply->deleteLater();
+  } );
+}
+
 void AppInterface::downloadFile( const QString &url, const QString &destinationPath )
 {
   static QNetworkAccessManager sManager;

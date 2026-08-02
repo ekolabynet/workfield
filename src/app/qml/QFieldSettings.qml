@@ -19,6 +19,7 @@ Page {
       "interface": qsTr("Interfejs"),
       "positioning": qsTr("Lokalizacja"),
       "network": qsTr("Sieć"),
+      "workfieldCloud": qsTr("Chmura WorkField"),
       "advanced": qsTr("Zaawansowane"),
       "variables": qsTr("Zmienne")
     })
@@ -1578,6 +1579,11 @@ Page {
               locatorSettings.focus = true;
             }
             onOpenPluginManager: pluginManagerSettings.open()
+          }
+          QfCloudSettings {
+            visible: categoryId === "workfieldCloud"
+            Layout.fillWidth: true
+            settingsPage: page
           }
           SettingsNetwork {
             id: networkSettings

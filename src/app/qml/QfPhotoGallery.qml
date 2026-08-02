@@ -54,8 +54,16 @@ Popup {
 
   // Publiczna pula szablonów: WebDAV linku publicznego. Login to token z adresu
   // udostępnienia, hasło puste — dzięki temu pobieranie działa bez logowania.
-  readonly property string chmuraSerwer: "https://ekolaby.net/cloud"
+  // Bez konta widać tylko publiczną pulę (token z adresu udostępnienia).
+  // Z kontem wchodzimy zwykłym WebDAV-em i widać wszystko, do czego serwer
+  // dopuszcza użytkownika — o dostępie decydują uprawnienia, nie kod aplikacji.
+  readonly property string chmuraSerwer: settings.value("workfield/cloud-url", "https://ekolaby.net/cloud")
   readonly property string chmuraToken: "sDoGaZ627ATqZHp"
+  readonly property string chmuraLogin: settings.value("workfield/cloud-user", "")
+  readonly property string chmuraHaslo: settings.value("workfield/cloud-pass", "")
+  readonly property bool chmuraKonto: chmuraLogin !== "" && chmuraHaslo !== ""
+  //! katalog szablonów na serwerze przy dostępie z kontem
+  readonly property string chmuraKorzen: "WorkField/szablony/"
   property var chmuraLista: []
   //! ścieżka względna w drzewie chmury ("" = korzeń udostępnienia)
   property string chmuraSciezka: ""
@@ -75,10 +83,13 @@ Popup {
     chmuraStan = qsTr("pobieram listę…");
     chmuraLista = [];
     const xhr = new XMLHttpRequest();
-    const adres = chmuraSerwer + "/public.php/webdav/" + chmuraSciezka;
+    const adres = chmuraKonto
+                    ? chmuraSerwer + "/remote.php/dav/files/" + chmuraLogin + "/" + chmuraKorzen + chmuraSciezka
+                    : chmuraSerwer + "/public.php/webdav/" + chmuraSciezka;
     xhr.open("PROPFIND", adres, true);
     xhr.setRequestHeader("Depth", "1");
-    xhr.setRequestHeader("Authorization", "Basic " + Qt.btoa(chmuraToken + ":"));
+    xhr.setRequestHeader("Authorization", "Basic " + Qt.btoa(
+      chmuraKonto ? (chmuraLogin + ":" + chmuraHaslo) : (chmuraToken + ":")));
     xhr.onreadystatechange = function () {
       if (xhr.readyState !== XMLHttpRequest.DONE) {
         return;
@@ -111,8 +122,11 @@ Popup {
         wynik.push({
           "nazwa": nazwaWpisu,
           "katalog": jestKatalogiem,
-          "url": chmuraSerwer + "/public.php/dav/files/" + chmuraToken + "/"
-                 + chmuraSciezka + encodeURIComponent(nazwaWpisu),
+          "url": chmuraKonto
+                 ? chmuraSerwer + "/remote.php/dav/files/" + chmuraLogin + "/"
+                   + chmuraKorzen + chmuraSciezka + encodeURIComponent(nazwaWpisu)
+                 : chmuraSerwer + "/public.php/dav/files/" + chmuraToken + "/"
+                   + chmuraSciezka + encodeURIComponent(nazwaWpisu),
           "rozmiar": rozmiar ? parseInt(rozmiar[1]) : 0,
           "data": data ? data[1].substring(5, 16) : ""
         });
@@ -149,7 +163,11 @@ Popup {
     chmuraPobierany = pozycja.nazwa;
     chmuraStan = qsTr("pobieram %1…").arg(pozycja.nazwa);
     const cel = katalogSzablonow() + "/" + pozycja.nazwa;
-    iface.downloadFile(pozycja.url, cel);
+    if (chmuraKonto) {
+      iface.downloadFileAuth(pozycja.url, cel, chmuraLogin, chmuraHaslo);
+    } else {
+      iface.downloadFile(pozycja.url, cel);
+    }
   }
 
   Connections {
@@ -608,7 +626,9 @@ Popup {
                   ? photoGallery.chmuraStan
                   : (photoGallery.chmuraSciezka !== ""
                      ? photoGallery.chmuraSciezka.replace(/\/$/, "")
-                     : qsTr("szablony — %1").arg(photoGallery.chmuraSerwer.replace("https://", "")))
+                     : (photoGallery.chmuraKonto
+                        ? qsTr("szablony zespołu — %1").arg(photoGallery.chmuraLogin)
+                        : qsTr("szablony publiczne — %1").arg(photoGallery.chmuraSerwer.replace("https://", ""))))
             font: photoGallery.t.tipFont
             color: photoGallery.t.secondaryTextColor
             elide: Text.ElideRight

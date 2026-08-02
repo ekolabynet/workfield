@@ -785,14 +785,59 @@ bool FileUtils::unzipTo( const QString &zipFilename, const QString &dir )
   const QString zrodlo = zipFilename.startsWith( QStringLiteral( "file://" ) )
                            ? QUrl( zipFilename ).toLocalFile()
                            : zipFilename;
-  QDir().mkpath( dir );
+  const QFileInfo infoZrodla( zrodlo );
+  if ( !infoZrodla.exists() )
+  {
+    qWarning() << "Nie ma archiwum" << zrodlo;
+    return false;
+  }
+
+  // Paczka bywa spakowana na dwa sposoby: z katalogiem w srodku albo z plikami
+  // wprost w korzeniu. To drugie rozsypywalo zawartosc po katalogu docelowym
+  // i mieszalo ja z innymi szablonami. Rozpakowujemy wiec ZAWSZE do wlasnego
+  // podkatalogu, a jesli archiwum mialo juz swoj katalog - splaszczamy jeden
+  // poziom, zeby nie powstalo zagniezdzenie w rodzaju szablon/szablon/.
+  const QString nazwa = infoZrodla.completeBaseName();
+  const QString cel = QStringLiteral( "%1/%2" ).arg( dir, nazwa );
+  QDir katalogCelu( cel );
+  if ( katalogCelu.exists() )
+  {
+    qInfo() << "Podmieniam istniejacy szablon" << cel;
+    katalogCelu.removeRecursively();
+  }
+  if ( !QDir().mkpath( cel ) )
+  {
+    qWarning() << "Nie udalo sie utworzyc" << cel;
+    return false;
+  }
+
   QStringList pliki;
-  const bool ok = unzip( zrodlo, dir, pliki, false );
-  if ( ok )
-    qInfo() << "Rozpakowano" << zrodlo << "->" << dir << ":" << pliki.count() << "plikow";
-  else
+  if ( !unzip( zrodlo, cel, pliki, false ) )
+  {
     qWarning() << "Nie udalo sie rozpakowac" << zrodlo;
-  return ok;
+    katalogCelu.removeRecursively();
+    return false;
+  }
+
+  // splaszczenie: gdy w srodku jest dokladnie jeden katalog i nic wiecej
+  const QStringList wpisy = katalogCelu.entryList( QDir::NoDotAndDotDot | QDir::AllEntries );
+  if ( wpisy.count() == 1 )
+  {
+    const QString wewnetrzny = cel + QStringLiteral( "/" ) + wpisy.first();
+    if ( QFileInfo( wewnetrzny ).isDir() )
+    {
+      const QString tymczasowy = dir + QStringLiteral( "/." ) + nazwa + QStringLiteral( "_tmp" );
+      QDir( tymczasowy ).removeRecursively();
+      if ( QDir().rename( wewnetrzny, tymczasowy ) )
+      {
+        katalogCelu.removeRecursively();
+        QDir().rename( tymczasowy, cel );
+      }
+    }
+  }
+
+  qInfo() << "Rozpakowano" << zrodlo << "->" << cel << ":" << pliki.count() << "plikow";
+  return true;
 }
 
 bool FileUtils::unzip( const QString &zipFilename, const QString &dir, QStringList &files, bool checkConsistency )

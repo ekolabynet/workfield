@@ -172,6 +172,12 @@ class AppInterface : public QObject
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );
 
+    /**
+     * Pobiera plik z uwierzytelnieniem podstawowym. Prywatne zasoby chmury
+     * nie oddadza pliku bez naglowka, a haslo w adresie zostaloby w logach.
+     */
+    Q_INVOKABLE void downloadFileAuth( const QString &url, const QString &destinationPath, const QString &user, const QString &password );
+
     //! Adds raster at \a path to the project with a turbo pseudocolor renderer.
     Q_INVOKABLE bool addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style = QString(), const QString &groupName = QString() );
 
