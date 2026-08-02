@@ -35,6 +35,23 @@ Popup {
   // ktora zakladka ma byc widoczna po otwarciu (0 zdjecia, 1 pliki)
   property int startowaZakladka: 0
 
+  // Rozszerzenia, które QField potrafi otworzyć. Projekty i dane idą tym samym
+  // wywołaniem iface.loadFile() — różni je tylko to, co dzieje się potem.
+  readonly property var wzorProjektu: /\.(qgs|qgz)$/i
+  readonly property var wzorDanych: /\.(gpkg|shp|geojson|json|kml|kmz|gpx|csv|tif|tiff|jp2|vrt|mbtiles|sqlite|dxf|zip)$/i
+  readonly property var wzorObrazu: /\.(jpg|jpeg|png)$/i
+
+  //! Krótka nazwa rodzaju pliku — pod nazwą, żeby nie zgadywać z ikony.
+  function rodzajPliku(nazwa) {
+    if (wzorProjektu.test(nazwa))
+      return qsTr("projekt");
+    if (wzorObrazu.test(nazwa))
+      return qsTr("zdjęcie");
+    if (wzorDanych.test(nazwa))
+      return qsTr("dane");
+    return "";
+  }
+
   onOpened: {
     filesPage.browsePath = startowyKatalog !== "" ? startowyKatalog : projectDir;
     galleryTabs.currentIndex = startowaZakladka;
@@ -316,6 +333,9 @@ Popup {
             showDirs: true
             showDirsFirst: true
             showDotAndDotDot: false
+            // w terenie szuka się tego, co świeże — najnowsze na górze
+            sortField: FolderListModel.Time
+            sortReversed: false
           }
 
           delegate: ItemDelegate {
@@ -325,17 +345,44 @@ Popup {
             contentItem: RowLayout {
               spacing: 8
 
-              Text {
-                text: fileIsDir ? "📁" : (/\.(jpg|jpeg|png)$/i.test(fileName) ? "🖼" : "📄")
-                font.pointSize: 14
+              Image {
+                source: {
+                  if (fileIsDir)
+                    return photoGallery.t.getThemeVectorIcon("ic_folder_open_black_24dp");
+                  if (photoGallery.wzorProjektu.test(fileName))
+                    return photoGallery.t.getThemeVectorIcon("ic_map_white_24dp");
+                  if (photoGallery.wzorObrazu.test(fileName))
+                    return photoGallery.t.getThemeVectorIcon("ic_camera_photo_black_24dp");
+                  if (photoGallery.wzorDanych.test(fileName))
+                    return photoGallery.t.getThemeVectorIcon("ic_vectorlayer_polygon_18dp");
+                  return photoGallery.t.getThemeVectorIcon("ic_file_black_24dp");
+                }
+                sourceSize.width: 24
+                sourceSize.height: 24
+                Layout.preferredWidth: 24
+                Layout.preferredHeight: 24
+                fillMode: Image.PreserveAspectFit
               }
 
-              Text {
+              ColumnLayout {
                 Layout.fillWidth: true
-                text: fileName
-                font: photoGallery.t.tipFont
-                color: photoGallery.t.mainTextColor
-                elide: Text.ElideMiddle
+                spacing: 0
+
+                Text {
+                  Layout.fillWidth: true
+                  text: fileName
+                  font: photoGallery.t.tipFont
+                  color: photoGallery.t.mainTextColor
+                  elide: Text.ElideMiddle
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  visible: text !== ""
+                  text: fileIsDir ? "" : photoGallery.rodzajPliku(fileName)
+                  font: photoGallery.t.tinyFont
+                  color: photoGallery.t.secondaryTextColor
+                }
               }
 
               Text {
@@ -361,8 +408,16 @@ Popup {
                       "layer": "",
                       "mtime": fileModified
                     }], 0);
+              } else if (photoGallery.wzorProjektu.test(fileName)) {
+                // projekt: zamykamy galerię, bo za chwilę zmieni się cały kontekst
+                photoGallery.close();
+                iface.loadFile(filePath, FileUtils.fileName(filePath, false));
+              } else if (photoGallery.wzorDanych.test(fileName)) {
+                // dane: warstwa dokłada się do bieżącego projektu, galeria zostaje
+                iface.loadFile(filePath, FileUtils.fileName(filePath, false));
+                displayToast(qsTr("Dodano warstwę: %1").arg(fileName));
               } else {
-                displayToast(qsTr("Podgląd na razie tylko dla obrazów"));
+                displayToast(qsTr("Nie wiem, jak otworzyć ten plik"));
               }
             }
           }

@@ -569,18 +569,7 @@ Drawer {
         Button {
           flat: true
           Layout.fillWidth: true
-          text: qsTr("Nowy pusty")
-          icon.source: t.getThemeVectorIcon("wf_project_new")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: projectNameDialog.openFor("blank")
-        }
-        Button {
-          flat: true
-          Layout.fillWidth: true
-          text: qsTr("Otwórz szablon")
+          text: qsTr("Nowe zadanie")
           icon.source: t.getThemeVectorIcon("wf_project_template")
           icon.color: "transparent"
           icon.width: 26
@@ -601,12 +590,11 @@ Drawer {
           icon.height: 26
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
+            // galeria umie już otwierać projekty i warstwy, więc przeglądarka
+            // QFielda nie jest tu potrzebna: jedno narzędzie do wszystkiego,
+            // co lokalne
             dashBoard.close();
-            // przegladarka QFielda TYLKO tutaj: umie rozpoznac .qgs/.qgz
-            // i otworzyc projekt. Zawsze startuje z tego samego katalogu.
-            qfieldLocalDataPickerScreen.projectFolderView = false;
-            qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot() + "Imported Projects");
-            qfieldLocalDataPickerScreen.visible = true;
+            photoGallery.openFiles(iface.dataRoot() + "Imported Projects");
           }
         }
         Button {

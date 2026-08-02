@@ -5764,6 +5764,14 @@ ApplicationWindow {
     t: Theme
   }
 
+  QfNoweZadanie {
+    id: noweZadanie
+    t: Theme
+    onUtworzono: sciezka => {
+      iface.loadFile(sciezka + "/projekt.qgs");
+    }
+  }
+
   QfPhotoGallery {
     id: photoGallery
     t: Theme

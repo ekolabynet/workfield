@@ -144,6 +144,7 @@ set(QFIELD_APP_QML_FILES
     qml/QfLegendScreen.qml
     qml/QfMainDrawer.qml
     qml/QfNewLayerDialog.qml
+    qml/QfNoweZadanie.qml
     qml/QfPhotoGallery.qml
     qml/QfQuickCaptureBar.qml
     qml/QfSettingsAdvanced.qml
