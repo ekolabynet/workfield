@@ -42,6 +42,18 @@ fi
 git tag "v${WERSJA}" 2>/dev/null || echo "Tag v${WERSJA} juz istnieje - uzywam go."
 git push origin "v${WERSJA}"
 
+# wydanie moze juz istniec (wersje podbija sie czasem wczesniej niz wydaje) —
+# wtedy dogrywamy pliki zamiast przerywac
+if gh release view "v${WERSJA}" >/dev/null 2>&1; then
+  gh release upload "v${WERSJA}" "/tmp/${NAZWA}" "/tmp/${STALA}" --clobber
+  echo "Podmieniono pliki w istniejacym wydaniu v${WERSJA}."
+  echo "https://github.com/ekolabynet/workfield/releases/tag/v${WERSJA}"
+  echo
+  echo "Link dla wspolpracownikow (zawsze najnowsza wersja):"
+  echo "  https://github.com/ekolabynet/workfield/releases/latest/download/${STALA}"
+  exit 0
+fi
+
 gh release create "v${WERSJA}" "/tmp/${NAZWA}" "/tmp/${STALA}" \
   --title "WorkField ${WERSJA}" \
   --notes "${OPIS}
