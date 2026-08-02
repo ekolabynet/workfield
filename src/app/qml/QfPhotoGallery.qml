@@ -165,8 +165,30 @@ Popup {
       }
 
       ToolButton {
-        text: "✕"
+        // 48 px to minimalny wygodny cel dotyku — w rękawicach mniejszy nie działa
+        implicitWidth: 96
+        implicitHeight: 48
         onClicked: photoGallery.close()
+
+        contentItem: RowLayout {
+          spacing: 6
+
+          Image {
+            source: photoGallery.t.getThemeVectorIcon("ic_clear_black_18dp")
+            sourceSize.width: 26
+            sourceSize.height: 26
+            Layout.preferredWidth: 26
+            Layout.preferredHeight: 26
+            fillMode: Image.PreserveAspectFit
+          }
+
+          Text {
+            text: qsTr("Powrót")
+            font: photoGallery.t.tipFont
+            color: photoGallery.t.mainTextColor
+            verticalAlignment: Text.AlignVCenter
+          }
+        }
       }
     }
 
