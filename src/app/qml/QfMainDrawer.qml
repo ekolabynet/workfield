@@ -567,6 +567,7 @@ Drawer {
         rowSpacing: 4
 
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Nowy pusty")
           icon.source: t.getThemeVectorIcon("wf_project_new")
@@ -577,19 +578,22 @@ Drawer {
           onClicked: projectNameDialog.openFor("blank")
         }
         Button {
+          flat: true
           Layout.fillWidth: true
-          text: qsTr("Nowy z szablonu")
+          text: qsTr("Otwórz szablon")
           icon.source: t.getThemeVectorIcon("wf_project_template")
           icon.color: "transparent"
           icon.width: 26
           icon.height: 26
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
+            // szablon + kontekst zlecenia = nowe zadanie z własnym katalogiem
             dashBoard.close();
-            welcomeScreen.visible = true;
+            noweZadanie.open();
           }
         }
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Otwórz projekt")
           icon.source: t.getThemeVectorIcon("ic_open_black_24dp")
@@ -606,6 +610,7 @@ Drawer {
           }
         }
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Importuj projekt (folder)")
           icon.source: t.getThemeVectorIcon("ic_folder_open_black_24dp")
@@ -618,6 +623,7 @@ Drawer {
           }
         }
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Importuj projekt (ZIP)")
           icon.source: t.getThemeVectorIcon("ic_download_white_24dp")
@@ -633,7 +639,7 @@ Drawer {
           Layout.fillWidth: true
           Layout.preferredHeight: 44
           flat: true
-          text: qsTr("Szablony projektów")
+          text: qsTr("Pobierz szablony")
           icon.source: t.getThemeVectorIcon("ic_cloud_download_24dp")
           icon.width: 26
           icon.height: 26
@@ -646,22 +652,7 @@ Drawer {
           }
         }
         Button {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 44
           flat: true
-          text: qsTr("Szablony projektów")
-          icon.source: t.getThemeVectorIcon("ic_cloud_download_24dp")
-          icon.width: 26
-          icon.height: 26
-          font: t.tipFont
-          display: AbstractButton.TextBesideIcon
-          // gotowe projekty do skopiowania na telefon
-          onClicked: {
-            dashBoard.close();
-            Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/tag/szablony");
-          }
-        }
-        Button {
           Layout.fillWidth: true
           text: qsTr("Ekran startowy")
           icon.source: t.getThemeVectorIcon("ic_home_black_24dp")
@@ -689,6 +680,7 @@ Drawer {
         rowSpacing: 4
 
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Zapisz")
           icon.source: t.getThemeVectorIcon("wf_project_save")
@@ -707,6 +699,7 @@ Drawer {
           }
         }
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Zapisz jako…")
           icon.source: t.getThemeVectorIcon("wf_project_saveas")
@@ -718,6 +711,7 @@ Drawer {
           onClicked: projectNameDialog.openFor("saveas")
         }
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Powiększ do danych")
           icon.source: t.getThemeVectorIcon("zoom_out_map_24dp")
@@ -733,6 +727,7 @@ Drawer {
           }
         }
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Pliki projektu")
           font.pointSize: t.tinyFont.pointSize
@@ -749,6 +744,7 @@ Drawer {
           }
         }
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Właściwości")
           icon.source: t.getThemeVectorIcon("wf_project_properties")
@@ -760,6 +756,7 @@ Drawer {
           onClicked: projectPropertiesPopup.open()
         }
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Usuń projekt")
           icon.source: t.getThemeVectorIcon("wf_project_delete")
@@ -785,6 +782,7 @@ Drawer {
         rowSpacing: 4
 
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Folder aplikacji")
           font.pointSize: t.tinyFont.pointSize
@@ -814,22 +812,7 @@ Drawer {
           }
         }
         Button {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 44
           flat: true
-          text: qsTr("Aktualizacja aplikacji")
-          icon.source: t.getThemeVectorIcon("ic_download_white_24dp")
-          icon.width: 26
-          icon.height: 26
-          font: t.tipFont
-          display: AbstractButton.TextBesideIcon
-          // zawsze najnowsze wydanie; wygodniej przez Obtainium
-          onClicked: {
-            dashBoard.close();
-            Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/latest");
-          }
-        }
-        Button {
           Layout.fillWidth: true
           text: qsTr("Zgłoś uwagę")
           icon.source: t.getThemeVectorIcon("ic_send_white_24dp")
@@ -1254,11 +1237,13 @@ Drawer {
           Layout.fillWidth: true
         }
         Button {
+          flat: true
           text: qsTr("Anuluj")
           font.pointSize: t.tinyFont.pointSize
           onClicked: projectNameDialog.close()
         }
         Button {
+          flat: true
           text: qsTr("Utwórz")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
@@ -1334,11 +1319,13 @@ Drawer {
           Layout.fillWidth: true
         }
         Button {
+          flat: true
           text: qsTr("Anuluj")
           font.pointSize: t.tinyFont.pointSize
           onClicked: deleteProjectConfirm.close()
         }
         Button {
+          flat: true
           text: qsTr("Usuń")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
@@ -1543,11 +1530,13 @@ Drawer {
           Layout.fillWidth: true
         }
         Button {
+          flat: true
           text: qsTr("Zamknij")
           font.pointSize: t.tinyFont.pointSize
           onClicked: projectPropertiesPopup.close()
         }
         Button {
+          flat: true
           text: qsTr("Zastosuj i zapisz")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
@@ -1618,12 +1607,14 @@ Drawer {
         spacing: 8
 
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Anuluj")
           onClicked: removeLayerConfirm.close()
         }
 
         Button {
+          flat: true
           Layout.fillWidth: true
           text: qsTr("Usuń")
           highlighted: true
