@@ -636,7 +636,7 @@ Drawer {
           // gotowe projekty do skopiowania na telefon
           onClicked: {
             dashBoard.close();
-            Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/tag/szablony");
+            Qt.openUrlExternally("https://ekolaby.net/cloud/index.php/s/sDoGaZ627ATqZHp");
           }
         }
         Button {

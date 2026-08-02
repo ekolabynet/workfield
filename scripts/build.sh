@@ -4,7 +4,7 @@ set -e
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"/..
 
-export APP_VERSION_STR=${APP_VERSION_STR:-0.8.10}
+export APP_VERSION_STR=${APP_VERSION_STR:-0.8.11}
 # APP_VERSION (CPack, link do wydania w oknie "O programie") z tego samego zrodla
 export APP_VERSION=${APP_VERSION:-v$APP_VERSION_STR}
 # versionCode = major*10000 + minor*100 + patch: rosnie takze przy 0.10.x i 1.0.0
