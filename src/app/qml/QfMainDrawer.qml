@@ -733,6 +733,25 @@ Drawer {
             photoGallery.openFiles(qgisProject ? qgisProject.homePath : "");
           }
         }
+
+        Button {
+          Layout.fillWidth: true
+          flat: true
+          enabled: projectSection.filePath !== ""
+          text: qsTr("Eksport i wysyłka")
+          icon.source: t.getThemeVectorIcon("ic_folder_open_black_24dp")
+          icon.width: 26
+          icon.height: 26
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: {
+            // przegladarka QFielda: ma menu z eksportem, wysylka i WebDAV-em,
+            // ktorego nasza galeria jeszcze nie ma
+            dashBoard.close();
+            qfieldLocalDataPickerScreen.projectFolderView = false;
+            qfieldLocalDataPickerScreen.model.resetToPath(iface.dataRoot() + "Imported Projects");
+            qfieldLocalDataPickerScreen.visible = true;
+          }
+        }
         Button {
           flat: true
           Layout.fillWidth: true
