@@ -5772,6 +5772,11 @@ ApplicationWindow {
     }
   }
 
+  QfWymianaLokalna {
+    id: wymianaLokalna
+    t: Theme
+  }
+
   QfPhotoGallery {
     id: photoGallery
     t: Theme
