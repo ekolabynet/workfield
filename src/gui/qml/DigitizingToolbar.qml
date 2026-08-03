@@ -74,8 +74,8 @@ QfVisibilityFadingRow {
   QfToolButton {
     id: cancelButton
 
-    width: 44
-    height: 44
+    width: Math.round(44 * skalaPrzyciskow)
+    height: width
     iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
     visible: rubberbandModel && rubberbandModel.vertexCount > 1
     round: true
@@ -83,7 +83,7 @@ QfVisibilityFadingRow {
 
     onClicked: {
       // WorkField: średni impuls — anulowanie
-      platformUtilities.vibrate(30);
+      haptyka(30);
       dashBoard.shouldReturnHome = false;
       if (stateMachine.state !== "measure") {
         cancelDialog.open();
@@ -98,8 +98,8 @@ QfVisibilityFadingRow {
   QfToolButton {
     id: confirmButton
 
-    width: 56
-    height: 56
+    width: Math.round(56 * skalaPrzyciskow)
+    height: width
     iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
     visible: {
       if (!showConfirmButton) {
@@ -171,8 +171,8 @@ QfVisibilityFadingRow {
   QfToolButton {
     id: removeVertexButton
 
-    width: 48
-    height: 48
+    width: Math.round(48 * skalaPrzyciskow)
+    height: width
     iconSource: Theme.getThemeVectorIcon("ic_remove_white_24dp")
     iconColor: Theme.toolButtonColor
     visible: rubberbandModel && rubberbandModel.vertexCount > 1
@@ -195,8 +195,8 @@ QfVisibilityFadingRow {
   QfToolButton {
     id: addVertexButton
     round: true
-    width: 72
-    height: 72
+    width: Math.round(72 * skalaPrzyciskow)
+    height: width
     enabled: (cogoEnabled && cogoExecutor.isReady) || (!cogoEnabled && !screenHovering)
     // WorkField: sygnałowa czerwień dla widoczności w terenie (rękawice, słońce);
     // celowo jaśniejsza niż Theme.darkRed przycisku anulowania
@@ -348,9 +348,20 @@ QfVisibilityFadingRow {
     addVertexButton.clicked();
   }
 
+  // WorkField: haptyka o regulowanej sile (Teren -> Wibracje); 0 = wylaczona
+  function haptyka(baza) {
+    const sila = typeof settings !== 'undefined' ? settings.valueInt('WorkField/haptykaSila', 3) : 3;
+    if (sila > 0 && typeof platformUtilities !== 'undefined') {
+      platformUtilities.vibrate(baza * sila);
+    }
+  }
+
+  // WorkField: skala rozmiaru przyciskow (Teren -> Rozmiar), stosowana przy starcie
+  readonly property real skalaPrzyciskow: (typeof settings !== 'undefined' ? settings.valueInt('WorkField/przyciskiSkala', 100) : 100) / 100.0
+
   function addVertex() {
     // WorkField: krótki impuls — "wierzchołek dodany" (częsta operacja, subtelny ton)
-    platformUtilities.vibrate(15);
+    haptyka(15);
     digitizingLogger.addCoordinate(coordinateLocator.currentCoordinate);
     coordinateLocator.flash();
     rubberbandModel.addVertex();
@@ -358,7 +369,7 @@ QfVisibilityFadingRow {
 
   function removeVertex() {
     // WorkField: wyraźnie dłuższy impuls — "coś zostało usunięte"
-    platformUtilities.vibrate(45);
+    haptyka(45);
     digitizingLogger.removeLastCoordinate();
     rubberbandModel.removeVertex();
     mapSettings.setCenter(rubberbandModel.currentCoordinate, true);
@@ -366,7 +377,7 @@ QfVisibilityFadingRow {
 
   function confirm() {
     // WorkField: długi impuls — "geometria zapisana"
-    platformUtilities.vibrate(80);
+    haptyka(80);
     rubberbandModel.frozen = true;
     if (addVertexButton.lastAdditionAveraged) {
       rubberbandModel.removeVertex();

@@ -887,11 +887,11 @@ Drawer {
 
       Button {
         id: captureSettingsButton
-        text: qsTr("Klawisze")
+        text: qsTr("Teren")
         font.pointSize: t.tinyFont.pointSize
         onClicked: {
           dashBoard.close();
-          captureSettings.openDialog();
+          terenSettings.open();
         }
       }
 

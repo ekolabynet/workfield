@@ -137,6 +137,7 @@ set(QFIELD_APP_QML_FILES
     qml/ScreenLocker.qml
     qml/QfBasemapScreen.qml
     qml/QfCaptureSettings.qml
+    qml/QfTerenSettings.qml
     qml/QfColorPicker.qml
     qml/QfDataDrawer.qml
     qml/QfLayerExportDialog.qml

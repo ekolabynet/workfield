@@ -5797,6 +5797,10 @@ ApplicationWindow {
     t: Theme
   }
 
+  QfTerenSettings {
+    id: terenSettings
+  }
+
   QfSubLayerPicker {
     id: subLayerPicker
     t: Theme

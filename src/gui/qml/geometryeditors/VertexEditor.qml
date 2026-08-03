@@ -17,6 +17,14 @@ GeometryEditorBase {
 
   spacing: 4
 
+  // WorkField: haptyka o regulowanej sile (Teren -> Wibracje); 0 = wylaczona
+  function haptyka(baza) {
+    const sila = typeof settings !== 'undefined' ? settings.valueInt('WorkField/haptykaSila', 3) : 3;
+    if (sila > 0 && typeof platformUtilities !== 'undefined') {
+      platformUtilities.vibrate(baza * sila);
+    }
+  }
+
   function init(featureModel, mapSettings, editorRubberbandModel, editorRenderer) {
     featureModel.vertexModel.currentVertexIndex = -1;
     vertexEditorToolbar.featureModel = featureModel;
@@ -65,7 +73,7 @@ GeometryEditorBase {
     bgcolor: Theme.toolButtonBackgroundColor
     onClicked: {
       // WorkField: średni impuls — cofnięcie
-      platformUtilities.vibrate(30);
+      haptyka(30);
       featureModel.vertexModel.undoHistory();
       mapSettings.setCenter(featureModel.vertexModel.currentPoint, true);
     }
@@ -80,7 +88,7 @@ GeometryEditorBase {
     bgcolor: Theme.darkRed
     onClicked: {
       // WorkField: średni impuls — anulowanie zmian
-      platformUtilities.vibrate(30);
+      haptyka(30);
       digitizingLogger.clearCoordinates();
       cancel();
       finished();
@@ -98,7 +106,7 @@ GeometryEditorBase {
 
     onClicked: {
       // WorkField: długi impuls — zmiany zapisane
-      platformUtilities.vibrate(80);
+      haptyka(80);
       if (vertexEditorToolbar.currentVertexModified) {
         digitizingLogger.addCoordinate(featureModel.vertexModel.currentPoint);
       }
@@ -119,7 +127,7 @@ GeometryEditorBase {
 
     onClicked: {
       // WorkField: dłuższy impuls — usunięcie wierzchołka
-      platformUtilities.vibrate(45);
+      haptyka(45);
       if (featureModel.vertexModel.canRemoveVertex) {
         featureModel.vertexModel.removeCurrentVertex();
         if (screenHovering) {
@@ -140,7 +148,7 @@ GeometryEditorBase {
 
     onClicked: {
       // WorkField: krótki impuls — dodawanie wierzchołka
-      platformUtilities.vibrate(15);
+      haptyka(15);
       applyChanges(qfieldSettings.autoSave);
       if (featureModel.vertexModel.currentVertexIndex != -1) {
         if (featureModel.vertexModel.editingMode === VertexModel.AddVertex) {
@@ -170,7 +178,7 @@ GeometryEditorBase {
       }
       applyChanges(qfieldSettings.autoSave);
       // WorkField: tyknięcie — krok po wierzchołkach
-      platformUtilities.vibrate(10);
+      haptyka(10);
       featureModel.vertexModel.previous();
     }
   }
@@ -190,7 +198,7 @@ GeometryEditorBase {
       }
       applyChanges(qfieldSettings.autoSave);
       // WorkField: tyknięcie — krok po wierzchołkach
-      platformUtilities.vibrate(10);
+      haptyka(10);
       featureModel.vertexModel.next();
     }
   }
