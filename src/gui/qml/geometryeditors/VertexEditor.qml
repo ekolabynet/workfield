@@ -64,6 +64,8 @@ GeometryEditorBase {
     visible: featureModel && featureModel.vertexModel.canUndo
     bgcolor: Theme.toolButtonBackgroundColor
     onClicked: {
+      // WorkField: średni impuls — cofnięcie
+      platformUtilities.vibrate(30);
       featureModel.vertexModel.undoHistory();
       mapSettings.setCenter(featureModel.vertexModel.currentPoint, true);
     }
@@ -77,6 +79,8 @@ GeometryEditorBase {
     visible: featureModel && featureModel.vertexModel.dirty && !qfieldSettings.autoSave
     bgcolor: Theme.darkRed
     onClicked: {
+      // WorkField: średni impuls — anulowanie zmian
+      platformUtilities.vibrate(30);
       digitizingLogger.clearCoordinates();
       cancel();
       finished();
@@ -93,6 +97,8 @@ GeometryEditorBase {
     bgcolor: !qfieldSettings.autoSave ? Theme.mainColor : Theme.toolButtonBackgroundColor
 
     onClicked: {
+      // WorkField: długi impuls — zmiany zapisane
+      platformUtilities.vibrate(80);
       if (vertexEditorToolbar.currentVertexModified) {
         digitizingLogger.addCoordinate(featureModel.vertexModel.currentPoint);
       }
@@ -112,6 +118,8 @@ GeometryEditorBase {
     bgcolor: Theme.toolButtonBackgroundColor
 
     onClicked: {
+      // WorkField: dłuższy impuls — usunięcie wierzchołka
+      platformUtilities.vibrate(45);
       if (featureModel.vertexModel.canRemoveVertex) {
         featureModel.vertexModel.removeCurrentVertex();
         if (screenHovering) {
@@ -131,6 +139,8 @@ GeometryEditorBase {
     iconColor: enabled ? Theme.toolButtonColor : Theme.toolButtonBackgroundSemiOpaqueColor
 
     onClicked: {
+      // WorkField: krótki impuls — dodawanie wierzchołka
+      platformUtilities.vibrate(15);
       applyChanges(qfieldSettings.autoSave);
       if (featureModel.vertexModel.currentVertexIndex != -1) {
         if (featureModel.vertexModel.editingMode === VertexModel.AddVertex) {
@@ -159,6 +169,8 @@ GeometryEditorBase {
         digitizingLogger.addCoordinate(featureModel.vertexModel.currentPoint);
       }
       applyChanges(qfieldSettings.autoSave);
+      // WorkField: tyknięcie — krok po wierzchołkach
+      platformUtilities.vibrate(10);
       featureModel.vertexModel.previous();
     }
   }
@@ -177,6 +189,8 @@ GeometryEditorBase {
         digitizingLogger.addCoordinate(featureModel.vertexModel.currentPoint);
       }
       applyChanges(qfieldSettings.autoSave);
+      // WorkField: tyknięcie — krok po wierzchołkach
+      platformUtilities.vibrate(10);
       featureModel.vertexModel.next();
     }
   }

@@ -40,7 +40,9 @@ RoundButton {
     border.width: 0
     border.color: button.borderColor
     color: 'transparent'
-    radius: 12
+    // WorkField: przywrócenie semantyki round (koło) zgubionej przy restylingu M3;
+    // przyciski bez round zachowują zaokrąglenie 12 zgodnie z M3
+    radius: round ? height / 2 : 12
     clip: true
 
     Behavior on color {

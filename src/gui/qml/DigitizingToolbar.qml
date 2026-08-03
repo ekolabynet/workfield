@@ -82,6 +82,8 @@ QfVisibilityFadingRow {
     bgcolor: Theme.darkRed
 
     onClicked: {
+      // WorkField: średni impuls — anulowanie
+      platformUtilities.vibrate(30);
       dashBoard.shouldReturnHome = false;
       if (stateMachine.state !== "measure") {
         cancelDialog.open();
@@ -196,17 +198,9 @@ QfVisibilityFadingRow {
     width: 72
     height: 72
     enabled: (cogoEnabled && cogoExecutor.isReady) || (!cogoEnabled && !screenHovering)
-    bgcolor: {
-      if (!enabled) {
-        Theme.toolButtonBackgroundSemiOpaqueColor;
-      } else if (!showConfirmButton) {
-        Theme.toolButtonBackgroundColor;
-      } else if (Number(rubberbandModel ? rubberbandModel.geometryType : 0) === Qgis.GeometryType.Point || Number(rubberbandModel.geometryType) === Qgis.GeometryType.Null) {
-        Theme.mainColor;
-      } else {
-        Theme.toolButtonBackgroundColor;
-      }
-    }
+    // WorkField: sygnałowa czerwień dla widoczności w terenie (rękawice, słońce);
+    // celowo jaśniejsza niż Theme.darkRed przycisku anulowania
+    bgcolor: enabled ? "#d32f2f" : Theme.toolButtonBackgroundSemiOpaqueColor
     iconSource: Theme.getThemeVectorIcon("ic_add_white_24dp")
     iconColor: enabled ? Theme.toolButtonColor : Theme.toolButtonBackgroundSemiOpaqueColor
 
@@ -355,18 +349,24 @@ QfVisibilityFadingRow {
   }
 
   function addVertex() {
+    // WorkField: krótki impuls — "wierzchołek dodany" (częsta operacja, subtelny ton)
+    platformUtilities.vibrate(15);
     digitizingLogger.addCoordinate(coordinateLocator.currentCoordinate);
     coordinateLocator.flash();
     rubberbandModel.addVertex();
   }
 
   function removeVertex() {
+    // WorkField: wyraźnie dłuższy impuls — "coś zostało usunięte"
+    platformUtilities.vibrate(45);
     digitizingLogger.removeLastCoordinate();
     rubberbandModel.removeVertex();
     mapSettings.setCenter(rubberbandModel.currentCoordinate, true);
   }
 
   function confirm() {
+    // WorkField: długi impuls — "geometria zapisana"
+    platformUtilities.vibrate(80);
     rubberbandModel.frozen = true;
     if (addVertexButton.lastAdditionAveraged) {
       rubberbandModel.removeVertex();
