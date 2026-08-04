@@ -753,7 +753,10 @@ Column {
 
     // QuickCapture 2.0: decyzje o odroczeniu podejmujemy JUZ TERAZ —
     // stan "digitize" moze nie przezyc wycieczki do aparatu zewnetrznego
-    odroczenieFlow = stateMachine.state === "digitize";
+    // stan potrafi zgasnac od samego tapniecia kafelka — pytamy wiec o FAKT:
+    // czy w modelu rysowania czeka niedokonczona geometria (wierzcholki)
+    const wierzcholki = typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model ? digitizingRubberband.model.vertexCount : 0;
+    odroczenieFlow = stateMachine.state === "digitize" || wierzcholki > 1;
 
     // najpierw aparat, formularz otwiera sie po zdjeciu (lub po anulowaniu, bez foto)
     pendingLayer = layer;
