@@ -109,8 +109,14 @@ class AppInterface : public QObject
     //! Returns free space at \a path in gigabytes.
     Q_INVOKABLE double storageFreeGb( const QString &path ) const;
 
-    //! Effective data root: preferred dir when set, first app data dir otherwise.
+    //! Effective data root: canonical projects base — the same directory the
+    //! project lists read from and the Java-side import writes to.
     Q_INVOKABLE QString dataRoot() const;
+
+    //! One-time cleanup after the 2026-08 storage audit: moves directories
+    //! mistakenly created inside the legacy .../QField/ resource dir into the
+    //! canonical base. Safe to call repeatedly (no-op when nothing to move).
+    Q_INVOKABLE void migrateLegacyDataLayout();
 
     //! Copies data content from \a source to \a destination; removes source content when \a removeSource.
     Q_INVOKABLE bool migrateDataDir( const QString &source, const QString &destination, bool removeSource );

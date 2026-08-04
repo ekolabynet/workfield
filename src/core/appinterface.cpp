@@ -51,6 +51,7 @@ AppInterface::AppInterface( QQmlEngine *engine, AppController *controller )
   : mEngine( engine )
   , mController( controller )
 {
+  migrateLegacyDataLayout();
 }
 
 QObject *AppInterface::rootObject() const
@@ -839,12 +840,56 @@ double AppInterface::storageFreeGb( const QString &path ) const
 
 QString AppInterface::dataRoot() const
 {
-  QString root = preferredDataDir();
-  if ( root.isEmpty() )
-    root = PlatformUtilities::instance()->appDataDirs().value( 0 );
+  // Audyt storage 2026-08-04 (docs/AUDYT_STORAGE.md, wada W1): baza projektow
+  // musi byc ta sama, z ktorej czyta lista (LocalFilesModel przez
+  // applicationDirectory()) i do ktorej pisze import po stronie Javy.
+  // Poprzednio uzywalismy appDataDirs[0] — katalogu zasobow .../QField/ —
+  // przez co wnoszenie z wymiany i szablony ladowaly poziom za gleboko.
+  QString root = PlatformUtilities::instance()->applicationDirectory();
   if ( !root.isEmpty() && !root.endsWith( QLatin1Char( '/' ) ) )
     root += QLatin1Char( '/' );
   return root;
+}
+
+void AppInterface::migrateLegacyDataLayout()
+{
+  // Jednorazowe sprzatanie po wadzie W1: to, co starsze wersje zapisaly
+  // w bazie zasobow (.../QField/), przenosimy do bazy kanonicznej.
+  const QString legacyBase = PlatformUtilities::instance()->appDataDirs().value( 0 );
+  const QString canonicalBase = dataRoot();
+  if ( legacyBase.isEmpty() || canonicalBase.isEmpty() )
+    return;
+  if ( QDir::cleanPath( legacyBase ) == QDir::cleanPath( canonicalBase ) )
+    return;
+
+  const QStringList names = { QStringLiteral( "Imported Projects" ), QStringLiteral( "Szablony" ) };
+  for ( const QString &name : names )
+  {
+    QDir legacyDir( QDir::cleanPath( legacyBase + QLatin1Char( '/' ) + name ) );
+    if ( !legacyDir.exists() )
+      continue;
+
+    const QString target = QDir::cleanPath( canonicalBase + name );
+    if ( !QDir( target ).exists() )
+    {
+      QDir().mkpath( canonicalBase );
+      if ( QDir().rename( legacyDir.absolutePath(), target ) )
+        continue;
+    }
+
+    // cel istnieje albo rename niemozliwy — scalamy wpis po wpisie;
+    // kolizje nazw zostawiamy w starym miejscu (bez nadpisywania)
+    QDir().mkpath( target );
+    const QStringList entries = legacyDir.entryList( QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot );
+    bool allMoved = true;
+    for ( const QString &entry : entries )
+    {
+      if ( !QDir().rename( legacyDir.filePath( entry ), target + QLatin1Char( '/' ) + entry ) )
+        allMoved = false;
+    }
+    if ( allMoved )
+      legacyDir.removeRecursively();
+  }
 }
 
 static bool wfCopyRecursively( const QString &source, const QString &destination )
