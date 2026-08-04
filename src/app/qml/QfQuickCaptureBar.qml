@@ -78,6 +78,7 @@ Column {
     iconColor: qfieldSettings.fastMode ? "#3E2723" : Theme.toolButtonColor
 
     onClicked: {
+      haptyka(30);
       qfieldSettings.fastMode = !qfieldSettings.fastMode;
       displayToast(qfieldSettings.fastMode ? qsTr("Tryb szybki: bez potwierdzeń, kontekst z automatu") : qsTr("Tryb dokładny: formularze i potwierdzenia"));
     }
@@ -104,10 +105,49 @@ Column {
     MouseArea {
       anchors.fill: parent
       onClicked: {
+        haptyka(30);
         quickCaptureBar.distantMode = !quickCaptureBar.distantMode;
         displayToast(quickCaptureBar.distantMode ? qsTr("Tryb odległy: następne zdjęcie z podaniem odległości") : qsTr("Tryb odległy wyłączony"));
       }
       onPressAndHold: displayToast(quickCaptureBar.bearing1Valid ? qsTr("Czeka pierwszy namiar — zrób drugie ujęcie z innego miejsca") : qsTr("Obiekt daleko: zdjęcie + odległość albo dwa namiary"), "info")
+    }
+  }
+
+  // QuickCapture 2.0: licznik wpisow czekajacych na materializacje
+  Rectangle {
+    visible: quickCaptureBar.odroczone.length > 0
+    width: 56
+    height: 56
+    radius: width / 2
+    color: "#FFC107"
+    border.color: "#3E2723"
+    border.width: 2
+    opacity: 0.95
+
+    Column {
+      anchors.centerIn: parent
+      spacing: -2
+
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: qsTr("ODR")
+        font.pointSize: Theme.tinyFont.pointSize
+        font.bold: true
+        color: "#3E2723"
+      }
+
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: quickCaptureBar.odroczone.length
+        font.pointSize: Theme.strongFont.pointSize
+        font.bold: true
+        color: "#3E2723"
+      }
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: displayToast(qsTr("Wpisy odroczone: %1 — zapiszą się po zamknięciu edycji geometrii").arg(quickCaptureBar.odroczone.length))
     }
   }
 
@@ -131,7 +171,10 @@ Column {
 
     MouseArea {
       anchors.fill: parent
-      onClicked: layerPicker.open()
+      onClicked: {
+        haptyka(15);
+        layerPicker.open();
+      }
       onPressAndHold: captureSettings.openDialog()
     }
   }
@@ -141,6 +184,80 @@ Column {
     height: 28
   }
 
+
+  // ---- QuickCapture 2.0: kolejka wpisow odroczonych ----
+  // Foto tapniete W TRAKCIE tyczenia geometrii nie dotyka sesji edycji GPKG:
+  // wpis (warstwa + gotowy obiekt z pozycja i zdjeciem) czeka w kolejce
+  // i materializuje sie zaraz po wyjsciu z trybu rysowania.
+  property var odroczone: []
+
+  // WorkField: haptyka o sile z karty Teren (0 = wylaczona)
+  function haptyka(baza) {
+    const sila = typeof settings !== 'undefined' ? settings.valueInt('WorkField/haptykaSila', 3) : 3;
+    if (sila > 0 && typeof platformUtilities !== 'undefined') {
+      platformUtilities.vibrate(baza * sila);
+    }
+  }
+
+  function materializujOdroczone() {
+    if (odroczone.length === 0) {
+      return;
+    }
+    // nie walczymy o edycje GPKG: czekamy na koniec rysowania i formularza
+    if (stateMachine.state === "digitize") {
+      return;
+    }
+    if (typeof overlayFeatureFormDrawer !== 'undefined' && overlayFeatureFormDrawer.opened) {
+      return;
+    }
+    const kolejka = odroczone;
+    odroczone = [];
+    let zapisane = 0;
+    let nieudane = 0;
+    const wgWarstw = {};
+    for (let i = 0; i < kolejka.length; ++i) {
+      const wpis = kolejka[i];
+      if (!wpis.layer || !wpis.feature) {
+        nieudane += 1;
+        continue;
+      }
+      silentFeatureModel.currentLayer = wpis.layer;
+      silentFeatureModel.feature = wpis.feature;
+      if (silentFeatureModel.create()) {
+        zapisane += 1;
+        wgWarstw[wpis.layer.name] = (wgWarstw[wpis.layer.name] || 0) + 1;
+      } else {
+        nieudane += 1;
+      }
+    }
+    if (zapisane > 0) {
+      haptyka(80);
+      const czesci = [];
+      for (const nazwa in wgWarstw) {
+        czesci.push(nazwa + ": " + wgWarstw[nazwa]);
+      }
+      displayToast(qsTr("Wpisy odroczone zapisane — %1").arg(czesci.join(", ")));
+    }
+    if (nieudane > 0) {
+      displayToast(qsTr("Nie zapisano %1 wpisów odroczonych (zdjęcia ocalone w DCIM)").arg(nieudane), "error");
+    }
+  }
+
+  Connections {
+    target: stateMachine
+
+    function onStateChanged() {
+      quickCaptureBar.materializujOdroczone();
+    }
+  }
+
+  Connections {
+    target: typeof overlayFeatureFormDrawer !== 'undefined' ? overlayFeatureFormDrawer : null
+
+    function onOpenedChanged() {
+      quickCaptureBar.materializujOdroczone();
+    }
+  }
 
   property var resolvedLayers: []
 
@@ -378,6 +495,7 @@ Column {
     if (!layer) {
       return;
     }
+    haptyka(15);
     pendingGeomLayer = layer;
     pendingGeomPhoto = "";
     geomFlow = true;
@@ -602,6 +720,7 @@ Column {
   }
 
   function captureInto(layer) {
+    haptyka(15);
     if (distantMode) {
       const pos = positionSource.projectedPosition;
       if (!pos || !isFinite(pos.x) || !isFinite(pos.y) || (pos.x === 0 && pos.y === 0)) {
@@ -732,6 +851,20 @@ Column {
       }
     }
     feature = applyRasterContext(feature, pendingLayer);
+    // QuickCapture 2.0: w trakcie tyczenia nie ruszamy sesji edycji GPKG —
+    // wpis czeka w kolejce i zapisze sie po zamknieciu geometrii
+    if (stateMachine.state === "digitize") {
+      odroczone.push({
+          "layer": pendingLayer,
+          "feature": feature
+        });
+      odroczone = odroczone;
+      haptyka(15);
+      displayToast(qsTr("Odroczono do %1 — w kolejce: %2").arg(pendingLayer.name).arg(odroczone.length));
+      pendingLayer = null;
+      pendingFeature = null;
+      return;
+    }
     if (qfieldSettings.fastMode) {
       // cichy zapis WLASNYM modelem: create() sam otwiera i domyka sesje
       // edycji, a szuflada formularza i jej bindingi zostaja nietkniete
@@ -813,6 +946,10 @@ Column {
     }
 
     function onCleared() {
+      if (quickCaptureBar.odroczone.length > 0) {
+        displayToast(qsTr("Kolejka odroczeń wyczyszczona przy zamknięciu projektu (%1) — zdjęcia zostały w DCIM").arg(quickCaptureBar.odroczone.length), "warning");
+        quickCaptureBar.odroczone = [];
+      }
       quickCaptureBar.refreshLayers();
     }
   }
