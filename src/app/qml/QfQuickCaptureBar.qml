@@ -113,6 +113,47 @@ Column {
     }
   }
 
+  // Kotwica czasowa: przelacznik trybu + licznik oczekujacych
+  Rectangle {
+    width: 56
+    height: 56
+    radius: width / 2
+    color: quickCaptureBar.kotwicaTryb ? "#1565C0" : "#546E7A"
+    border.color: "#0D2C4F"
+    border.width: 2
+    opacity: 0.95
+
+    Column {
+      anchors.centerIn: parent
+      spacing: -2
+
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: qsTr("KTW")
+        font.pointSize: Theme.tinyFont.pointSize
+        font.bold: true
+        color: "white"
+      }
+
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: quickCaptureBar.kotwice.length > 0 ? quickCaptureBar.kotwice.length : (quickCaptureBar.kotwicaTryb ? qsTr("wł") : qsTr("wył"))
+        font.pointSize: Theme.tinyFont.pointSize
+        font.bold: true
+        color: "white"
+      }
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: {
+        quickCaptureBar.haptyka(30);
+        quickCaptureBar.kotwicaTryb = !quickCaptureBar.kotwicaTryb;
+        displayToast(quickCaptureBar.kotwicaTryb ? qsTr("Kotwica czasowa WŁĄCZONA: tap w marszu, punkt z pozycji z chwili tapnięcia") : qsTr("Kotwica czasowa wyłączona"));
+      }
+    }
+  }
+
   // QuickCapture 2.0: licznik wpisow czekajacych na materializacje
   Rectangle {
     visible: quickCaptureBar.odroczone.length > 0
@@ -193,6 +234,82 @@ Column {
   // decyzja "odraczamy" zapada przy tapnieciu kafelka; aparat zewnetrzny
   // potrafi zresetowac stan aplikacji, wiec stanu nie czytamy po powrocie
   property bool odroczenieFlow: false
+
+  // ---- Kotwica czasowa (v1) ----
+  // Tap w marszu: zapamietujemy CZAS tapniecia, a obiekt tworzymy dopiero,
+  // gdy przyplynie fix GPS zmierzony w tamtej chwili (utcDateTime zdania
+  // NMEA >= czas tapniecia). Latencja przestaje wymagac zatrzymywania sie.
+  property bool kotwicaTryb: settings.valueBool('WorkField/kotwicaTryb', false)
+  property var kotwice: []
+  property double tapUtcMs: 0
+
+  onKotwicaTrybChanged: settings.setValue('WorkField/kotwicaTryb', kotwicaTryb)
+
+  function obsluzKotwice() {
+    if (kotwice.length === 0) {
+      return;
+    }
+    const pi = positionSource.positionInformation;
+    if (!pi || !pi.utcDateTime) {
+      return;
+    }
+    const fixMs = pi.utcDateTime.getTime();
+    const pos = positionSource.projectedPosition;
+    const pozycjaOk = pos && isFinite(pos.x) && isFinite(pos.y) && !(pos.x === 0 && pos.y === 0);
+    const terazMs = Date.now();
+    const zostaja = [];
+    for (let i = 0; i < kotwice.length; ++i) {
+      const k = kotwice[i];
+      if (pozycjaOk && fixMs >= k.tapUtcMs) {
+        zapiszKotwice(k, pos, pi, false);
+      } else if (terazMs > k.deadlineMs) {
+        zapiszKotwice(k, pozycjaOk ? pos : null, pi, true);
+      } else {
+        zostaja.push(k);
+      }
+    }
+    if (zostaja.length !== kotwice.length) {
+      kotwice = zostaja;
+    }
+  }
+
+  function zapiszKotwice(k, pos, pi, timeout) {
+    if (!k.layer || !pos) {
+      displayToast(qsTr("Kotwica: brak użytecznej pozycji — wpis utracony (zdjęcie w DCIM)"), "error");
+      return;
+    }
+    const wkt = "POINT(" + pos.x + " " + pos.y + ")";
+    const geomMap = GeometryUtils.createGeometryFromWkt(wkt);
+    const geomLayer = GeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, k.layer.crs);
+    let feature = FeatureUtils.createFeature(k.layer, geomLayer, pi);
+    if (k.foto !== "") {
+      feature.setAttribute("foto", k.foto);
+      if (k.ujecie !== undefined && k.ujecie !== "") {
+        feature.setAttribute("ujecie", k.ujecie);
+      }
+    }
+    feature = applyRasterContext(feature, k.layer);
+    silentFeatureModel.currentLayer = k.layer;
+    silentFeatureModel.feature = feature;
+    if (silentFeatureModel.create()) {
+      if (timeout) {
+        displayToast(qsTr("Kotwica: fix z chwili tapnięcia nie nadszedł — zapisano pozycję bieżącą (%1)").arg(k.layer.name), "warning");
+        haptyka(45);
+      } else {
+        haptyka(10);
+      }
+    } else {
+      displayToast(qsTr("Kotwica: zapis do %1 nie powiódł się").arg(k.layer.name), "error");
+    }
+  }
+
+  Connections {
+    target: positionSource
+
+    function onPositionInformationChanged() {
+      quickCaptureBar.obsluzKotwice();
+    }
+  }
 
   // WorkField: haptyka o sile z karty Teren (0 = wylaczona)
   function haptyka(baza) {
@@ -724,6 +841,7 @@ Column {
 
   function captureInto(layer) {
     haptyka(15);
+    tapUtcMs = Date.now();
     if (distantMode) {
       const pos = positionSource.projectedPosition;
       if (!pos || !isFinite(pos.x) || !isFinite(pos.y) || (pos.x === 0 && pos.y === 0)) {
@@ -882,6 +1000,21 @@ Column {
       return;
     }
     if (qfieldSettings.fastMode) {
+      if (kotwicaTryb) {
+        // Kotwica czasowa: create() wykona sie przy fixie z chwili tapniecia
+        kotwice.push({
+            "layer": pendingLayer,
+            "foto": photoPath,
+            "ujecie": typeof cameraSource !== 'undefined' && cameraSource ? cameraSource.photoShotType : "",
+            "tapUtcMs": tapUtcMs > 0 ? tapUtcMs : Date.now(),
+            "deadlineMs": Date.now() + 30000
+          });
+        kotwice = kotwice;
+        haptyka(15);
+        pendingLayer = null;
+        pendingFeature = null;
+        return;
+      }
       // cichy zapis WLASNYM modelem: create() sam otwiera i domyka sesje
       // edycji, a szuflada formularza i jej bindingi zostaja nietkniete
       silentFeatureModel.currentLayer = pendingLayer;
@@ -963,6 +1096,7 @@ Column {
     }
 
     function onCleared() {
+      quickCaptureBar.kotwice = [];
       if (quickCaptureBar.odroczone.length > 0) {
         displayToast(qsTr("Kolejka odroczeń wyczyszczona przy zamknięciu projektu (%1) — zdjęcia zostały w DCIM").arg(quickCaptureBar.odroczone.length), "warning");
         quickCaptureBar.odroczone = [];
