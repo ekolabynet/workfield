@@ -190,6 +190,9 @@ Column {
   // wpis (warstwa + gotowy obiekt z pozycja i zdjeciem) czeka w kolejce
   // i materializuje sie zaraz po wyjsciu z trybu rysowania.
   property var odroczone: []
+  // decyzja "odraczamy" zapada przy tapnieciu kafelka; aparat zewnetrzny
+  // potrafi zresetowac stan aplikacji, wiec stanu nie czytamy po powrocie
+  property bool odroczenieFlow: false
 
   // WorkField: haptyka o sile z karty Teren (0 = wylaczona)
   function haptyka(baza) {
@@ -748,6 +751,10 @@ Column {
       displayToast(qsTr("Pozycja bez fixa — dokładność ograniczona"), "warning");
     }
 
+    // QuickCapture 2.0: decyzje o odroczeniu podejmujemy JUZ TERAZ —
+    // stan "digitize" moze nie przezyc wycieczki do aparatu zewnetrznego
+    odroczenieFlow = stateMachine.state === "digitize";
+
     // najpierw aparat, formularz otwiera sie po zdjeciu (lub po anulowaniu, bez foto)
     pendingLayer = layer;
     seriesLayer = layer;
@@ -853,7 +860,8 @@ Column {
     feature = applyRasterContext(feature, pendingLayer);
     // QuickCapture 2.0: w trakcie tyczenia nie ruszamy sesji edycji GPKG —
     // wpis czeka w kolejce i zapisze sie po zamknieciu geometrii
-    if (stateMachine.state === "digitize") {
+    if (odroczenieFlow || stateMachine.state === "digitize") {
+      odroczenieFlow = false;
       odroczone.push({
           "layer": pendingLayer,
           "feature": feature
@@ -863,6 +871,11 @@ Column {
       displayToast(qsTr("Odroczono do %1 — w kolejce: %2").arg(pendingLayer.name).arg(odroczone.length));
       pendingLayer = null;
       pendingFeature = null;
+      if (stateMachine.state !== "digitize") {
+        // aparat wybil nas z rysowania — wracamy; niedokonczona geometria
+        // zwykle czeka nietknieta w modelu rysowania
+        stateMachine.state = "digitize";
+      }
       return;
     }
     if (qfieldSettings.fastMode) {
@@ -908,6 +921,7 @@ Column {
     }
 
     function onResourceCanceled(path) {
+      quickCaptureBar.odroczenieFlow = false;
       if (qfieldSettings.fastMode) {
         // tryb szybki: anulowanie aparatu = swiadoma rezygnacja, bez zapisu
         // (wczesniej powstawal punkt bez zdjecia)
