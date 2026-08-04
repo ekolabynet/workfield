@@ -955,6 +955,14 @@ Page {
     }
   }
 
+  // WorkField: haptyka o sile z karty Teren (0 = wylaczona)
+  function haptyka(baza) {
+    const sila = typeof settings !== 'undefined' ? settings.valueInt('WorkField/haptykaSila', 3) : 3;
+    if (sila > 0 && typeof platformUtilities !== 'undefined') {
+      platformUtilities.vibrate(baza * sila);
+    }
+  }
+
   function confirm() {
     if (form.state === "ReadOnly") {
       return;
@@ -1009,6 +1017,10 @@ Page {
       }
     }
     master.ignoreChanges = false;
+    if (isSuccess) {
+      // WorkField: silne potwierdzenie zapisu obiektu — wyczuwalne w rekawicy
+      haptyka(80);
+    }
     if (!isSuccess && !errorPushed) {
       displayToast(qsTr('Unable to save changes'), 'error');
     }
