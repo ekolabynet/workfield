@@ -628,6 +628,127 @@ Popup {
         id: cloudPage
         spacing: 6
 
+        // ---- Zwrot biezacego projektu na chmure (plik po pliku, WebDAV) ----
+        QtObject {
+          id: zwrot
+
+          property bool wToku: false
+          property var katalogi: []
+          property var pliki: []
+          property int indeksKatalogu: 0
+          property int indeksPliku: 0
+          property string bazaLokalna: ""
+          property string bazaZdalna: ""
+          property string oczekiwany: ""
+
+          function start() {
+            if (wToku) {
+              return;
+            }
+            if (!photoGallery.chmuraKonto) {
+              displayToast(qsTr("Zwrot wymaga konta zespołowego (login i hasło aplikacji w ustawieniach chmury)"), "warning");
+              return;
+            }
+            if (!qgisProject || photoGallery.projectDir === "") {
+              displayToast(qsTr("Brak otwartego projektu"), "warning");
+              return;
+            }
+            bazaLokalna = photoGallery.projectDir;
+            const teraz = new Date();
+            const znacznik = Qt.formatDateTime(teraz, "yyyy-MM-dd_HHmm");
+            const nazwa = FileUtils.fileName(bazaLokalna) + "_" + znacznik + "_zwrot";
+            bazaZdalna = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/Kopie/" + photoGallery.chmuraLogin + "/" + nazwa;
+            katalogi = iface.listDirsRecursively(bazaLokalna);
+            pliki = iface.listFilesRecursively(bazaLokalna);
+            if (pliki.length === 0) {
+              displayToast(qsTr("Katalog projektu jest pusty — nie ma czego wysyłać"), "warning");
+              return;
+            }
+            wToku = true;
+            indeksKatalogu = -2;
+            indeksPliku = 0;
+            // najpierw /Kopie i /Kopie/<login> (moga nie istniec), potem baza zwrotu, potem podkatalogi
+            oczekiwany = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/Kopie";
+            photoGallery.chmuraStan = qsTr("zwrot: przygotowuję katalogi…");
+            iface.webdavMkcolAuth(oczekiwany, photoGallery.chmuraLogin, photoGallery.chmuraHaslo);
+          }
+
+          function nastepnyKatalog() {
+            indeksKatalogu += 1;
+            if (indeksKatalogu === -1) {
+              oczekiwany = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/Kopie/" + photoGallery.chmuraLogin;
+            } else if (indeksKatalogu === 0) {
+              oczekiwany = bazaZdalna;
+            } else if (indeksKatalogu <= katalogi.length) {
+              oczekiwany = bazaZdalna + "/" + katalogi[indeksKatalogu - 1];
+            } else {
+              nastepnyPlik();
+              return;
+            }
+            iface.webdavMkcolAuth(oczekiwany, photoGallery.chmuraLogin, photoGallery.chmuraHaslo);
+          }
+
+          function nastepnyPlik() {
+            if (indeksPliku >= pliki.length) {
+              wToku = false;
+              photoGallery.chmuraStan = "";
+              displayToast(qsTr("Zwrot wysłany na chmurę: %1 plików → Kopie/%2").arg(pliki.length).arg(photoGallery.chmuraLogin));
+              if (typeof quickCaptureBar !== 'undefined') {
+                quickCaptureBar.haptyka(80);
+              }
+              return;
+            }
+            const wzgledna = pliki[indeksPliku];
+            oczekiwany = bazaLokalna + "/" + wzgledna;
+            photoGallery.chmuraStan = qsTr("zwrot: %1 / %2 — %3").arg(indeksPliku + 1).arg(pliki.length).arg(wzgledna);
+            iface.uploadFileAuth(bazaZdalna + "/" + wzgledna, oczekiwany, photoGallery.chmuraLogin, photoGallery.chmuraHaslo);
+          }
+
+          function porazka(gdzie, blad) {
+            wToku = false;
+            photoGallery.chmuraStan = "";
+            displayToast(qsTr("Zwrot przerwany (%1): %2 — częściowy folder pozostał na chmurze, ponowna wysyłka nadpisze").arg(gdzie).arg(blad), "error");
+          }
+        }
+
+        Connections {
+          target: iface
+          enabled: zwrot.wToku
+
+          function onMkcolFinished(url) {
+            if (url === zwrot.oczekiwany) {
+              zwrot.nastepnyKatalog();
+            }
+          }
+
+          function onMkcolFailed(blad, url) {
+            if (url === zwrot.oczekiwany) {
+              zwrot.porazka(qsTr("katalog"), blad);
+            }
+          }
+
+          function onUploadFinished(path) {
+            if (path === zwrot.oczekiwany) {
+              zwrot.indeksPliku += 1;
+              zwrot.nastepnyPlik();
+            }
+          }
+
+          function onUploadFailed(blad, path) {
+            if (path === zwrot.oczekiwany) {
+              zwrot.porazka(qsTr("plik"), blad);
+            }
+          }
+        }
+
+        QfButton {
+          Layout.fillWidth: true
+          visible: photoGallery.chmuraKonto
+          enabled: !zwrot.wToku
+          text: zwrot.wToku ? qsTr("Wysyłanie zwrotu…") : qsTr("Wyślij zwrot bieżącego projektu na chmurę")
+          onClicked: zwrot.start()
+        }
+
         RowLayout {
           Layout.fillWidth: true
 

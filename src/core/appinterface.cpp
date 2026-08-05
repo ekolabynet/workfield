@@ -666,6 +666,64 @@ void AppInterface::uploadFileAuth( const QString &url, const QString &filePath, 
   } );
 }
 
+static void wfZbierz( const QString &baza, const QString &podkatalog, QStringList &katalogi, QStringList &pliki )
+{
+  const QDir dir( baza + ( podkatalog.isEmpty() ? QString() : QLatin1Char( '/' ) + podkatalog ) );
+  const QFileInfoList wpisy = dir.entryInfoList( QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden );
+  for ( const QFileInfo &wpis : wpisy )
+  {
+    const QString wzgledna = podkatalog.isEmpty() ? wpis.fileName() : podkatalog + QLatin1Char( '/' ) + wpis.fileName();
+    if ( wpis.isDir() )
+    {
+      katalogi << wzgledna;
+      wfZbierz( baza, wzgledna, katalogi, pliki );
+    }
+    else
+    {
+      pliki << wzgledna;
+    }
+  }
+}
+
+QStringList AppInterface::listDirsRecursively( const QString &dir )
+{
+  QStringList katalogi, pliki;
+  wfZbierz( dir, QString(), katalogi, pliki );
+  return katalogi;
+}
+
+QStringList AppInterface::listFilesRecursively( const QString &dir )
+{
+  QStringList katalogi, pliki;
+  wfZbierz( dir, QString(), katalogi, pliki );
+  return pliki;
+}
+
+void AppInterface::webdavMkcolAuth( const QString &url, const QString &user, const QString &password )
+{
+  static QNetworkAccessManager sManagerMkcol;
+  sManagerMkcol.setRedirectPolicy( QNetworkRequest::NoLessSafeRedirectPolicy );
+  QNetworkRequest request( ( QUrl( url ) ) );
+  if ( !user.isEmpty() )
+  {
+    const QByteArray dane = QStringLiteral( "%1:%2" ).arg( user, password ).toUtf8().toBase64();
+    request.setRawHeader( "Authorization", QByteArrayLiteral( "Basic " ) + dane );
+  }
+  QNetworkReply *reply = sManagerMkcol.sendCustomRequest( request, QByteArrayLiteral( "MKCOL" ) );
+  connect( reply, &QNetworkReply::finished, this, [this, reply, url]() {
+    const int status = reply->attribute( QNetworkRequest::HttpStatusCodeAttribute ).toInt();
+    if ( reply->error() == QNetworkReply::NoError || status == 405 )
+    {
+      emit mkcolFinished( url );
+    }
+    else
+    {
+      emit mkcolFailed( reply->errorString(), url );
+    }
+    reply->deleteLater();
+  } );
+}
+
 bool AppInterface::movePath( const QString &sourcePath, const QString &destinationPath )
 {
   if ( QFileInfo::exists( destinationPath ) )

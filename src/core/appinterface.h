@@ -199,6 +199,19 @@ class AppInterface : public QObject
      */
     Q_INVOKABLE bool movePath( const QString &sourcePath, const QString &destinationPath );
 
+    //! Wzgledne sciezki PODKATALOGOW \a dir (rekurencyjnie), rodzice przed dziecmi.
+    Q_INVOKABLE QStringList listDirsRecursively( const QString &dir );
+
+    //! Wzgledne sciezki PLIKOW \a dir (rekurencyjnie).
+    Q_INVOKABLE QStringList listFilesRecursively( const QString &dir );
+
+    /**
+     * Tworzy kolekcje WebDAV (MKCOL) z uwierzytelnieniem podstawowym.
+     * Odpowiedz 405 (kolekcja juz istnieje) traktowana jako sukces.
+     * Emituje mkcolFinished/mkcolFailed.
+     */
+    Q_INVOKABLE void webdavMkcolAuth( const QString &url, const QString &user, const QString &password );
+
     //! Adds raster at \a path to the project with a turbo pseudocolor renderer.
     Q_INVOKABLE bool addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style = QString(), const QString &groupName = QString() );
 
@@ -407,6 +420,8 @@ class AppInterface : public QObject
     void downloadFailed( const QString &error, const QString &path );
     void uploadFinished( const QString &path );
     void uploadFailed( const QString &error, const QString &path );
+    void mkcolFinished( const QString &url );
+    void mkcolFailed( const QString &error, const QString &url );
 
     //! Requests QField to set its map to the provided \a extent.
     void setMapExtent( const QgsRectangle &extent );
