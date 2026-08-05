@@ -293,6 +293,18 @@ Column {
       displayToast(qsTr("Kotwica: brak użytecznej pozycji — wpis utracony (zdjęcie w DCIM)"), "error");
       return;
     }
+    if (k.typ === "wierzcholek") {
+      if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount >= 1) {
+        const pkt = GeometryUtils.reprojectPoint(GeometryUtils.point(k.pozycja.x, k.pozycja.y), mapCanvas.mapSettings.destinationCrs, digitizingRubberband.model.crs);
+        digitizingRubberband.model.addVertexFromPoint(pkt);
+        haptyka(10);
+        if (timeout) {
+          displayToast(qsTr("Kotwica: wierzchołek z pozycji bieżącej (fix z chwili tapnięcia nie nadszedł)"), "warning");
+        }
+        return;
+      }
+      // ksztalt juz zamkniety/porzucony — spozniona kotwica jako punkt ratunkowy
+    }
     const wkt = "POINT(" + k.pozycja.x + " " + k.pozycja.y + ")";
     const geomMap = GeometryUtils.createGeometryFromWkt(wkt);
     const geomLayer = GeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, k.layer.crs);
@@ -863,7 +875,9 @@ Column {
     // Pierwszy fix o czasie >= tapniecia zamrozi pozycje (obsluzKotwice),
     // zwykle zanim uzytkownik skonczy kadrowac zdjecie.
     if (kotwicaTryb && !distantMode) {
+      const wierzcholekKsztaltu = bezZdjecia === true && typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1;
       kotwice.push({
+          "typ": wierzcholekKsztaltu ? "wierzcholek" : "punkt",
           "layer": layer,
           "foto": "",
           "ujecie": "",
@@ -879,16 +893,31 @@ Column {
     // B: czysty punkt bez aparatu (tyczenie ciagow) — koniec przeplywu tutaj
     if (bezZdjecia === true) {
       if (!kotwicaTryb) {
-        const feature = makeFeatureAt(layer);
-        if (!feature) {
-          displayToast(qsTr("Brak użytecznej pozycji — punkt nie powstał"), "warning");
-          return;
+        if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1) {
+          const pos0 = positionSource.projectedPosition;
+          if (pos0 && isFinite(pos0.x) && isFinite(pos0.y) && !(pos0.x === 0 && pos0.y === 0)) {
+            const pkt0 = GeometryUtils.reprojectPoint(GeometryUtils.point(pos0.x, pos0.y), mapCanvas.mapSettings.destinationCrs, digitizingRubberband.model.crs);
+            digitizingRubberband.model.addVertexFromPoint(pkt0);
+          } else {
+            displayToast(qsTr("Brak użytecznej pozycji — wierzchołek nie powstał"), "warning");
+          }
+        } else {
+          const feature = makeFeatureAt(layer);
+          if (!feature) {
+            displayToast(qsTr("Brak użytecznej pozycji — punkt nie powstał"), "warning");
+            return;
+          }
+          silentFeatureModel.currentLayer = layer;
+          silentFeatureModel.feature = feature;
+          if (!silentFeatureModel.create()) {
+            displayToast(qsTr("Nie udało się zapisać punktu do %1").arg(layer.name), "error");
+          }
         }
-        silentFeatureModel.currentLayer = layer;
-        silentFeatureModel.feature = feature;
-        if (!silentFeatureModel.create()) {
-          displayToast(qsTr("Nie udało się zapisać punktu do %1").arg(layer.name), "error");
-        }
+      }
+      // tapniecie kafelka zgasilo stan rysowania — jesli w modelu czeka
+      // niedokonczona geometria, wracamy do niej (pasek zatwierdzania wraca)
+      if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1 && stateMachine.state !== "digitize") {
+        stateMachine.state = "digitize";
       }
       return;
     }
