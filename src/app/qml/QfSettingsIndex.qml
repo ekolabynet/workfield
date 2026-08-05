@@ -36,6 +36,10 @@ ListView {
       iconName: "ic_cloud_white_24dp"
     }
     ListElement {
+      categoryId: "workfieldCloud"
+      iconName: "ic_cloud_active_24dp"
+    }
+    ListElement {
       categoryId: "advanced"
       iconName: "ic_settings_white_24dp"
     }
@@ -59,6 +63,7 @@ ListView {
         "interface": [qsTr("Interfejs"), qsTr("Wygląd, czcionki, język, wtyczki")],
         "positioning": [qsTr("Lokalizacja"), qsTr("GNSS, dokładność, NTRIP")],
         "network": [qsTr("Sieć"), qsTr("Proxy i uwierzytelnianie")],
+        "workfieldCloud": [qsTr("Chmura WorkField"), qsTr("Konto zespołowe, zwroty projektów")],
         "advanced": [qsTr("Zaawansowane"), qsTr("Renderowanie podglądu, autozapis")],
         "variables": [qsTr("Zmienne"), qsTr("Zmienne wyrażeń projektu")]
       })
