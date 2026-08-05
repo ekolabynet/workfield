@@ -34,10 +34,10 @@ ColumnLayout {
   function zapisz() {
     settings.setValue("workfield/cloud-url", poleSerwer.text.replace(/\/$/, ""));
     settings.setValue("workfield/cloud-user", poleLogin.text.trim());
-    settings.setValue("workfield/cloud-pass", poleHaslo.text);
+    settings.setValue("workfield/cloud-pass", poleHaslo.text.trim());
     serwer = poleSerwer.text.replace(/\/$/, "");
     login = poleLogin.text.trim();
-    haslo = poleHaslo.text;
+    haslo = poleHaslo.text.trim();
   }
 
   //! Sprawdza połączenie zapytaniem PROPFIND o katalog domowy użytkownika.

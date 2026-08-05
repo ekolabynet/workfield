@@ -657,7 +657,7 @@ Popup {
             const teraz = new Date();
             const znacznik = Qt.formatDateTime(teraz, "yyyy-MM-dd_HHmm");
             const nazwa = FileUtils.fileName(bazaLokalna) + "_" + znacznik + "_zwrot";
-            bazaZdalna = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/Kopie/" + photoGallery.chmuraLogin + "/" + nazwa;
+            bazaZdalna = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/WorkField/Kopie/" + photoGallery.chmuraLogin + "/" + nazwa;
             katalogi = iface.listDirsRecursively(bazaLokalna);
             pliki = iface.listFilesRecursively(bazaLokalna);
             if (pliki.length === 0) {
@@ -665,18 +665,21 @@ Popup {
               return;
             }
             wToku = true;
-            indeksKatalogu = -2;
+            indeksKatalogu = -3;
             indeksPliku = 0;
-            // najpierw /Kopie i /Kopie/<login> (moga nie istniec), potem baza zwrotu, potem podkatalogi
-            oczekiwany = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/Kopie";
+            // struktura firmowa pod /WorkField: kolejno WorkField, Kopie,
+            // Kopie/<login>, baza zwrotu, podkatalogi
+            oczekiwany = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/WorkField";
             photoGallery.chmuraStan = qsTr("zwrot: przygotowuję katalogi…");
             iface.webdavMkcolAuth(oczekiwany, photoGallery.chmuraLogin, photoGallery.chmuraHaslo);
           }
 
           function nastepnyKatalog() {
             indeksKatalogu += 1;
-            if (indeksKatalogu === -1) {
-              oczekiwany = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/Kopie/" + photoGallery.chmuraLogin;
+            if (indeksKatalogu === -2) {
+              oczekiwany = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/WorkField/Kopie";
+            } else if (indeksKatalogu === -1) {
+              oczekiwany = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/WorkField/Kopie/" + photoGallery.chmuraLogin;
             } else if (indeksKatalogu === 0) {
               oczekiwany = bazaZdalna;
             } else if (indeksKatalogu <= katalogi.length) {
@@ -692,7 +695,7 @@ Popup {
             if (indeksPliku >= pliki.length) {
               wToku = false;
               photoGallery.chmuraStan = "";
-              displayToast(qsTr("Zwrot wysłany na chmurę: %1 plików → Kopie/%2").arg(pliki.length).arg(photoGallery.chmuraLogin));
+              displayToast(qsTr("Zwrot wysłany na chmurę: %1 plików → WorkField/Kopie/%2").arg(pliki.length).arg(photoGallery.chmuraLogin));
               if (typeof quickCaptureBar !== 'undefined') {
                 quickCaptureBar.haptyka(80);
               }

@@ -250,21 +250,36 @@ Column {
       return;
     }
     const pi = positionSource.positionInformation;
-    if (!pi || !pi.utcDateTime) {
-      return;
-    }
-    const fixMs = pi.utcDateTime.getTime();
     const pos = positionSource.projectedPosition;
+    const swiezyFix = pi && pi.utcDateTime;
+    const fixMs = swiezyFix ? pi.utcDateTime.getTime() : 0;
     const pozycjaOk = pos && isFinite(pos.x) && isFinite(pos.y) && !(pos.x === 0 && pos.y === 0);
     const terazMs = Date.now();
     const zostaja = [];
     for (let i = 0; i < kotwice.length; ++i) {
       const k = kotwice[i];
-      if (pozycjaOk && fixMs >= k.tapUtcMs) {
-        zapiszKotwice(k, pos, pi, false);
-      } else if (terazMs > k.deadlineMs) {
-        zapiszKotwice(k, pozycjaOk ? pos : null, pi, true);
+      // faza 1: zamrozenie pozycji pierwszym fixem z czasu >= tapniecia
+      if (!k.pozycja && swiezyFix && pozycjaOk && fixMs >= k.tapUtcMs) {
+        k.pozycja = ({
+            "x": pos.x,
+            "y": pos.y
+          });
+        k.pi = pi;
+      }
+      if (k.pozycja && !k.czekaNaFoto) {
+        zapiszKotwice(k, false);
+      } else if (!k.czekaNaFoto && terazMs > k.deadlineMs) {
+        // timeout bez zamrozonej pozycji: ostatnia deska — pozycja biezaca
+        if (!k.pozycja && pozycjaOk) {
+          k.pozycja = ({
+              "x": pos.x,
+              "y": pos.y
+            });
+          k.pi = pi;
+        }
+        zapiszKotwice(k, true);
       } else {
+        // czekaNaFoto: aparat wciaz otwarty — cierpliwie, bez terminu
         zostaja.push(k);
       }
     }
@@ -273,15 +288,15 @@ Column {
     }
   }
 
-  function zapiszKotwice(k, pos, pi, timeout) {
-    if (!k.layer || !pos) {
+  function zapiszKotwice(k, timeout) {
+    if (!k.layer || !k.pozycja) {
       displayToast(qsTr("Kotwica: brak użytecznej pozycji — wpis utracony (zdjęcie w DCIM)"), "error");
       return;
     }
-    const wkt = "POINT(" + pos.x + " " + pos.y + ")";
+    const wkt = "POINT(" + k.pozycja.x + " " + k.pozycja.y + ")";
     const geomMap = GeometryUtils.createGeometryFromWkt(wkt);
     const geomLayer = GeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, k.layer.crs);
-    let feature = FeatureUtils.createFeature(k.layer, geomLayer, pi);
+    let feature = FeatureUtils.createFeature(k.layer, geomLayer, k.pi);
     if (k.foto !== "") {
       feature.setAttribute("foto", k.foto);
       if (k.ujecie !== undefined && k.ujecie !== "") {
@@ -759,6 +774,7 @@ Column {
             "color": d.kolor,
             "shape": punkt ? "circle" : g === Qgis.GeometryType.Line ? "rounded" : "square",
             "mode": punkt ? "capture" : (d.zdjecie === false ? "digitize" : "photogeom"),
+            "bezZdjecia": punkt && d.zdjecie === false,
             "custom": false
           });
       }
@@ -839,9 +855,44 @@ Column {
     return FeatureUtils.createFeature(layer, geomLayer, positionSource.positionInformation);
   }
 
-  function captureInto(layer) {
+  function captureInto(layer, bezZdjecia) {
     haptyka(15);
     tapUtcMs = Date.now();
+
+    // Kotwica dwufazowa — faza 1: lapacz uzbraja sie JUZ przy tapnieciu.
+    // Pierwszy fix o czasie >= tapniecia zamrozi pozycje (obsluzKotwice),
+    // zwykle zanim uzytkownik skonczy kadrowac zdjecie.
+    if (kotwicaTryb && !distantMode) {
+      kotwice.push({
+          "layer": layer,
+          "foto": "",
+          "ujecie": "",
+          "tapUtcMs": tapUtcMs,
+          "deadlineMs": tapUtcMs + 30000,
+          "pozycja": null,
+          "pi": null,
+          "czekaNaFoto": bezZdjecia === true ? false : true
+        });
+      kotwice = kotwice;
+    }
+
+    // B: czysty punkt bez aparatu (tyczenie ciagow) — koniec przeplywu tutaj
+    if (bezZdjecia === true) {
+      if (!kotwicaTryb) {
+        const feature = makeFeatureAt(layer);
+        if (!feature) {
+          displayToast(qsTr("Brak użytecznej pozycji — punkt nie powstał"), "warning");
+          return;
+        }
+        silentFeatureModel.currentLayer = layer;
+        silentFeatureModel.feature = feature;
+        if (!silentFeatureModel.create()) {
+          displayToast(qsTr("Nie udało się zapisać punktu do %1").arg(layer.name), "error");
+        }
+      }
+      return;
+    }
+
     if (distantMode) {
       const pos = positionSource.projectedPosition;
       if (!pos || !isFinite(pos.x) || !isFinite(pos.y) || (pos.x === 0 && pos.y === 0)) {
@@ -1001,18 +1052,37 @@ Column {
     }
     if (qfieldSettings.fastMode) {
       if (kotwicaTryb) {
-        // Kotwica czasowa: create() wykona sie przy fixie z chwili tapniecia
-        kotwice.push({
-            "layer": pendingLayer,
-            "foto": photoPath,
-            "ujecie": typeof cameraSource !== 'undefined' && cameraSource ? cameraSource.photoShotType : "",
-            "tapUtcMs": tapUtcMs > 0 ? tapUtcMs : Date.now(),
-            "deadlineMs": Date.now() + 30000
-          });
+        // faza 2: zdjecie dokleja sie do lapacza uzbrojonego przy tapnieciu;
+        // jesli pozycja juz zamrozona — punkt powstaje natychmiast
+        let zwiazano = false;
+        for (let i = kotwice.length - 1; i >= 0; --i) {
+          if (kotwice[i].czekaNaFoto) {
+            kotwice[i].foto = photoPath;
+            kotwice[i].ujecie = typeof cameraSource !== 'undefined' && cameraSource ? cameraSource.photoShotType : "";
+            kotwice[i].czekaNaFoto = false;
+            kotwice[i].deadlineMs = Date.now() + 30000;
+            zwiazano = true;
+            break;
+          }
+        }
+        if (!zwiazano) {
+          // asekuracja: lapacza nie bylo (np. tryb wlaczony w trakcie) — jak v1
+          kotwice.push({
+              "layer": pendingLayer,
+              "foto": photoPath,
+              "ujecie": typeof cameraSource !== 'undefined' && cameraSource ? cameraSource.photoShotType : "",
+              "tapUtcMs": tapUtcMs > 0 ? tapUtcMs : Date.now(),
+              "deadlineMs": Date.now() + 30000,
+              "pozycja": null,
+              "pi": null,
+              "czekaNaFoto": false
+            });
+        }
         kotwice = kotwice;
         haptyka(15);
         pendingLayer = null;
         pendingFeature = null;
+        obsluzKotwice();
         return;
       }
       // cichy zapis WLASNYM modelem: create() sam otwiera i domyka sesje
@@ -1058,6 +1128,14 @@ Column {
 
     function onResourceCanceled(path) {
       quickCaptureBar.odroczenieFlow = false;
+      // kotwica: porzucone zdjecie = porzucony lapacz (najnowszy czekajacy)
+      for (let i = quickCaptureBar.kotwice.length - 1; i >= 0; --i) {
+        if (quickCaptureBar.kotwice[i].czekaNaFoto) {
+          quickCaptureBar.kotwice.splice(i, 1);
+          quickCaptureBar.kotwice = quickCaptureBar.kotwice;
+          break;
+        }
+      }
       if (qfieldSettings.fastMode) {
         // tryb szybki: anulowanie aparatu = swiadoma rezygnacja, bez zapisu
         // (wczesniej powstawal punkt bez zdjecia)
@@ -1176,7 +1254,7 @@ Column {
             if (stateMachine.state === "digitize") {
               stateMachine.state = "browse";
             }
-            quickCaptureBar.captureInto(modelData.layer);
+            quickCaptureBar.captureInto(modelData.layer, modelData.bezZdjecia === true);
           }
         }
         onPressAndHold: {
