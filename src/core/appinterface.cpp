@@ -630,6 +630,52 @@ bool AppInterface::setProjectCrs( const QString &authid )
 #include <qgsrasterbandstats.h>
 #include "qgsquickmapsettings.h"
 
+void AppInterface::uploadFileAuth( const QString &url, const QString &filePath, const QString &user, const QString &password )
+{
+  static QNetworkAccessManager sManagerUpload;
+  sManagerUpload.setRedirectPolicy( QNetworkRequest::NoLessSafeRedirectPolicy );
+
+  QFile *file = new QFile( filePath );
+  if ( !file->open( QIODevice::ReadOnly ) )
+  {
+    delete file;
+    emit uploadFailed( QStringLiteral( "Cannot read file" ), filePath );
+    return;
+  }
+
+  QNetworkRequest request( ( QUrl( url ) ) );
+  if ( !user.isEmpty() )
+  {
+    const QByteArray dane = QStringLiteral( "%1:%2" ).arg( user, password ).toUtf8().toBase64();
+    request.setRawHeader( "Authorization", QByteArrayLiteral( "Basic " ) + dane );
+  }
+  request.setHeader( QNetworkRequest::ContentTypeHeader, QStringLiteral( "application/octet-stream" ) );
+
+  QNetworkReply *reply = sManagerUpload.put( request, file );
+  file->setParent( reply );
+  connect( reply, &QNetworkReply::finished, this, [this, reply, filePath]() {
+    if ( reply->error() != QNetworkReply::NoError )
+    {
+      emit uploadFailed( reply->errorString(), filePath );
+    }
+    else
+    {
+      emit uploadFinished( filePath );
+    }
+    reply->deleteLater();
+  } );
+}
+
+bool AppInterface::movePath( const QString &sourcePath, const QString &destinationPath )
+{
+  if ( QFileInfo::exists( destinationPath ) )
+  {
+    return false;
+  }
+  QDir().mkpath( QFileInfo( destinationPath ).absolutePath() );
+  return QDir().rename( sourcePath, destinationPath );
+}
+
 void AppInterface::downloadFileAuth( const QString &url, const QString &destinationPath, const QString &user, const QString &password )
 {
   static QNetworkAccessManager sManagerAuth;

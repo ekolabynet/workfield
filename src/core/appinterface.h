@@ -184,6 +184,21 @@ class AppInterface : public QObject
      */
     Q_INVOKABLE void downloadFileAuth( const QString &url, const QString &destinationPath, const QString &user, const QString &password );
 
+    /**
+     * Wysyla plik pod \a url metoda PUT z uwierzytelnieniem podstawowym
+     * (WebDAV/Nextcloud). Emituje uploadFinished/uploadFailed.
+     */
+    Q_INVOKABLE void uploadFileAuth( const QString &url, const QString &filePath, const QString &user, const QString &password );
+
+    /**
+     * Przenosi plik lub katalog (QDir::rename; w obrebie jednego systemu
+     * plikow natychmiastowe takze dla duzych projektow). Tworzy katalog
+     * nadrzedny celu. Zwraca false, gdy cel istnieje albo rename niemozliwy
+     * (swiadomie bez awaryjnego kopiowania - wolimy glosna odmowe niz
+     * dlugie, ciche kopiowanie gigabajtow).
+     */
+    Q_INVOKABLE bool movePath( const QString &sourcePath, const QString &destinationPath );
+
     //! Adds raster at \a path to the project with a turbo pseudocolor renderer.
     Q_INVOKABLE bool addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style = QString(), const QString &groupName = QString() );
 
@@ -390,6 +405,8 @@ class AppInterface : public QObject
     void loadProjectEnded( const QString &path, const QString &name );
     void downloadFinished( const QString &path );
     void downloadFailed( const QString &error, const QString &path );
+    void uploadFinished( const QString &path );
+    void uploadFailed( const QString &error, const QString &path );
 
     //! Requests QField to set its map to the provided \a extent.
     void setMapExtent( const QgsRectangle &extent );

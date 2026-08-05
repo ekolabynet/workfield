@@ -179,8 +179,25 @@ Popup {
       }
       const katalog = photoGallery.katalogSzablonow();
       if (FileUtils.unzipTo(sciezka, katalog)) {
-        photoGallery.chmuraStan = qsTr("gotowe: %1").arg(photoGallery.chmuraPobierany);
-        displayToast(qsTr("Szablon pobrany: %1").arg(photoGallery.chmuraPobierany));
+        // Brama chmurowa: paczka z projekt.qgs/qgz to PROJEKT - kierujemy go
+        // do Imported Projects, zeby byl widoczny w "Otworz projekt".
+        // Szablony (bez pliku projektu o tej nazwie) zostaja w Szablonach.
+        const nazwa = FileUtils.fileName(sciezka, false);
+        const rozpakowane = katalog + "/" + nazwa;
+        const jestProjektem = FileUtils.fileExists(rozpakowane + "/projekt.qgs") || FileUtils.fileExists(rozpakowane + "/projekt.qgz");
+        if (jestProjektem) {
+          const celProjektu = iface.dataRoot() + "Imported Projects/" + nazwa;
+          if (iface.movePath(rozpakowane, celProjektu)) {
+            photoGallery.chmuraStan = qsTr("projekt gotowy: %1").arg(nazwa);
+            displayToast(qsTr("Projekt %1 pobrany — znajdziesz go w \"Otwórz projekt\"").arg(nazwa));
+          } else {
+            photoGallery.chmuraStan = qsTr("pobrano: %1 (w Szablonach)").arg(nazwa);
+            displayToast(qsTr("Projekt %1 istnieje już na liście — pobrana kopia została w Szablonach").arg(nazwa), "warning");
+          }
+        } else {
+          photoGallery.chmuraStan = qsTr("gotowe: %1").arg(photoGallery.chmuraPobierany);
+          displayToast(qsTr("Szablon pobrany: %1").arg(photoGallery.chmuraPobierany));
+        }
       } else {
         photoGallery.chmuraStan = qsTr("pobrano, ale nie udało się rozpakować");
       }
