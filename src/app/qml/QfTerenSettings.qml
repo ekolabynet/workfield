@@ -180,6 +180,15 @@ Popup {
 
     Button {
       Layout.fillWidth: true
+      text: qsTr("Pliki projektu (edytor)…")
+      onClicked: {
+        terenSettings.close();
+        textEditor.open();
+      }
+    }
+
+    Button {
+      Layout.fillWidth: true
       text: qsTr("Klawisze szybkiego zapisu…")
       onClicked: {
         terenSettings.close();

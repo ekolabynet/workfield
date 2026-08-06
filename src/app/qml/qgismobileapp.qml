@@ -5801,6 +5801,10 @@ ApplicationWindow {
     id: terenSettings
   }
 
+  QfTextEditor {
+    id: textEditor
+  }
+
   QfSubLayerPicker {
     id: subLayerPicker
     t: Theme

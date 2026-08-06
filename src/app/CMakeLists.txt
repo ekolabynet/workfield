@@ -138,6 +138,7 @@ set(QFIELD_APP_QML_FILES
     qml/QfBasemapScreen.qml
     qml/QfCaptureSettings.qml
     qml/QfTerenSettings.qml
+    qml/QfTextEditor.qml
     qml/QfColorPicker.qml
     qml/QfDataDrawer.qml
     qml/QfLayerExportDialog.qml
