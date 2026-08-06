@@ -32,6 +32,10 @@ broader audience with different priorities.
   (`obiekt_*`), buffered raster value sampling.
 - **Interface**: Material 3 based theme, status bar with GNSS coordinates and
   quality class (FIX/FLOAT/GPS), layout tuned for large touch targets.
+- **Config editor**: in-app text editor for project configuration
+  files (live JSON validation with error location, format-aware field
+  hints, automatic safety backups) — so that non-programmers can make
+  safe config changes in the field.
 - **Basemaps**: WMS/WMTS presets for Polish national services (GUGiK).
 - **Branding**: distinct name, icon, and splash screen to avoid any confusion
   with official QField packages.
