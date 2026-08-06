@@ -40,13 +40,15 @@ Popup {
   property int bladPozycja: 0
   property int bladWiersz: 1
   property var hint: null
+  property bool czekamNaKolor: false
+  property int koloroweMiejsce: 0
 
   readonly property var slownik: ({
       "klawisze": qsTr("lista klawiszy paska szybkiego zapisu"),
       "odleglosci": qsTr("presety odległości [m] dla trybu ODL (obiekt daleko)"),
       "warstwa": qsTr("nazwa warstwy w projekcie, do której trafia zapis — musi istnieć"),
       "etykieta": qsTr("napis na kafelku (najlepiej 1–2 znaki)"),
-      "kolor": qsTr("kolor kafelka w zapisie #RRGGBB — podgląd obok"),
+      "kolor": qsTr("kolor kafelka #RRGGBB — tapnij kwadracik obok, aby wybrać z palety"),
       "zdjecie": qsTr("false = czysty punkt / tyczenie bez aparatu; brak pola = ze zdjęciem"),
       "rozmiar": qsTr("wielkość kafelka w px, 40–120; brak pola = 56 — podgląd w ⅓ skali obok"),
       "ustawienia": qsTr("opcjonalna sekcja: zachowanie i geometria paska QuickCapture"),
@@ -271,6 +273,45 @@ Popup {
     hint = h;
   }
 
+  // ---- paleta kolorow (wspolny picker aplikacji) ----
+  function otworzPalete() {
+    if (hint === null || hint.pole !== "kolor") {
+      return;
+    }
+    koloroweMiejsce = obszar.cursorPosition;
+    czekamNaKolor = true;
+    colorPicker.allowAlpha = false;
+    colorPicker.openFor(hint.kolor !== "" ? hint.kolor : "#FF7043");
+  }
+
+  function podmienKolor(chosen) {
+    let hex = String(chosen);
+    if (hex.length === 9) {
+      hex = "#" + hex.substring(3);
+    }
+    hex = hex.toUpperCase();
+    const t = obszar.text;
+    const poz = Math.min(koloroweMiejsce, t.length);
+    const start = t.lastIndexOf('\n', poz - 1) + 1;
+    let koniec = t.indexOf('\n', poz);
+    if (koniec === -1) {
+      koniec = t.length;
+    }
+    const linia = t.substring(start, koniec);
+    let nowa;
+    if (/#[0-9A-Fa-f]{6}/.test(linia)) {
+      nowa = linia.replace(/#[0-9A-Fa-f]{6}/, hex);
+    } else if (/"kolor"\s*:\s*"[^"]*"/.test(linia)) {
+      nowa = linia.replace(/("kolor"\s*:\s*")[^"]*(")/, "$1" + hex + "$2");
+    } else {
+      displayToast(qsTr("Nie znalazłem pola koloru w tej linii"), "warning");
+      return;
+    }
+    obszar.text = t.substring(0, start) + nowa + t.substring(koniec);
+    obszar.cursorPosition = Math.min(poz, obszar.text.length);
+    odswiezHint();
+  }
+
   // ---- wzorcowy wpis ----
   function pierwszaPunktowa() {
     if (typeof ProjectUtils === 'undefined' || !qgisProject) {
@@ -410,6 +451,20 @@ Popup {
     onTriggered: {
       textEditor.walidujTeraz();
       textEditor.odswiezHint();
+    }
+  }
+
+  Connections {
+    target: colorPicker
+    enabled: textEditor.czekamNaKolor
+
+    function onColorPicked(chosen) {
+      textEditor.podmienKolor(chosen);
+    }
+
+    function onClosed() {
+      textEditor.czekamNaKolor = false;
+      colorPicker.allowAlpha = true;
     }
   }
 
@@ -563,7 +618,7 @@ Popup {
         spacing: 10
 
         Rectangle {
-          visible: textEditor.hint !== null && textEditor.hint.kolor !== ""
+          visible: textEditor.hint !== null && textEditor.hint.pole === "kolor"
           Layout.alignment: Qt.AlignVCenter
           width: 28
           height: 28
@@ -571,6 +626,12 @@ Popup {
           color: textEditor.hint !== null && textEditor.hint.kolor !== "" ? textEditor.hint.kolor : "transparent"
           border.color: "white"
           border.width: 1
+
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -10
+            onClicked: textEditor.otworzPalete()
+          }
         }
 
         Item {

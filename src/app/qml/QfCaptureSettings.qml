@@ -89,6 +89,27 @@ Popup {
     return paleta[(i + 1) % paleta.length];
   }
 
+  // przytrzymanie koloru = pelny picker (tap = karuzela jak dotad)
+  property int kolorDlaIndeksu: -1
+
+  Connections {
+    target: colorPicker
+    enabled: captureSettings.kolorDlaIndeksu >= 0
+
+    function onColorPicked(chosen) {
+      let hex = String(chosen);
+      if (hex.length === 9) {
+        hex = "#" + hex.substring(3);
+      }
+      captureSettings.zmienPole(captureSettings.kolorDlaIndeksu, "kolor", hex.toUpperCase());
+    }
+
+    function onClosed() {
+      captureSettings.kolorDlaIndeksu = -1;
+      colorPicker.allowAlpha = true;
+    }
+  }
+
   function dodaj(layer) {
     if (!layer) {
       return;
@@ -180,6 +201,11 @@ Popup {
             MouseArea {
               anchors.fill: parent
               onClicked: captureSettings.zmienPole(index, "kolor", captureSettings.nastepnyKolor(modelData.kolor))
+              onPressAndHold: {
+                captureSettings.kolorDlaIndeksu = index;
+                colorPicker.allowAlpha = false;
+                colorPicker.openFor(modelData.kolor);
+              }
             }
           }
 
