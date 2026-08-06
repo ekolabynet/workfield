@@ -48,7 +48,15 @@ Popup {
       "etykieta": qsTr("napis na kafelku (najlepiej 1–2 znaki)"),
       "kolor": qsTr("kolor kafelka w zapisie #RRGGBB — podgląd obok"),
       "zdjecie": qsTr("false = czysty punkt / tyczenie bez aparatu; brak pola = ze zdjęciem"),
-      "rozmiar": qsTr("wielkość kafelka w px, 40–120; brak pola = 56 — podgląd w ⅓ skali obok")
+      "rozmiar": qsTr("wielkość kafelka w px, 40–120; brak pola = 56 — podgląd w ⅓ skali obok"),
+      "ustawienia": qsTr("opcjonalna sekcja: zachowanie i geometria paska QuickCapture"),
+      "krawedz": qsTr("strona ekranu dla paska: \"prawa\" (domyślnie) lub \"lewa\" (leworęczni)"),
+      "wyrownanie": qsTr("wyrównanie przycisków w pasku: \"lewo\" / \"srodek\" (domyślnie) / \"prawo\""),
+      "sekcjaUstawien": qsTr("\"zwijana\" = uchwyt ▴/▾ (domyślnie); \"stala\" = sekcja zawsze widoczna"),
+      "rozmiarKafelka": qsTr("domyślny rozmiar kafelków bez własnego pola rozmiar: px 40–120 (domyślnie 56)"),
+      "odstep": qsTr("pionowa przerwa między przyciskami paska: px 0–24 (domyślnie 10)"),
+      "seriaMs": qsTr("interwał serii wierzchołków przy przytrzymaniu: ms 250–5000 (domyślnie 1000)"),
+      "kotwicaLimitS": qsTr("ile sekund kotwica czeka na fix: 5–120 (domyślnie 30)")
     })
 
   background: Rectangle {
@@ -249,7 +257,7 @@ Popup {
       if (mk) {
         h.kolor = mk[0];
       }
-    } else if (h.pole === "rozmiar") {
+    } else if (h.pole === "rozmiar" || h.pole === "rozmiarKafelka") {
       const mr = linia.match(/:\s*(\d+)/);
       if (mr) {
         h.rozmiar = parseInt(mr[1]);

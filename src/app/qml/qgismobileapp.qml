@@ -4906,8 +4906,7 @@ ApplicationWindow {
 
   QfQuickCaptureBar {
     id: quickCaptureBar
-    anchors.right: parent.right
-    anchors.rightMargin: 8
+    x: quickCaptureBar.qcKrawedz === "lewa" ? 8 : parent.width - quickCaptureBar.width - 8
     anchors.verticalCenter: parent.verticalCenter
   }
 

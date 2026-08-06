@@ -69,10 +69,35 @@ Column {
 
   onUstawieniaZwinieteChanged: settings.setValue('WorkField/qcZwiniete', ustawieniaZwiniete)
 
+  // WorkField: sekcja "ustawienia" z workfield_klawisze.json (opcjonalna,
+  // widelki pilnowane w wczytajUstawienia; brak pola = wartosc domyslna)
+  property string qcKrawedz: "prawa"
+  property string qcWyrownanie: "srodek"
+  property string qcSekcja: "zwijana"
+  property int qcRozmiarDomyslny: 56
+  property int qcOdstep: 10
+  property int qcSeriaMs: 1000
+  property int qcKotwicaLimitMs: 30000
+
+  readonly property bool zwinieteEfektywne: qcSekcja === "zwijana" && ustawieniaZwiniete
+
+  function wczytajUstawienia(defs) {
+    const u = defs && defs.ustawienia ? defs.ustawienia : ({});
+    qcKrawedz = u.krawedz === "lewa" ? "lewa" : "prawa";
+    qcWyrownanie = u.wyrownanie === "lewo" || u.wyrownanie === "prawo" ? u.wyrownanie : "srodek";
+    qcSekcja = u.sekcjaUstawien === "stala" ? "stala" : "zwijana";
+    qcRozmiarDomyslny = typeof u.rozmiarKafelka === 'number' && u.rozmiarKafelka >= 40 && u.rozmiarKafelka <= 120 ? Math.round(u.rozmiarKafelka) : 56;
+    qcOdstep = typeof u.odstep === 'number' && u.odstep >= 0 && u.odstep <= 24 ? Math.round(u.odstep) : 10;
+    qcSeriaMs = typeof u.seriaMs === 'number' && u.seriaMs >= 250 && u.seriaMs <= 5000 ? Math.round(u.seriaMs) : 1000;
+    qcKotwicaLimitMs = (typeof u.kotwicaLimitS === 'number' && u.kotwicaLimitS >= 5 && u.kotwicaLimitS <= 120 ? Math.round(u.kotwicaLimitS) : 30) * 1000;
+  }
+
   Rectangle {
     width: 56
     height: 28
     radius: 8
+    visible: quickCaptureBar.qcSekcja === "zwijana"
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
     color: "#546E7A"
     border.color: "#003D33"
     border.width: 1
@@ -102,8 +127,8 @@ Column {
     width: 48
     height: 48
     round: true
-    visible: !quickCaptureBar.ustawieniaZwiniete
-    anchors.horizontalCenter: parent.horizontalCenter
+    visible: !quickCaptureBar.zwinieteEfektywne
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
 
     bgcolor: qfieldSettings.fastMode ? "#FFC107" : Theme.toolButtonBackgroundSemiOpaqueColor
     iconSource: Theme.getThemeVectorIcon(qfieldSettings.fastMode ? "ic_flash_on_black_24dp" : "ic_flash_off_black_24dp")
@@ -121,7 +146,8 @@ Column {
     width: 56
     height: 56
     radius: width / 2
-    visible: !quickCaptureBar.ustawieniaZwiniete
+    visible: !quickCaptureBar.zwinieteEfektywne
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
     color: quickCaptureBar.distantMode ? "#FFC107" : "#546E7A"
     border.color: "#003D33"
     border.width: 2
@@ -151,7 +177,8 @@ Column {
     width: 56
     height: 56
     radius: width / 2
-    visible: !quickCaptureBar.ustawieniaZwiniete || quickCaptureBar.kotwice.length > 0
+    visible: !quickCaptureBar.zwinieteEfektywne || quickCaptureBar.kotwice.length > 0
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
     color: quickCaptureBar.kotwicaTryb ? "#1565C0" : "#546E7A"
     border.color: "#0D2C4F"
     border.width: 2
@@ -194,6 +221,7 @@ Column {
     width: 56
     height: 56
     radius: width / 2
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
     color: "#FFC107"
     border.color: "#3E2723"
     border.width: 2
@@ -231,7 +259,8 @@ Column {
     width: 56
     height: 56
     radius: width / 2
-    visible: !quickCaptureBar.ustawieniaZwiniete
+    visible: !quickCaptureBar.zwinieteEfektywne
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
     color: "#8899A6"
     border.color: "#003D33"
     border.width: 2
@@ -761,7 +790,7 @@ Column {
   property var pendingFeature: null
   property var cameraSource: null
 
-  spacing: 10
+  spacing: qcOdstep
   visible: (resolvedLayers.length > 0 || (qgisProject && qgisProject.fileName !== "")) && !overlayFeatureFormDrawer.opened && stateMachine.state !== "measure" && stateMachine.state !== "3d"
 
   // czy do warstwy da sie w ogole dodac obiekt (dane w ZIP, WMS, tylko odczyt)
@@ -804,6 +833,7 @@ Column {
 
     // definicje z pliku projektu maja pierwszenstwo przed automatem
     const defs = loadDefinitions();
+    wczytajUstawienia(defs);
     if (defs) {
       distancePresets = defs.odleglosci && defs.odleglosci.length > 0 ? defs.odleglosci : [25, 50, 100, 200];
       for (let i = 0; i < defs.klawisze.length; i++) {
@@ -822,7 +852,7 @@ Column {
             "shape": punkt ? "circle" : g === Qgis.GeometryType.Line ? "rounded" : "square",
             "mode": punkt ? "capture" : (d.zdjecie === false ? "digitize" : "photogeom"),
             "bezZdjecia": punkt && d.zdjecie === false,
-            "rozmiar": d.rozmiar && d.rozmiar >= 40 && d.rozmiar <= 120 ? d.rozmiar : 56,
+            "rozmiar": d.rozmiar && d.rozmiar >= 40 && d.rozmiar <= 120 ? d.rozmiar : qcRozmiarDomyslny,
             "custom": false
           });
       }
@@ -918,7 +948,7 @@ Column {
           "foto": "",
           "ujecie": "",
           "tapUtcMs": tapUtcMs,
-          "deadlineMs": tapUtcMs + 30000,
+          "deadlineMs": tapUtcMs + qcKotwicaLimitMs,
           "pozycja": null,
           "pi": null,
           "czekaNaFoto": bezZdjecia === true ? false : true
@@ -1125,7 +1155,7 @@ Column {
             kotwice[i].foto = photoPath;
             kotwice[i].ujecie = typeof cameraSource !== 'undefined' && cameraSource ? cameraSource.photoShotType : "";
             kotwice[i].czekaNaFoto = false;
-            kotwice[i].deadlineMs = Date.now() + 30000;
+            kotwice[i].deadlineMs = Date.now() + qcKotwicaLimitMs;
             zwiazano = true;
             break;
           }
@@ -1137,7 +1167,7 @@ Column {
               "foto": photoPath,
               "ujecie": typeof cameraSource !== 'undefined' && cameraSource ? cameraSource.photoShotType : "",
               "tapUtcMs": tapUtcMs > 0 ? tapUtcMs : Date.now(),
-              "deadlineMs": Date.now() + 30000,
+              "deadlineMs": Date.now() + qcKotwicaLimitMs,
               "pozycja": null,
               "pi": null,
               "czekaNaFoto": false
@@ -1262,8 +1292,9 @@ Column {
     model: quickCaptureBar.resolvedLayers
 
     delegate: Rectangle {
-      width: modelData.rozmiar ? modelData.rozmiar : 56
+      width: modelData.rozmiar ? modelData.rozmiar : quickCaptureBar.qcRozmiarDomyslny
       height: width
+      x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
       radius: modelData.shape === "circle" ? width / 2 : modelData.shape === "rounded" ? 16 : 6
       color: modelData.color
       border.color: "#003D33"
@@ -1343,7 +1374,7 @@ Column {
         Timer {
           id: autoWierzcholek
 
-          interval: 1000
+          interval: quickCaptureBar.qcSeriaMs
           repeat: true
           triggeredOnStart: true
 
