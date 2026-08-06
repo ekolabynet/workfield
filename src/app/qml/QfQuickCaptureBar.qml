@@ -64,6 +64,37 @@ Column {
     }
   ]
 
+  // WorkField: zwijanie czesci ustawieniowej (blyskawica/ODL/KTW/+)
+  property bool ustawieniaZwiniete: settings.valueBool('WorkField/qcZwiniete', false)
+
+  onUstawieniaZwinieteChanged: settings.setValue('WorkField/qcZwiniete', ustawieniaZwiniete)
+
+  Rectangle {
+    width: 56
+    height: 28
+    radius: 8
+    color: "#546E7A"
+    border.color: "#003D33"
+    border.width: 1
+    opacity: 0.7
+
+    Text {
+      anchors.centerIn: parent
+      text: quickCaptureBar.ustawieniaZwiniete ? "\u25be" : "\u25b4"
+      font.pointSize: Theme.tinyFont.pointSize + 2
+      font.bold: true
+      color: "#ECEFF1"
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: {
+        quickCaptureBar.haptyka(15);
+        quickCaptureBar.ustawieniaZwiniete = !quickCaptureBar.ustawieniaZwiniete;
+      }
+    }
+  }
+
   QfToolButton {
     id: fastModeButton
     objectName: 'fastModeButton'
@@ -71,6 +102,7 @@ Column {
     width: 48
     height: 48
     round: true
+    visible: !quickCaptureBar.ustawieniaZwiniete
     anchors.horizontalCenter: parent.horizontalCenter
 
     bgcolor: qfieldSettings.fastMode ? "#FFC107" : Theme.toolButtonBackgroundSemiOpaqueColor
@@ -89,6 +121,7 @@ Column {
     width: 56
     height: 56
     radius: width / 2
+    visible: !quickCaptureBar.ustawieniaZwiniete
     color: quickCaptureBar.distantMode ? "#FFC107" : "#546E7A"
     border.color: "#003D33"
     border.width: 2
@@ -118,6 +151,7 @@ Column {
     width: 56
     height: 56
     radius: width / 2
+    visible: !quickCaptureBar.ustawieniaZwiniete || quickCaptureBar.kotwice.length > 0
     color: quickCaptureBar.kotwicaTryb ? "#1565C0" : "#546E7A"
     border.color: "#0D2C4F"
     border.width: 2
@@ -197,6 +231,7 @@ Column {
     width: 56
     height: 56
     radius: width / 2
+    visible: !quickCaptureBar.ustawieniaZwiniete
     color: "#8899A6"
     border.color: "#003D33"
     border.width: 2
@@ -787,6 +822,7 @@ Column {
             "shape": punkt ? "circle" : g === Qgis.GeometryType.Line ? "rounded" : "square",
             "mode": punkt ? "capture" : (d.zdjecie === false ? "digitize" : "photogeom"),
             "bezZdjecia": punkt && d.zdjecie === false,
+            "rozmiar": d.rozmiar && d.rozmiar >= 40 && d.rozmiar <= 120 ? d.rozmiar : 56,
             "custom": false
           });
       }
@@ -1226,8 +1262,8 @@ Column {
     model: quickCaptureBar.resolvedLayers
 
     delegate: Rectangle {
-      width: 56
-      height: 56
+      width: modelData.rozmiar ? modelData.rozmiar : 56
+      height: width
       radius: modelData.shape === "circle" ? width / 2 : modelData.shape === "rounded" ? 16 : 6
       color: modelData.color
       border.color: "#003D33"
@@ -1256,7 +1292,7 @@ Column {
       Text {
         anchors.centerIn: parent
         text: modelData.letter
-        font.pointSize: Theme.strongFont.pointSize + 4
+        font.pointSize: Theme.strongFont.pointSize + 4 + Math.max(0, Math.round((parent.width - 56) / 6))
         font.bold: true
         color: "#003D33"
       }
@@ -1289,8 +1325,34 @@ Column {
         onPressAndHold: {
           if (modelData.custom === true) {
             quickCaptureBar.dropLayer(modelData.customName);
+          } else if (modelData.bezZdjecia === true) {
+            // seria wierzcholkow: trzymasz — co sekunde jeden, puszczasz — koniec
+            if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1) {
+              quickCaptureBar.haptyka(40);
+              autoWierzcholek.start();
+            } else {
+              displayToast(qsTr("Seria wierzchołków działa w trakcie rysowania (postaw najpierw 2 wierzchołki tapnięciami)"), "info");
+            }
           } else {
             displayToast(modelData.tooltip, "info");
+          }
+        }
+        onReleased: autoWierzcholek.stop()
+        onCanceled: autoWierzcholek.stop()
+
+        Timer {
+          id: autoWierzcholek
+
+          interval: 1000
+          repeat: true
+          triggeredOnStart: true
+
+          onTriggered: {
+            if (typeof digitizingRubberband === 'undefined' || !digitizingRubberband.model || digitizingRubberband.model.vertexCount < 2) {
+              autoWierzcholek.stop();
+              return;
+            }
+            quickCaptureBar.captureInto(modelData.layer, true);
           }
         }
       }
