@@ -498,6 +498,12 @@ Drawer {
         text: qsTr("Stylizacja")
         font: Theme.tipFont
       }
+      TabButton {
+        text: qsTr("Studio")
+        font: Theme.tipFont
+        visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+        width: visible ? implicitWidth : 0
+      }
     }
 
     StackLayout {
@@ -1195,7 +1201,12 @@ Drawer {
         }
       }
 
-      // ── Narzędzia ───────────────────────────────────────────
+      // ── Studio (tylko desktop) ──────────────────────────────
+      Loader {
+        active: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+        sourceComponent: QfStudioSection {
+        }
+      }
     }
 
     
