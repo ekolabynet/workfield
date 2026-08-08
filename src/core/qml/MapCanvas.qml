@@ -301,6 +301,33 @@ Item {
     }
   }
 
+  // WorkField: przesuwanie mapy środkowym przyciskiem — nawyk
+  // z QGIS/AutoCAD; działa także podczas rysowania i edycji wierzchołków.
+  // MouseArea zamiast DragHandlera: pewniejsza przy przyciskach myszy,
+  // a Lewy/Prawy przechodzą przez nią nietknięte (nie są akceptowane).
+  MouseArea {
+    id: srodkowyPrzyciskPan
+
+    anchors.fill: parent
+    enabled: interactive
+    acceptedButtons: Qt.MiddleButton
+    z: 500
+
+    property point poprzedni
+
+    onPressed: mouse => {
+      kineticHandler.stopAll();
+      poprzedni = Qt.point(mouse.x, mouse.y);
+    }
+
+    onPositionChanged: mouse => {
+      if (pressed) {
+        mapCanvasWrapper.pan(Qt.point(mouse.x, mouse.y), poprzedni);
+        poprzedni = Qt.point(mouse.x, mouse.y);
+      }
+    }
+  }
+
   DragHandler {
     id: stylusDragHandler
     enabled: interactive && !freehandDigitizing

@@ -255,6 +255,12 @@ Popup {
     return m ? m[1] : base;
   }
 
+  //! podbijany przy każdej zmianie tagów — odświeża kropki na miniaturach
+  property int wersjaTagow: 0
+
+  //! rozmiar kafli w siatkach; Ctrl+kółko zmienia, wartość zapamiętywana
+  property int rozmiarKafla: 132
+
   function tagColor(t) {
     let h = 0;
     for (let i = 0; i < t.length; i++)
@@ -297,6 +303,8 @@ Popup {
         tagStore.author = settings.value("workfield/podpisTerenowy", "workfield");
         const ok = tagStore.open(photoGallery.projectDir);
         console.log("PhotoTagStore:", ok ? "otwarty: " + tagStore.storagePath : "BLAD otwarcia");
+        photoGallery.wersjaTagow++;
+        photoGallery.rozmiarKafla = Number(settings.value('WorkField/galeriaKafel', 132));
       }
     }
   }
@@ -440,9 +448,22 @@ Popup {
           Layout.fillWidth: true
           Layout.fillHeight: true
           clip: true
-          cellWidth: Math.floor(width / Math.max(2, Math.floor(width / 132)))
+          cellWidth: Math.floor(width / Math.max(2, Math.floor(width / photoGallery.rozmiarKafla)))
           cellHeight: cellWidth
           model: photoGallery.photos
+
+          MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            onWheel: wheel => {
+              if (wheel.modifiers & Qt.ControlModifier) {
+                photoGallery.rozmiarKafla = Math.max(96, Math.min(360, photoGallery.rozmiarKafla + (wheel.angleDelta.y > 0 ? 16 : -16)));
+                settings.setValue('WorkField/galeriaKafel', photoGallery.rozmiarKafla);
+              } else {
+                wheel.accepted = false;
+              }
+            }
+          }
 
           ScrollBar.vertical: ScrollBar {
           }
@@ -484,6 +505,39 @@ Popup {
                 text: Qt.formatDateTime(modelData.mtime, "dd.MM hh:mm")
                 color: "white"
                 font: photoGallery.t.tinyFont
+              }
+            }
+
+            // WorkField: pasek kropek — kolory gatunków otagowanych na zdjęciu
+            Row {
+              anchors.left: parent.left
+              anchors.top: parent.top
+              anchors.margins: 4
+              spacing: 3
+
+              Repeater {
+                model: {
+                  const wersja = photoGallery.wersjaTagow;
+                  const rel = modelData.path.substring(photoGallery.projectDir.length + 1);
+                  const tagi = tagStore.tagsForPhoto(rel);
+                  const rozne = [];
+                  for (let i = 0; i < tagi.length && rozne.length < 6; i++) {
+                    if (rozne.indexOf(tagi[i].tag) < 0)
+                      rozne.push(tagi[i].tag);
+                  }
+                  return rozne;
+                }
+
+                delegate: Rectangle {
+                  required property string modelData
+
+                  width: 9
+                  height: 9
+                  radius: 4.5
+                  color: photoGallery.tagColor(modelData)
+                  border.color: "white"
+                  border.width: 1
+                }
               }
             }
 
@@ -977,8 +1031,21 @@ Popup {
             Layout.fillHeight: true
             clip: true
             model: widokTagow.zdjeciaTagu
-            cellWidth: Math.floor(width / Math.max(1, Math.floor(width / 170)))
-            cellHeight: 130
+            cellWidth: Math.floor(width / Math.max(1, Math.floor(width / Math.max(130, photoGallery.rozmiarKafla))))
+            cellHeight: Math.round(cellWidth * 0.75)
+
+            MouseArea {
+              anchors.fill: parent
+              acceptedButtons: Qt.NoButton
+              onWheel: wheel => {
+                if (wheel.modifiers & Qt.ControlModifier) {
+                  photoGallery.rozmiarKafla = Math.max(96, Math.min(360, photoGallery.rozmiarKafla + (wheel.angleDelta.y > 0 ? 16 : -16)));
+                  settings.setValue('WorkField/galeriaKafel', photoGallery.rozmiarKafla);
+                } else {
+                  wheel.accepted = false;
+                }
+              }
+            }
             ScrollBar.vertical: QfScrollBar {
             }
 
@@ -994,12 +1061,46 @@ Popup {
                 radius: 5
               }
 
-              contentItem: Image {
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                autoTransform: true
-                sourceSize.width: 340
-                source: "file://" + widokTagow.absolutna(modelData)
+              contentItem: Item {
+                Image {
+                  anchors.fill: parent
+                  fillMode: Image.PreserveAspectCrop
+                  asynchronous: true
+                  autoTransform: true
+                  sourceSize.width: 340
+                  source: "file://" + widokTagow.absolutna(modelData)
+                }
+
+                Row {
+                  anchors.left: parent.left
+                  anchors.top: parent.top
+                  anchors.margins: 4
+                  spacing: 3
+
+                  Repeater {
+                    model: {
+                      const wersja = photoGallery.wersjaTagow;
+                      const tagi = tagStore.tagsForPhoto(modelData);
+                      const rozne = [];
+                      for (let i = 0; i < tagi.length && rozne.length < 6; i++) {
+                        if (rozne.indexOf(tagi[i].tag) < 0)
+                          rozne.push(tagi[i].tag);
+                      }
+                      return rozne;
+                    }
+
+                    delegate: Rectangle {
+                      required property string modelData
+
+                      width: 9
+                      height: 9
+                      radius: 4.5
+                      color: photoGallery.tagColor(modelData)
+                      border.color: "white"
+                      border.width: 1
+                    }
+                  }
+                }
               }
 
               onClicked: viewer.openList(widokTagow.zdjeciaTagu.map(w => ({
@@ -1029,6 +1130,13 @@ Popup {
     //! WorkField: klik na zdjęciu zapisuje tag ze współrzędnymi (0..1)
     property bool trybWskazywania: false
 
+    //! otwiera zdjęcie w systemowym edytorze; nasz plik i EXIF nietknięte
+    function edytujZewnetrznie() {
+      if (cur) {
+        Qt.openUrlExternally("file://" + cur.path);
+      }
+    }
+
     function relFor(i) {
       return (i >= 0 && i < items.length) ? items[i].path.substring(photoGallery.projectDir.length + 1) : "";
     }
@@ -1044,6 +1152,7 @@ Popup {
         return a.tag.localeCompare(b.tag);
       });
       curTags = t;
+      photoGallery.wersjaTagow++;
     }
 
     property int editFid: -1
@@ -1188,7 +1297,7 @@ Popup {
               Rectangle {
                 anchors.fill: parent
                 radius: 8
-                color: photoGallery.t.mainColor
+                color: photoGallery.tagColor(znacznik.modelData.tag)
                 border.color: "white"
                 border.width: 2
               }
@@ -1222,6 +1331,7 @@ Popup {
 
           anchors.fill: parent
           cursorShape: viewer.trybWskazywania ? Qt.CrossCursor : Qt.ArrowCursor
+          acceptedButtons: Qt.LeftButton | Qt.MiddleButton
 
           property real pressX: 0
           property real pressY: 0
@@ -1230,7 +1340,19 @@ Popup {
             pressX = mouse.x;
             pressY = mouse.y;
           }
+          onPositionChanged: mouse => {
+            // WorkField: środkowy przycisk przesuwa powiększone zdjęcie
+            if (mouse.buttons & Qt.MiddleButton) {
+              flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, flick.contentX - (mouse.x - pressX)));
+              flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY - (mouse.y - pressY)));
+              pressX = mouse.x;
+              pressY = mouse.y;
+            }
+          }
           onReleased: mouse => {
+            if (mouse.button !== Qt.LeftButton) {
+              return;
+            }
             // WorkField: wskazanie gatunku — klik (nie przeciągnięcie)
             // zapisuje tag w miejscu kliknięcia, względem kadru zdjęcia
             if (viewer.trybWskazywania && tagInput.text.trim() !== "" && Math.abs(mouse.x - pressX) < 8 && Math.abs(mouse.y - pressY) < 8) {
@@ -1589,6 +1711,34 @@ Popup {
         }
 
         Button {
+          id: wyczyscTagiButton
+
+          Layout.fillWidth: true
+          visible: viewer.curTags.length > 0
+          text: qsTr("Wyczyść tagi zdjęcia (%1)").arg(viewer.curTags.length)
+          Material.background: "#7f3b30"
+          onClicked: potwierdzenieCzyszczenia.open()
+
+          Dialog {
+            id: potwierdzenieCzyszczenia
+
+            parent: Overlay.overlay
+            anchors.centerIn: parent
+            modal: true
+            title: qsTr("Usunąć wszystkie tagi tego zdjęcia?")
+            standardButtons: Dialog.Yes | Dialog.No
+            onAccepted: {
+              const kopie = viewer.curTags.slice();
+              for (let i = 0; i < kopie.length; i++) {
+                tagStore.removeTag(kopie[i].fid);
+              }
+              viewer.refreshTags();
+              tagPanel.updateSuggestions();
+            }
+          }
+        }
+
+        Button {
           id: trybWskazButton
 
           Layout.fillWidth: true
@@ -1789,6 +1939,70 @@ Popup {
           color: "white"
           font: photoGallery.t.tipFont
           elide: Text.ElideMiddle
+        }
+
+        ToolButton {
+          id: edytujButton
+
+          ToolTip.visible: hovered
+          ToolTip.text: qsTr("Otwórz w zewnętrznym edytorze obrazów")
+
+          contentItem: Text {
+            text: qsTr("Edytuj…")
+            color: "white"
+            font: photoGallery.t.tinyFont
+            verticalAlignment: Text.AlignVCenter
+          }
+
+          background: Rectangle {
+            color: "white"
+            opacity: edytujButton.hovered ? 0.2 : 0.08
+            radius: 4
+          }
+
+          onClicked: viewer.edytujZewnetrznie()
+        }
+
+        // WorkField: legenda gatunków bieżącego zdjęcia (kolor = znacznik)
+        Row {
+          spacing: 10
+          Layout.maximumWidth: parent.width * 0.6
+
+          Repeater {
+            model: {
+              const grupy = {};
+              for (let i = 0; i < viewer.curTags.length; i++) {
+                const t = viewer.curTags[i].tag;
+                grupy[t] = (grupy[t] || 0) + 1;
+              }
+              return Object.keys(grupy).sort().map(t => ({
+                    "tag": t,
+                    "n": grupy[t]
+                  }));
+            }
+
+            delegate: Row {
+              required property var modelData
+
+              spacing: 4
+
+              Rectangle {
+                width: 10
+                height: 10
+                radius: 5
+                anchors.verticalCenter: parent.verticalCenter
+                color: photoGallery.tagColor(parent.modelData.tag)
+                border.color: "white"
+                border.width: 1
+              }
+
+              Text {
+                text: parent.modelData.tag + " (" + parent.modelData.n + ")"
+                color: "white"
+                font: photoGallery.t.tinyFont
+              }
+            }
+          }
         }
 
         Text {
