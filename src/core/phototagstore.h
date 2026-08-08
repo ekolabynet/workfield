@@ -48,6 +48,9 @@ class PhotoTagStore : public QObject
     //! Czestosc uzycia tagow w calym zbiorze: [{tag, n}], malejaco.
     Q_INVOKABLE QVariantList tagStats( int limit = 500 );
 
+    //! zdjęcia oznaczone danym tagiem (ścieżki względne, bez duplikatów)
+    Q_INVOKABLE QStringList photosForTag( const QString &tag );
+
     //! Gatunki z kolumn gatunek/GATUNEK we wszystkich GPKG projektu (odczyt).
     Q_INVOKABLE QStringList projectSpecies();
 

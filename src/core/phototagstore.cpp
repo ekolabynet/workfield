@@ -357,6 +357,24 @@ QVariantList PhotoTagStore::tagStats( int limit )
   return result;
 }
 
+QStringList PhotoTagStore::photosForTag( const QString &tag )
+{
+  QStringList result;
+  if ( !mDb )
+    return result;
+  sqlite3_stmt *stmt = nullptr;
+  if ( sqlite3_prepare_v2( mDb, "SELECT DISTINCT foto FROM FOTO_TAGI WHERE tag = ?1 ORDER BY foto", -1, &stmt, nullptr ) != SQLITE_OK )
+    return result;
+  const QByteArray tagUtf8 = tag.toUtf8();
+  sqlite3_bind_text( stmt, 1, tagUtf8.constData(), -1, SQLITE_TRANSIENT );
+  while ( sqlite3_step( stmt ) == SQLITE_ROW )
+  {
+    result << QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( stmt, 0 ) ) );
+  }
+  sqlite3_finalize( stmt );
+  return result;
+}
+
 QStringList PhotoTagStore::formSpecies()
 {
   if ( mFormSpeciesLoaded )

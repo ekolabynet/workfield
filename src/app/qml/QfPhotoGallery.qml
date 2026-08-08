@@ -362,16 +362,26 @@ Popup {
 
     TabBar {
       id: galleryTabs
-      Layout.fillWidth: true
+
+      // WorkField: zakładki zbite do lewej — miejsce na kolejne
+      // przeglądarki (Gatunki, Analizy) zamiast rozciągania trzech
+      Layout.alignment: Qt.AlignLeft
 
       TabButton {
         text: qsTr("Zdjęcia")
+        width: implicitWidth
       }
       TabButton {
         text: qsTr("Pliki")
+        width: implicitWidth
       }
       TabButton {
         text: qsTr("Chmura")
+        width: implicitWidth
+      }
+      TabButton {
+        text: qsTr("Tagi")
+        width: implicitWidth
       }
     }
 
@@ -383,6 +393,9 @@ Popup {
       onCurrentIndexChanged: {
         if (currentIndex === 2 && photoGallery.chmuraLista.length === 0) {
           photoGallery.chmuraOdswiez();
+        }
+        if (currentIndex === 3) {
+          widokTagow.odswiez();
         }
       }
 
@@ -860,6 +873,142 @@ Popup {
           color: photoGallery.t.secondaryTextColor
         }
       }
+
+      // ── Tagi ───────────────────────────────────────────────
+      RowLayout {
+        id: widokTagow
+
+        spacing: 8
+
+        property var statystyki: []
+        property string wybranyTag: ""
+        property var zdjeciaTagu: []
+
+        function odswiez() {
+          statystyki = tagStore.tagStats(500);
+          if (wybranyTag !== "") {
+            zdjeciaTagu = tagStore.photosForTag(wybranyTag);
+          }
+        }
+
+        function wybierz(tag) {
+          wybranyTag = tag;
+          zdjeciaTagu = tagStore.photosForTag(tag);
+        }
+
+        function absolutna(wzgledna) {
+          return photoGallery.projectDir + "/" + wzgledna;
+        }
+
+        ColumnLayout {
+          Layout.preferredWidth: 230
+          Layout.fillHeight: true
+          spacing: 4
+
+          Text {
+            Layout.fillWidth: true
+            text: qsTr("Tagi projektu (%1)").arg(widokTagow.statystyki.length)
+            font: photoGallery.t.strongTipFont
+            color: photoGallery.t.mainTextColor
+          }
+
+          ListView {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            model: widokTagow.statystyki
+            ScrollBar.vertical: QfScrollBar {
+            }
+
+            delegate: ItemDelegate {
+              required property var modelData
+
+              width: ListView.view.width
+              height: 34
+              padding: 0
+
+              background: Rectangle {
+                color: widokTagow.wybranyTag === modelData.tag ? photoGallery.t.mainColor : "transparent"
+                radius: 5
+              }
+
+              contentItem: RowLayout {
+                spacing: 6
+
+                Text {
+                  Layout.fillWidth: true
+                  Layout.leftMargin: 8
+                  text: modelData.tag
+                  font: photoGallery.t.tipFont
+                  color: widokTagow.wybranyTag === modelData.tag ? "white" : photoGallery.t.mainTextColor
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  Layout.rightMargin: 8
+                  text: modelData.n
+                  font: photoGallery.t.tinyFont
+                  color: widokTagow.wybranyTag === modelData.tag ? "white" : photoGallery.t.secondaryTextColor
+                }
+              }
+
+              onClicked: widokTagow.wybierz(modelData.tag)
+            }
+          }
+        }
+
+        ColumnLayout {
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          spacing: 4
+
+          Text {
+            Layout.fillWidth: true
+            text: widokTagow.wybranyTag === "" ? qsTr("Wybierz tag z listy, aby zobaczyć zdjęcia") : qsTr("„%1” — zdjęć: %2").arg(widokTagow.wybranyTag).arg(widokTagow.zdjeciaTagu.length)
+            font: photoGallery.t.tipFont
+            color: photoGallery.t.secondaryTextColor
+            elide: Text.ElideRight
+          }
+
+          GridView {
+            id: siatkaTagu
+
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            model: widokTagow.zdjeciaTagu
+            cellWidth: Math.floor(width / Math.max(1, Math.floor(width / 170)))
+            cellHeight: 130
+            ScrollBar.vertical: QfScrollBar {
+            }
+
+            delegate: ItemDelegate {
+              required property string modelData
+              required property int index
+
+              width: siatkaTagu.cellWidth - 6
+              height: siatkaTagu.cellHeight - 6
+
+              background: Rectangle {
+                color: "#22000000"
+                radius: 5
+              }
+
+              contentItem: Image {
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                autoTransform: true
+                sourceSize.width: 340
+                source: "file://" + widokTagow.absolutna(modelData)
+              }
+
+              onClicked: viewer.openList(widokTagow.zdjeciaTagu.map(w => ({
+                    "path": widokTagow.absolutna(w)
+                  })), index)
+            }
+          }
+        }
+      }
     }
   }
 
@@ -877,6 +1026,8 @@ Popup {
     readonly property var cur: (idx >= 0 && idx < items.length) ? items[idx] : null
     readonly property string curRel: cur ? cur.path.substring(photoGallery.projectDir.length + 1) : ""
     property var curTags: []
+    //! WorkField: klik na zdjęciu zapisuje tag ze współrzędnymi (0..1)
+    property bool trybWskazywania: false
 
     function relFor(i) {
       return (i >= 0 && i < items.length) ? items[i].path.substring(photoGallery.projectDir.length + 1) : "";
@@ -1017,10 +1168,60 @@ Popup {
           fillMode: Image.PreserveAspectFit
           asynchronous: true
           autoTransform: true
+
+          // znaczniki wskazań (tagi z zapisanymi współrzędnymi);
+          // w trybie wskazywania klik w znacznik usuwa wskazanie
+          Repeater {
+            model: viewer.curTags
+
+            delegate: Item {
+              id: znacznik
+
+              required property var modelData
+
+              visible: modelData.x !== undefined && modelData.x !== null && modelData.x >= 0 && modelData.y >= 0
+              x: modelData.x * fullImage.width - 8
+              y: modelData.y * fullImage.height - 8
+              width: 16
+              height: 16
+
+              Rectangle {
+                anchors.fill: parent
+                radius: 8
+                color: photoGallery.t.mainColor
+                border.color: "white"
+                border.width: 2
+              }
+
+              Text {
+                anchors.left: parent.right
+                anchors.leftMargin: 4
+                anchors.verticalCenter: parent.verticalCenter
+                visible: viewer.trybWskazywania
+                text: znacznik.modelData.tag
+                font: photoGallery.t.tinyFont
+                color: "white"
+                style: Text.Outline
+                styleColor: "black"
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                enabled: viewer.trybWskazywania
+                onClicked: {
+                  tagStore.removeTag(znacznik.modelData.fid);
+                  viewer.refreshTags();
+                }
+              }
+            }
+          }
         }
 
         MouseArea {
+          id: obszarPodgladu
+
           anchors.fill: parent
+          cursorShape: viewer.trybWskazywania ? Qt.CrossCursor : Qt.ArrowCursor
 
           property real pressX: 0
           property real pressY: 0
@@ -1030,6 +1231,22 @@ Popup {
             pressY = mouse.y;
           }
           onReleased: mouse => {
+            // WorkField: wskazanie gatunku — klik (nie przeciągnięcie)
+            // zapisuje tag w miejscu kliknięcia, względem kadru zdjęcia
+            if (viewer.trybWskazywania && tagInput.text.trim() !== "" && Math.abs(mouse.x - pressX) < 8 && Math.abs(mouse.y - pressY) < 8) {
+              const punkt = fullImage.mapFromItem(obszarPodgladu, mouse.x, mouse.y);
+              if (punkt.x >= 0 && punkt.x <= fullImage.width && punkt.y >= 0 && punkt.y <= fullImage.height) {
+                const pok = pokInput.text !== "" ? parseInt(pokInput.text) : -1;
+                const fid = tagStore.addTag(viewer.curRel, tagInput.text.trim(), pok, "", punkt.x / fullImage.width, punkt.y / fullImage.height);
+                if (fid >= 0) {
+                  viewer.refreshTags();
+                  tagPanel.updateSuggestions();
+                } else {
+                  displayToast(qsTr("Nie udało się zapisać wskazania"));
+                }
+              }
+              return;
+            }
             if (!flick.interactive) {
               const dx = mouse.x - pressX;
               const dy = mouse.y - pressY;
@@ -1369,6 +1586,18 @@ Popup {
               }
             }
           }
+        }
+
+        Button {
+          id: trybWskazButton
+
+          Layout.fillWidth: true
+          checkable: true
+          checked: viewer.trybWskazywania
+          enabled: tagInput.text.trim() !== "" || checked
+          text: checked ? qsTr("Wskazywanie włączone — klikaj na zdjęciu") : qsTr("Wskaż gatunek na zdjęciu")
+          Material.background: checked ? "#00695C" : undefined
+          onToggled: viewer.trybWskazywania = checked
         }
 
         ListView {
