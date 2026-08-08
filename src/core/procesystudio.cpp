@@ -193,12 +193,20 @@ void ProcesyStudio::przeszukaj( const QString &katalog, const QString &korzen,
   }
 }
 
+static QString czystaSciezka( const QString &sciezka )
+{
+  QString w = sciezka;
+  if ( w.startsWith( QLatin1String( "file://" ) ) )
+    w = w.mid( 7 );
+  if ( w.startsWith( QLatin1Char( '~' ) ) )
+    w = QDir::homePath() + w.mid( 1 );
+  return w;
+}
+
 QVariantList ProcesyStudio::znajdzProjekty( const QString &korzen, int glebokosc ) const
 {
   QVariantList wynik;
-  const QString pelna = korzen.startsWith( QLatin1Char( '~' ) )
-                          ? QDir::homePath() + korzen.mid( 1 )
-                          : korzen;
+  const QString pelna = czystaSciezka( korzen );
   if ( !QDir( pelna ).exists() )
     return wynik;
   przeszukaj( pelna, pelna, glebokosc, wynik );
@@ -253,11 +261,12 @@ QVariantMap ProcesyStudio::nowyZSzablonu( const QString &szablon, const QString 
                                           const QString &nazwa, const QString &korzen ) const
 {
   QVariantMap w;
-  QString cel = katalogDocelowy;
-  if ( cel.isEmpty() && !korzen.isEmpty() )
+  QString cel = czystaSciezka( katalogDocelowy );
+  const QString korzenCzysty = czystaSciezka( korzen );
+  if ( cel.isEmpty() && !korzenCzysty.isEmpty() )
   {
-    const QString wymiana = QDir( korzen ).filePath( QStringLiteral( "wymiana" ) );
-    cel = QDir( wymiana ).exists() ? wymiana : korzen;
+    const QString wymiana = QDir( korzenCzysty ).filePath( QStringLiteral( "wymiana" ) );
+    cel = QDir( wymiana ).exists() ? wymiana : korzenCzysty;
   }
   const QString oczyszczona = nazwa.trimmed();
   if ( oczyszczona.isEmpty() || cel.isEmpty() )

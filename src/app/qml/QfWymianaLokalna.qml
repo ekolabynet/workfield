@@ -1,3 +1,4 @@
+import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -30,8 +31,11 @@ Popup {
   readonly property string projectDir: qgisProject ? qgisProject.homePath : ""
   readonly property string projectName: projectDir !== "" ? FileUtils.fileName(projectDir) : ""
 
-  //! katalog roboczy w przestrzeni użytkownika
-  readonly property string korzen: "/storage/emulated/0/Documents/WorkField"
+  //! katalog roboczy w przestrzeni użytkownika; na komputerze bramą
+  //! jest wymiana magazynu (~/WorkField/wymiana), nie ścieżka Androida
+  readonly property string korzen: Qt.platform.os === "android"
+    ? "/storage/emulated/0/Documents/WorkField"
+    : StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "") + "/WorkField/wymiana"
   readonly property string doWyslania: korzen + "/do_wyslania"
   readonly property string przychodzace: korzen + "/przychodzace"
 
@@ -47,7 +51,10 @@ Popup {
   onOpened: {
     // katalogi tworzymy przy pierwszym otwarciu; jeśli się nie da (brak
     // uprawnienia do plików), mówimy o tym wprost zamiast milczeć
-    platformUtilities.createDir("/storage/emulated/0/Documents", "WorkField");
+    const czesci = korzen.split("/");
+    const baza = czesci.slice(0, -1).join("/");
+    platformUtilities.createDir(czesci.slice(0, -2).join("/"), czesci[czesci.length - 2]);
+    platformUtilities.createDir(baza, czesci[czesci.length - 1]);
     platformUtilities.createDir(korzen, "do_wyslania");
     platformUtilities.createDir(korzen, "przychodzace");
     stan = "";

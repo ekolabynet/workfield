@@ -542,19 +542,36 @@ bool FileUtils::isWithinProjectDirectory( const QString &filePath )
 {
   // Get the project instance
   QgsProject *project = QgsProject::instance();
-  if ( !project || project->fileName().isEmpty() )
+  if ( !project )
     return false;
 
-  QFileInfo projectFileInfo( project->fileName() );
-  if ( !projectFileInfo.exists() )
+  // Piaskownicą jest katalog pliku projektu, a dla projektów "w locie"
+  // (otwarty goły GPKG — fileName puste) katalog domowy projektu.
+  // Bez tego odgałęzienia czytnik blokował pliki leżące tuż obok danych
+  // (np. workfield_klawisze.json) z mylącym "outside project directory".
+  QString projectDirPath;
+  if ( !project->fileName().isEmpty() )
+  {
+    QFileInfo projectFileInfo( project->fileName() );
+    if ( !projectFileInfo.exists() )
+      return false;
+    projectDirPath = projectFileInfo.dir().absolutePath();
+  }
+  else if ( !project->homePath().isEmpty() && QDir( project->homePath() ).exists() )
+  {
+    projectDirPath = project->homePath();
+  }
+  else
+  {
     return false;
+  }
 
   // Get the canonical path for the project directory
-  QString projectDirCanonical = QFileInfo( projectFileInfo.dir().absolutePath() ).canonicalFilePath();
+  QString projectDirCanonical = QFileInfo( projectDirPath ).canonicalFilePath();
   if ( projectDirCanonical.isEmpty() )
   {
     // Fallback to absolutePath() if canonicalFilePath() is empty
-    projectDirCanonical = QFileInfo( projectFileInfo.dir().absolutePath() ).absoluteFilePath();
+    projectDirCanonical = QFileInfo( projectDirPath ).absoluteFilePath();
     if ( projectDirCanonical.isEmpty() )
       return false;
   }
