@@ -376,7 +376,7 @@ Page {
         Layout.topMargin: 10
         Layout.bottomMargin: 10
         Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
-        Layout.preferredWidth: Math.min(410, welcomeLayout.width - 20)
+        Layout.preferredWidth: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? Math.min(1160, welcomeLayout.width - 40) : Math.min(410, welcomeLayout.width - 20)
         Layout.preferredHeight: Math.max(collectionOhno.childrenRect.height, collectionIntro.childrenRect.height)
         clip: true
 
@@ -519,7 +519,7 @@ Page {
         Layout.topMargin: 8
         Layout.bottomMargin: 8
         Layout.fillWidth: true
-        Layout.maximumWidth: 410
+        Layout.maximumWidth: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? 1160 : 410
         Layout.preferredHeight: welcomeActions.height
         Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
         color: "transparent"
@@ -645,16 +645,24 @@ Page {
             Layout.preferredHeight: table.height
             color: "transparent"
 
-            ListView {
+            GridView {
               id: table
+
+              // WorkField: na komputerze siatka kolumn zamiast jednej listy
+              readonly property int kolumny: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? Math.max(1, Math.floor(width / 360)) : 1
+
               ScrollBar.vertical: QfScrollBar {}
               flickableDirection: Flickable.AutoFlickIfNeeded
               boundsBehavior: Flickable.StopAtBounds
               clip: true
               width: parent.width
               height: contentItem.childrenRect.height
+              cellWidth: Math.floor(width / kolumny)
+              cellHeight: 140
 
               delegate: QfProjectThumbnail {
+                width: table.cellWidth - 8
+
                 property string path: ProjectPath
                 property var type: ProjectType
                 property int changesCount: {

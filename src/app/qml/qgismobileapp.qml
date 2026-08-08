@@ -25,6 +25,7 @@ import QtQuick.Effects
 import QtQuick.Shapes
 import QtQuick.Window
 import QtQml
+import QtQuick.Dialogs as SystemoweOkna
 import QtSensors
 import org.qgis
 import org.qfield
@@ -44,22 +45,40 @@ ApplicationWindow {
   visible: true
 
   // WorkField: warstwa akcji — jedno źródło czasowników dla obu platform
+  // WorkField: systemowa przeglądarka plików do otwierania projektów
+  // na komputerze; start w magazynie ~/WorkField
+  SystemoweOkna.FileDialog {
+    id: wfOknoOtwierania
+
+    title: qsTr("Otwórz projekt lub dane")
+    currentFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
+    nameFilters: [qsTr("Projekty i dane (*.qgs *.qgz *.gpkg)"), qsTr("Wszystkie pliki (*)")]
+    onAccepted: iface.loadFile(selectedFile.toString().replace("file://", ""), "")
+  }
+
   QfAkcje {
     id: wfAkcje
 
-    otworzProjekt: function () { qfieldLocalDataPickerScreen.projectFolderView = false; qfieldLocalDataPickerScreen.visible = true; }
+    otworzProjekt: function () {
+      if (Qt.platform.os !== "android" && Qt.platform.os !== "ios") {
+        wfOknoOtwierania.open();
+      } else {
+        qfieldLocalDataPickerScreen.projectFolderView = false;
+        qfieldLocalDataPickerScreen.visible = true;
+      }
+    }
     noweZadanie: function () { if (typeof qfNoweZadanie !== 'undefined') qfNoweZadanie.open(); }
-    otworzZMagazynu: function () { dashBoard.open(); }
-    nowyZSzablonu: function () { dashBoard.open(); }
-    zbudujProjekt: function () { dashBoard.open(); }
+    otworzZMagazynu: function () { dashBoard.otworzSekcje(3); }
+    nowyZSzablonu: function () { dashBoard.otworzSekcje(3); }
+    zbudujProjekt: function () { dashBoard.otworzSekcje(3); }
     wyslijWTeren: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
     odbierzZwrot: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
-    ustawKatalogMagazynu: function () { dashBoard.open(); }
-    przegladProjektow: function () { dashBoard.open(); }
+    ustawKatalogMagazynu: function () { dashBoard.otworzSekcje(3); }
+    przegladProjektow: function () { dashBoard.otworzSekcje(3); }
     rejestrSprzetu: function () { displayToast(qsTr('Rejestr sprzętu — wkrótce')); }
     ktoCoRobil: function () { displayToast(qsTr('Dziennik przydziałów — wkrótce')); }
-    panelWarstw: function () { dashBoard.open(); }
-    stylizacja: function () { dashBoard.open(); }
+    panelWarstw: function () { dashBoard.otworzSekcje(1); }
+    stylizacja: function () { dashBoard.otworzSekcje(2); }
     galeriaZdjec: function () { if (typeof qfPhotoGallery !== 'undefined') qfPhotoGallery.open(); }
     kontrolaPrzypisan: function () { if (typeof qfPhotoGallery !== 'undefined') qfPhotoGallery.open(); }
     zglosUwage: function () { Qt.openUrlExternally('https://github.com/ekolabynet/workfield/issues'); }
@@ -96,6 +115,7 @@ ApplicationWindow {
 
     QfDesktopChrome {
       akcje: wfAkcje
+      ekranStartowy: welcomeScreen.visible
     }
   }
 
@@ -248,7 +268,12 @@ ApplicationWindow {
     // This requires the scene to be fully loaded not to crash due to possibility of
     // a thread blocking permission request being thrown
     if (positioningSettings.positioningActivated) {
-      positionSource.active = true;
+      // WorkField: na komputerze bez automatycznego startu pozycjonowania
+      // (odbiornik zwykle niepodpięty => pętla błędów Bluetooth i toasty);
+      // ręczne włączenie przyciskiem działa bez zmian
+      if (Qt.platform.os === "android" || Qt.platform.os === "ios") {
+        positionSource.active = true;
+      }
     }
   }
 
@@ -2550,7 +2575,8 @@ ApplicationWindow {
     /* The main menu */
     Row {
       id: mainMenuBar
-      visible: !screenLocker.enabled
+      // WorkField: na komputerze pływający hamburger dubluje pasek menu
+      visible: !screenLocker.enabled && (Qt.platform.os === "android" || Qt.platform.os === "ios")
       width: childrenRect.width
       height: childrenRect.height
       topPadding: mainWindow.sceneTopMargin + 4

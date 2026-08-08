@@ -25,6 +25,8 @@ ToolBar {
   id: chrom
 
   property var akcje: wfAkcje
+  //! ekran startowy: pasek pionowy chowa się, menu zostaje
+  property bool ekranStartowy: false
 
   //! ikony na pasku: codzienne czasowniki, reszta zostaje w menu
   readonly property var naPasku: ["otworz", "otworz_magazyn", "wyslij", "odbierz", "warstwy", "galeria"]
@@ -151,7 +153,7 @@ ToolBar {
     color: Theme.mainColor
     opacity: 0.92
     z: 900
-    visible: chrom.akcje !== null
+    visible: chrom.akcje !== null && !chrom.ekranStartowy
 
     ColumnLayout {
       id: kolumnaIkon

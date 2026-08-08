@@ -52,6 +52,14 @@ Drawer {
   signal toggle3DView
   signal returnHome
 
+  //! WorkField: sekcja wskazywana przez menu (komputer); -1 = wg zakładek
+  property int sekcjaWymuszona: -1
+
+  function otworzSekcje(numer) {
+    sekcjaWymuszona = numer;
+    open();
+  }
+
   property bool preventFromOpening: overlayFeatureFormDrawer.visible
   property bool allowInteractive: true
   property bool shouldReturnHome: false
@@ -70,7 +78,7 @@ Drawer {
     }
   }
 
-  width: Math.min(Math.max(330, mainWindow.width * 0.8), mainWindow.width)
+  width: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? Math.max(380, Math.round(mainWindow.width * 0.25)) : Math.min(Math.max(330, mainWindow.width * 0.8), mainWindow.width)
   height: parent.height
   edge: Qt.LeftEdge
   dragMargin: 10
@@ -483,7 +491,11 @@ Drawer {
     TabBar {
       id: dashTabs
 
+      // WorkField: na komputerze sekcje wybiera menu (otworzSekcje),
+      // zakładki zostają narzędziem telefonu
+      visible: Qt.platform.os === "android" || Qt.platform.os === "ios"
       Layout.fillWidth: true
+      Layout.preferredHeight: visible ? implicitHeight : 0
       currentIndex: 0
 
       TabButton {
@@ -511,7 +523,7 @@ Drawer {
 
       Layout.fillWidth: true
       Layout.fillHeight: true
-      currentIndex: dashTabs.currentIndex
+      currentIndex: dashBoard.sekcjaWymuszona >= 0 ? dashBoard.sekcjaWymuszona : dashTabs.currentIndex
 
       // ── Projekt ─────────────────────────────────────────────
       ColumnLayout {
