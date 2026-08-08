@@ -172,6 +172,86 @@ Popup {
       wrapMode: Text.Wrap
     }
 
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      text: qsTr("Panele akcji")
+      color: "#B0BEC5"
+      font: Theme.strongTipFont
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Text {
+        text: qsTr("Gęstość")
+        color: "white"
+        font: Theme.tipFont
+      }
+
+      ComboBox {
+        id: wyborGestosci
+        Layout.fillWidth: true
+        model: [qsTr("Zwarta"), qsTr("Standardowa"), qsTr("Rękawice")]
+        currentIndex: settings.valueInt('WorkField/gestosc', 1)
+        onActivated: {
+          settings.setValue('WorkField/gestosc', currentIndex);
+          Theme.gestosc = currentIndex;
+        }
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Text {
+        text: qsTr("Układ")
+        color: "white"
+        font: Theme.tipFont
+      }
+
+      ComboBox {
+        id: wyborUkladu
+        Layout.fillWidth: true
+        model: [qsTr("Lista wierszy"), qsTr("Kafle")]
+        currentIndex: settings.valueInt('WorkField/ukladAkcji', 0)
+        onActivated: {
+          settings.setValue('WorkField/ukladAkcji', currentIndex);
+          Theme.ukladAkcji = currentIndex;
+        }
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Zmiana działa od razu. Gęstość „Rękawice” powiększa przyciski i odstępy do pracy w rękawicach.")
+      color: "#B0BEC5"
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+      spacing: 8
+
+      Switch {
+        checked: settings.valueBool('WorkField/quickCaptureNaKomputerze', false)
+        onToggled: settings.setValue('WorkField/quickCaptureNaKomputerze', checked)
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Pasek szybkiego zapisu na komputerze")
+        color: "white"
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+    }
+
     Rectangle {
       Layout.fillWidth: true
       height: 1

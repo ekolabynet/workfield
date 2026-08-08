@@ -121,7 +121,7 @@ ColumnLayout {
           Layout.fillWidth: true
           text: modelData.nazwa
           font: Theme.tipFont
-          color: listaProjektow.currentIndex === index ? Theme.buttonTextColor : Theme.mainTextColor
+          color: listaProjektow.currentIndex === index ? "white" : Theme.mainTextColor
           elide: Text.ElideRight
         }
         Text {
@@ -129,7 +129,7 @@ ColumnLayout {
           text: modelData.typ + " · " + modelData.zmodyfikowano.replace("T", " ").substring(0, 16)
                 + (modelData.gdzie !== "" ? " · " + modelData.gdzie : "")
           font: Theme.tinyFont
-          color: listaProjektow.currentIndex === index ? Theme.buttonTextColor : Theme.secondaryTextColor
+          color: listaProjektow.currentIndex === index ? "white" : Theme.secondaryTextColor
           elide: Text.ElideRight
         }
       }

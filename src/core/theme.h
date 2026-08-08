@@ -116,6 +116,16 @@ class QFIELD_CORE_EXPORT Theme final : public QObject
 
     Q_PROPERTY( int toolButtonSize READ toolButtonSize WRITE setToolButtonSize NOTIFY toolButtonSizeChanged )
 
+    // WorkField: gęstość interfejsu akcji — jedno źródło metryk dla całej
+    // aplikacji (0 zwarta / 1 standardowa / 2 rękawice) oraz forma paneli
+    // akcji (0 lista wierszy / 1 kafle). Zmiana odświeża interfejs od razu.
+    Q_PROPERTY( int gestosc READ gestosc WRITE setGestosc NOTIFY gestoscChanged )
+    Q_PROPERTY( int ukladAkcji READ ukladAkcji WRITE setUkladAkcji NOTIFY ukladAkcjiChanged )
+    Q_PROPERTY( int wysokoscWiersza READ wysokoscWiersza NOTIFY gestoscChanged )
+    Q_PROPERTY( int wysokoscKafla READ wysokoscKafla NOTIFY gestoscChanged )
+    Q_PROPERTY( int odstepAkcji READ odstepAkcji NOTIFY gestoscChanged )
+    Q_PROPERTY( int kolumnyKafli READ kolumnyKafli NOTIFY gestoscChanged )
+
     Q_PROPERTY( int popupScreenEdgeVerticalMargin READ popupScreenEdgeVerticalMargin CONSTANT )
     Q_PROPERTY( int popupScreenEdgeHorizontalMargin READ popupScreenEdgeHorizontalMargin CONSTANT )
     Q_PROPERTY( int menuItemIconlessLeftPadding READ menuItemIconlessLeftPadding CONSTANT )
@@ -309,6 +319,16 @@ class QFIELD_CORE_EXPORT Theme final : public QObject
     int toolButtonSize() const { return mToolButtonSize; }
     void setToolButtonSize( int size );
 
+    int gestosc() const { return mGestosc; }
+    void setGestosc( int gestosc );
+    int ukladAkcji() const { return mUkladAkcji; }
+    void setUkladAkcji( int uklad );
+
+    int wysokoscWiersza() const { return mGestosc == 0 ? 48 : ( mGestosc == 2 ? 64 : 56 ); }
+    int wysokoscKafla() const { return mGestosc == 0 ? 64 : ( mGestosc == 2 ? 84 : 72 ); }
+    int odstepAkcji() const { return mGestosc == 0 ? 4 : ( mGestosc == 2 ? 8 : 6 ); }
+    int kolumnyKafli() const { return 3; }
+
     int popupScreenEdgeVerticalMargin() const { return 40; }
     int popupScreenEdgeHorizontalMargin() const { return 20; }
     int menuItemIconlessLeftPadding() const { return 52; }
@@ -342,6 +362,8 @@ class QFIELD_CORE_EXPORT Theme final : public QObject
     void darkThemeChanged();
     void fontScaleChanged();
     void toolButtonSizeChanged();
+    void gestoscChanged();
+    void ukladAkcjiChanged();
     void themeDataLoaded();
     void screenPpiChanged();
 
@@ -414,6 +436,8 @@ class QFIELD_CORE_EXPORT Theme final : public QObject
     bool mDarkTheme = false;
     qreal mFontScale = 1.0;
     int mToolButtonSize = 48;
+    int mGestosc = 1;
+    int mUkladAkcji = 0;
     qreal mSystemFontPointSize = 14.0;
     qreal mScreenPpi = 160.0;
 };

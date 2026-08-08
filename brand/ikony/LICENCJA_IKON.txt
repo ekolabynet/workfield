@@ -1,0 +1,22 @@
+IKONY BREEZE — nota licencyjna
+==============================
+
+Pliki wf_*.svg w tym katalogu pochodzą z motywu ikon Breeze projektu KDE
+(https://invent.kde.org/frameworks/breeze-icons), zmieniono wyłącznie ich
+nazwy. Nie modyfikowano zawartości grafik.
+
+    Copyright (C) 2014 Uri Herrera <uri_herrera@nitrux.in> and others
+
+Breeze Icon Theme jest rozpowszechniany na warunkach GNU Lesser General
+Public License w wersji 3 lub dowolnej późniejszej (LGPL-3.0-or-later).
+Pełny tekst: https://www.gnu.org/licenses/lgpl-3.0.html
+
+KDE wyjaśnia w pliku COPYING-ICONS, że LGPL ma zastosowanie także do tej
+biblioteki grafiki, a wyjątek z sekcji 5 LGPL obejmuje wykorzystanie jej
+elementów w graficznym interfejsie użytkownika. Ponieważ umieszczanie not
+w samych plikach graficznych bywa niepraktyczne, KDE umieszcza notę w
+widocznym miejscu w katalogu z elementami i zaleca tę samą praktykę —
+niniejszy plik ją realizuje.
+
+WorkField jest rozpowszechniany na GPL-2.0-or-later; warunek ten jest
+zgodny z LGPL-3.0-or-later dla dołączonych ikon.

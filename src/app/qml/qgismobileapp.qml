@@ -42,6 +42,35 @@ ApplicationWindow {
   id: mainWindow
   objectName: 'mainWindow'
   visible: true
+
+  // WorkField: warstwa akcji — jedno źródło czasowników dla obu platform
+  QfAkcje {
+    id: wfAkcje
+
+    otworzProjekt: function () { qfieldLocalDataPickerScreen.projectFolderView = false; qfieldLocalDataPickerScreen.visible = true; }
+    noweZadanie: function () { if (typeof qfNoweZadanie !== 'undefined') qfNoweZadanie.open(); }
+    otworzZMagazynu: function () { dashBoard.open(); }
+    nowyZSzablonu: function () { dashBoard.open(); }
+    zbudujProjekt: function () { dashBoard.open(); }
+    wyslijWTeren: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
+    odbierzZwrot: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
+    ustawKatalogMagazynu: function () { dashBoard.open(); }
+    przegladProjektow: function () { dashBoard.open(); }
+    rejestrSprzetu: function () { displayToast(qsTr('Rejestr sprzętu — wkrótce')); }
+    ktoCoRobil: function () { displayToast(qsTr('Dziennik przydziałów — wkrótce')); }
+    panelWarstw: function () { dashBoard.open(); }
+    stylizacja: function () { dashBoard.open(); }
+    galeriaZdjec: function () { if (typeof qfPhotoGallery !== 'undefined') qfPhotoGallery.open(); }
+    kontrolaPrzypisan: function () { if (typeof qfPhotoGallery !== 'undefined') qfPhotoGallery.open(); }
+    zglosUwage: function () { Qt.openUrlExternally('https://github.com/ekolabynet/workfield/issues'); }
+    oProgramie: function () { aboutDialog.open(); }
+  }
+
+  Component.onCompleted: {
+    // WorkField: metryki paneli akcji z zapisanych ustawień
+    Theme.gestosc = settings.valueInt('WorkField/gestosc', 1);
+    Theme.ukladAkcji = settings.valueInt('WorkField/ukladAkcji', 0);
+  }
   flags: Qt.platform.os === "ios" || Qt.platform.os === "android" ? Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint : Qt.Window | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint | (sceneBorderless ? Qt.FramelessWindowHint : 0)
 
   topPadding: 0
@@ -52,7 +81,28 @@ ApplicationWindow {
   Material.theme: Theme.darkTheme ? Material.Dark : Material.Light
   Material.accent: Theme.mainColor
 
-  header: ToolBar {
+  // WorkField: na komputerze nagłówkiem okna jest chrom Studia (menu,
+  // pasek stanu); belka dotykowa QFielda zostaje na telefonie
+  header: Loader {
+    sourceComponent: Qt.platform.os === "android" || Qt.platform.os === "ios"
+                     ? belkaTerenowa : chromKomputera
+    // Loader nie zawsze przejmuje wysokość elementu — a od niej zależy,
+    // o ile okno zsunie zawartość pod nagłówek
+    height: item ? item.height : 0
+  }
+
+  Component {
+    id: chromKomputera
+
+    QfDesktopChrome {
+      akcje: wfAkcje
+    }
+  }
+
+  Component {
+    id: belkaTerenowa
+
+    ToolBar {
     id: mainToolBar
     visible: !legendScreen.visible && !qfieldSettings.visible && !qfieldLocalDataPickerScreen.visible && !qfieldCloudScreen.visible && !welcomeScreen.visible && !aboutDialog.visible && !codeReader.visible && !sketcher.visible
     height: visible ? 64 + mainWindow.sceneTopMargin : 0
@@ -177,6 +227,7 @@ ApplicationWindow {
         icon.color: "white"
         onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
       }
+    }
     }
   }
 
@@ -4906,6 +4957,10 @@ ApplicationWindow {
 
   QfQuickCaptureBar {
     id: quickCaptureBar
+    // WorkField: przy biurku pasek przechwytywania zwykle przeszkadza;
+    // przełącznik w Ustawieniach terenowych pozwala go przywrócić
+    visible: Qt.platform.os === "android" || Qt.platform.os === "ios"
+             || settings.valueBool('WorkField/quickCaptureNaKomputerze', false)
     x: quickCaptureBar.qcKrawedz === "lewa" ? 8 : parent.width - quickCaptureBar.width - 8
     anchors.verticalCenter: parent.verticalCenter
   }

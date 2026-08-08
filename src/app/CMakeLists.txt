@@ -148,6 +148,9 @@ set(QFIELD_APP_QML_FILES
     qml/QfNewLayerDialog.qml
     qml/QfNoweZadanie.qml
     qml/QfStudioSection.qml
+    qml/QfAkcje.qml
+    qml/QfPanelAkcji.qml
+    qml/QfDesktopChrome.qml
     qml/QfCloudSettings.qml
     qml/QfWymianaLokalna.qml
     qml/QfPhotoGallery.qml

@@ -79,3 +79,11 @@ Polsce (presety usług GUGiK, interfejs pod pracę w rękawicach). WorkField
 **nie jest tworzony ani autoryzowany przez projekt QField** — oficjalną
 aplikację znajdziesz na [qfield.org](https://qfield.org/). Licencja:
 GPL-2.0-or-later. Błędy WorkField zgłaszaj wyłącznie w tym repozytorium.
+
+## Ikony Breeze
+
+Katalog `images/themes/workfield/` (oraz źródłowo `brand/ikony/`) zawiera
+ikony pochodzące z motywu Breeze projektu KDE
+(https://invent.kde.org/frameworks/breeze-icons), rozpowszechniane na
+licencji LGPL-3.0-or-later. Zmieniono wyłącznie nazwy plików (przedrostek
+`wfg_`); zawartość grafik bez zmian. Pełna nota: `brand/ikony/LICENCJA_IKON.txt`.

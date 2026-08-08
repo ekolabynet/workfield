@@ -502,6 +502,30 @@ void Theme::setToolButtonSize( int size )
   emit toolButtonSizeChanged();
 }
 
+void Theme::setGestosc( int gestosc )
+{
+  const int wartosc = qBound( 0, gestosc, 2 );
+  if ( mGestosc == wartosc )
+  {
+    return;
+  }
+
+  mGestosc = wartosc;
+  emit gestoscChanged();
+}
+
+void Theme::setUkladAkcji( int uklad )
+{
+  const int wartosc = qBound( 0, uklad, 1 );
+  if ( mUkladAkcji == wartosc )
+  {
+    return;
+  }
+
+  mUkladAkcji = wartosc;
+  emit ukladAkcjiChanged();
+}
+
 QFont Theme::makeFont( qreal scaleFactor, bool bold ) const
 {
   QFont font;
@@ -540,6 +564,12 @@ QString Theme::getThemeIcon( const QString &name ) const
 
 QString Theme::getThemeVectorIcon( const QString &name ) const
 {
+  // WorkField: własny zestaw ikon (Breeze, LGPL — patrz brand/ikony/) pod
+  // przedrostkiem wf_; pozostałe nazwy bez zmian z zestawu QFielda
+  if ( name.startsWith( QLatin1String( "wfg_" ) ) )
+  {
+    return QStringLiteral( "qrc:/themes/workfield/%1.svg" ).arg( name );
+  }
   return QStringLiteral( "qrc:/themes/qfield/nodpi/%1.svg" ).arg( name );
 }
 

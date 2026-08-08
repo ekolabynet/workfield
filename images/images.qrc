@@ -16,6 +16,25 @@
     </qresource>
     <qresource prefix="/">
         <file>themes/qfield/nodpi/ic_text_black_24dp.svg</file>
+        <file>themes/workfield/wfg_info.svg</file>
+        <file>themes/workfield/wfg_ludzie.svg</file>
+        <file>themes/workfield/wfg_magazyn.svg</file>
+        <file>themes/workfield/wfg_menu.svg</file>
+        <file>themes/workfield/wfg_nowe.svg</file>
+        <file>themes/workfield/wfg_odbierz.svg</file>
+        <file>themes/workfield/wfg_otworz.svg</file>
+        <file>themes/workfield/wfg_pomoc.svg</file>
+        <file>themes/workfield/wfg_przeglad.svg</file>
+        <file>themes/workfield/wfg_sprawdz.svg</file>
+        <file>themes/workfield/wfg_sprzet.svg</file>
+        <file>themes/workfield/wfg_stylizacja.svg</file>
+        <file>themes/workfield/wfg_ustawienia.svg</file>
+        <file>themes/workfield/wfg_warstwy.svg</file>
+        <file>themes/workfield/wfg_wymiana.svg</file>
+        <file>themes/workfield/wfg_wyslij.svg</file>
+        <file>themes/workfield/wfg_zapisz.svg</file>
+        <file>themes/workfield/wfg_zbuduj.svg</file>
+        <file>themes/workfield/wfg_zdjecia.svg</file>
         <file>themes/qfield/nodpi/ic_3x3_grid_white_24dp.svg</file>
         <file>themes/qfield/nodpi/ic_digitizing_settings_black_24dp.svg</file>
         <file>themes/qfield/nodpi/ic_update_white_24dp.svg</file>
