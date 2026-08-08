@@ -51,6 +51,13 @@ class PhotoTagStore : public QObject
     //! zdjęcia oznaczone danym tagiem (ścieżki względne, bez duplikatów)
     Q_INVOKABLE QStringList photosForTag( const QString &tag );
 
+    /**
+     * Wycina kwadraty \a rozmiar px wokół każdego wskazania (tagi z x,y)
+     * i zapisuje do WFG_Trening/<gatunek>/ w projekcie.
+     * Zwraca mapę: zdjec, wycinkow, katalog.
+     */
+    Q_INVOKABLE QVariantMap exportujWycinki( int rozmiar = 500 );
+
     //! Gatunki z kolumn gatunek/GATUNEK we wszystkich GPKG projektu (odczyt).
     Q_INVOKABLE QStringList projectSpecies();
 

@@ -296,6 +296,10 @@ Popup {
     id: tagStore
   }
 
+  CaptureAttitude {
+    id: pozaAparatu
+  }
+
   Connections {
     target: photoGallery
     function onOpened() {
@@ -305,6 +309,7 @@ Popup {
         console.log("PhotoTagStore:", ok ? "otwarty: " + tagStore.storagePath : "BLAD otwarcia");
         photoGallery.wersjaTagow++;
         photoGallery.rozmiarKafla = Number(settings.value('WorkField/galeriaKafel', 132));
+        viewer.siatkaN = Number(settings.value('WorkField/siatkaN', 5));
       }
     }
   }
@@ -959,11 +964,26 @@ Popup {
           Layout.fillHeight: true
           spacing: 4
 
-          Text {
+          RowLayout {
             Layout.fillWidth: true
-            text: qsTr("Tagi projektu (%1)").arg(widokTagow.statystyki.length)
-            font: photoGallery.t.strongTipFont
-            color: photoGallery.t.mainTextColor
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Tagi projektu (%1)").arg(widokTagow.statystyki.length)
+              font: photoGallery.t.strongTipFont
+              color: photoGallery.t.mainTextColor
+            }
+
+            ToolButton {
+              text: qsTr("Wycinki")
+              font: photoGallery.t.tinyFont
+              ToolTip.visible: hovered
+              ToolTip.text: qsTr("Wytnij kwadraty 500 px wokół wszystkich wskazań do WFG_Trening/ (zbiór treningowy)")
+              onClicked: {
+                const w = tagStore.exportujWycinki(500);
+                displayToast(qsTr("Wycinki: %1 z %2 zdjęć → %3").arg(w.wycinkow).arg(w.zdjec).arg(w.katalog));
+              }
+            }
           }
 
           ListView {
@@ -1129,6 +1149,90 @@ Popup {
     property var curTags: []
     //! WorkField: klik na zdjęciu zapisuje tag ze współrzędnymi (0..1)
     property bool trybWskazywania: false
+    //! tryb siatki pokrycia (point-quadrat): klik przypisuje gatunek komórce
+    property bool trybSiatki: false
+    //! pędzel pusty: komórka oceniona bez roślinności (mianownik 100%)
+    property bool pedzelPusty: false
+
+    //! aktywny pędzel: nazwa gatunku, "(pusta)" albo "" (gumka)
+    function aktywnyPedzel() {
+      return pedzelPusty ? "(pusta)" : tagInput.text.trim();
+    }
+    //! bok siatki: 5/7/10 => komórka 4%/~2%/1%; wybór zapamiętywany
+    property int siatkaN: 5
+
+    //! zbieg perspektywy 0..0.75: 0 = nadir (siatka prosta); z kąta
+    //! nachylenia aparatu zapisanego w zdjęciu
+    property real zbieg: 0
+    //! obrót siatki w stopniach (±30): z Roll zdjęcia, suwak koryguje
+    property real obrot: 0
+
+    function wczytajZbieg() {
+      zbieg = 0;
+      obrot = 0;
+      if (!cur)
+        return;
+      const poza = pozaAparatu.readPose(cur.path);
+      if (poza.roll !== undefined)
+        obrot = Math.max(-30, Math.min(30, -poza.roll));
+      if (poza.pitch === undefined)
+        return;
+      // pitch: -90 = nadir, 0 = poziomo; im bliżej poziomu, tym
+      // silniejszy zbieg rzutu równych pól terenu
+      const odNadiru = Math.min(90, Math.abs(90 - Math.abs(poza.pitch)));
+      zbieg = Math.min(0.75, Math.max(0, odNadiru / 90 * 0.75));
+    }
+
+    //! pozycja linii między wierszami: t=0 góra kadru, t=1 dół;
+    //! równe pasy terenu gęstnieją ku górze przy zbiegu > 0
+    function liniaY(t) {
+      const s = 1 - zbieg;
+      return 1 - (1 - t) * s / (1 - (1 - s) * (1 - t));
+    }
+
+    //! szerokość trapezu na wysokości linii t (część szerokości kadru)
+    function liniaSzer(t) {
+      return 1 - zbieg * (1 - t);
+    }
+
+    //! środek komórki (k, w) w współrzędnych kadru 0..1, PO rzucie
+    function srodekKomorki(k, w) {
+      const yA = liniaY(w / siatkaN);
+      const yB = liniaY((w + 1) / siatkaN);
+      const szA = liniaSzer(w / siatkaN);
+      const szB = liniaSzer((w + 1) / siatkaN);
+      const xA = (1 - szA) / 2 + szA * (k + 0.5) / siatkaN;
+      const xB = (1 - szB) / 2 + szB * (k + 0.5) / siatkaN;
+      // środek w układzie prostym -> piksele -> obrót siatki -> kadr
+      const px = (xA + xB) / 2 * fullImage.width;
+      const py = (yA + yB) / 2 * fullImage.height;
+      const katS = obrot * Math.PI / 180;
+      const ox = fullImage.width / 2 + (px - fullImage.width / 2) * Math.cos(katS) - (py - fullImage.height / 2) * Math.sin(katS);
+      const oy = fullImage.height / 2 + (px - fullImage.width / 2) * Math.sin(katS) + (py - fullImage.height / 2) * Math.cos(katS);
+      return {
+        "x": ox / fullImage.width,
+        "y": oy / fullImage.height
+      };
+    }
+
+    //! tagi-węzły siatki bieżącego zdjęcia
+    readonly property var tagiSiatki: curTags.filter(t => t.uwagi !== undefined && t.uwagi !== null && String(t.uwagi).indexOf("siatka " + siatkaN + " ") === 0)
+
+    //! wszystkie wpisy komórki (kolumna k, wiersz w) — warstwy gatunków
+    function wpisyWKomorce(k, w) {
+      const wzor = "siatka " + siatkaN + " " + w + " " + k;
+      return tagiSiatki.filter(t => String(t.uwagi) === wzor);
+    }
+
+    //! wpis danego gatunku w komórce albo null
+    function wpisGatunku(k, w, gatunek) {
+      const lista = wpisyWKomorce(k, w);
+      for (let i = 0; i < lista.length; i++) {
+        if (lista[i].tag === gatunek)
+          return lista[i];
+      }
+      return null;
+    }
 
     //! otwiera zdjęcie w systemowym edytorze; nasz plik i EXIF nietknięte
     function edytujZewnetrznie() {
@@ -1231,7 +1335,7 @@ Popup {
       contentWidth: width
       contentHeight: height
       boundsBehavior: Flickable.StopAtBounds
-      interactive: contentWidth > width + 5 || contentHeight > height + 5
+      interactive: (contentWidth > width + 5 || contentHeight > height + 5) && (Qt.platform.os === "android" || Qt.platform.os === "ios")
       clip: true
 
       PinchArea {
@@ -1278,6 +1382,155 @@ Popup {
           asynchronous: true
           autoTransform: true
 
+          // plakietka pędzla: aktywny gatunek + zbieg; klik = zmiana gatunku
+          Rectangle {
+            id: plakietkaPedzla
+
+            visible: (viewer.trybSiatki || viewer.trybWskazywania) && viewer.aktywnyPedzel() !== ""
+            x: 10
+            y: 10
+            z: 50
+            width: pedzelWiersz.implicitWidth + 18
+            height: 30
+            radius: 15
+            color: "#D9000000"
+
+            Row {
+              id: pedzelWiersz
+
+              anchors.centerIn: parent
+              spacing: 7
+
+              Rectangle {
+                width: 14
+                height: 14
+                radius: 7
+                anchors.verticalCenter: parent.verticalCenter
+                color: viewer.pedzelPusty ? "#9E9E9E" : photoGallery.tagColor(tagInput.text.trim())
+                border.color: "white"
+                border.width: 1.5
+              }
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: (viewer.pedzelPusty ? qsTr("∅ pusta") : tagInput.text.trim()) + (viewer.trybSiatki && viewer.zbieg > 0 ? qsTr("  ·  zbieg %1%").arg(Math.round(viewer.zbieg * 100)) : "")
+                color: "white"
+                font: photoGallery.t.tipFont
+              }
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "✕"
+                color: "#B0BEC5"
+                font: photoGallery.t.tipFont
+              }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              onClicked: {
+                tagInput.text = "";
+                tagInput.forceActiveFocus();
+              }
+            }
+          }
+
+          // nakładka siatki pokrycia: jasne linie z perspektywą,
+          // zajęte komórki wypełnione półprzezroczystym kolorem gatunku
+          Canvas {
+            id: siatkaCanvas
+
+            anchors.fill: parent
+            visible: viewer.trybSiatki
+
+            onPaint: {
+              const ctx = getContext("2d");
+              ctx.clearRect(0, 0, width, height);
+              const N = viewer.siatkaN;
+              ctx.save();
+              ctx.translate(width / 2, height / 2);
+              ctx.rotate(viewer.obrot * Math.PI / 180);
+              ctx.translate(-width / 2, -height / 2);
+
+              // wypełnienia zajętych komórek (czworokąty trapezu)
+              for (let w = 0; w < N; w++) {
+                const yG = viewer.liniaY(w / N) * height;
+                const yD = viewer.liniaY((w + 1) / N) * height;
+                const szG = viewer.liniaSzer(w / N) * width;
+                const szD = viewer.liniaSzer((w + 1) / N) * width;
+                for (let k = 0; k < N; k++) {
+                  const wpisy = viewer.wpisyWKomorce(k, w);
+                  if (wpisy.length === 0)
+                    continue;
+                  // pionowe pasy: po jednym na gatunek w komórce
+                  const x0G = (width - szG) / 2 + szG * k / N;
+                  const x1G = (width - szG) / 2 + szG * (k + 1) / N;
+                  const x0D = (width - szD) / 2 + szD * k / N;
+                  const x1D = (width - szD) / 2 + szD * (k + 1) / N;
+                  ctx.globalAlpha = 0.35;
+                  for (let p = 0; p < wpisy.length; p++) {
+                    const a = p / wpisy.length;
+                    const b = (p + 1) / wpisy.length;
+                    ctx.fillStyle = wpisy[p].tag === "(pusta)" ? "#9E9E9E" : photoGallery.tagColor(wpisy[p].tag);
+                    ctx.beginPath();
+                    ctx.moveTo(x0G + (x1G - x0G) * a, yG);
+                    ctx.lineTo(x0G + (x1G - x0G) * b, yG);
+                    ctx.lineTo(x0D + (x1D - x0D) * b, yD);
+                    ctx.lineTo(x0D + (x1D - x0D) * a, yD);
+                    ctx.closePath();
+                    ctx.fill();
+                  }
+                  ctx.globalAlpha = 1.0;
+                }
+              }
+
+              // linie siatki
+              ctx.strokeStyle = "#C8FFFFFF";
+              ctx.lineWidth = 1.2;
+              for (let w = 0; w <= N; w++) {
+                const y = viewer.liniaY(w / N) * height;
+                const sz = viewer.liniaSzer(w / N) * width;
+                ctx.beginPath();
+                ctx.moveTo((width - sz) / 2, y);
+                ctx.lineTo((width + sz) / 2, y);
+                ctx.stroke();
+              }
+              for (let k = 0; k <= N; k++) {
+                const szG = viewer.liniaSzer(0) * width;
+                const szD = viewer.liniaSzer(1) * width;
+                ctx.beginPath();
+                ctx.moveTo((width - szG) / 2 + szG * k / N, viewer.liniaY(0) * height);
+                ctx.lineTo((width - szD) / 2 + szD * k / N, viewer.liniaY(1) * height);
+                ctx.stroke();
+              }
+              ctx.restore();
+            }
+
+            Connections {
+              target: viewer
+              function onCurTagsChanged() {
+                siatkaCanvas.requestPaint();
+              }
+              function onTrybSiatkiChanged() {
+                viewer.wczytajZbieg();
+                siatkaCanvas.requestPaint();
+              }
+              function onIdxChanged() {
+                viewer.wczytajZbieg();
+                siatkaCanvas.requestPaint();
+              }
+              function onZbiegChanged() {
+                siatkaCanvas.requestPaint();
+              }
+              function onSiatkaNChanged() {
+                siatkaCanvas.requestPaint();
+              }
+              function onObrotChanged() {
+                siatkaCanvas.requestPaint();
+              }
+            }
+          }
+
           // znaczniki wskazań (tagi z zapisanymi współrzędnymi);
           // w trybie wskazywania klik w znacznik usuwa wskazanie
           Repeater {
@@ -1288,7 +1541,7 @@ Popup {
 
               required property var modelData
 
-              visible: modelData.x !== undefined && modelData.x !== null && modelData.x >= 0 && modelData.y >= 0
+              visible: modelData.x !== undefined && modelData.x !== null && modelData.x >= 0 && modelData.y >= 0 && !(viewer.trybSiatki && modelData.uwagi !== undefined && modelData.uwagi !== null && String(modelData.uwagi).indexOf("siatka") === 0)
               x: modelData.x * fullImage.width - 8
               y: modelData.y * fullImage.height - 8
               width: 16
@@ -1330,7 +1583,7 @@ Popup {
           id: obszarPodgladu
 
           anchors.fill: parent
-          cursorShape: viewer.trybWskazywania ? Qt.CrossCursor : Qt.ArrowCursor
+          cursorShape: viewer.trybWskazywania || viewer.trybSiatki ? Qt.CrossCursor : Qt.ArrowCursor
           acceptedButtons: Qt.LeftButton | Qt.MiddleButton
 
           property real pressX: 0
@@ -1340,7 +1593,37 @@ Popup {
             pressX = mouse.x;
             pressY = mouse.y;
           }
+          //! ostatnio zamalowana komórka podczas przeciągania ("w:k")
+          property string ostatniaKomorka: ""
+
           onPositionChanged: mouse => {
+            // WorkField: malowanie siatki przeciągnięciem (lewy przycisk)
+            if (viewer.trybSiatki && (mouse.buttons & Qt.LeftButton) && viewer.aktywnyPedzel() !== "") {
+              const pm = fullImage.mapFromItem(obszarPodgladu, mouse.x, mouse.y);
+              if (pm.x >= 0 && pm.x <= fullImage.width && pm.y >= 0 && pm.y <= fullImage.height) {
+                const katM = -viewer.obrot * Math.PI / 180;
+                const rxM = fullImage.width / 2 + (pm.x - fullImage.width / 2) * Math.cos(katM) - (pm.y - fullImage.height / 2) * Math.sin(katM);
+                const ryM = fullImage.height / 2 + (pm.x - fullImage.width / 2) * Math.sin(katM) + (pm.y - fullImage.height / 2) * Math.cos(katM);
+                const sM = 1 - viewer.zbieg;
+                const ynM = ryM / fullImage.height;
+                const tWM = 1 - (1 - ynM) / (sM + (1 - sM) * (1 - ynM));
+                const wM = Math.min(viewer.siatkaN - 1, Math.max(0, Math.floor(tWM * viewer.siatkaN)));
+                const szWM = viewer.liniaSzer(tWM) * fullImage.width;
+                const xwM = (rxM - (fullImage.width - szWM) / 2) / szWM;
+                const kM = Math.min(viewer.siatkaN - 1, Math.max(0, Math.floor(xwM * viewer.siatkaN)));
+                const kluczK = wM + ":" + kM;
+                if (kluczK !== ostatniaKomorka) {
+                  ostatniaKomorka = kluczK;
+                  if (viewer.wpisGatunku(kM, wM, viewer.aktywnyPedzel()) === null) {
+                    const cM = viewer.srodekKomorki(kM, wM);
+                    if (tagStore.addTag(viewer.curRel, viewer.aktywnyPedzel(), -1, "siatka " + viewer.siatkaN + " " + wM + " " + kM, cM.x, cM.y) >= 0) {
+                      viewer.refreshTags();
+                    }
+                  }
+                }
+              }
+              return;
+            }
             // WorkField: środkowy przycisk przesuwa powiększone zdjęcie
             if (mouse.buttons & Qt.MiddleButton) {
               flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, flick.contentX - (mouse.x - pressX)));
@@ -1351,6 +1634,54 @@ Popup {
           }
           onReleased: mouse => {
             if (mouse.button !== Qt.LeftButton) {
+              return;
+            }
+            if (viewer.trybSiatki) {
+              obszarPodgladu.ostatniaKomorka = "";
+            }
+            // WorkField: siatka pokrycia — klik przypisuje/zwalnia węzeł
+            if (viewer.trybSiatki && Math.abs(mouse.x - pressX) < 8 && Math.abs(mouse.y - pressY) < 8) {
+              const ps = fullImage.mapFromItem(obszarPodgladu, mouse.x, mouse.y);
+              if (ps.x >= 0 && ps.x <= fullImage.width && ps.y >= 0 && ps.y <= fullImage.height) {
+                // najpierw odkręcamy punkt o obrót siatki (wokół środka kadru)
+                const kat = -viewer.obrot * Math.PI / 180;
+                const rx = fullImage.width / 2 + (ps.x - fullImage.width / 2) * Math.cos(kat) - (ps.y - fullImage.height / 2) * Math.sin(kat);
+                const ry = fullImage.height / 2 + (ps.x - fullImage.width / 2) * Math.sin(kat) + (ps.y - fullImage.height / 2) * Math.cos(kat);
+                // odwrócenie rzutu: z piksela do wiersza/kolumny trapezu
+                const s = 1 - viewer.zbieg;
+                const yn = ry / fullImage.height;
+                const tW = 1 - (1 - yn) / (s + (1 - s) * (1 - yn));
+                const w = Math.min(viewer.siatkaN - 1, Math.max(0, Math.floor(tW * viewer.siatkaN)));
+                const szW = viewer.liniaSzer(tW) * fullImage.width;
+                const xw = (rx - (fullImage.width - szW) / 2) / szW;
+                const k = Math.min(viewer.siatkaN - 1, Math.max(0, Math.floor(xw * viewer.siatkaN)));
+                const gat = viewer.aktywnyPedzel();
+                if (gat === "") {
+                  // gumka: pusty pędzel czyści całą komórkę
+                  const lista = viewer.wpisyWKomorce(k, w);
+                  for (let i = 0; i < lista.length; i++)
+                    tagStore.removeTag(lista[i].fid);
+                  if (lista.length > 0)
+                    viewer.refreshTags();
+                } else {
+                  const istn = viewer.wpisGatunku(k, w, gat);
+                  if (istn !== null) {
+                    tagStore.removeTag(istn.fid);
+                    viewer.refreshTags();
+                  } else {
+                    const c = viewer.srodekKomorki(k, w);
+                    const fidS = tagStore.addTag(viewer.curRel, gat, -1, "siatka " + viewer.siatkaN + " " + w + " " + k, c.x, c.y);
+                    if (fidS >= 0) {
+                      viewer.refreshTags();
+                      tagPanel.updateSuggestions();
+                    }
+                  }
+                }
+              }
+              return;
+            }
+            if (viewer.trybSiatki) {
+              // po malowaniu przeciągnięciem nie zmieniamy zdjęcia gestem
               return;
             }
             // WorkField: wskazanie gatunku — klik (nie przeciągnięcie)
@@ -1369,7 +1700,7 @@ Popup {
               }
               return;
             }
-            if (!flick.interactive) {
+            if (!flick.interactive && (Qt.platform.os === "android" || Qt.platform.os === "ios")) {
               const dx = mouse.x - pressX;
               const dy = mouse.y - pressY;
               if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) {
@@ -1550,13 +1881,21 @@ Popup {
           const nazwa = String(surowa).trim().replace(/\s+/g, " ");
           if (nazwa === "")
             return;
-          const k = nazwa.toLowerCase();
-          if (!seen[k]) {
-            seen[k] = true;
+          // klucz kanoniczny: człon łaciński przed " - " — "Abies alba"
+          // i "Abies alba - jodła pospolita [aba]" to jeden gatunek;
+          // wygrywa forma pełniejsza, liczniki użyć się sumują
+          const k = nazwa.split(" - ")[0].trim().toLowerCase();
+          if (seen[k] === undefined) {
+            seen[k] = out.length;
             out.push({
                 "name": nazwa,
                 "n": n
               });
+          } else {
+            const w = out[seen[k]];
+            w.n += n;
+            if (nazwa.length > w.name.length)
+              w.name = nazwa;
           }
         };
         for (let i = 0; i < stats.length; i++) {
@@ -1664,7 +2003,12 @@ Popup {
           color: "white"
           placeholderTextColor: "#90A4AE"
           font: photoGallery.t.tipFont
-          onTextChanged: tagPanel.updateSuggestions()
+          onTextChanged: {
+            tagPanel.updateSuggestions();
+            // wybór gatunku sam wyłącza pędzel "∅ Pusta"
+            if (text.trim() !== "")
+              viewer.pedzelPusty = false;
+          }
           onAccepted: addTagButton.clicked()
         }
 
@@ -1747,7 +2091,149 @@ Popup {
           enabled: tagInput.text.trim() !== "" || checked
           text: checked ? qsTr("Wskazywanie włączone — klikaj na zdjęciu") : qsTr("Wskaż gatunek na zdjęciu")
           Material.background: checked ? "#00695C" : undefined
-          onToggled: viewer.trybWskazywania = checked
+          onToggled: {
+            viewer.trybWskazywania = checked;
+            if (checked)
+              viewer.trybSiatki = false;
+          }
+        }
+
+        Button {
+          id: trybSiatkiButton
+
+          Layout.fillWidth: true
+          checkable: true
+          checked: viewer.trybSiatki
+          enabled: tagInput.text.trim() !== "" || checked
+          text: checked ? qsTr("Siatka %1×%1 — klikaj w węzły").arg(viewer.siatkaN) : qsTr("Siatka pokrycia (%1×%1)").arg(viewer.siatkaN)
+          Material.background: checked ? "#00695C" : undefined
+          onToggled: {
+            viewer.trybSiatki = checked;
+            if (checked)
+              viewer.trybWskazywania = false;
+          }
+        }
+
+        // gęstość siatki: 5/7/10 (komórka 4% / ~2% / 1%)
+        RowLayout {
+          Layout.fillWidth: true
+          visible: viewer.trybSiatki
+          spacing: 4
+
+          Text {
+            text: qsTr("Gęstość:")
+            font: photoGallery.t.tinyFont
+            color: photoGallery.t.secondaryTextColor
+          }
+
+          Repeater {
+            model: [5, 7, 10]
+
+            delegate: Button {
+              required property int modelData
+
+              Layout.fillWidth: true
+              checkable: true
+              checked: viewer.siatkaN === modelData
+              text: modelData + "×" + modelData
+              font: photoGallery.t.tinyFont
+              Material.background: checked ? "#00695C" : undefined
+              onClicked: {
+                viewer.siatkaN = modelData;
+                settings.setValue('WorkField/siatkaN', modelData);
+              }
+            }
+          }
+        }
+
+        // pędzel pusty + ręczny zbieg
+        RowLayout {
+          Layout.fillWidth: true
+          visible: viewer.trybSiatki
+          spacing: 6
+
+          Button {
+            checkable: true
+            checked: viewer.pedzelPusty
+            text: qsTr("∅ Pusta")
+            font: photoGallery.t.tinyFont
+            Material.background: checked ? "#616161" : undefined
+            ToolTip.visible: hovered
+            ToolTip.text: qsTr("Maluj komórki ocenione bez roślinności — wyznaczają mianownik 100%")
+            onToggled: viewer.pedzelPusty = checked
+          }
+
+          Text {
+            text: qsTr("Zbieg:")
+            font: photoGallery.t.tinyFont
+            color: photoGallery.t.secondaryTextColor
+          }
+
+          Slider {
+            id: suwakZbiegu
+
+            Layout.fillWidth: true
+            from: 0
+            to: 0.75
+            value: viewer.zbieg
+            onMoved: viewer.zbieg = value
+          }
+
+          Text {
+            text: Math.round(viewer.zbieg * 100) + "%"
+            font: photoGallery.t.tinyFont
+            color: photoGallery.t.secondaryTextColor
+          }
+
+          Text {
+            text: qsTr("Obrót:")
+            font: photoGallery.t.tinyFont
+            color: photoGallery.t.secondaryTextColor
+          }
+
+          Slider {
+            Layout.fillWidth: true
+            from: -30
+            to: 30
+            value: viewer.obrot
+            onMoved: viewer.obrot = value
+          }
+
+          Text {
+            text: Math.round(viewer.obrot) + "°"
+            font: photoGallery.t.tinyFont
+            color: photoGallery.t.secondaryTextColor
+          }
+        }
+
+        // pokrycie z siatki, na żywo, per gatunek
+        Text {
+          Layout.fillWidth: true
+          visible: viewer.trybSiatki && viewer.tagiSiatki.length > 0
+          wrapMode: Text.Wrap
+          font: photoGallery.t.tinyFont
+          color: "#80CBC4"
+          text: {
+            const grupy = {};
+            const ocenione = {};
+            let saPuste = false;
+            for (let i = 0; i < viewer.tagiSiatki.length; i++) {
+              const wpis = viewer.tagiSiatki[i];
+              ocenione[String(wpis.uwagi)] = true;
+              if (wpis.tag === "(pusta)") {
+                saPuste = true;
+              } else {
+                grupy[wpis.tag] = (grupy[wpis.tag] || 0) + 1;
+              }
+            }
+            // mianownik: komórki ocenione (gatunek lub pusta), jeśli
+            // oznaczono choć jedną pustą; inaczej cała siatka N×N
+            const mianownik = saPuste ? Object.keys(ocenione).length : viewer.siatkaN * viewer.siatkaN;
+            const czesci = Object.keys(grupy).sort().map(t => t + ": " + grupy[t] + "/" + mianownik + " = " + Math.round(100 * grupy[t] / mianownik) + "%");
+            if (saPuste)
+              czesci.push(qsTr("ocenione: %1 z %2").arg(Object.keys(ocenione).length).arg(viewer.siatkaN * viewer.siatkaN));
+            return czesci.join("   ");
+          }
         }
 
         ListView {
@@ -1973,6 +2459,8 @@ Popup {
               const grupy = {};
               for (let i = 0; i < viewer.curTags.length; i++) {
                 const t = viewer.curTags[i].tag;
+                if (t === "(pusta)")
+                  continue;
                 grupy[t] = (grupy[t] || 0) + 1;
               }
               return Object.keys(grupy).sort().map(t => ({

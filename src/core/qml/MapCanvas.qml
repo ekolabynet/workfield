@@ -333,7 +333,9 @@ Item {
     enabled: interactive && !freehandDigitizing
     target: null
     grabPermissions: PointerHandler.CanTakeOverFromHandlersOfDifferentType | PointerHandler.ApprovesTakeOverByHandlersOfDifferentType
-    acceptedDevices: !qfieldSettings.mouseAsTouchScreen ? PointerDevice.Stylus | PointerDevice.Mouse | PointerDevice.TouchPad : PointerDevice.Stylus | PointerDevice.TouchPad
+    // WorkField: na komputerze mapę przesuwa wyłącznie środkowy przycisk
+    // (nawyk QGIS/AutoCAD); lewy zostaje do rysowania i zaznaczania
+    acceptedDevices: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? PointerDevice.Stylus : (!qfieldSettings.mouseAsTouchScreen ? PointerDevice.Stylus | PointerDevice.Mouse | PointerDevice.TouchPad : PointerDevice.Stylus | PointerDevice.TouchPad)
     acceptedButtons: Qt.NoButton | Qt.LeftButton
     dragThreshold: 5
 

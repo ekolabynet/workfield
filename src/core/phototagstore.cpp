@@ -375,6 +375,72 @@ QStringList PhotoTagStore::photosForTag( const QString &tag )
   return result;
 }
 
+QVariantMap PhotoTagStore::exportujWycinki( int rozmiar )
+{
+  QVariantMap wynik;
+  wynik[QStringLiteral( "zdjec" )] = 0;
+  wynik[QStringLiteral( "wycinkow" )] = 0;
+  if ( !mDb || mProjectDir.isEmpty() )
+    return wynik;
+
+  // wskazania pogrupowane po zdjęciu, żeby każdy plik czytać raz
+  QMap<QString, QList<QVariantMap>> wgZdjecia;
+  sqlite3_stmt *stmt = nullptr;
+  if ( sqlite3_prepare_v2( mDb, "SELECT foto, fid, tag, x, y FROM FOTO_TAGI WHERE x >= 0 AND y >= 0 AND tag != '(pusta)' ORDER BY foto", -1, &stmt, nullptr ) != SQLITE_OK )
+    return wynik;
+  while ( sqlite3_step( stmt ) == SQLITE_ROW )
+  {
+    QVariantMap w;
+    const QString foto = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( stmt, 0 ) ) );
+    w[QStringLiteral( "fid" )] = sqlite3_column_int( stmt, 1 );
+    w[QStringLiteral( "tag" )] = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( stmt, 2 ) ) );
+    w[QStringLiteral( "x" )] = sqlite3_column_double( stmt, 3 );
+    w[QStringLiteral( "y" )] = sqlite3_column_double( stmt, 4 );
+    wgZdjecia[foto] << w;
+  }
+  sqlite3_finalize( stmt );
+
+  const QString korzen = mProjectDir + QStringLiteral( "/WFG_Trening" );
+  int zdjec = 0;
+  int wycinkow = 0;
+  for ( auto it = wgZdjecia.constBegin(); it != wgZdjecia.constEnd(); ++it )
+  {
+    QImageReader czytnik( mProjectDir + QStringLiteral( "/" ) + it.key() );
+    czytnik.setAutoTransform( true );
+    const QImage obraz = czytnik.read();
+    if ( obraz.isNull() )
+      continue;
+    zdjec++;
+    const QString baza = QFileInfo( it.key() ).completeBaseName();
+    for ( const QVariantMap &w : it.value() )
+    {
+      // nazwa gatunku jako bezpieczna nazwa katalogu
+      QString gatunek = w.value( QStringLiteral( "tag" ) ).toString();
+      gatunek.replace( QRegularExpression( QStringLiteral( "[^\\w\\s.-]" ) ), QStringLiteral( "_" ) );
+      gatunek = gatunek.simplified().replace( QLatin1Char( ' ' ), QLatin1Char( '_' ) );
+      const QString katalog = korzen + QStringLiteral( "/" ) + gatunek;
+      QDir().mkpath( katalog );
+
+      const int cx = qRound( w.value( QStringLiteral( "x" ) ).toDouble() * obraz.width() );
+      const int cy = qRound( w.value( QStringLiteral( "y" ) ).toDouble() * obraz.height() );
+      const int pol = rozmiar / 2;
+      QRect kadr( cx - pol, cy - pol, rozmiar, rozmiar );
+      kadr = kadr.intersected( obraz.rect() );
+      if ( kadr.width() < 64 || kadr.height() < 64 )
+        continue;
+
+      const QString cel = katalog + QStringLiteral( "/%1_%2.jpg" ).arg( baza ).arg( w.value( QStringLiteral( "fid" ) ).toInt() );
+      if ( obraz.copy( kadr ).save( cel, "JPG", 92 ) )
+        wycinkow++;
+    }
+  }
+
+  wynik[QStringLiteral( "zdjec" )] = zdjec;
+  wynik[QStringLiteral( "wycinkow" )] = wycinkow;
+  wynik[QStringLiteral( "katalog" )] = korzen;
+  return wynik;
+}
+
 QStringList PhotoTagStore::formSpecies()
 {
   if ( mFormSpeciesLoaded )

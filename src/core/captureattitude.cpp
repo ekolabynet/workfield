@@ -102,6 +102,46 @@ bool CaptureAttitude::hasExternalPose( const QString &path ) const
   return komentarz.contains( QStringLiteral( "Pitch" ), Qt::CaseInsensitive );
 }
 
+QVariantMap CaptureAttitude::readPose( const QString &path ) const
+{
+  QVariantMap wynik;
+  if ( path.isEmpty() || !QFileInfo::exists( path ) )
+  {
+    return wynik;
+  }
+  const QString komentarz = QgsExifTools::readTag( path, QStringLiteral( "Exif.Photo.UserComment" ) ).toString();
+  if ( komentarz.isEmpty() )
+  {
+    return wynik;
+  }
+
+  const QJsonDocument dok = QJsonDocument::fromJson( komentarz.toUtf8() );
+  if ( dok.isObject() )
+  {
+    const QJsonObject o = dok.object();
+    const auto wpisz = [&wynik, &o]( const QString &klucz, const QString &alias ) {
+      if ( o.contains( klucz ) )
+        wynik[klucz] = o.value( klucz ).toDouble();
+      else if ( o.contains( alias ) )
+        wynik[klucz] = o.value( alias ).toDouble();
+    };
+    wpisz( QStringLiteral( "pitch" ), QStringLiteral( "pitch_deg" ) );
+    wpisz( QStringLiteral( "roll" ), QStringLiteral( "roll_deg" ) );
+    wpisz( QStringLiteral( "yaw" ), QStringLiteral( "azymut_deg" ) );
+    return wynik;
+  }
+
+  // OpenCamera: "Yaw:57.86,Pitch:-39.51,Roll:3.42"
+  const QRegularExpression wzor( QStringLiteral( "(Yaw|Pitch|Roll)\\s*:\\s*(-?[0-9.]+)" ), QRegularExpression::CaseInsensitiveOption );
+  QRegularExpressionMatchIterator it = wzor.globalMatch( komentarz );
+  while ( it.hasNext() )
+  {
+    const QRegularExpressionMatch m = it.next();
+    wynik[m.captured( 1 ).toLower()] = m.captured( 2 ).toDouble();
+  }
+  return wynik;
+}
+
 bool CaptureAttitude::fillMissingPosition( const QString &path, double latitude, double longitude, double elevation )
 {
   if ( path.isEmpty() || !QFileInfo::exists( path ) )

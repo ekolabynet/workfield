@@ -60,6 +60,13 @@ class CaptureAttitude : public QObject
     Q_INVOKABLE bool hasExternalPose( const QString &path ) const;
 
     /**
+     * Odczytuje postawę aparatu zapisaną w zdjęciu (EXIF UserComment,
+     * format nasz JSON albo OpenCamera "Yaw:..,Pitch:..,Roll:..").
+     * Zwraca mapę z kluczami pitch/yaw/roll albo pustą mapę.
+     */
+    Q_INVOKABLE QVariantMap readPose( const QString &path ) const;
+
+    /**
      * Dopisuje wspolrzedne z naszego GNSS, ale TYLKO gdy plik ich nie ma.
      * Aparat systemowy Samsunga nie geotaguje wcale - tak przepadl caly
      * dzien dokumentacji z 30 lipca.
