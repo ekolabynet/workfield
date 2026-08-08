@@ -1003,8 +1003,14 @@ Popup {
           readonly property bool noExif: viewer.cur ? !tagStore.hasExifOrientation(viewer.cur.path) : false
           readonly property bool sideways: noExif && status == Image.Ready && sourceSize.width !== sourceSize.height && ((sourceSize.width > sourceSize.height) !== (flick.width > flick.height))
 
-          width: sideways ? flick.contentHeight : flick.contentWidth
-          height: sideways ? flick.contentWidth : flick.contentHeight
+          // Pozycję kadru liczymy SAMI: element ma dokładnie rozmiar
+          // narysowanego zdjęcia i jest centrowany — wyrównanie wewnątrz
+          // Image przy autoTransform bywa liczone przed obrotem EXIF
+          // (objaw: kadr przyklejony do prawej, czarny pas z lewej)
+          readonly property real skala: status == Image.Ready && implicitWidth > 0 ? Math.min((sideways ? flick.contentHeight : flick.contentWidth) / implicitWidth, (sideways ? flick.contentWidth : flick.contentHeight) / implicitHeight) : 1
+
+          width: implicitWidth * skala
+          height: implicitHeight * skala
           anchors.centerIn: parent
           rotation: sideways ? 90 : 0
           source: viewer.cur ? "file://" + viewer.cur.path : ""

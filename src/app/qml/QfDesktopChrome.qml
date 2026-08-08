@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
@@ -11,45 +10,26 @@ import Theme
  * WorkField Studio — CHROM DESKTOPOWY (nagłówek okna na komputerze).
  *
  * Belka: nazwy grup menu po lewej, stan pracy po prawej (nazwa projektu,
- * aktywna warstwa, RTCM) — zastępuje dotykową belkę QFielda, która na
- * komputerze dublowała te same informacje i zabierała wysokość ekranu.
+ * aktywna warstwa, RTCM). Menu rysuje QtQuick.Controls — natywne menu
+ * systemowe wymaga demona globalnego menu, którego w Plasmie zwykle nie ma.
  *
- * Pasek narzędzi jest PIONOWY, przy lewej krawędzi mapy (jak w QGIS czy
- * Inkscape) — nie zabiera wysokości, zostawia miejsce na przyszłe panele
- * boczne. Kończy się wysoko nad przyciskiem lokalizacji.
- *
- * Menu rysuje QtQuick.Controls: natywne menu systemowe wymaga demona
- * globalnego menu, którego w Plasmie zwykle nie ma.
+ * Pionowego paska ikon już nie ma: jego rolę przejął poziomy przełącznik
+ * widoków w dokowanym lewym panelu (QfMainDrawer) oraz pasek menu.
  */
 ToolBar {
   id: chrom
 
   property var akcje: wfAkcje
-  //! ekran startowy: pasek pionowy chowa się, menu zostaje
+  //! zachowane dla zgodności wywołania; chrom nie zmienia się na starcie
   property bool ekranStartowy: false
-
-  //! ikony na pasku: codzienne czasowniki, reszta zostaje w menu
-  readonly property var naPasku: ["otworz", "otworz_magazyn", "wyslij", "odbierz", "warstwy", "galeria"]
 
   height: 30
   padding: 0
 
-  // tło jawnym prostokątem — bez zależności od stylu Material
   background: Rectangle {
     color: Theme.mainColor
   }
 
-  function znajdz(idAkcji) {
-    if (!akcje)
-      return null;
-    for (let i = 0; i < akcje.lista.length; i++) {
-      if (akcje.lista[i].id === idAkcji)
-        return akcje.lista[i];
-    }
-    return null;
-  }
-
-  // ── belka: menu po lewej, stan po prawej ────────────────────────
   RowLayout {
     anchors.fill: parent
     anchors.leftMargin: 4
@@ -137,83 +117,6 @@ ToolBar {
       font: Theme.tinyFont
       color: "white"
       opacity: 0.8
-    }
-  }
-
-  // ── pionowy pasek narzędzi przy lewej krawędzi mapy ─────────────
-  Rectangle {
-    id: pasekPionowy
-
-    parent: mainWindow.contentItem
-    x: 6
-    y: 8
-    width: 32
-    height: kolumnaIkon.implicitHeight + 8
-    radius: 6
-    color: Theme.mainColor
-    opacity: 0.92
-    z: 900
-    visible: chrom.akcje !== null && !chrom.ekranStartowy
-
-    ColumnLayout {
-      id: kolumnaIkon
-
-      anchors.horizontalCenter: parent.horizontalCenter
-      anchors.top: parent.top
-      anchors.topMargin: 4
-      spacing: 2
-
-      Repeater {
-        model: chrom.naPasku
-
-        delegate: ToolButton {
-          required property string modelData
-
-          readonly property var akcja: chrom.znajdz(modelData)
-
-          implicitWidth: 26
-          implicitHeight: 26
-          enabled: akcja && chrom.akcje ? chrom.akcje.dostepna(akcja) : false
-          opacity: enabled ? 1.0 : 0.35
-          ToolTip.visible: hovered && akcja !== null
-          ToolTip.text: akcja ? akcja.nazwa : ""
-          ToolTip.delay: 400
-
-          contentItem: Item {
-            // ikony Breeze to ciemna kreska — na zielonym tle rozjaśniamy
-            Image {
-              id: rysunek
-              anchors.centerIn: parent
-              width: 18
-              height: 18
-              fillMode: Image.PreserveAspectFit
-              sourceSize.width: 18
-              sourceSize.height: 18
-              source: akcja ? Theme.getThemeVectorIcon(akcja.ikona) : ""
-              visible: false
-            }
-
-            MultiEffect {
-              anchors.fill: rysunek
-              source: rysunek
-              colorization: 1.0
-              colorizationColor: "white"
-              brightness: 0.35
-            }
-          }
-
-          background: Rectangle {
-            color: "white"
-            opacity: parent.hovered ? 0.18 : 0
-            radius: 4
-          }
-
-          onClicked: {
-            if (akcja)
-              akcja.wykonaj();
-          }
-        }
-      }
     }
   }
 }

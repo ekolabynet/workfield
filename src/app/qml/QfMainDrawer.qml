@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Qt.labs.folderlistmodel
 import QtQuick.Controls
 import QtQuick.Controls.Material
@@ -23,6 +24,10 @@ Drawer {
   onOpenedChanged: {
     if (opened) {
       projectSection.refresh();
+    }
+    // WorkField: dokowany panel pamięta stan między sesjami (komputer)
+    if (!modal) {
+      settings.setValue('WorkField/lewyPanelOtwarty', opened);
     }
   }
 
@@ -81,8 +86,20 @@ Drawer {
   width: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? Math.max(380, Math.round(mainWindow.width * 0.25)) : Math.min(Math.max(330, mainWindow.width * 0.8), mainWindow.width)
   height: parent.height
   edge: Qt.LeftEdge
-  dragMargin: 10
-  interactive: allowInteractive
+  // WorkField: na komputerze panel jest DOKOWANY — nie przyciemnia mapy,
+  // nie zamyka się od kliknięcia poza nim i zostaje otwarty; mapa zwęża
+  // się o jego szerokość (patrz mapCanvas w qgismobileapp.qml)
+  modal: Qt.platform.os === "android" || Qt.platform.os === "ios"
+  dim: modal
+  closePolicy: modal ? Popup.CloseOnEscape | Popup.CloseOnPressOutside : Popup.CloseOnEscape
+  dragMargin: modal ? 10 : 0
+  interactive: allowInteractive && modal
+
+  onSekcjaWymuszonaChanged: {
+    if (!modal && sekcjaWymuszona >= 0) {
+      settings.setValue('WorkField/lewyPanelSekcja', sekcjaWymuszona);
+    }
+  }
 
   topPadding: 0
   leftPadding: 0
@@ -486,6 +503,77 @@ Drawer {
       Layout.fillWidth: true
       Layout.preferredHeight: 1
       color: Theme.controlBorderColor
+    }
+
+    // WorkField: poziomy przełącznik widoków panelu (komputer);
+    // ikona + nazwa, bo etykieta bije zgadywanie
+    RowLayout {
+      visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+      Layout.fillWidth: true
+      Layout.leftMargin: 4
+      Layout.rightMargin: 4
+      spacing: 2
+
+      Repeater {
+        model: [{ "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 0 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 1 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 2 }, { "nazwa": qsTr("Magazyn"), "ikona": "wfg_magazyn", "sekcja": 3 }]
+
+        delegate: ItemDelegate {
+          id: przelacznikWidoku
+
+          required property var modelData
+
+          readonly property bool aktywny: dashStack.currentIndex === modelData.sekcja
+
+          Layout.fillWidth: true
+          Layout.preferredHeight: 34
+          padding: 0
+
+          background: Rectangle {
+            color: przelacznikWidoku.aktywny ? Theme.mainColor : "transparent"
+            radius: 5
+          }
+
+          contentItem: RowLayout {
+            spacing: 5
+
+            Item {
+              Layout.fillWidth: true
+            }
+
+            Image {
+              id: ikonaWidoku
+              Layout.preferredWidth: 16
+              Layout.preferredHeight: 16
+              fillMode: Image.PreserveAspectFit
+              sourceSize.width: 16
+              sourceSize.height: 16
+              source: Theme.getThemeVectorIcon(przelacznikWidoku.modelData.ikona)
+              visible: false
+            }
+
+            MultiEffect {
+              Layout.preferredWidth: 16
+              Layout.preferredHeight: 16
+              source: ikonaWidoku
+              colorization: 1.0
+              colorizationColor: przelacznikWidoku.aktywny ? "white" : Theme.mainTextColor
+              brightness: 0.2
+            }
+
+            Text {
+              text: przelacznikWidoku.modelData.nazwa
+              font: Theme.tinyFont
+              color: przelacznikWidoku.aktywny ? "white" : Theme.mainTextColor
+            }
+
+            Item {
+              Layout.fillWidth: true
+            }
+          }
+
+          onClicked: dashBoard.sekcjaWymuszona = modelData.sekcja
+        }
+      }
     }
 
     TabBar {

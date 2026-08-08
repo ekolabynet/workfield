@@ -79,8 +79,8 @@ ApplicationWindow {
     ktoCoRobil: function () { displayToast(qsTr('Dziennik przydziałów — wkrótce')); }
     panelWarstw: function () { dashBoard.otworzSekcje(1); }
     stylizacja: function () { dashBoard.otworzSekcje(2); }
-    galeriaZdjec: function () { if (typeof qfPhotoGallery !== 'undefined') qfPhotoGallery.open(); }
-    kontrolaPrzypisan: function () { if (typeof qfPhotoGallery !== 'undefined') qfPhotoGallery.open(); }
+    galeriaZdjec: function () { photoGallery.openFiles(qgisProject ? qgisProject.homePath : ""); }
+    kontrolaPrzypisan: function () { photoGallery.openPhotos(); }
     zglosUwage: function () { Qt.openUrlExternally('https://github.com/ekolabynet/workfield/issues'); }
     oProgramie: function () { aboutDialog.open(); }
   }
@@ -265,6 +265,10 @@ ApplicationWindow {
   property double sceneRightMargin: SafeArea.margins.right
 
   onSceneLoadedChanged: {
+    // WorkField: dokowany panel wraca w stanie z poprzedniej sesji
+    if (sceneLoaded && Qt.platform.os !== "android" && Qt.platform.os !== "ios" && settings.valueBool('WorkField/lewyPanelOtwarty', false)) {
+      dashBoard.otworzSekcje(settings.valueInt('WorkField/lewyPanelSekcja', 1));
+    }
     // This requires the scene to be fully loaded not to crash due to possibility of
     // a thread blocking permission request being thrown
     if (positioningSettings.positioningActivated) {
@@ -940,6 +944,8 @@ ApplicationWindow {
     /* Placement and size. Share right anchor with featureForm */
     anchors.top: parent.top
     anchors.left: parent.left
+    // WorkField: dokowany panel zsuwa mapę (płynnie, wraz z animacją)
+    anchors.leftMargin: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? dashBoard.width * dashBoard.position : 0
     anchors.right: parent.right
     anchors.bottom: parent.bottom
 

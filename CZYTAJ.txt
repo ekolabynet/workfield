@@ -1,0 +1,20 @@
+PAKIET 9 — dokowany lewy panel (szkielet nowej architektury okna)
+
+    cd /DATA/SOFT/GIS/QFIELD_Pro/QField
+    unzip -o ~/Pobrane/wfg_pakiet9_dokowanie.zip
+    python3 zastosuj_pakiet9.py
+    cmake --build build-sys -j$(nproc)
+    ./build-sys/output/bin/qfield
+
+Skrypt odporny na powtórzenia. Telefon: szuflada bez zmian.
+
+CO SIĘ ZMIENIA (komputer):
+ * Panel po otwarciu z menu NIE przyciemnia mapy i ZOSTAJE otwarty;
+   mapa płynnie zwęża się o jego szerokość. Zamknięcie: strzałka
+   w nagłówku panelu albo Esc.
+ * U góry panelu poziomy przełącznik widoków (ikona+nazwa):
+   Projekt · Warstwy · Stylizacja · Magazyn. Pionowy pasek ikon na
+   mapie znika. (Zdjęcia i Tagowanie dojdą przy osadzaniu galerii,
+   Projekt zniknie gdy powstanie dashboard startowy.)
+ * Panel pamięta stan między sesjami: po wczytaniu projektu wraca
+   otwarty/zamknięty z ostatnią sekcją. Pierwszy raz: zamknięty.
