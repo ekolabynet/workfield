@@ -8,11 +8,15 @@ Kod i interfejs mają się do niej stosować; zmiany tylko świadomą decyzją.
 | Katalog     | Rola                                              | Brama w interfejsie |
 |-------------|---------------------------------------------------|---------------------|
 | `szablony/` | wzorce projektów (dane.gpkg, projekt.qgs)         | Szablony            |
-| `master/`   | stan scalony zadania — jedyne źródło prawdy       | Stan zleceń         |
-| `wydania/`  | paczki wychodzące w teren (zip / folder)          | Do terenu           |
-| `zwroty/`   | paczki wracające z terenu — historia, nie kasować | Z terenu            |
+| `master/`   | stan scalony zadania — jedyne źródło prawdy       | Master              |
+| `wydania/`  | paczki wychodzące w teren (zip / folder)          | Wydane w teren      |
+| `zwroty/`   | paczki wracające z terenu — historia, nie kasować | Przyjęte z terenu   |
 | `archiwum/` | zadania zamknięte                                 | Archiwum            |
 | `dziennik/` | zapisy operacji                                   | (wewnętrzne)        |
+
+W drzewie magazynu Szablony stoją nad projektami (są uniwersalne).
+„Stan zleceń" to osobny widok raportowy nad masterem (stopień realizacji,
+wydania wiszące w terenie) — nie gałąź drzewa; w budowie.
 
 Użytkownik nigdy nie wybiera katalogu — wybiera czynność (bramę),
 a czynność zna swój katalog. Korzeń: `~/WorkField` (zmienialny w
@@ -51,4 +55,4 @@ w terenie, liczniki z warstw roboczych).
 3. Wydanie bez późniejszego zwrotu = „w terenie" — to jest miara
    tego, co jest u ludzi.
 4. Kabel (zip przez kartę) i chmura (NextCloud) to dwa transporty
-   tych samych bram Do terenu / Z terenu — nie osobne mechanizmy.
+   tych samych bram Wydane w teren / Przyjęte z terenu — nie osobne mechanizmy.

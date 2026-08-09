@@ -27,6 +27,8 @@ ColumnLayout {
     // domyślnie ~/WorkField — decyzja projektowa z 2026-08-07
     property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
     property string telefonKarta: "/storage/3263-3061/WorkField/data/"
+    // drzewo projektów: zwinięte gałęzie (JSON: klucz bramy -> true)
+    property string zwinieteJson: '{"archiwum":true,"inne":true}'
   }
 
   ProcesyStudio {
@@ -47,20 +49,64 @@ ColumnLayout {
     }
   }
 
-  function przeladuj() {
-    const zaznaczona = wybrany ? wybrany.sciezka : "";
-    listaProjektow.model = procesy.znajdzProjekty(ustawieniaStudia.korzenProjektow, 4);
-    wybrany = null;
-    for (let i = 0; i < listaProjektow.model.length; i++) {
-      if (listaProjektow.model[i].sciezka === zaznaczona) {
-        listaProjektow.currentIndex = i;
-        wybrany = listaProjektow.model[i];
-        break;
-      }
-    }
+  // drzewo projektów: bramy z docs/MAGAZYN.md jako gałęzie
+  property var zwiniete: ({})
+
+  function przelaczBrame(klucz) {
+    const z = zwiniete;
+    z[klucz] = !z[klucz];
+    zwiniete = z;
+    ustawieniaStudia.zwinieteJson = JSON.stringify(z);
+    przeladuj();
   }
 
-  Component.onCompleted: przeladuj()
+  function przeladuj() {
+    const zaznaczona = wybrany ? wybrany.sciezka : "";
+    const plaska = procesy.znajdzProjekty(ustawieniaStudia.korzenProjektow, 4);
+
+    let nowyWybrany = null;
+    for (const p of plaska)
+      if (zaznaczona !== "" && p.sciezka === zaznaczona)
+        nowyWybrany = p;
+
+    const BRAMY = [
+      { klucz: "szablony", nazwa: qsTr("Szablony") },
+      { klucz: "wydania",  nazwa: qsTr("Wydane w teren") },
+      { klucz: "zwroty",   nazwa: qsTr("Przyjęte z terenu") },
+      { klucz: "master",   nazwa: qsTr("Master") },
+      { klucz: "archiwum", nazwa: qsTr("Archiwum") },
+      { klucz: "inne",     nazwa: qsTr("Inne") }
+    ];
+    const kubelki = { wydania: [], zwroty: [], master: [],
+                      szablony: [], archiwum: [], inne: [] };
+    for (const p of plaska) {
+      const pierwszy = String(p.gdzie || "").split("/")[0];
+      (kubelki[pierwszy] !== undefined ? kubelki[pierwszy] : kubelki.inne).push(p);
+    }
+
+    const wiersze = [];
+    for (const b of BRAMY) {
+      const grupa = kubelki[b.klucz];
+      if (grupa.length === 0)
+        continue;
+      wiersze.push({ rodzaj: "brama", klucz: b.klucz,
+                     nazwa: b.nazwa, licznik: grupa.length });
+      if (!zwiniete[b.klucz])
+        for (const p of grupa)
+          wiersze.push(Object.assign({ rodzaj: "projekt" }, p));
+    }
+    listaProjektow.model = wiersze;
+    wybrany = nowyWybrany;
+  }
+
+  Component.onCompleted: {
+    try {
+      zwiniete = JSON.parse(ustawieniaStudia.zwinieteJson);
+    } catch (e) {
+      zwiniete = {};
+    }
+    przeladuj();
+  }
 
   // ── korzeń drzewa ──────────────────────────────────────────────
   RowLayout {
@@ -104,32 +150,68 @@ ColumnLayout {
       required property var modelData
       required property int index
 
-      width: listaProjektow.width
-      height: opisKol.implicitHeight + 10
-      radius: 4
-      color: listaProjektow.currentIndex === index ? Theme.mainColor : "transparent"
+      readonly property bool wierszBramy: modelData.rodzaj === "brama"
+      readonly property bool zaznaczony: !wierszBramy && studio.wybrany
+                                         && studio.wybrany.sciezka === modelData.sciezka
 
-      ColumnLayout {
-        id: opisKol
+      width: listaProjektow.width
+      height: (wierszBramy ? naglowekBramy.implicitHeight
+                           : opisKol.implicitHeight) + 10
+      radius: 4
+      color: zaznaczony ? Theme.mainColor : "transparent"
+
+      RowLayout {
+        id: naglowekBramy
+        visible: wierszBramy
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.margins: 6
+        spacing: 6
+
+        Text {
+          text: wierszBramy && studio.zwiniete[modelData.klucz] ? "▸" : "▾"
+          font: Theme.tipFont
+          color: Theme.secondaryTextColor
+        }
+        Text {
+          Layout.fillWidth: true
+          text: wierszBramy ? modelData.nazwa : ""
+          font: Theme.strongTipFont
+          color: Theme.mainTextColor
+          elide: Text.ElideRight
+        }
+        Text {
+          text: wierszBramy ? modelData.licznik : ""
+          font: Theme.tinyFont
+          color: Theme.secondaryTextColor
+        }
+      }
+
+      ColumnLayout {
+        id: opisKol
+        visible: !wierszBramy
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: 22
+        anchors.rightMargin: 6
         spacing: 0
 
         Text {
           Layout.fillWidth: true
-          text: modelData.nazwa
+          text: modelData.nazwa || ""
           font: Theme.tipFont
-          color: listaProjektow.currentIndex === index ? "white" : Theme.mainTextColor
+          color: zaznaczony ? "white" : Theme.mainTextColor
           elide: Text.ElideRight
         }
         Text {
           Layout.fillWidth: true
-          text: modelData.typ + " · " + modelData.zmodyfikowano.replace("T", " ").substring(0, 16)
+          text: wierszBramy ? "" : modelData.typ + " · "
+                + modelData.zmodyfikowano.replace("T", " ").substring(0, 16)
                 + (modelData.gdzie !== "" ? " · " + modelData.gdzie : "")
           font: Theme.tinyFont
-          color: listaProjektow.currentIndex === index ? "white" : Theme.secondaryTextColor
+          color: zaznaczony ? "white" : Theme.secondaryTextColor
           elide: Text.ElideRight
         }
       }
@@ -137,11 +219,14 @@ ColumnLayout {
       MouseArea {
         anchors.fill: parent
         onClicked: {
-          listaProjektow.currentIndex = index;
-          studio.wybrany = modelData;
+          if (wierszBramy)
+            studio.przelaczBrame(modelData.klucz);
+          else
+            studio.wybrany = modelData;
         }
         onDoubleClicked: {
-          listaProjektow.currentIndex = index;
+          if (wierszBramy)
+            return;
           studio.wybrany = modelData;
           przyciskOtworz.clicked();
         }
