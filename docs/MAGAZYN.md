@@ -14,7 +14,10 @@ Kod i interfejs mają się do niej stosować; zmiany tylko świadomą decyzją.
 | `archiwum/` | zadania zamknięte                                 | Archiwum            |
 | `dziennik/` | zapisy operacji                                   | (wewnętrzne)        |
 
-W drzewie magazynu Szablony stoją nad projektami (są uniwersalne).
+W drzewie magazynu Szablony stoją nad projektami (są uniwersalne);
+niżej hierarchia Zamawiający → Rok → Obszar → Zlecenie, a statusy cyklu
+życia są gałęziami w obrębie konaru zlecenia; gałęzie-jedynaczki sklejane
+w jeden nagłówek. Projekty spoza konwencji — do gałęzi Inne.
 „Stan zleceń" to osobny widok raportowy nad masterem (stopień realizacji,
 wydania wiszące w terenie) — nie gałąź drzewa; w budowie.
 

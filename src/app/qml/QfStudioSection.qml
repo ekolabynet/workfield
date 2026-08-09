@@ -49,15 +49,41 @@ ColumnLayout {
     }
   }
 
-  // drzewo projektów: bramy z docs/MAGAZYN.md jako gałęzie
+  // drzewo magazynu: hierarchia Zamawiający → Rok → Obszar → Zlecenie,
+  // statusy cyklu życia jako gałęzie w obrębie konaru zlecenia (MAGAZYN.md)
   property var zwiniete: ({})
 
-  function przelaczBrame(klucz) {
+  function przelaczGalaz(klucz) {
     const z = zwiniete;
     z[klucz] = !z[klucz];
     zwiniete = z;
     ustawieniaStudia.zwinieteJson = JSON.stringify(z);
     przeladuj();
+  }
+
+  // człony z konwencji nazw (docs/MAGAZYN.md); szuka w nazwie projektu,
+  // a gdy trzeba — w segmentach ścieżki (master/zzw_2026/zzw_pze_2605_inw/projekt)
+  function parsujCzlony(p) {
+    const segmenty = String(p.gdzie || "").split("/").filter(x => x !== "");
+    const kandydaci = [String(p.nazwa || "")].concat(segmenty.slice().reverse());
+    let m = null;
+    for (const k of kandydaci) {
+      m = /^([a-z0-9]+)_([a-z]+)_([0-9]+)_([a-z0-9]+?)(?:_v[0-9]+)?$/.exec(k);
+      if (m)
+        break;
+    }
+    if (!m)
+      return null;
+    let rok = "";
+    for (const seg of segmenty) {
+      const r = /^[a-z0-9]+_([0-9]{4})$/.exec(seg);
+      if (r) {
+        rok = r[1];
+        break;
+      }
+    }
+    return { zam: m[1], rok: rok !== "" ? rok : qsTr("bez roku"),
+             obszar: m[2] + " " + m[3], zadanie: m[4] };
   }
 
   function przeladuj() {
@@ -69,32 +95,141 @@ ColumnLayout {
       if (zaznaczona !== "" && p.sciezka === zaznaczona)
         nowyWybrany = p;
 
-    const BRAMY = [
-      { klucz: "szablony", nazwa: qsTr("Szablony") },
+    const STATUSY = [
       { klucz: "wydania",  nazwa: qsTr("Wydane w teren") },
       { klucz: "zwroty",   nazwa: qsTr("Przyjęte z terenu") },
       { klucz: "master",   nazwa: qsTr("Master") },
-      { klucz: "archiwum", nazwa: qsTr("Archiwum") },
-      { klucz: "inne",     nazwa: qsTr("Inne") }
+      { klucz: "archiwum", nazwa: qsTr("Archiwum") }
     ];
-    const kubelki = { wydania: [], zwroty: [], master: [],
-                      szablony: [], archiwum: [], inne: [] };
+
+    const szablony = [];
+    const inne = [];
+    const drzewo = {};
+
     for (const p of plaska) {
-      const pierwszy = String(p.gdzie || "").split("/")[0];
-      (kubelki[pierwszy] !== undefined ? kubelki[pierwszy] : kubelki.inne).push(p);
+      const status = String(p.gdzie || "").split("/")[0];
+      if (p.typ === "szablon" || status === "szablony") {
+        szablony.push(p);
+        continue;
+      }
+      const c = parsujCzlony(p);
+      if (!c || !STATUSY.some(st => st.klucz === status)) {
+        inne.push(p);
+        continue;
+      }
+      const a = drzewo[c.zam] = drzewo[c.zam] || {};
+      const b = a[c.rok] = a[c.rok] || {};
+      const d = b[c.obszar] = b[c.obszar] || {};
+      const e = d[c.zadanie] = d[c.zadanie] || {};
+      (e[status] = e[status] || []).push(p);
+    }
+
+    function policz(wezel) {
+      if (Array.isArray(wezel))
+        return wezel.length;
+      let n = 0;
+      for (const k in wezel)
+        n += policz(wezel[k]);
+      return n;
+    }
+
+    function maks(wezel) {
+      if (Array.isArray(wezel)) {
+        let m = "";
+        for (const p of wezel)
+          if (String(p.zmodyfikowano) > m)
+            m = String(p.zmodyfikowano);
+        return m;
+      }
+      let m = "";
+      for (const k in wezel) {
+        const v = maks(wezel[k]);
+        if (v > m)
+          m = v;
+      }
+      return m;
     }
 
     const wiersze = [];
-    for (const b of BRAMY) {
-      const grupa = kubelki[b.klucz];
-      if (grupa.length === 0)
-        continue;
-      wiersze.push({ rodzaj: "brama", klucz: b.klucz,
-                     nazwa: b.nazwa, licznik: grupa.length });
-      if (!zwiniete[b.klucz])
-        for (const p of grupa)
-          wiersze.push(Object.assign({ rodzaj: "projekt" }, p));
+
+    function dodajProjekty(lista, poziom, sortDatami) {
+      const posort = lista.slice().sort(function (x, y) {
+        if (sortDatami)
+          return String(x.zmodyfikowano) < String(y.zmodyfikowano) ? 1 : -1;
+        return String(x.nazwa) > String(y.nazwa) ? 1 : -1;
+      });
+      for (const p of posort)
+        wiersze.push(Object.assign({ rodzaj: "projekt", poziom: poziom }, p));
     }
+
+    function dodajZlecenie(etykieta, statusy, poziom, klucz) {
+      wiersze.push({ rodzaj: "galaz", poziom: poziom, klucz: klucz,
+                     nazwa: etykieta, licznik: policz(statusy) });
+      if (zwiniete[klucz])
+        return;
+      for (const st of STATUSY) {
+        const grupa = statusy[st.klucz];
+        if (!grupa)
+          continue;
+        const k2 = klucz + "|" + st.klucz;
+        wiersze.push({ rodzaj: "galaz", poziom: poziom + 1, klucz: k2,
+                       nazwa: st.nazwa, licznik: grupa.length });
+        if (!zwiniete[k2])
+          dodajProjekty(grupa, poziom + 2, true);
+      }
+    }
+
+    // poziomy map: zam -> rok -> obszar -> zadanie (glebokosc 4..1);
+    // lancuchy jedynaczek sklejane w JEDEN wspolny wezel-przodek
+    function dodajPoziom(wezel, poziom, kluczRodzica, prefiks, glebokosc) {
+      const klucze = Object.keys(wezel).sort(function (x, y) {
+        return maks(wezel[x]) < maks(wezel[y]) ? 1 : -1;
+      });
+
+      if (klucze.length === 1) {
+        const et = klucze[0];
+        const pelna = prefiks === "" ? et : prefiks + " · " + et;
+        const klucz = kluczRodzica === "" ? et : kluczRodzica + "|" + et;
+        if (glebokosc === 1)
+          dodajZlecenie(pelna, wezel[et], poziom, klucz);
+        else
+          dodajPoziom(wezel[et], poziom, klucz, pelna, glebokosc - 1);
+        return;
+      }
+
+      if (prefiks !== "") {
+        wiersze.push({ rodzaj: "galaz", poziom: poziom, klucz: kluczRodzica,
+                       nazwa: prefiks, licznik: policz(wezel) });
+        if (zwiniete[kluczRodzica])
+          return;
+        poziom = poziom + 1;
+      }
+
+      for (const et of klucze) {
+        const klucz = kluczRodzica === "" ? et : kluczRodzica + "|" + et;
+        if (glebokosc === 1)
+          dodajZlecenie(et, wezel[et], poziom, klucz);
+        else
+          dodajPoziom(wezel[et], poziom, klucz, et, glebokosc - 1);
+      }
+    }
+
+    if (szablony.length > 0) {
+      wiersze.push({ rodzaj: "galaz", poziom: 0, klucz: "szablony",
+                     nazwa: qsTr("Szablony"), licznik: szablony.length });
+      if (!zwiniete["szablony"])
+        dodajProjekty(szablony, 1, false);
+    }
+
+    dodajPoziom(drzewo, 0, "", "", 4);
+
+    if (inne.length > 0) {
+      wiersze.push({ rodzaj: "galaz", poziom: 0, klucz: "inne",
+                     nazwa: qsTr("Inne"), licznik: inne.length });
+      if (!zwiniete["inne"])
+        dodajProjekty(inne, 1, true);
+    }
+
     listaProjektow.model = wiersze;
     wybrany = nowyWybrany;
   }
@@ -150,39 +285,41 @@ ColumnLayout {
       required property var modelData
       required property int index
 
-      readonly property bool wierszBramy: modelData.rodzaj === "brama"
-      readonly property bool zaznaczony: !wierszBramy && studio.wybrany
+      readonly property bool wierszGalezi: modelData.rodzaj === "galaz"
+      readonly property int wciecie: (modelData.poziom || 0) * 14
+      readonly property bool zaznaczony: !wierszGalezi && studio.wybrany
                                          && studio.wybrany.sciezka === modelData.sciezka
 
       width: listaProjektow.width
-      height: (wierszBramy ? naglowekBramy.implicitHeight
-                           : opisKol.implicitHeight) + 10
+      height: (wierszGalezi ? naglowekGalezi.implicitHeight
+                            : opisKol.implicitHeight) + 10
       radius: 4
       color: zaznaczony ? Theme.mainColor : "transparent"
 
       RowLayout {
-        id: naglowekBramy
-        visible: wierszBramy
+        id: naglowekGalezi
+        visible: wierszGalezi
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 6
+        anchors.leftMargin: 6 + wciecie
+        anchors.rightMargin: 6
         spacing: 6
 
         Text {
-          text: wierszBramy && studio.zwiniete[modelData.klucz] ? "▸" : "▾"
+          text: wierszGalezi && studio.zwiniete[modelData.klucz] ? "▸" : "▾"
           font: Theme.tipFont
           color: Theme.secondaryTextColor
         }
         Text {
           Layout.fillWidth: true
-          text: wierszBramy ? modelData.nazwa : ""
-          font: Theme.strongTipFont
+          text: wierszGalezi ? modelData.nazwa : ""
+          font: (modelData.poziom || 0) === 0 ? Theme.strongTipFont : Theme.tipFont
           color: Theme.mainTextColor
           elide: Text.ElideRight
         }
         Text {
-          text: wierszBramy ? modelData.licznik : ""
+          text: wierszGalezi ? modelData.licznik : ""
           font: Theme.tinyFont
           color: Theme.secondaryTextColor
         }
@@ -190,11 +327,11 @@ ColumnLayout {
 
       ColumnLayout {
         id: opisKol
-        visible: !wierszBramy
+        visible: !wierszGalezi
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 22
+        anchors.leftMargin: 22 + wciecie
         anchors.rightMargin: 6
         spacing: 0
 
@@ -207,7 +344,7 @@ ColumnLayout {
         }
         Text {
           Layout.fillWidth: true
-          text: wierszBramy ? "" : modelData.typ + " · "
+          text: wierszGalezi ? "" : modelData.typ + " · "
                 + modelData.zmodyfikowano.replace("T", " ").substring(0, 16)
                 + (modelData.gdzie !== "" ? " · " + modelData.gdzie : "")
           font: Theme.tinyFont
@@ -219,13 +356,13 @@ ColumnLayout {
       MouseArea {
         anchors.fill: parent
         onClicked: {
-          if (wierszBramy)
-            studio.przelaczBrame(modelData.klucz);
+          if (wierszGalezi)
+            studio.przelaczGalaz(modelData.klucz);
           else
             studio.wybrany = modelData;
         }
         onDoubleClicked: {
-          if (wierszBramy)
+          if (wierszGalezi)
             return;
           studio.wybrany = modelData;
           przyciskOtworz.clicked();
