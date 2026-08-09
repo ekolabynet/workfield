@@ -258,6 +258,9 @@ Popup {
   //! podbijany przy każdej zmianie tagów — odświeża kropki na miniaturach
   property int wersjaTagow: 0
 
+  //! wskazywanie gatunków wprost na miniaturach (siatka Zdjęcia)
+  property bool trybMasowy: false
+
   //! rozmiar kafli w siatkach; Ctrl+kółko zmienia, wartość zapamiętywana
   property int rozmiarKafla: 132
 
@@ -398,6 +401,104 @@ Popup {
       }
     }
 
+    // WorkField: masowe wskazywanie gatunków na miniaturach
+    RowLayout {
+      Layout.fillWidth: true
+      visible: galleryTabs.currentIndex === 0
+      spacing: 8
+
+      Button {
+        checkable: true
+        checked: photoGallery.trybMasowy
+        text: checked ? qsTr("Wskazywanie na miniaturach — klikaj w zdjęcia") : qsTr("Wskazuj na miniaturach")
+        font: photoGallery.t.tinyFont
+        Material.background: checked ? "#00695C" : undefined
+        onToggled: photoGallery.trybMasowy = checked
+      }
+
+      Rectangle {
+        visible: photoGallery.trybMasowy && tagInput.text.trim() !== ""
+        width: 12
+        height: 12
+        radius: 6
+        color: photoGallery.tagColor(tagInput.text.trim())
+        border.color: "white"
+        border.width: 1
+      }
+
+      TextField {
+        Layout.fillWidth: true
+        visible: photoGallery.trybMasowy
+        placeholderText: qsTr("Gatunek pędzla…")
+        text: tagInput.text
+        font: photoGallery.t.tipFont
+        onTextEdited: tagInput.text = text
+      }
+    }
+
+    // WorkField: podręczna lista gatunków dla trybu masowego —
+    // klik ustawia pędzel, bez otwierania zdjęcia
+    ListView {
+      id: masowaLista
+
+      Layout.fillWidth: true
+      Layout.preferredHeight: visible ? 140 : 0
+      visible: photoGallery.trybMasowy && galleryTabs.currentIndex === 0
+      clip: true
+      model: tagPanel.suggestions
+
+      onVisibleChanged: {
+        if (visible)
+          tagPanel.updateSuggestions();
+      }
+
+      ScrollBar.vertical: ScrollBar {
+      }
+
+      delegate: ItemDelegate {
+        required property var modelData
+
+        width: masowaLista.width
+        height: 30
+
+        background: Rectangle {
+          color: tagInput.text.trim() === modelData.name ? photoGallery.t.mainColor : "transparent"
+          radius: 4
+        }
+
+        contentItem: RowLayout {
+          spacing: 6
+
+          Rectangle {
+            Layout.leftMargin: 6
+            width: 10
+            height: 10
+            radius: 5
+            color: photoGallery.tagColor(modelData.name)
+            border.color: "white"
+            border.width: 1
+          }
+
+          Text {
+            Layout.fillWidth: true
+            text: modelData.name
+            font: photoGallery.t.tipFont
+            color: tagInput.text.trim() === modelData.name ? "white" : photoGallery.t.mainTextColor
+            elide: Text.ElideRight
+          }
+
+          Text {
+            Layout.rightMargin: 8
+            text: modelData.n > 0 ? modelData.n : ""
+            font: photoGallery.t.tinyFont
+            color: photoGallery.t.secondaryTextColor
+          }
+        }
+
+        onClicked: tagInput.text = modelData.name
+      }
+    }
+
     StackLayout {
       Layout.fillWidth: true
       Layout.fillHeight: true
@@ -484,15 +585,54 @@ Popup {
             }
 
             Image {
+              id: miniatura
+
               anchors.fill: parent
               anchors.margins: 2
               source: "file://" + modelData.path
               asynchronous: true
               autoTransform: true
-              fillMode: Image.PreserveAspectCrop
+              // w trybie masowym dopasowanie: kadrowana miniatura
+              // kłamałaby o współrzędnych kliknięcia
+              fillMode: photoGallery.trybMasowy ? Image.PreserveAspectFit : Image.PreserveAspectCrop
               // klucz wydajnosci: dekodujemy miniature, nie 12 Mpix
               sourceSize.width: 256
               sourceSize.height: 256
+
+              readonly property string wzglednaSciezka: modelData.path.substring(photoGallery.projectDir.length + 1)
+              readonly property real kadrX: (width - paintedWidth) / 2
+              readonly property real kadrY: (height - paintedHeight) / 2
+
+              // znaczniki wskazań na miniaturze (tryb masowy)
+              Repeater {
+                model: {
+                  if (!photoGallery.trybMasowy)
+                    return [];
+                  const wersja = photoGallery.wersjaTagow;
+                  return tagStore.tagsForPhoto(miniatura.wzglednaSciezka).filter(t => t.x !== undefined && t.x !== null && t.x >= 0);
+                }
+
+                delegate: Rectangle {
+                  required property var modelData
+
+                  x: miniatura.kadrX + modelData.x * miniatura.paintedWidth - 5
+                  y: miniatura.kadrY + modelData.y * miniatura.paintedHeight - 5
+                  width: 10
+                  height: 10
+                  radius: 5
+                  color: photoGallery.tagColor(modelData.tag)
+                  border.color: "white"
+                  border.width: 1.5
+
+                  MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                      tagStore.removeTag(parent.modelData.fid);
+                      photoGallery.wersjaTagow++;
+                    }
+                  }
+                }
+              }
             }
 
             Rectangle {
@@ -548,7 +688,33 @@ Popup {
 
             MouseArea {
               anchors.fill: parent
-              onClicked: viewer.openList(photoGallery.photos, index)
+              z: -1
+              cursorShape: photoGallery.trybMasowy && tagInput.text.trim() !== "" ? Qt.CrossCursor : Qt.ArrowCursor
+
+              onClicked: mouse => {
+                if (!photoGallery.trybMasowy) {
+                  viewer.openList(photoGallery.photos, index);
+                  return;
+                }
+                // wskazanie w punkcie kliknięcia, przez prostokąt kadru
+                const gat = tagInput.text.trim();
+                if (gat === "" || miniatura.paintedWidth <= 0)
+                  return;
+                const p = miniatura.mapFromItem(parent, mouse.x, mouse.y);
+                const nx = (p.x - miniatura.kadrX) / miniatura.paintedWidth;
+                const ny = (p.y - miniatura.kadrY) / miniatura.paintedHeight;
+                if (nx < 0 || nx > 1 || ny < 0 || ny > 1)
+                  return;
+                if (tagStore.addTag(miniatura.wzglednaSciezka, gat, -1, "", nx, ny) >= 0) {
+                  photoGallery.wersjaTagow++;
+                  tagPanel.updateSuggestions();
+                }
+              }
+
+              onDoubleClicked: {
+                if (photoGallery.trybMasowy)
+                  viewer.openList(photoGallery.photos, index);
+              }
             }
           }
 
@@ -1206,9 +1372,9 @@ Popup {
       // środek w układzie prostym -> piksele -> obrót siatki -> kadr
       const px = (xA + xB) / 2 * fullImage.width;
       const py = (yA + yB) / 2 * fullImage.height;
-      const katS = obrot * Math.PI / 180;
-      const ox = fullImage.width / 2 + (px - fullImage.width / 2) * Math.cos(katS) - (py - fullImage.height / 2) * Math.sin(katS);
-      const oy = fullImage.height / 2 + (px - fullImage.width / 2) * Math.sin(katS) + (py - fullImage.height / 2) * Math.cos(katS);
+      const scS = Math.tan(obrot * Math.PI / 180);
+      const ox = px + scS * (py - fullImage.height / 2);
+      const oy = py;
       return {
         "x": ox / fullImage.width,
         "y": oy / fullImage.height
@@ -1448,9 +1614,9 @@ Popup {
               ctx.clearRect(0, 0, width, height);
               const N = viewer.siatkaN;
               ctx.save();
-              ctx.translate(width / 2, height / 2);
-              ctx.rotate(viewer.obrot * Math.PI / 180);
-              ctx.translate(-width / 2, -height / 2);
+              // ścinanie: x' = x + s*(y - H/2); poziome linie zostają poziome
+              const pochyl = Math.tan(viewer.obrot * Math.PI / 180);
+              ctx.transform(1, 0, pochyl, 1, -pochyl * height / 2, 0);
 
               // wypełnienia zajętych komórek (czworokąty trapezu)
               for (let w = 0; w < N; w++) {
@@ -1471,10 +1637,16 @@ Popup {
                   for (let p = 0; p < wpisy.length; p++) {
                     const a = p / wpisy.length;
                     const b = (p + 1) / wpisy.length;
+                    // zagęszczenie: pas wypełniony od dołu w u częściach
+                    const pokP = wpisy[p].pokrycie;
+                    const u = (wpisy[p].tag === "(pusta)" || pokP === undefined || pokP === null || pokP < 0 || pokP > 100) ? 1 : pokP / 100;
+                    const yF = yD + (yG - yD) * u;
+                    const x0F = x0D + (x0G - x0D) * u;
+                    const x1F = x1D + (x1G - x1D) * u;
                     ctx.fillStyle = wpisy[p].tag === "(pusta)" ? "#9E9E9E" : photoGallery.tagColor(wpisy[p].tag);
                     ctx.beginPath();
-                    ctx.moveTo(x0G + (x1G - x0G) * a, yG);
-                    ctx.lineTo(x0G + (x1G - x0G) * b, yG);
+                    ctx.moveTo(x0F + (x1F - x0F) * a, yF);
+                    ctx.lineTo(x0F + (x1F - x0F) * b, yF);
                     ctx.lineTo(x0D + (x1D - x0D) * b, yD);
                     ctx.lineTo(x0D + (x1D - x0D) * a, yD);
                     ctx.closePath();
@@ -1601,9 +1773,9 @@ Popup {
             if (viewer.trybSiatki && (mouse.buttons & Qt.LeftButton) && viewer.aktywnyPedzel() !== "") {
               const pm = fullImage.mapFromItem(obszarPodgladu, mouse.x, mouse.y);
               if (pm.x >= 0 && pm.x <= fullImage.width && pm.y >= 0 && pm.y <= fullImage.height) {
-                const katM = -viewer.obrot * Math.PI / 180;
-                const rxM = fullImage.width / 2 + (pm.x - fullImage.width / 2) * Math.cos(katM) - (pm.y - fullImage.height / 2) * Math.sin(katM);
-                const ryM = fullImage.height / 2 + (pm.x - fullImage.width / 2) * Math.sin(katM) + (pm.y - fullImage.height / 2) * Math.cos(katM);
+                const scM = Math.tan(viewer.obrot * Math.PI / 180);
+                const rxM = pm.x - scM * (pm.y - fullImage.height / 2);
+                const ryM = pm.y;
                 const sM = 1 - viewer.zbieg;
                 const ynM = ryM / fullImage.height;
                 const tWM = 1 - (1 - ynM) / (sM + (1 - sM) * (1 - ynM));
@@ -1616,7 +1788,7 @@ Popup {
                   ostatniaKomorka = kluczK;
                   if (viewer.wpisGatunku(kM, wM, viewer.aktywnyPedzel()) === null) {
                     const cM = viewer.srodekKomorki(kM, wM);
-                    if (tagStore.addTag(viewer.curRel, viewer.aktywnyPedzel(), -1, "siatka " + viewer.siatkaN + " " + wM + " " + kM, cM.x, cM.y) >= 0) {
+                    if (tagStore.addTag(viewer.curRel, viewer.aktywnyPedzel(), viewer.aktywnyPedzel() === "(pusta)" ? -1 : 100, "siatka " + viewer.siatkaN + " " + wM + " " + kM, cM.x, cM.y) >= 0) {
                       viewer.refreshTags();
                     }
                   }
@@ -1643,10 +1815,10 @@ Popup {
             if (viewer.trybSiatki && Math.abs(mouse.x - pressX) < 8 && Math.abs(mouse.y - pressY) < 8) {
               const ps = fullImage.mapFromItem(obszarPodgladu, mouse.x, mouse.y);
               if (ps.x >= 0 && ps.x <= fullImage.width && ps.y >= 0 && ps.y <= fullImage.height) {
-                // najpierw odkręcamy punkt o obrót siatki (wokół środka kadru)
-                const kat = -viewer.obrot * Math.PI / 180;
-                const rx = fullImage.width / 2 + (ps.x - fullImage.width / 2) * Math.cos(kat) - (ps.y - fullImage.height / 2) * Math.sin(kat);
-                const ry = fullImage.height / 2 + (ps.x - fullImage.width / 2) * Math.sin(kat) + (ps.y - fullImage.height / 2) * Math.cos(kat);
+                // odwrotność ścinania: x = x' - s*(y - H/2), y bez zmian
+                const sc = Math.tan(viewer.obrot * Math.PI / 180);
+                const rx = ps.x - sc * (ps.y - fullImage.height / 2);
+                const ry = ps.y;
                 // odwrócenie rzutu: z piksela do wiersza/kolumny trapezu
                 const s = 1 - viewer.zbieg;
                 const yn = ry / fullImage.height;
@@ -1665,16 +1837,31 @@ Popup {
                     viewer.refreshTags();
                 } else {
                   const istn = viewer.wpisGatunku(k, w, gat);
-                  if (istn !== null) {
-                    tagStore.removeTag(istn.fid);
-                    viewer.refreshTags();
-                  } else {
-                    const c = viewer.srodekKomorki(k, w);
-                    const fidS = tagStore.addTag(viewer.curRel, gat, -1, "siatka " + viewer.siatkaN + " " + w + " " + k, c.x, c.y);
-                    if (fidS >= 0) {
+                  if (gat === "(pusta)") {
+                    // pusta bez cyklu: jest albo nie ma
+                    if (istn !== null) {
+                      tagStore.removeTag(istn.fid);
                       viewer.refreshTags();
-                      tagPanel.updateSuggestions();
+                    } else {
+                      const cP = viewer.srodekKomorki(k, w);
+                      if (tagStore.addTag(viewer.curRel, gat, -1, "siatka " + viewer.siatkaN + " " + w + " " + k, cP.x, cP.y) >= 0)
+                        viewer.refreshTags();
                     }
+                  } else {
+                    // cykl zagęszczenia: 0 -> 25 -> 50 -> 75 -> 100 -> 0
+                    let stare = 0;
+                    if (istn !== null) {
+                      const pokI = istn.pokrycie;
+                      stare = (pokI === undefined || pokI === null || pokI < 0 || pokI > 100) ? 100 : pokI;
+                      tagStore.removeTag(istn.fid);
+                    }
+                    const nowe = stare >= 100 ? 0 : stare + 25;
+                    if (nowe > 0) {
+                      const c = viewer.srodekKomorki(k, w);
+                      if (tagStore.addTag(viewer.curRel, gat, nowe, "siatka " + viewer.siatkaN + " " + w + " " + k, c.x, c.y) >= 0)
+                        tagPanel.updateSuggestions();
+                    }
+                    viewer.refreshTags();
                   }
                 }
               }
@@ -2186,7 +2373,7 @@ Popup {
           }
 
           Text {
-            text: qsTr("Obrót:")
+            text: qsTr("Pochył:")
             font: photoGallery.t.tinyFont
             color: photoGallery.t.secondaryTextColor
           }
@@ -2223,13 +2410,21 @@ Popup {
               if (wpis.tag === "(pusta)") {
                 saPuste = true;
               } else {
-                grupy[wpis.tag] = (grupy[wpis.tag] || 0) + 1;
+                const pokL = wpis.pokrycie;
+                const uL = (pokL === undefined || pokL === null || pokL < 0 || pokL > 100) ? 1 : pokL / 100;
+                if (grupy[wpis.tag] === undefined)
+                  grupy[wpis.tag] = {
+                    "suma": 0,
+                    "n": 0
+                  };
+                grupy[wpis.tag].suma += uL;
+                grupy[wpis.tag].n += 1;
               }
             }
             // mianownik: komórki ocenione (gatunek lub pusta), jeśli
             // oznaczono choć jedną pustą; inaczej cała siatka N×N
             const mianownik = saPuste ? Object.keys(ocenione).length : viewer.siatkaN * viewer.siatkaN;
-            const czesci = Object.keys(grupy).sort().map(t => t + ": " + grupy[t] + "/" + mianownik + " = " + Math.round(100 * grupy[t] / mianownik) + "%");
+            const czesci = Object.keys(grupy).sort().map(t => t + ": " + Math.round(100 * grupy[t].suma / mianownik) + "% (" + grupy[t].n + " kom.)");
             if (saPuste)
               czesci.push(qsTr("ocenione: %1 z %2").arg(Object.keys(ocenione).length).arg(viewer.siatkaN * viewer.siatkaN));
             return czesci.join("   ");
