@@ -67,7 +67,7 @@ ApplicationWindow {
         qfieldLocalDataPickerScreen.visible = true;
       }
     }
-    noweZadanie: function () { if (typeof qfNoweZadanie !== 'undefined') qfNoweZadanie.open(); }
+    noweZadanie: function () { noweZadanie.open(); }
     otworzZMagazynu: function () { dashBoard.otworzSekcje(3); }
     nowyZSzablonu: function () { dashBoard.otworzSekcje(3); }
     zbudujProjekt: function () { dashBoard.otworzSekcje(3); }
@@ -79,7 +79,7 @@ ApplicationWindow {
     ktoCoRobil: function () { displayToast(qsTr('Dziennik przydziałów — wkrótce')); }
     panelWarstw: function () { dashBoard.otworzSekcje(1); }
     stylizacja: function () { dashBoard.otworzSekcje(2); }
-    galeriaZdjec: function () { photoGallery.openFiles(qgisProject ? qgisProject.homePath : ""); }
+    galeriaZdjec: function () { photoGallery.openPhotos(); }
     kontrolaPrzypisan: function () { photoGallery.openPhotos(); }
     zglosUwage: function () { Qt.openUrlExternally('https://github.com/ekolabynet/workfield/issues'); }
     oProgramie: function () { aboutDialog.open(); }

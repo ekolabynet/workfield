@@ -265,8 +265,11 @@ QVariantMap ProcesyStudio::nowyZSzablonu( const QString &szablon, const QString 
   const QString korzenCzysty = czystaSciezka( korzen );
   if ( cel.isEmpty() && !korzenCzysty.isEmpty() )
   {
+    // słownik magazynu (docs/MAGAZYN.md): nowe zadania rodzą się w wydania/;
+    // wymiana/ honorowana przejściowo dla starych drzew
+    const QString wydania = QDir( korzenCzysty ).filePath( QStringLiteral( "wydania" ) );
     const QString wymiana = QDir( korzenCzysty ).filePath( QStringLiteral( "wymiana" ) );
-    cel = QDir( wymiana ).exists() ? wymiana : korzenCzysty;
+    cel = QDir( wydania ).exists() ? wydania : ( QDir( wymiana ).exists() ? wymiana : korzenCzysty );
   }
   const QString oczyszczona = nazwa.trimmed();
   if ( oczyszczona.isEmpty() || cel.isEmpty() )

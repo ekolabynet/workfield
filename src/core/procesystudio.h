@@ -48,7 +48,7 @@ class ProcesyStudio : public QObject
                                              int glebokosc = 4 ) const;
 
     //! Kopia szablonu do katalogDocelowy/nazwa (odmawia nadpisania).
-    //! Pusty katalogDocelowy => <korzen>/wymiana jeśli istnieje, inaczej korzen.
+    //! Pusty katalogDocelowy => <korzen>/wydania (przejściowo wymiana) jeśli istnieje, inaczej korzen.
     Q_INVOKABLE QVariantMap nowyZSzablonu( const QString &szablon,
                                            const QString &katalogDocelowy,
                                            const QString &nazwa,
