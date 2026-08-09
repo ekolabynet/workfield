@@ -15,7 +15,7 @@ import QtQuick
  *   id        — klucz techniczny (stały, nie tłumaczony)
  *   nazwa     — etykieta dla człowieka
  *   ikona     — nazwa pliku z motywu (bez ścieżki)
- *   grupa     — projekt | magazyn | zarzadzanie | warstwy | zdjecia | pomoc
+ *   grupa     — magazyn | warstwy | zarzadzanie | pomoc
  *   desktop   — czy widoczna na komputerze
  *   telefon   — czy widoczna na telefonie
  *   wymagaProjektu — nieaktywna, dopóki nie ma wczytanego projektu
@@ -24,13 +24,13 @@ import QtQuick
 QtObject {
   id: akcje
 
-  //! nazwy grup w kolejności prezentacji
+  //! nazwy grup w kolejności prezentacji (decyzja 2026-08-09:
+  //! bez grupy "Projekt" — życie projektu toczy się w Magazynie;
+  //! zdjęcia to zawartość projektu, więc weszły do grupy Warstwy)
   readonly property var grupy: [
-    { id: "projekt", nazwa: qsTr("Projekt") },
     { id: "magazyn", nazwa: qsTr("Magazyn") },
-    { id: "zarzadzanie", nazwa: qsTr("Zarządzanie") },
     { id: "warstwy", nazwa: qsTr("Warstwy") },
-    { id: "zdjecia", nazwa: qsTr("Zdjęcia") },
+    { id: "zarzadzanie", nazwa: qsTr("Zarządzanie") },
     { id: "pomoc", nazwa: qsTr("Pomoc") }
   ]
 
@@ -58,14 +58,8 @@ QtObject {
                                           && qgisProject.homePath !== ""
 
   readonly property var lista: [
-    { id: "otworz", nazwa: qsTr("Otwórz projekt"), ikona: "wfg_otworz",
-      grupa: "projekt", desktop: true, telefon: true, wymagaProjektu: false,
-      wykonaj: function () { akcje.otworzProjekt(); } },
-    { id: "nowe_zadanie", nazwa: qsTr("Nowe zadanie"), ikona: "wfg_nowe",
-      grupa: "projekt", desktop: true, telefon: true, wymagaProjektu: false,
-      wykonaj: function () { akcje.noweZadanie(); } },
-
-    { id: "otworz_magazyn", nazwa: qsTr("Otwórz z magazynu"), ikona: "wfg_magazyn",
+    // —— Magazyn: cykl życia zadania (docs/MAGAZYN.md) ——
+    { id: "otworz_magazyn", nazwa: qsTr("Otwórz magazyn"), ikona: "wfg_magazyn",
       grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.otworzZMagazynu(); } },
     { id: "nowy_z_szablonu", nazwa: qsTr("Nowy z szablonu"), ikona: "wfg_nowe",
@@ -77,16 +71,25 @@ QtObject {
     { id: "wyslij", nazwa: qsTr("Wyślij w teren"), ikona: "wfg_wyslij",
       grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.wyslijWTeren(); } },
-    { id: "odbierz", nazwa: qsTr("Odbierz zwrot"), ikona: "wfg_odbierz",
+    { id: "odbierz", nazwa: qsTr("Przyjmij zwrot"), ikona: "wfg_odbierz",
       grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.odbierzZwrot(); } },
-    { id: "katalog_magazynu", nazwa: qsTr("Ustaw katalog magazynu"), ikona: "wfg_ustawienia",
-      grupa: "magazyn", desktop: true, telefon: false, wymagaProjektu: false,
-      wykonaj: function () { akcje.ustawKatalogMagazynu(); } },
+    { id: "otworz", nazwa: qsTr("Otwórz z dysku…"), ikona: "wfg_otworz",
+      grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
+      wykonaj: function () { akcje.otworzProjekt(); } },
 
-    { id: "przeglad", nazwa: qsTr("Przegląd projektów"), ikona: "wfg_przeglad",
-      grupa: "zarzadzanie", desktop: true, telefon: true, wymagaProjektu: false,
-      wykonaj: function () { akcje.przegladProjektow(); } },
+    // —— Warstwy: zawartość wczytanego projektu ——
+    { id: "warstwy", nazwa: qsTr("Warstwy projektu"), ikona: "wfg_warstwy",
+      grupa: "warstwy", desktop: true, telefon: true, wymagaProjektu: true,
+      wykonaj: function () { akcje.panelWarstw(); } },
+    { id: "stylizacja", nazwa: qsTr("Stylizacja"), ikona: "wfg_stylizacja",
+      grupa: "warstwy", desktop: true, telefon: true, wymagaProjektu: true,
+      wykonaj: function () { akcje.stylizacja(); } },
+    { id: "galeria", nazwa: qsTr("Galeria zdjęć"), ikona: "wfg_zdjecia",
+      grupa: "warstwy", desktop: true, telefon: true, wymagaProjektu: true,
+      wykonaj: function () { akcje.galeriaZdjec(); } },
+
+    // —— Zarządzanie ——
     { id: "sprzet", nazwa: qsTr("Sprzęt"), ikona: "wfg_sprzet",
       grupa: "zarzadzanie", desktop: true, telefon: false, wymagaProjektu: false,
       wykonaj: function () { akcje.rejestrSprzetu(); } },
@@ -94,20 +97,7 @@ QtObject {
       grupa: "zarzadzanie", desktop: true, telefon: false, wymagaProjektu: false,
       wykonaj: function () { akcje.ktoCoRobil(); } },
 
-    { id: "warstwy", nazwa: qsTr("Warstwy projektu"), ikona: "wfg_warstwy",
-      grupa: "warstwy", desktop: true, telefon: true, wymagaProjektu: true,
-      wykonaj: function () { akcje.panelWarstw(); } },
-    { id: "stylizacja", nazwa: qsTr("Stylizacja"), ikona: "wfg_stylizacja",
-      grupa: "warstwy", desktop: true, telefon: true, wymagaProjektu: true,
-      wykonaj: function () { akcje.stylizacja(); } },
-
-    { id: "galeria", nazwa: qsTr("Galeria zdjęć"), ikona: "wfg_zdjecia",
-      grupa: "zdjecia", desktop: true, telefon: true, wymagaProjektu: true,
-      wykonaj: function () { akcje.galeriaZdjec(); } },
-    { id: "przypisania", nazwa: qsTr("Kontrola przypisań"), ikona: "wfg_sprawdz",
-      grupa: "zdjecia", desktop: true, telefon: true, wymagaProjektu: true,
-      wykonaj: function () { akcje.kontrolaPrzypisan(); } },
-
+    // —— Pomoc ——
     { id: "zglos", nazwa: qsTr("Zgłoś uwagę"), ikona: "wfg_pomoc",
       grupa: "pomoc", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.zglosUwage(); } },
@@ -115,6 +105,14 @@ QtObject {
       grupa: "pomoc", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.oProgramie(); } }
   ]
+
+  // Wycięte z menu decyzją z tabeli czasowników (2026-08-09):
+  //  - "Nowe zadanie" — scalone z "Nowy z szablonu" (jedno wejście);
+  //    dialog noweZadanie zostaje dla szuflady telefonu.
+  //  - "Przegląd projektów" — zastąpiony drzewem magazynu.
+  //  - "Kontrola przypisań" — atrapa; wróci z treścią przy tagowaniu.
+  //  - "Ustaw katalog magazynu" — jest w nagłówku panelu Magazyn ("Zmień…").
+  // Uchwyty tych akcji celowo zostają — qgismobileapp je przypisuje.
 
   //! akcje danej grupy dla bieżącej platformy
   function wGrupie(idGrupy) {
