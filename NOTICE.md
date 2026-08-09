@@ -56,6 +56,15 @@ see [`LICENSE`](LICENSE). Original copyright remains with OPENGIS.ch and the
 QField contributors; WorkField-specific changes are © their respective
 authors, under the same license.
 
+## Reference data / Dane referencyjne
+
+WorkField templates may bundle species reference tables derived from
+open datasets (all CC-BY 4.0, see ATRYBUCJE_DANYCH.txt next to each
+template): Ellenberg-type indicator values (Tichy et al. 2023,
+doi:10.5281/zenodo.7427088), disturbance indicator values (Midolo et
+al. 2023, doi:10.5281/zenodo.7116957) and the GBIF Backbone Taxonomy
+(doi:10.15468/39omei). Original data remain under their licenses.
+
 ## Support and issues
 
 Please report problems with WorkField **in this repository only** — never to
