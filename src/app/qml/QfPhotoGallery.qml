@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
+import QtQuick.Dialogs
 import org.qfield
 import Theme
 
@@ -243,6 +244,13 @@ Popup {
     startowaZakladka = 0;
     open();
   }
+
+  //! Otwiera galerie na przegladarce tabel danych.
+  function openTables() {
+    startowyKatalog = "";
+    startowaZakladka = 4;
+    open();
+  }
   onLayerFilterChanged: rebuildPhotos()
 
   // <warstwa>_<yyyyMMdd_hhmmss> -> warstwa; image_0003 -> image (stary aparat)
@@ -399,6 +407,10 @@ Popup {
         text: qsTr("Tagi")
         width: implicitWidth
       }
+      TabButton {
+        text: qsTr("Tabele")
+        width: implicitWidth
+      }
     }
 
     // WorkField: masowe wskazywanie gatunków na miniaturach
@@ -510,6 +522,9 @@ Popup {
         }
         if (currentIndex === 3) {
           widokTagow.odswiez();
+        }
+        if (currentIndex === 4) {
+          zakladkaTabele.inicjuj();
         }
       }
 
@@ -1292,6 +1307,197 @@ Popup {
               onClicked: viewer.openList(widokTagow.zdjeciaTagu.map(w => ({
                     "path": widokTagow.absolutna(w)
                   })), index)
+            }
+          }
+        }
+      }
+
+      // ── Tabele: przegladarka tabel danych (WorkField) ─────────
+      ColumnLayout {
+        id: zakladkaTabele
+        spacing: 6
+
+        property string plik: ""
+        property var listaTabel: []
+        property int aktywnyWiersz: -1
+
+        function szer(k) {
+          return Math.min(360, Math.max(90, modelTabeli.szerokoscKolumny(k) * 7 + 26));
+        }
+
+        //! przy pierwszym wejsciu: sprobuj dane.gpkg biezacego projektu
+        function inicjuj() {
+          if (plik !== "")
+            return;
+          const kandydat = photoGallery.projectDir + "/dane.gpkg";
+          const t = modelTabeli.tabeleZPliku(kandydat);
+          if (t.length > 0)
+            ustawPlik(kandydat, t);
+        }
+
+        function ustawPlik(p, gotoweTabele) {
+          plik = p;
+          aktywnyWiersz = -1;
+          listaTabel = gotoweTabele !== undefined ? gotoweTabele : modelTabeli.tabeleZPliku(p);
+          if (listaTabel.length === 0)
+            return;
+          let i = listaTabel.indexOf("taksony");
+          if (i < 0)
+            i = 0;
+          wyborTabeli.currentIndex = i;
+          poleFiltra.text = "";
+          modelTabeli.wczytaj(plik, listaTabel[i]);
+        }
+
+        TabelaModel {
+          id: modelTabeli
+        }
+
+        FileDialog {
+          id: dialogTabel
+          title: qsTr("Wybierz plik z tabelami")
+          nameFilters: [qsTr("Tabele danych (*.gpkg *.csv)"), qsTr("Wszystkie pliki (*)")]
+          onAccepted: zakladkaTabele.ustawPlik(String(selectedFile).replace(/^file:\/\//, ""))
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+
+          Button {
+            text: qsTr("Plik…")
+            onClicked: dialogTabel.open()
+          }
+          ComboBox {
+            id: wyborTabeli
+            Layout.preferredWidth: 250
+            model: zakladkaTabele.listaTabel
+            onActivated: {
+              zakladkaTabele.aktywnyWiersz = -1;
+              poleFiltra.text = "";
+              modelTabeli.wczytaj(zakladkaTabele.plik, currentText);
+            }
+          }
+          TextField {
+            id: poleFiltra
+            Layout.fillWidth: true
+            placeholderText: qsTr("Filtr — szuka we wszystkich kolumnach")
+            onTextChanged: {
+              zakladkaTabele.aktywnyWiersz = -1;
+              modelTabeli.ustawFiltr(text);
+            }
+          }
+          Text {
+            text: modelTabeli.liczbaWierszy === modelTabeli.liczbaWszystkich
+                  ? qsTr("%1 wierszy").arg(modelTabeli.liczbaWszystkich)
+                  : qsTr("%1 / %2").arg(modelTabeli.liczbaWierszy).arg(modelTabeli.liczbaWszystkich)
+            font: photoGallery.t.tipFont
+            color: Theme.secondaryTextColor
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: modelTabeli.komunikat !== "" ? modelTabeli.komunikat
+              : (zakladkaTabele.plik !== "" ? zakladkaTabele.plik
+                 : qsTr("Wybierz plik GPKG lub CSV — np. dane.gpkg projektu albo tabele z szablony/wskazniki"))
+          font: photoGallery.t.tinyFont
+          color: Theme.secondaryTextColor
+          elide: Text.ElideMiddle
+        }
+
+        // naglowek: klik sortuje (drugi klik odwraca), przewija sie razem z tabela
+        Flickable {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 32
+          contentX: widokTabeli.contentX
+          interactive: false
+          clip: true
+
+          Row {
+            Repeater {
+              model: modelTabeli.liczbaKolumn
+
+              delegate: Rectangle {
+                required property int index
+                // zależność od liczbaWszystkich wymusza przeliczenie po wczytaniu
+                width: (modelTabeli.liczbaWszystkich, zakladkaTabele.szer(index))
+                height: 32
+                color: Theme.mainColor
+                border.color: Qt.darker(Theme.mainColor, 1.15)
+
+                Text {
+                  anchors.fill: parent
+                  anchors.leftMargin: 6
+                  anchors.rightMargin: 6
+                  verticalAlignment: Text.AlignVCenter
+                  text: modelTabeli.nazwaKolumny(parent.index)
+                        + (modelTabeli.kolumnaSortowania === parent.index
+                           ? (modelTabeli.sortMalejaco ? " ▾" : " ▴") : "")
+                  color: "white"
+                  font: photoGallery.t.strongTipFont
+                  elide: Text.ElideRight
+                }
+                TapHandler {
+                  onTapped: modelTabeli.sortuj(parent.index)
+                }
+              }
+            }
+          }
+        }
+
+        TableView {
+          id: widokTabeli
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          clip: true
+          model: modelTabeli
+          columnSpacing: 0
+          rowSpacing: 0
+          Connections {
+            target: modelTabeli
+            function onZmieniona() {
+              widokTabeli.forceLayout();
+            }
+          }
+          columnWidthProvider: function (k) {
+            return zakladkaTabele.szer(k);
+          }
+          rowHeightProvider: function (r) {
+            return 30;
+          }
+          ScrollBar.vertical: ScrollBar {
+          }
+          ScrollBar.horizontal: ScrollBar {
+          }
+
+          delegate: Rectangle {
+            required property int row
+            required property int column
+            required property var display
+
+            implicitHeight: 30
+            color: row === zakladkaTabele.aktywnyWiersz ? Qt.alpha(Theme.mainColor, 0.25)
+                 : (row % 2 === 1 ? Qt.alpha(Theme.mainColor, 0.05) : "transparent")
+
+            Text {
+              anchors.fill: parent
+              anchors.leftMargin: 6
+              anchors.rightMargin: 6
+              verticalAlignment: Text.AlignVCenter
+              text: parent.display !== undefined && parent.display !== null ? parent.display : ""
+              font: photoGallery.t.tipFont
+              color: Theme.mainTextColor
+              elide: Text.ElideRight
+            }
+            TapHandler {
+              onTapped: zakladkaTabele.aktywnyWiersz = parent.row
+              onDoubleTapped: {
+                const wartosc = modelTabeli.komorka(parent.row, parent.column);
+                platformUtilities.copyTextToClipboard(wartosc);
+                displayToast(qsTr("Skopiowano: %1").arg(wartosc));
+                zakladkaTabele.aktywnyWiersz = parent.row;
+              }
             }
           }
         }

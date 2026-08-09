@@ -38,6 +38,7 @@
 #include "cameraorientationnormalizer.h"
 #include "captureattitude.h"
 #include "phototagstore.h"
+#include "tabelamodel.h"
 #include "procesystudio.h"
 #include "cogoregistry.h"
 #include "distancearea.h"
@@ -430,6 +431,7 @@ void QgisMobileapp::initDeclarative( QQmlEngine *engine )
   qmlRegisterType<CameraOrientationNormalizer>( "org.qfield", 1, 0, "CameraOrientationNormalizer" );
   qmlRegisterType<CaptureAttitude>( "org.qfield", 1, 0, "CaptureAttitude" );
   qmlRegisterType<PhotoTagStore>( "org.qfield", 1, 0, "PhotoTagStore" );
+  qmlRegisterType<TabelaModel>( "org.qfield", 1, 0, "TabelaModel" );
   qmlRegisterType<ProcesyStudio>( "org.qfield", 1, 0, "ProcesyStudio" );
 
 

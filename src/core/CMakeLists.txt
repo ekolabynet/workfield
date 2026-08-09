@@ -79,6 +79,7 @@ set(QFIELD_CORE_SRCS
     cameraorientationnormalizer.cpp
     captureattitude.cpp
     phototagstore.cpp
+    tabelamodel.cpp
     procesystudio.cpp
     digitizinglogger.cpp
     distancearea.cpp
@@ -207,6 +208,7 @@ set(QFIELD_CORE_HDRS
     cameraorientationnormalizer.h
     captureattitude.h
     phototagstore.h
+    tabelamodel.h
     procesystudio.h
     digitizinglogger.h
     distancearea.h
