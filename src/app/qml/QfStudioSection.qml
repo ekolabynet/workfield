@@ -31,6 +31,41 @@ ColumnLayout {
     property string zwinieteJson: '{"archiwum":true,"inne":true}'
   }
 
+
+  //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
+  component QfPozycjaMenu: Button {
+    id: pozycja
+
+    property string ikona: ""
+
+    flat: true
+    Layout.fillWidth: true
+    implicitHeight: 34
+    font.pointSize: Theme.tinyFont.pointSize
+
+    contentItem: RowLayout {
+      spacing: 10
+
+      Image {
+        Layout.leftMargin: 6
+        Layout.preferredWidth: 22
+        Layout.preferredHeight: 22
+        source: pozycja.ikona !== "" ? Theme.getThemeVectorIcon(pozycja.ikona) : ""
+        sourceSize: Qt.size(22, 22)
+        opacity: pozycja.enabled ? 1.0 : 0.4
+      }
+      Text {
+        Layout.fillWidth: true
+        text: pozycja.text
+        font: pozycja.font
+        color: pozycja.enabled ? Theme.mainTextColor : Theme.secondaryTextColor
+        elide: Text.ElideRight
+        horizontalAlignment: Text.AlignLeft
+        verticalAlignment: Text.AlignVCenter
+      }
+    }
+  }
+
   ProcesyStudio {
     id: procesy
     onLinia: tekst => zapis.dopisz(tekst)
@@ -259,14 +294,91 @@ ColumnLayout {
     Button {
       flat: true
       text: qsTr("Zmień…")
+      icon.source: Theme.getThemeVectorIcon("wfg_ustawienia")
+      icon.width: 18
+      icon.height: 18
       font: Theme.tinyFont
       onClicked: wyborKorzenia.open()
     }
     Button {
       flat: true
       text: qsTr("Odśwież")
+      icon.source: Theme.getThemeVectorIcon("wfg_odswiez")
+      icon.width: 18
+      icon.height: 18
       font: Theme.tinyFont
       onClicked: studio.przeladuj()
+    }
+  }
+
+
+  // ── czasowniki: menu akcji na górze sekcji (decyzja 2026-08-10) ──
+  Settings {
+    id: ustawieniaPaneluM
+    category: "WFGPanel"
+    property int ukladMenu: 0
+  }
+  GridLayout {
+    Layout.fillWidth: true
+    Layout.leftMargin: 8
+    Layout.rightMargin: 8
+    columns: ustawieniaPaneluM.ukladMenu === 0 ? 1 : 2
+    columnSpacing: 4
+    rowSpacing: 2
+
+    QfPozycjaMenu {
+      id: przyciskOtworz
+      text: qsTr("Otwórz")
+      ikona: "wfg_otworz"
+      enabled: studio.wybrany && studio.wybrany.qgs !== ""
+      onClicked: {
+        dashBoard.close();
+        iface.loadFile(studio.wybrany.qgs, studio.wybrany.nazwa);
+      }
+    }
+    QfPozycjaMenu {
+      text: qsTr("Nowy z szablonu")
+      ikona: "wfg_nowe"
+      onClicked: kreatorNowego.open()
+    }
+    QfPozycjaMenu {
+      text: qsTr("Zbuduj projekt")
+      ikona: "wfg_zbuduj"
+      enabled: studio.wybrany && !procesy.dziala
+      onClicked: {
+        zapis.dopisz(qsTr("Buduję %1 ...").arg(studio.wybrany.nazwa));
+        procesy.uruchomPyQgis(studio.wybrany.sciezka + "/zbuduj_projekt.py");
+      }
+    }
+    QfPozycjaMenu {
+      text: qsTr("Wyślij na telefon")
+      ikona: "wfg_wyslij"
+      enabled: studio.wybrany && !procesy.dziala
+      onClicked: {
+        // droga udowodniona na obecnym APK: zip -> karta -> import z przeglądarki
+        const p = studio.wybrany.sciezka;
+        const n = studio.wybrany.nazwa;
+        zapis.dopisz(qsTr("Pakuję i wysyłam %1 ...").arg(n));
+        procesy.uruchomPowloke("set -e; cd '" + p + "'"
+          + " && zip -qr '/tmp/" + n + ".zip' . -x 'archiwum/*' '.kosz/*'"
+          + " && adb push '/tmp/" + n + ".zip' '" + ustawieniaStudia.telefonKarta + "'"
+          + " && echo 'Na telefonie: przeglądarka plików -> WorkField/data -> " + n + ".zip -> import.'");
+      }
+    }
+    QfPozycjaMenu {
+      text: qsTr("Zamień na szablon")
+      ikona: "wfg_paczka"
+      enabled: studio.wybrany && !procesy.dziala
+      onClicked: {
+        poleNazwySzablonu.text = studio.wybrany.nazwa.replace(/_v[0-9]+$/, "") + "_szablon";
+        dialogSzablonu.open();
+      }
+    }
+    QfPozycjaMenu {
+      text: qsTr("Przerwij operację")
+      ikona: "wfg_przerwij"
+      visible: procesy.dziala
+      onClicked: procesy.przerwij()
     }
   }
 
@@ -371,82 +483,6 @@ ColumnLayout {
     }
   }
 
-  // ── czasowniki ─────────────────────────────────────────────────
-  GridLayout {
-    Layout.fillWidth: true
-    Layout.margins: 8
-    columns: 2
-    columnSpacing: 4
-    rowSpacing: 4
-
-    Button {
-      id: przyciskOtworz
-      Layout.fillWidth: true
-      flat: true
-      text: qsTr("Otwórz")
-      font.pointSize: Theme.tinyFont.pointSize
-      enabled: studio.wybrany && studio.wybrany.qgs !== ""
-      onClicked: {
-        dashBoard.close();
-        iface.loadFile(studio.wybrany.qgs, studio.wybrany.nazwa);
-      }
-    }
-    Button {
-      Layout.fillWidth: true
-      flat: true
-      text: qsTr("Nowy z szablonu")
-      font.pointSize: Theme.tinyFont.pointSize
-      onClicked: kreatorNowego.open()
-    }
-    Button {
-      Layout.fillWidth: true
-      flat: true
-      text: qsTr("Zbuduj projekt")
-      font.pointSize: Theme.tinyFont.pointSize
-      enabled: studio.wybrany && !procesy.dziala
-      onClicked: {
-        zapis.dopisz(qsTr("Buduję %1 ...").arg(studio.wybrany.nazwa));
-        procesy.uruchomPyQgis(studio.wybrany.sciezka + "/zbuduj_projekt.py");
-      }
-    }
-    Button {
-      Layout.fillWidth: true
-      flat: true
-      text: qsTr("Wyślij na telefon")
-      font.pointSize: Theme.tinyFont.pointSize
-      enabled: studio.wybrany && !procesy.dziala
-      onClicked: {
-        // droga udowodniona na obecnym APK: zip -> karta -> import z przeglądarki
-        const p = studio.wybrany.sciezka;
-        const n = studio.wybrany.nazwa;
-        zapis.dopisz(qsTr("Pakuję i wysyłam %1 ...").arg(n));
-        procesy.uruchomPowloke("set -e; cd '" + p + "'"
-          + " && zip -qr '/tmp/" + n + ".zip' . -x 'archiwum/*' '.kosz/*'"
-          + " && adb push '/tmp/" + n + ".zip' '" + ustawieniaStudia.telefonKarta + "'"
-          + " && echo 'Na telefonie: przeglądarka plików -> WorkField/data -> " + n + ".zip -> import.'");
-      }
-    }
-    Button {
-      Layout.fillWidth: true
-      flat: true
-      text: qsTr("Zamień na szablon")
-      font.pointSize: Theme.tinyFont.pointSize
-      enabled: studio.wybrany && !procesy.dziala
-      onClicked: {
-        poleNazwySzablonu.text = studio.wybrany.nazwa.replace(/_v[0-9]+$/, "") + "_szablon";
-        dialogSzablonu.open();
-      }
-    }
-    Button {
-      Layout.columnSpan: 2
-      Layout.fillWidth: true
-      flat: true
-      visible: procesy.dziala
-      text: qsTr("Przerwij operację")
-      font.pointSize: Theme.tinyFont.pointSize
-      onClicked: procesy.przerwij()
-    }
-  }
 
   // ── zapis operacji ─────────────────────────────────────────────
   Text {

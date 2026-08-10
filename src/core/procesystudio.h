@@ -15,6 +15,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 
+class QgsMapLayer;
+
 class ProcesyStudio : public QObject
 {
     Q_OBJECT
@@ -65,6 +67,14 @@ class ProcesyStudio : public QObject
     Q_INVOKABLE QVariantMap zamienNaSzablon( const QString &sciezkaProjektu,
                                              const QString &korzen,
                                              const QString &nazwa ) const;
+
+    //! Zapisuje styl warstwy do <katalogProjektu>/styles/<nazwa>.qml.
+    //! Zwraca sciezke pliku albo "BLAD: ...".
+    Q_INVOKABLE QString zapiszStyl( QgsMapLayer *warstwa,
+                                    const QString &katalogProjektu ) const;
+    //! Wczytuje styl z pliku .qml do warstwy. Pusty wynik = sukces.
+    Q_INVOKABLE QString wczytajStyl( QgsMapLayer *warstwa,
+                                     const QString &sciezka ) const;
 
   signals:
     void linia( const QString &tekst );

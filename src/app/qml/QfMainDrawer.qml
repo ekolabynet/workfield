@@ -2,6 +2,7 @@ import QtCore
 import QtQuick
 import QtQuick.Effects
 import Qt.labs.folderlistmodel
+import QtQuick.Dialogs
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
@@ -64,6 +65,40 @@ Drawer {
   function otworzSekcje(numer) {
     sekcjaWymuszona = numer;
     open();
+  }
+
+  //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
+  component QfPozycjaMenu: Button {
+    id: pozycja
+
+    property string ikona: ""
+
+    flat: true
+    Layout.fillWidth: true
+    implicitHeight: 34
+    font.pointSize: t.tinyFont.pointSize
+
+    contentItem: RowLayout {
+      spacing: 10
+
+      Image {
+        Layout.leftMargin: 6
+        Layout.preferredWidth: 22
+        Layout.preferredHeight: 22
+        source: pozycja.ikona !== "" ? t.getThemeVectorIcon(pozycja.ikona) : ""
+        sourceSize: Qt.size(22, 22)
+        opacity: pozycja.enabled ? 1.0 : 0.4
+      }
+      Text {
+        Layout.fillWidth: true
+        text: pozycja.text
+        font: pozycja.font
+        color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor
+        elide: Text.ElideRight
+        horizontalAlignment: Text.AlignLeft
+        verticalAlignment: Text.AlignVCenter
+      }
+    }
   }
 
   property bool preventFromOpening: overlayFeatureFormDrawer.visible
@@ -516,7 +551,7 @@ Drawer {
       spacing: 2
 
       Repeater {
-        model: [{ "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 0 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 1 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 2 }, { "nazwa": qsTr("Magazyn"), "ikona": "wfg_magazyn", "sekcja": 3 }]
+        model: [{ "nazwa": qsTr("Magazyn"), "ikona": "wfg_magazyn", "sekcja": 0 }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }]
 
         delegate: ItemDelegate {
           id: przelacznikWidoku
@@ -585,8 +620,14 @@ Drawer {
       visible: Qt.platform.os === "android" || Qt.platform.os === "ios"
       Layout.fillWidth: true
       Layout.preferredHeight: visible ? implicitHeight : 0
-      currentIndex: 0
+      currentIndex: 1
 
+      TabButton {
+        text: qsTr("Magazyn")
+        font: Theme.tipFont
+        visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+        width: visible ? implicitWidth : 0
+      }
       TabButton {
         text: qsTr("Projekt")
         font: Theme.tipFont
@@ -599,12 +640,6 @@ Drawer {
         text: qsTr("Stylizacja")
         font: Theme.tipFont
       }
-      TabButton {
-        text: qsTr("Studio")
-        font: Theme.tipFont
-        visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
-        width: visible ? implicitWidth : 0
-      }
     }
 
     StackLayout {
@@ -613,6 +648,13 @@ Drawer {
       Layout.fillWidth: true
       Layout.fillHeight: true
       currentIndex: dashBoard.sekcjaWymuszona >= 0 ? dashBoard.sekcjaWymuszona : dashTabs.currentIndex
+
+      // ── Magazyn (0, tylko desktop) ──────────────────────────────
+      Loader {
+        active: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+        sourceComponent: QfStudioSection {
+        }
+      }
 
       // ── Projekt ─────────────────────────────────────────────
       ColumnLayout {
@@ -658,6 +700,82 @@ Drawer {
         font: t.tinyFont
         color: t.secondaryTextColor
         elide: Text.ElideMiddle
+      }
+
+      // ── aktywność: zdjęcia DCIM z ostatnich 14 dni (słupki) ──
+      ColumnLayout {
+        id: aktywnosc
+
+        Layout.fillWidth: true
+        Layout.topMargin: 4
+        spacing: 2
+        visible: projectSection.filePath !== "" && aktywnosc.suma > 0
+
+        property var slupki: []
+        property int suma: 0
+        property int maks: 1
+
+        FolderListModel {
+          id: dcimAktywnosc
+          folder: projectSection.filePath !== ""
+                  ? "file://" + FileUtils.absolutePath(projectSection.filePath) + "/DCIM"
+                  : ""
+          nameFilters: ["*.jpg", "*.jpeg"]
+          showDirs: false
+          onCountChanged: aktywnosc.przelicz()
+        }
+
+        function przelicz() {
+          const dni = [];
+          const klucze = {};
+          const teraz = new Date();
+          for (let i = 13; i >= 0; i--) {
+            const d = new Date(teraz.getTime() - i * 86400000);
+            const k = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+            klucze[k] = dni.length;
+            dni.push(0);
+          }
+          let razem = 0;
+          for (let j = 0; j < dcimAktywnosc.count; j++) {
+            const m = /_(20[0-9]{6})_/.exec(dcimAktywnosc.get(j, "fileName"));
+            razem++;
+            if (m && klucze[parseInt(m[1])] !== undefined)
+              dni[klucze[parseInt(m[1])]]++;
+          }
+          suma = razem;
+          maks = Math.max(1, Math.max.apply(null, dni));
+          slupki = dni;
+          plotnoAktywnosci.requestPaint();
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("Aktywność · %1 zdjęć w projekcie").arg(aktywnosc.suma)
+          font: t.tinyFont
+          color: t.secondaryTextColor
+        }
+        Canvas {
+          id: plotnoAktywnosci
+
+          Layout.fillWidth: true
+          Layout.preferredHeight: 34
+
+          onWidthChanged: requestPaint()
+          onPaint: {
+            const ctx = getContext("2d");
+            ctx.clearRect(0, 0, width, height);
+            const n = aktywnosc.slupki.length;
+            if (n === 0)
+              return;
+            const krok = width / n;
+            for (let i = 0; i < n; i++) {
+              const w = aktywnosc.slupki[i];
+              const h = w > 0 ? Math.max(3, (height - 2) * w / aktywnosc.maks) : 1;
+              ctx.fillStyle = w > 0 ? t.mainColor : "#d0d0d0";
+              ctx.fillRect(i * krok + 1, height - h, Math.max(2, krok - 2), h);
+            }
+          }
+        }
       }
 
       // ── Stan zleceń: dashboard nad masterem (docs/MAGAZYN.md) ──
@@ -794,102 +912,90 @@ Drawer {
         }
       }
 
-      Text {
+      RowLayout {
         Layout.fillWidth: true
         Layout.topMargin: 6
-        text: qsTr("Wszystkie projekty")
-        font: t.tinyFont
-        color: t.secondaryTextColor
+
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("Wszystkie projekty")
+          font: t.tinyFont
+          color: t.secondaryTextColor
+        }
+        ToolButton {
+          // przełącznik układu: lista (menu) / siatka dwukolumnowa
+          text: ustawieniaPanelu.ukladMenu === 0 ? "\u25a4" : "\u25a6"
+          font.pointSize: t.tinyFont.pointSize
+          implicitHeight: 24
+          onClicked: ustawieniaPanelu.ukladMenu = ustawieniaPanelu.ukladMenu === 0 ? 1 : 0
+        }
+      }
+      Settings {
+        id: ustawieniaPanelu
+        category: "WFGPanel"
+        // 0 = lista jak klasyczne menu (decyzja 2026-08-10), 1 = siatka
+        property int ukladMenu: 0
       }
       GridLayout {
         Layout.fillWidth: true
-        columns: 2
+        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
         columnSpacing: 4
-        rowSpacing: 4
+        rowSpacing: 2
 
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
+          text: qsTr("Magazyn")
+          ikona: "wfg_magazyn"
+          onClicked: dashBoard.sekcjaWymuszona = 0
+        }
+        QfPozycjaMenu {
           text: qsTr("Nowe zadanie")
-          icon.source: t.getThemeVectorIcon("wf_project_template")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_nowe"
           onClicked: {
             // szablon + kontekst zlecenia = nowe zadanie z własnym katalogiem
             dashBoard.close();
             noweZadanie.open();
           }
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Otwórz projekt")
-          icon.source: t.getThemeVectorIcon("ic_open_black_24dp")
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_otworz"
           onClicked: {
-            // galeria umie już otwierać projekty i warstwy, więc przeglądarka
-            // QFielda nie jest tu potrzebna: jedno narzędzie do wszystkiego,
-            // co lokalne
             dashBoard.close();
-            photoGallery.openFiles(iface.dataRoot() + "Imported Projects");
+            // przepływ (docs/MAGAZYN.md): żywe projekty biurka mieszkają
+            // w wydaniach magazynu; na telefonie — w domu danych aplikacji
+            if (Qt.platform.os === "android" || Qt.platform.os === "ios")
+              photoGallery.openFiles(iface.dataRoot() + "Imported Projects");
+            else
+              photoGallery.openFiles(ustawieniaStanu.korzenProjektow + "/wydania");
           }
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Importuj projekt (folder)")
-          icon.source: t.getThemeVectorIcon("ic_folder_open_black_24dp")
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_import"
           onClicked: {
             dashBoard.close();
             platformUtilities.importProjectFolder();
           }
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Importuj projekt (ZIP)")
-          icon.source: t.getThemeVectorIcon("ic_download_white_24dp")
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_paczka"
           onClicked: {
             dashBoard.close();
             platformUtilities.importProjectArchive();
           }
         }
-        Button {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 44
-          flat: true
+        QfPozycjaMenu {
           text: qsTr("Pobierz szablony")
-          icon.source: t.getThemeVectorIcon("ic_cloud_download_24dp")
-          icon.width: 26
-          icon.height: 26
-          font: t.tipFont
-          display: AbstractButton.TextBesideIcon
-          // gotowe projekty do skopiowania na telefon
+          ikona: "wfg_chmura"
           onClicked: {
-            // szablony pobiera się w aplikacji: przeglądarka zapisywała paczkę
-            // do Pobranych, skąd trzeba było ją wyjąć i rozpakować ręcznie
             dashBoard.close();
             photoGallery.openCloud();
           }
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Ekran startowy")
-          icon.source: t.getThemeVectorIcon("ic_home_black_24dp")
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_dom"
           onClicked: {
             dashBoard.close();
             returnHome();
@@ -906,19 +1012,13 @@ Drawer {
       }
       GridLayout {
         Layout.fillWidth: true
-        columns: 2
+        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
         columnSpacing: 4
-        rowSpacing: 4
+        rowSpacing: 2
 
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Zapisz")
-          icon.source: t.getThemeVectorIcon("wf_project_save")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_zapisz"
           enabled: projectSection.filePath !== ""
           onClicked: {
             if (ProjectUtils.saveProject(qgisProject)) {
@@ -929,26 +1029,16 @@ Drawer {
             }
           }
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Zapisz jako…")
-          icon.source: t.getThemeVectorIcon("wf_project_saveas")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_zapisz_jako"
           enabled: projectSection.filePath !== ""
           onClicked: projectNameDialog.openFor("saveas")
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Powiększ do danych")
-          icon.source: t.getThemeVectorIcon("zoom_out_map_24dp")
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_powieksz"
+          enabled: projectSection.filePath !== ""
           onClicked: {
             if (!iface.zoomToProjectData(dashBoard.mapSettings)) {
               const c = dashBoard.mapSettings.getCenter();
@@ -957,15 +1047,9 @@ Drawer {
             dashBoard.close();
           }
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Pliki projektu")
-          font.pointSize: t.tinyFont.pointSize
-          icon.source: t.getThemeVectorIcon("wf_folder_project")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
+          ikona: "wfg_przeglad"
           enabled: projectSection.filePath !== ""
           onClicked: {
             // nasza galeria, zakladka Pliki - jedno narzedzie do ogladania
@@ -974,42 +1058,23 @@ Drawer {
             photoGallery.openFiles(qgisProject ? qgisProject.homePath : "");
           }
         }
-
-        Button {
-          Layout.fillWidth: true
-          flat: true
-          enabled: projectSection.filePath !== ""
+        QfPozycjaMenu {
           text: qsTr("Wymiana lokalna")
-          icon.source: t.getThemeVectorIcon("ic_folder_open_black_24dp")
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_wymiana"
           onClicked: {
             dashBoard.close();
             wymianaLokalna.open();
           }
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Właściwości")
-          icon.source: t.getThemeVectorIcon("wf_project_properties")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_wlasciwosci"
           enabled: projectSection.filePath !== ""
           onClicked: projectPropertiesPopup.open()
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Usuń projekt")
-          icon.source: t.getThemeVectorIcon("wf_project_delete")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_usun"
           enabled: projectSection.filePath !== ""
           onClicked: deleteProjectConfirm.open()
         }
@@ -1023,48 +1088,29 @@ Drawer {
       }
       GridLayout {
         Layout.fillWidth: true
-        columns: 2
+        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
         columnSpacing: 4
-        rowSpacing: 4
+        rowSpacing: 2
 
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Folder aplikacji")
-          font.pointSize: t.tinyFont.pointSize
-          icon.source: t.getThemeVectorIcon("wf_folder_app")
-          icon.color: "transparent"
-          icon.width: 26
-          icon.height: 26
+          ikona: "wfg_magazyn"
           onClicked: {
             dashBoard.close();
             photoGallery.openFiles(iface.dataRoot());
           }
         }
-        Button {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 44
-          flat: true
+        QfPozycjaMenu {
           text: qsTr("Aktualizacja aplikacji")
-          icon.source: t.getThemeVectorIcon("ic_download_white_24dp")
-          icon.width: 26
-          icon.height: 26
-          font: t.tipFont
-          display: AbstractButton.TextBesideIcon
-          // zawsze najnowsze wydanie; wygodniej przez Obtainium
+          ikona: "wfg_aktualizacja"
           onClicked: {
             dashBoard.close();
             Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/latest");
           }
         }
-        Button {
-          flat: true
-          Layout.fillWidth: true
+        QfPozycjaMenu {
           text: qsTr("Zgłoś uwagę")
-          icon.source: t.getThemeVectorIcon("ic_send_white_24dp")
-          icon.width: 26
-          icon.height: 26
-          font.pointSize: t.tinyFont.pointSize
+          ikona: "wfg_pomoc"
           onClicked: {
             // WorkField: zgloszenie z terenu — mail z gotowym kontekstem
             const adres = "workfield@ekolaby.net";
@@ -1082,7 +1128,7 @@ Drawer {
       ColumnLayout {
         spacing: 0
 
-        Text {
+      Text {
           Layout.fillWidth: true
           Layout.leftMargin: 8
           Layout.topMargin: 10
@@ -1090,87 +1136,112 @@ Drawer {
           font: t.strongFont
           color: t.mainTextColor
         }
+      GridLayout {
+        Layout.fillWidth: true
+        Layout.leftMargin: 8
+        Layout.rightMargin: 8
+        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
+        columnSpacing: 4
+        rowSpacing: 2
 
-    Flow {
-      Layout.fillWidth: true
-      Layout.margins: 8
-      spacing: 8
-
-      Button {
-        id: newLayerButton
-        text: qsTr("Nowa warstwa")
-        font.pointSize: t.tinyFont.pointSize
-        onClicked: {
+        QfPozycjaMenu {
+          text: qsTr("Nowa warstwa")
+          ikona: "wfg_warstwa_nowa"
+          onClicked: {
           dashBoard.close();
           newLayerDialog.openDialog();
         }
-      }
-
-      Button {
-        id: addBasemapButton
-        text: qsTr("Podkład")
-        font.pointSize: t.tinyFont.pointSize
-        onClicked: {
+        }
+        QfPozycjaMenu {
+          text: qsTr("Podkład")
+          ikona: "wfg_podklad"
+          onClicked: {
           dashBoard.close();
           basemapScreen.open();
         }
-      }
-
-      Button {
-        id: addLayerButton
-        text: qsTr("Dodaj z pliku")
-        font.pointSize: t.tinyFont.pointSize
-        onClicked: {
+        }
+        QfPozycjaMenu {
+          text: qsTr("Dodaj z pliku")
+          ikona: "wfg_import"
+          onClicked: {
           dashBoard.close();
           dataDrawer.addExistingRequested();
         }
-      }
-
-      Button {
-        id: captureSettingsButton
-        text: qsTr("Teren")
-        font.pointSize: t.tinyFont.pointSize
-        onClicked: {
+        }
+        QfPozycjaMenu {
+          text: qsTr("Teren")
+          ikona: "wfg_teren"
+          onClicked: {
           dashBoard.close();
           terenSettings.open();
         }
-      }
-
-      Button {
-        id: photoGalleryButton
-        text: qsTr("Galeria")
-        font.pointSize: t.tinyFont.pointSize
-        onClicked: {
+        }
+        QfPozycjaMenu {
+          text: qsTr("Galeria")
+          ikona: "wfg_zdjecia"
+          onClicked: {
           dashBoard.close();
           photoGallery.openPhotos();
         }
+        }
+        QfPozycjaMenu {
+          text: qsTr("NMT")
+          ikona: "wfg_rzezba"
+          onClicked: demDownloader.request("NMT")
+        }
+        QfPozycjaMenu {
+          text: qsTr("NMPT")
+          ikona: "wfg_rzezba"
+          onClicked: demDownloader.request("NMPT")
+        }
+        QfPozycjaMenu {
+          text: qsTr("CHM")
+          ikona: "wfg_rzezba"
+          onClicked: demDownloader.computeChm()
+        }
       }
-    }
-
-        Flow {
+      Text {
           Layout.fillWidth: true
           Layout.leftMargin: 8
-          Layout.rightMargin: 8
-          spacing: 8
-
-          Button {
-            text: qsTr("NMT")
-            font.pointSize: t.tinyFont.pointSize
-            onClicked: demDownloader.request("NMT")
-          }
-
-          Button {
-            text: qsTr("NMPT")
-            font.pointSize: t.tinyFont.pointSize
-            onClicked: demDownloader.request("NMPT")
-          }
-
-          Button {
-            text: qsTr("CHM")
-            font.pointSize: t.tinyFont.pointSize
-            onClicked: demDownloader.computeChm()
-          }
+          Layout.topMargin: 6
+          text: qsTr("Aktywna warstwa")
+          font: t.tinyFont
+          color: t.secondaryTextColor
         }
+      GridLayout {
+        Layout.fillWidth: true
+        Layout.leftMargin: 8
+        Layout.rightMargin: 8
+        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
+        columnSpacing: 4
+        rowSpacing: 2
+
+        QfPozycjaMenu {
+          text: qsTr("Pola")
+          ikona: "wfg_pola"
+          enabled: dashBoard.activeLayer
+          onClicked: layerFieldsScreen.openFor(dashBoard.activeLayer)
+        }
+        QfPozycjaMenu {
+          text: qsTr("Eksportuj")
+          ikona: "wfg_eksport"
+          enabled: dashBoard.activeLayer
+          onClicked: {
+              dashBoard.close();
+              exportDialog.openFor(dashBoard.activeLayer);
+            }
+        }
+        QfPozycjaMenu {
+          text: qsTr("Usuń")
+          ikona: "wfg_usun"
+          enabled: dashBoard.activeLayer
+          onClicked: {
+              removeLayerConfirm.targetLayer = dashBoard.activeLayer;
+              removeLayerConfirm.targetName = dashBoard.activeLayer.name;
+              removeLayerConfirm.open();
+            }
+        }
+      }
 
     Text {
       Layout.fillWidth: true
@@ -1356,43 +1427,6 @@ Drawer {
       }
     }
 
-        RowLayout {
-          Layout.fillWidth: true
-          Layout.leftMargin: 8
-          Layout.rightMargin: 8
-          spacing: 8
-
-          Button {
-            Layout.fillWidth: true
-            text: qsTr("Pola")
-            font.pointSize: t.tinyFont.pointSize
-            enabled: dashBoard.activeLayer !== null && dashBoard.activeLayer !== undefined
-            onClicked: layerFieldsScreen.openFor(dashBoard.activeLayer)
-          }
-
-          Button {
-            Layout.fillWidth: true
-            text: qsTr("Eksportuj")
-            font.pointSize: t.tinyFont.pointSize
-            enabled: dashBoard.activeLayer !== null && dashBoard.activeLayer !== undefined
-            onClicked: {
-              dashBoard.close();
-              exportDialog.openFor(dashBoard.activeLayer);
-            }
-          }
-
-          Button {
-            Layout.fillWidth: true
-            text: qsTr("Usuń")
-            font.pointSize: t.tinyFont.pointSize
-            enabled: dashBoard.activeLayer !== null && dashBoard.activeLayer !== undefined
-            onClicked: {
-              removeLayerConfirm.targetLayer = dashBoard.activeLayer;
-              removeLayerConfirm.targetName = dashBoard.activeLayer.name;
-              removeLayerConfirm.open();
-            }
-          }
-        }
       }
 
       // ── Legenda ─────────────────────────────────────────────
@@ -1424,6 +1458,43 @@ Drawer {
           }
         }
 
+        GridLayout {
+          Layout.fillWidth: true
+          Layout.leftMargin: 8
+          Layout.rightMargin: 8
+          columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
+          columnSpacing: 4
+          rowSpacing: 2
+
+          QfPozycjaMenu {
+            text: qsTr("Zapisz styl")
+            ikona: "wfg_zapisz"
+            enabled: dashBoard.activeLayer !== null && qgisProject && qgisProject.homePath !== ""
+            onClicked: {
+              const wynik = procesyStylu.zapiszStyl(dashBoard.activeLayer, qgisProject.homePath);
+              displayToast(wynik.startsWith("BLAD") ? wynik : qsTr("Styl zapisany: %1").arg(FileUtils.fileName(wynik)));
+            }
+          }
+          QfPozycjaMenu {
+            text: qsTr("Wczytaj styl")
+            ikona: "wfg_otworz"
+            enabled: dashBoard.activeLayer !== null
+            onClicked: dialogStylu.open()
+          }
+        }
+        ProcesyStudio {
+          id: procesyStylu
+        }
+        FileDialog {
+          id: dialogStylu
+          title: qsTr("Wczytaj styl warstwy")
+          nameFilters: [qsTr("Styl QGIS (*.qml)"), qsTr("Wszystkie pliki (*)")]
+          onAccepted: {
+            const wynik = procesyStylu.wczytajStyl(dashBoard.activeLayer, String(selectedFile).replace(/^file:\/\//, ""));
+            displayToast(wynik === "" ? qsTr("Styl wczytany") : wynik);
+          }
+        }
+
         Legend {
           id: legend
           objectName: "legend"
@@ -1436,12 +1507,6 @@ Drawer {
         }
       }
 
-      // ── Studio (tylko desktop) ──────────────────────────────
-      Loader {
-        active: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
-        sourceComponent: QfStudioSection {
-        }
-      }
     }
 
     

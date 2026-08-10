@@ -12,6 +12,8 @@
 #include <QFileInfo>
 #include <QTemporaryFile>
 #include <QRegularExpression>
+
+#include <qgsmaplayer.h>
 #include <sqlite3.h>
 
 // Rozruch PyQGIS: zbuduj_projekt.py i pokrewne zakładają działający QGIS.
@@ -113,6 +115,37 @@ bool ProcesyStudio::uruchom( const QString &program, const QStringList &argument
 bool ProcesyStudio::uruchomPowloke( const QString &polecenie, const QString &katalog )
 {
   return startuj( QStringLiteral( "/bin/sh" ), { QStringLiteral( "-c" ), polecenie }, katalog );
+}
+
+QString ProcesyStudio::zapiszStyl( QgsMapLayer *warstwa,
+                                   const QString &katalogProjektu ) const
+{
+  if ( !warstwa )
+    return QStringLiteral( "BLAD: brak aktywnej warstwy" );
+  if ( katalogProjektu.isEmpty() )
+    return QStringLiteral( "BLAD: projekt niezapisany" );
+  const QString katalog = katalogProjektu + QStringLiteral( "/styles" );
+  QDir().mkpath( katalog );
+  QString nazwa = warstwa->name();
+  nazwa.replace( QRegularExpression( QStringLiteral( "[^A-Za-z0-9_\\-]" ) ),
+                 QStringLiteral( "_" ) );
+  const QString sciezka = katalog + '/' + nazwa + QStringLiteral( ".qml" );
+  bool ok = false;
+  const QString komunikat = warstwa->saveNamedStyle( sciezka, ok );
+  return ok ? sciezka : QStringLiteral( "BLAD: " ) + komunikat;
+}
+
+QString ProcesyStudio::wczytajStyl( QgsMapLayer *warstwa,
+                                    const QString &sciezka ) const
+{
+  if ( !warstwa )
+    return QStringLiteral( "BLAD: brak aktywnej warstwy" );
+  bool ok = false;
+  const QString komunikat = warstwa->loadNamedStyle( sciezka, ok );
+  if ( !ok )
+    return QStringLiteral( "BLAD: " ) + komunikat;
+  warstwa->triggerRepaint();
+  return QString();
 }
 
 QString ProcesyStudio::czytajTekst( const QString &sciezka )

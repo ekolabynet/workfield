@@ -68,17 +68,17 @@ ApplicationWindow {
       }
     }
     noweZadanie: function () { noweZadanie.open(); }
-    otworzZMagazynu: function () { dashBoard.otworzSekcje(3); }
-    nowyZSzablonu: function () { dashBoard.otworzSekcje(3); }
-    zbudujProjekt: function () { dashBoard.otworzSekcje(3); }
+    otworzZMagazynu: function () { dashBoard.otworzSekcje(0); }
+    nowyZSzablonu: function () { dashBoard.otworzSekcje(0); }
+    zbudujProjekt: function () { dashBoard.otworzSekcje(0); }
     wyslijWTeren: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
     odbierzZwrot: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
-    ustawKatalogMagazynu: function () { dashBoard.otworzSekcje(3); }
-    przegladProjektow: function () { dashBoard.otworzSekcje(3); }
+    ustawKatalogMagazynu: function () { dashBoard.otworzSekcje(0); }
+    przegladProjektow: function () { dashBoard.otworzSekcje(0); }
     rejestrSprzetu: function () { displayToast(qsTr('Rejestr sprzętu — wkrótce')); }
     ktoCoRobil: function () { displayToast(qsTr('Dziennik przydziałów — wkrótce')); }
-    panelWarstw: function () { dashBoard.otworzSekcje(1); }
-    stylizacja: function () { dashBoard.otworzSekcje(2); }
+    panelWarstw: function () { dashBoard.otworzSekcje(2); }
+    stylizacja: function () { dashBoard.otworzSekcje(3); }
     galeriaZdjec: function () { photoGallery.openPhotos(); }
     kontrolaPrzypisan: function () { photoGallery.openPhotos(); }
     zglosUwage: function () { Qt.openUrlExternally('https://github.com/ekolabynet/workfield/issues'); }
@@ -267,7 +267,7 @@ ApplicationWindow {
   onSceneLoadedChanged: {
     // WorkField: dokowany panel wraca w stanie z poprzedniej sesji
     if (sceneLoaded && Qt.platform.os !== "android" && Qt.platform.os !== "ios" && settings.valueBool('WorkField/lewyPanelOtwarty', false)) {
-      dashBoard.otworzSekcje(settings.valueInt('WorkField/lewyPanelSekcja', 1));
+      dashBoard.otworzSekcje(settings.valueInt('WorkField/lewyPanelSekcja', 2));
     }
     // This requires the scene to be fully loaded not to crash due to possibility of
     // a thread blocking permission request being thrown

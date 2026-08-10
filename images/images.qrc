@@ -17,11 +17,28 @@
     <qresource prefix="/">
         <file>themes/qfield/nodpi/ic_text_black_24dp.svg</file>
         <file>themes/workfield/wfg_info.svg</file>
+        <file>themes/workfield/wfg_aktualizacja.svg</file>
+        <file>themes/workfield/wfg_chmura.svg</file>
+        <file>themes/workfield/wfg_dom.svg</file>
+        <file>themes/workfield/wfg_import.svg</file>
+        <file>themes/workfield/wfg_paczka.svg</file>
+        <file>themes/workfield/wfg_powieksz.svg</file>
+        <file>themes/workfield/wfg_usun.svg</file>
+        <file>themes/workfield/wfg_wlasciwosci.svg</file>
+        <file>themes/workfield/wfg_zapisz_jako.svg</file>
         <file>themes/workfield/wfg_ludzie.svg</file>
         <file>themes/workfield/wfg_magazyn.svg</file>
         <file>themes/workfield/wfg_menu.svg</file>
         <file>themes/workfield/wfg_nowe.svg</file>
         <file>themes/workfield/wfg_odbierz.svg</file>
+        <file>themes/workfield/wfg_odswiez.svg</file>
+        <file>themes/workfield/wfg_eksport.svg</file>
+        <file>themes/workfield/wfg_podklad.svg</file>
+        <file>themes/workfield/wfg_pola.svg</file>
+        <file>themes/workfield/wfg_rzezba.svg</file>
+        <file>themes/workfield/wfg_teren.svg</file>
+        <file>themes/workfield/wfg_warstwa_nowa.svg</file>
+        <file>themes/workfield/wfg_przerwij.svg</file>
         <file>themes/workfield/wfg_otworz.svg</file>
         <file>themes/workfield/wfg_pomoc.svg</file>
         <file>themes/workfield/wfg_przeglad.svg</file>
