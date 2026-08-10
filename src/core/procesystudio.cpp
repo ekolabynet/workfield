@@ -6,6 +6,7 @@
 #include "procesystudio.h"
 
 #include <QDateTime>
+#include <QFile>
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
@@ -110,6 +111,14 @@ bool ProcesyStudio::uruchom( const QString &program, const QStringList &argument
 bool ProcesyStudio::uruchomPowloke( const QString &polecenie, const QString &katalog )
 {
   return startuj( QStringLiteral( "/bin/sh" ), { QStringLiteral( "-c" ), polecenie }, katalog );
+}
+
+QString ProcesyStudio::czytajTekst( const QString &sciezka )
+{
+  QFile plik( sciezka );
+  if ( !plik.open( QIODevice::ReadOnly | QIODevice::Text ) )
+    return QString();
+  return QString::fromUtf8( plik.readAll() );
 }
 
 bool ProcesyStudio::uruchomPyQgis( const QString &sciezkaSkryptu )

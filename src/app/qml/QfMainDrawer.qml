@@ -1,3 +1,4 @@
+import QtCore
 import QtQuick
 import QtQuick.Effects
 import Qt.labs.folderlistmodel
@@ -657,6 +658,140 @@ Drawer {
         font: t.tinyFont
         color: t.secondaryTextColor
         elide: Text.ElideMiddle
+      }
+
+      // ── Stan zleceń: dashboard nad masterem (docs/MAGAZYN.md) ──
+      ColumnLayout {
+        id: stanZlecen
+
+        Layout.fillWidth: true
+        Layout.topMargin: 10
+        spacing: 4
+        visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+
+        property var stan: null
+
+        Settings {
+          id: ustawieniaStanu
+          category: "WFGStudio"
+          property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
+        }
+        ProcesyStudio {
+          id: procesyStanu
+        }
+
+        function odswiez() {
+          const surowe = procesyStanu.czytajTekst(ustawieniaStanu.korzenProjektow + "/dziennik/stan.json");
+          if (surowe === "") {
+            stan = null;
+            return;
+          }
+          try {
+            stan = JSON.parse(surowe);
+          } catch (e) {
+            stan = null;
+          }
+        }
+
+        Component.onCompleted: odswiez()
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6
+
+          Text {
+            Layout.fillWidth: true
+            text: qsTr("Stan zleceń")
+                  + (stanZlecen.stan ? "  ·  " + stanZlecen.stan.wygenerowano : "")
+            font: t.strongTipFont
+            color: t.mainTextColor
+            elide: Text.ElideRight
+          }
+          Button {
+            flat: true
+            text: qsTr("Odśwież")
+            font.pointSize: t.tinyFont.pointSize
+            onClicked: stanZlecen.odswiez()
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: stanZlecen.stan === null
+          text: qsTr("Brak dziennik/stan.json — uruchom generuj_stan.py i kliknij Odśwież")
+          font: t.tinyFont
+          color: t.secondaryTextColor
+          wrapMode: Text.WordWrap
+        }
+
+        Repeater {
+          model: stanZlecen.stan ? stanZlecen.stan.zlecenia : []
+
+          delegate: Rectangle {
+            required property var modelData
+
+            Layout.fillWidth: true
+            implicitHeight: kolumnaKarty.implicitHeight + 12
+            radius: 6
+            color: modelData.w_terenie > 0 ? Qt.alpha(t.warningColor, 0.10)
+                                           : Qt.alpha(t.mainColor, 0.06)
+            border.color: modelData.w_terenie > 0 ? Qt.alpha(t.warningColor, 0.5)
+                                                  : Qt.alpha(t.mainColor, 0.25)
+
+            ColumnLayout {
+              id: kolumnaKarty
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.margins: 8
+              spacing: 2
+
+              RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Text {
+                  Layout.fillWidth: true
+                  text: modelData.zamawiajacy + " · " + modelData.obszar + " "
+                        + modelData.id + " · " + modelData.zadanie
+                  font: t.tipFont
+                  color: t.mainTextColor
+                  elide: Text.ElideRight
+                }
+                Text {
+                  visible: modelData.w_terenie > 0
+                  text: qsTr("w terenie: %1").arg(modelData.w_terenie)
+                  font: t.tinyFont
+                  color: t.warningColor
+                }
+              }
+              Text {
+                Layout.fillWidth: true
+                text: qsTr("wydań %1 · ostatni zwrot: %2")
+                      .arg(modelData.wydania.length)
+                      .arg(modelData.ostatni_zwrot !== "" ? modelData.ostatni_zwrot : "—")
+                font: t.tinyFont
+                color: t.secondaryTextColor
+                elide: Text.ElideRight
+              }
+              Text {
+                Layout.fillWidth: true
+                visible: modelData.master !== null && modelData.master.liczniki !== undefined
+                         && modelData.master.liczniki.FITO_TOPOSEKTORY !== undefined
+                text: modelData.master !== null && modelData.master.liczniki !== undefined
+                      ? qsTr("master: topo %1 · płaty %2 · spis %3 · zdj %4")
+                        .arg(modelData.master.liczniki.FITO_TOPOSEKTORY || 0)
+                        .arg(modelData.master.liczniki.FITO_PLATY || 0)
+                        .arg(modelData.master.liczniki.FITO_SPIS_GATUNKOWY || 0)
+                        .arg(modelData.master.liczniki.FITO_ZDJECIA || 0)
+                      : ""
+                font: t.tinyFont
+                color: t.secondaryTextColor
+                elide: Text.ElideRight
+              }
+            }
+          }
+        }
       }
 
       Text {

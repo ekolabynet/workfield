@@ -38,6 +38,10 @@ class ProcesyStudio : public QObject
     //! rozruch QgsApplication w pythonie systemowym, cwd = katalog skryptu.
     Q_INVOKABLE bool uruchomPyQgis( const QString &sciezkaSkryptu );
 
+    //! Czyta plik tekstowy (UTF-8); pusty string, gdy brak/nieczytelny.
+    //! Uzywane m.in. przez widok Stanu zlecen (dziennik/stan.json).
+    Q_INVOKABLE QString czytajTekst( const QString &sciezka );
+
     //! Grzeczne przerwanie bieżącego procesu (terminate, po 2 s kill).
     Q_INVOKABLE void przerwij();
 
