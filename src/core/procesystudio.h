@@ -58,6 +58,14 @@ class ProcesyStudio : public QObject
                                            const QString &nazwa,
                                            const QString &korzen = QString() ) const;
 
+    //! "Zamien na szablon": kopiuje projekt do <korzen>/szablony/<nazwa>
+    //! z pominieciem czesci terenowej (DCIM, foto_tagi.gpkg, zdjecia,
+    //! metryki, smieci edytora) i czysci tabele FITO_* we wszystkich GPKG
+    //! kopii. Oryginal nietkniety. Zwraca { ok, sciezka|blad, wyczyszczono }.
+    Q_INVOKABLE QVariantMap zamienNaSzablon( const QString &sciezkaProjektu,
+                                             const QString &korzen,
+                                             const QString &nazwa ) const;
+
   signals:
     void linia( const QString &tekst );
     void zakonczono( int kod );

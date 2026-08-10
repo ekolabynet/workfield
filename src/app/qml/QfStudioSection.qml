@@ -427,6 +427,17 @@ ColumnLayout {
       }
     }
     Button {
+      Layout.fillWidth: true
+      flat: true
+      text: qsTr("Zamień na szablon")
+      font.pointSize: Theme.tinyFont.pointSize
+      enabled: studio.wybrany && !procesy.dziala
+      onClicked: {
+        poleNazwySzablonu.text = studio.wybrany.nazwa.replace(/_v[0-9]+$/, "") + "_szablon";
+        dialogSzablonu.open();
+      }
+    }
+    Button {
       Layout.columnSpan: 2
       Layout.fillWidth: true
       flat: true
@@ -524,6 +535,67 @@ ColumnLayout {
               zapis.dopisz(qsTr("Utworzono %1 (z szablonu %2)").arg(w.sciezka).arg(szablon.nazwa));
               zapis.dopisz(qsTr("Teraz: Zbuduj projekt, potem Wyślij na telefon."));
               kreatorNowego.close();
+              studio.przeladuj();
+            } else {
+              zapis.dopisz(qsTr("✗ %1").arg(w.blad));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ── dialog: Zamień na szablon ─────────────────────────────────
+  Popup {
+    id: dialogSzablonu
+
+    parent: mainWindow.contentItem
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(420, mainWindow.width - 32)
+    modal: true
+
+    ColumnLayout {
+      width: parent.width
+      spacing: 8
+
+      Text {
+        text: qsTr("Zamień projekt na szablon")
+        font: Theme.strongTipFont
+        color: Theme.mainTextColor
+      }
+      Text {
+        Layout.fillWidth: true
+        text: studio.wybrany
+              ? qsTr("Kopia %1 trafi do szablonów bez części terenowej:\nbez DCIM, zdjęć i foto_tagi; tabele FITO_* zostaną wyczyszczone.\nOryginał pozostanie nietknięty.").arg(studio.wybrany.nazwa)
+              : ""
+        font: Theme.tinyFont
+        color: Theme.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+      TextField {
+        id: poleNazwySzablonu
+        Layout.fillWidth: true
+        placeholderText: qsTr("nazwa szablonu")
+      }
+      RowLayout {
+        Layout.fillWidth: true
+        Item { Layout.fillWidth: true }
+        Button {
+          flat: true
+          text: qsTr("Anuluj")
+          onClicked: dialogSzablonu.close()
+        }
+        Button {
+          text: qsTr("Utwórz szablon")
+          enabled: poleNazwySzablonu.text.trim() !== ""
+          onClicked: {
+            const w = procesy.zamienNaSzablon(studio.wybrany.sciezka,
+                                              ustawieniaStudia.korzenProjektow,
+                                              poleNazwySzablonu.text);
+            if (w.ok) {
+              zapis.dopisz(qsTr("Szablon utworzony: %1 (wyczyszczono tabel FITO: %2)").arg(w.sciezka).arg(w.wyczyszczono));
+              dialogSzablonu.close();
               studio.przeladuj();
             } else {
               zapis.dopisz(qsTr("✗ %1").arg(w.blad));

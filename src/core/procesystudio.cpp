@@ -11,6 +11,8 @@
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QTemporaryFile>
+#include <QRegularExpression>
+#include <sqlite3.h>
 
 // Rozruch PyQGIS: zbuduj_projekt.py i pokrewne zakładają działający QGIS.
 // Poza konsolą QGIS trzeba silnik obudzić samemu — dokładnie jak w wf_core.
@@ -233,6 +235,125 @@ QVariantList ProcesyStudio::znajdzProjekty( const QString &korzen, int glebokosc
     return ma.value( QStringLiteral( "zmodyfikowano" ) ).toString()
            > mb.value( QStringLiteral( "zmodyfikowano" ) ).toString();
   } );
+  return wynik;
+}
+
+namespace
+{
+  //! czesc terenowa nie wchodzi do szablonu (decyzja 2026-08-10)
+  bool pomijanyWSzablonie( const QString &wzgledna, bool katalog )
+  {
+    const QString nazwa = wzgledna.section( '/', -1 );
+    if ( katalog )
+      return nazwa == QLatin1String( "DCIM" ) || nazwa.startsWith( '.' );
+    if ( nazwa == QLatin1String( "foto_tagi.gpkg" )
+         || nazwa == QLatin1String( "metryka.json" )
+         || nazwa == QLatin1String( "metryka_zwrotu.json" ) )
+      return true;
+    return nazwa.endsWith( QLatin1String( ".jpg" ), Qt::CaseInsensitive )
+           || nazwa.endsWith( QLatin1String( ".jpeg" ), Qt::CaseInsensitive )
+           || nazwa.endsWith( QLatin1String( ".mp4" ), Qt::CaseInsensitive )
+           || nazwa.endsWith( QLatin1String( ".qgs~" ) )
+           || nazwa.endsWith( QLatin1String( ".gpkg-wal" ) )
+           || nazwa.endsWith( QLatin1String( ".gpkg-shm" ) );
+  }
+
+  bool kopiujFiltrowane( const QString &zrodlo, const QString &cel,
+                         const QString &baza )
+  {
+    QDir().mkpath( cel );
+    const QDir katalog( zrodlo );
+    const auto wpisy = katalog.entryInfoList(
+      QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot );
+    for ( const QFileInfo &wpis : wpisy )
+    {
+      const QString wzgledna =
+        QDir( baza ).relativeFilePath( wpis.absoluteFilePath() );
+      if ( pomijanyWSzablonie( wzgledna, wpis.isDir() ) )
+        continue;
+      const QString docelowy = cel + '/' + wpis.fileName();
+      if ( wpis.isDir() )
+      {
+        if ( !kopiujFiltrowane( wpis.absoluteFilePath(), docelowy, baza ) )
+          return false;
+      }
+      else if ( !QFile::copy( wpis.absoluteFilePath(), docelowy ) )
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  //! czysci tabele FITO_* w jednym GPKG; zwraca liczbe wyczyszczonych
+  int wyczyscFito( const QString &sciezka )
+  {
+    sqlite3 *baza = nullptr;
+    if ( sqlite3_open( sciezka.toUtf8().constData(), &baza ) != SQLITE_OK )
+      return 0;
+    QStringList tabele;
+    sqlite3_stmt *zapytanie = nullptr;
+    if ( sqlite3_prepare_v2( baza,
+           "SELECT table_name FROM gpkg_contents "
+           "WHERE table_name LIKE 'FITO\\_%' ESCAPE '\\'",
+           -1, &zapytanie, nullptr ) == SQLITE_OK )
+    {
+      while ( sqlite3_step( zapytanie ) == SQLITE_ROW )
+        tabele << QString::fromUtf8( reinterpret_cast<const char *>(
+          sqlite3_column_text( zapytanie, 0 ) ) );
+    }
+    sqlite3_finalize( zapytanie );
+    int wyczyszczone = 0;
+    for ( const QString &t : tabele )
+    {
+      const QByteArray usun =
+        QStringLiteral( "DELETE FROM \"%1\"" ).arg( t ).toUtf8();
+      if ( sqlite3_exec( baza, usun.constData(), nullptr, nullptr, nullptr )
+           == SQLITE_OK )
+        wyczyszczone++;
+      const QByteArray licznik = QStringLiteral(
+        "UPDATE gpkg_ogr_contents SET feature_count=0 WHERE table_name='%1'" )
+        .arg( t ).toUtf8();
+      sqlite3_exec( baza, licznik.constData(), nullptr, nullptr, nullptr );
+    }
+    sqlite3_close( baza );
+    return wyczyszczone;
+  }
+} // namespace
+
+QVariantMap ProcesyStudio::zamienNaSzablon( const QString &sciezkaProjektu,
+                                            const QString &korzen,
+                                            const QString &nazwa ) const
+{
+  QVariantMap wynik;
+  wynik["ok"] = false;
+  const QString czysta = QString( nazwa ).trimmed()
+    .replace( QRegularExpression( QStringLiteral( "[^A-Za-z0-9_-]" ) ),
+              QStringLiteral( "_" ) );
+  if ( czysta.isEmpty() )
+  {
+    wynik["blad"] = tr( "Pusta nazwa szablonu" );
+    return wynik;
+  }
+  const QString cel = korzen + QStringLiteral( "/szablony/" ) + czysta;
+  if ( QFileInfo::exists( cel ) )
+  {
+    wynik["blad"] = tr( "Szablon %1 już istnieje" ).arg( czysta );
+    return wynik;
+  }
+  if ( !kopiujFiltrowane( sciezkaProjektu, cel, sciezkaProjektu ) )
+  {
+    wynik["blad"] = tr( "Kopiowanie nie powiodło się" );
+    return wynik;
+  }
+  int wyczyszczone = 0;
+  QDirIterator it( cel, QStringList() << QStringLiteral( "*.gpkg" ),
+                   QDir::Files, QDirIterator::Subdirectories );
+  while ( it.hasNext() )
+    wyczyszczone += wyczyscFito( it.next() );
+  wynik["ok"] = true;
+  wynik["sciezka"] = cel;
+  wynik["wyczyszczono"] = wyczyszczone;
   return wynik;
 }
 
