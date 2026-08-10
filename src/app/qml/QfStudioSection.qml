@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtQuick.Effects
 import org.qfield
 import Theme
 
@@ -47,11 +48,19 @@ ColumnLayout {
       spacing: 10
 
       Image {
+        id: obrazIkony
+        source: pozycja.ikona !== "" ? Theme.getThemeVectorIcon(pozycja.ikona) : ""
+        sourceSize: Qt.size(22, 22)
+        visible: false
+      }
+      MultiEffect {
+        // barwienie ikony kolorem tekstu motywu: jasne w ciemnym, ciemne w jasnym
         Layout.leftMargin: 6
         Layout.preferredWidth: 22
         Layout.preferredHeight: 22
-        source: pozycja.ikona !== "" ? Theme.getThemeVectorIcon(pozycja.ikona) : ""
-        sourceSize: Qt.size(22, 22)
+        source: obrazIkony
+        colorization: 1.0
+        colorizationColor: Theme.mainTextColor
         opacity: pozycja.enabled ? 1.0 : 0.4
       }
       Text {
