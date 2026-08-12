@@ -2252,6 +2252,150 @@ Popup {
       property var suggestions: []
       property int maxN: 1
 
+      // ---- Pl@ntNet w tagowaniu (wspolne ustawienia z wtyczka) ----
+      property bool pnBusy: false
+      property string pnStatus: ""
+      property var pnResults: []
+      // organy honorowane przez API; przelaczane przyciskiem obok
+      readonly property var pnOrgany: ["leaf", "flower", "fruit", "bark"]
+      readonly property var pnOrganPL: ({
+          "leaf": qsTr("liść"),
+          "flower": qsTr("kwiat"),
+          "fruit": qsTr("owoc"),
+          "bark": qsTr("kora")
+        })
+
+      function pnKlucz() {
+        return String(settings.value("WorkFieldPlantNet/apiKey", "")).trim();
+      }
+
+      function pnStr2bytes(txt) {
+        const u = unescape(encodeURIComponent(txt));
+        const arr = new Uint8Array(u.length);
+        for (let i = 0; i < u.length; i++)
+          arr[i] = u.charCodeAt(i);
+        return arr;
+      }
+
+      // dopasowanie do slownika projektu: kanonicznie po czlonie lacinskim
+      // ("Abies alba" == "Abies alba - jodla pospolita [aba]"); pelniejsza
+      // forma ze slownika wygrywa; brak w slowniku -> nazwa z Pl@ntNet
+      function pnDopasujDoSlownika(lacina) {
+        const k = String(lacina).trim().toLowerCase();
+        for (let i = 0; i < suggestions.length; i++) {
+          const s = suggestions[i].name;
+          if (s.split(" - ")[0].trim().toLowerCase() === k)
+            return s;
+        }
+        return String(lacina).trim();
+      }
+
+      function pnFlora() {
+        const tryb = String(settings.value("WorkFieldPlantNet/flora", "auto-geo"));
+        if (tryb !== "auto-geo")
+          return tryb;
+        const d = new Date();
+        const dzis = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+        // flora ustalona dzis przez wtyczke (auto-geo z pozycji) jest dobra
+        // i dla galerii; bez niej bezpieczny domysl dla naszego terenu
+        if (String(settings.value("WorkFieldPlantNet/autoFloraDay", "")) === dzis) {
+          const id = String(settings.value("WorkFieldPlantNet/autoFloraId", ""));
+          if (id !== "")
+            return id;
+        }
+        return "k-middle-europe";
+      }
+
+      function pnIdentify() {
+        if (!viewer.cur)
+          return;
+        if (pnKlucz() === "") {
+          pnStatus = qsTr("Wpisz klucz API Pl@ntNet poniżej (konto: my.plantnet.org)");
+          return;
+        }
+        pnBusy = true;
+        pnResults = [];
+        pnStatus = qsTr("Czytam zdjęcie…");
+        const zawartosc = FileUtils.readFileContent(viewer.cur.path);
+        const dlugosc = (zawartosc && zawartosc.byteLength !== undefined) ? zawartosc.byteLength : -1;
+        if (dlugosc <= 0) {
+          pnBusy = false;
+          pnStatus = qsTr("Zdjęcie nieczytelne: ") + viewer.curRel;
+          return;
+        }
+        const organ = String(settings.value("WorkFieldPlantNet/organ", "leaf"));
+        const boundary = "----WorkFieldPlantNetGaleria" + Date.now();
+        const czesci = [];
+        czesci.push(pnStr2bytes("--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="organs"\r\n\r\n' + organ + "\r\n" + "--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="images"; filename="' + FileUtils.fileName(viewer.cur.path) + '"\r\n' + "Content-Type: image/jpeg\r\n\r\n"));
+        czesci.push(new Uint8Array(zawartosc));
+        czesci.push(pnStr2bytes("\r\n--" + boundary + "--\r\n"));
+        let suma = 0;
+        for (let i = 0; i < czesci.length; i++)
+          suma += czesci[i].length;
+        const cialo = new Uint8Array(suma);
+        let od = 0;
+        for (let i = 0; i < czesci.length; i++) {
+          cialo.set(czesci[i], od);
+          od += czesci[i].length;
+        }
+        pnStatus = qsTr("Pytam Pl@ntNet (") + Math.round(dlugosc / 1024) + " KB, " + pnOrganPL[organ] + ")…";
+        const url = "https://my-api.plantnet.org/v2/identify/" + encodeURIComponent(pnFlora()) + "?api-key=" + encodeURIComponent(pnKlucz()) + "&lang=pl&nb-results=6";
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+        xhr.timeout = 60000;
+        xhr.ontimeout = function () {
+          pnBusy = false;
+          pnStatus = qsTr("Serwer nie odpowiedział w 60 s — sprawdź zasięg.");
+        };
+        xhr.setRequestHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== XMLHttpRequest.DONE)
+            return;
+          pnBusy = false;
+          if (xhr.status === 200) {
+            pnPokazWyniki(xhr.responseText);
+          } else if (xhr.status === 401) {
+            pnStatus = qsTr("Błędny klucz API (401) — sprawdź na my.plantnet.org.");
+          } else if (xhr.status === 404) {
+            pnStatus = qsTr("Brak dopasowania w tej florze (404).");
+          } else if (xhr.status === 413) {
+            pnStatus = qsTr("Zdjęcie za duże (413).");
+          } else if (xhr.status === 429) {
+            pnStatus = qsTr("Wyczerpany dzienny limit zapytań (429).");
+          } else if (xhr.status === 0) {
+            pnStatus = qsTr("Brak sieci — spróbuj przy zasięgu.");
+          } else {
+            pnStatus = qsTr("Błąd serwera: ") + xhr.status;
+          }
+        };
+        xhr.send(cialo.buffer);
+      }
+
+      function pnPokazWyniki(tekst) {
+        try {
+          const json = JSON.parse(tekst);
+          const wyniki = json.results || [];
+          if (wyniki.length === 0) {
+            pnStatus = qsTr("Brak wyników.");
+            return;
+          }
+          const out = [];
+          for (let i = 0; i < wyniki.length && i < 6; i++) {
+            const r = wyniki[i];
+            const gat = r.species || ({});
+            out.push({
+                "score": Math.round((r.score || 0) * 100),
+                "lacina": String(gat.scientificNameWithoutAuthor || "").trim(),
+                "ludowa": (gat.commonNames || []).slice(0, 2).join(", ")
+              });
+          }
+          pnStatus = "";
+          pnResults = out;
+        } catch (e) {
+          pnStatus = qsTr("Nieczytelna odpowiedź serwera.");
+        }
+      }
+
       onSortAZChanged: {
         settings.setValue("workfield/tagSortAZ", sortAZ);
         updateSuggestions();
@@ -2440,6 +2584,114 @@ Popup {
                 pokInput.text = "";
                 tagPanel.updateSuggestions();
                 tagInput.forceActiveFocus();
+              } else {
+                displayToast(qsTr("Nie udało się zapisać tagu"));
+              }
+            }
+          }
+        }
+
+        // ---- Pl@ntNet: weryfikacja biezacego zdjecia (punkt 5a) ----
+        RowLayout {
+          Layout.fillWidth: true
+          visible: viewer.cur !== null && viewer.cur !== undefined
+          spacing: 6
+
+          Button {
+            Layout.fillWidth: true
+            text: tagPanel.pnBusy ? qsTr("Pl@ntNet…") : qsTr("Sprawdź w Pl@ntNet")
+            font: photoGallery.t.tipFont
+            enabled: !tagPanel.pnBusy
+            onClicked: tagPanel.pnIdentify()
+          }
+
+          ToolButton {
+            text: tagPanel.pnOrganPL[String(settings.value("WorkFieldPlantNet/organ", "leaf"))] || qsTr("liść")
+            font: photoGallery.t.tipFont
+            onClicked: {
+              const teraz = String(settings.value("WorkFieldPlantNet/organ", "leaf"));
+              const i = tagPanel.pnOrgany.indexOf(teraz);
+              settings.setValue("WorkFieldPlantNet/organ", tagPanel.pnOrgany[(i + 1) % tagPanel.pnOrgany.length]);
+              text = tagPanel.pnOrganPL[String(settings.value("WorkFieldPlantNet/organ", "leaf"))];
+            }
+          }
+        }
+
+        TextField {
+          Layout.fillWidth: true
+          visible: viewer.cur !== null && viewer.cur !== undefined && tagPanel.pnKlucz() === ""
+          placeholderText: qsTr("Klucz API Pl@ntNet…")
+          color: "white"
+          placeholderTextColor: "#90A4AE"
+          font: photoGallery.t.tipFont
+          echoMode: TextInput.Password
+          onEditingFinished: settings.setValue("WorkFieldPlantNet/apiKey", text.trim())
+        }
+
+        Label {
+          Layout.fillWidth: true
+          visible: tagPanel.pnStatus !== ""
+          text: tagPanel.pnStatus
+          color: "#FFCC80"
+          font: photoGallery.t.tinyFont
+          wrapMode: Text.WordWrap
+        }
+
+        Repeater {
+          model: tagPanel.pnResults
+
+          delegate: ItemDelegate {
+            required property var modelData
+
+            Layout.fillWidth: true
+            height: 40
+
+            background: Rectangle {
+              color: "#33455A64"
+              radius: 4
+            }
+
+            contentItem: RowLayout {
+              spacing: 8
+
+              Text {
+                Layout.leftMargin: 6
+                text: modelData.score + "%"
+                font: photoGallery.t.tipFont
+                color: modelData.score >= 50 ? "#A5D6A7" : "#FFCC80"
+              }
+
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+
+                Text {
+                  Layout.fillWidth: true
+                  text: tagPanel.pnDopasujDoSlownika(modelData.lacina)
+                  font: photoGallery.t.tipFont
+                  color: "white"
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  visible: modelData.ludowa !== ""
+                  text: modelData.ludowa
+                  font: photoGallery.t.tinyFont
+                  color: photoGallery.t.secondaryTextColor
+                  elide: Text.ElideRight
+                }
+              }
+            }
+
+            onClicked: {
+              const nazwa = tagPanel.pnDopasujDoSlownika(modelData.lacina);
+              const fid = tagStore.addTag(viewer.curRel, nazwa, -1, "Pl@ntNet " + modelData.score + "%");
+              if (fid >= 0) {
+                tagInput.text = nazwa;
+                tagPanel.pnResults = [];
+                tagPanel.pnStatus = qsTr("Dodano: ") + nazwa + " (" + modelData.score + "%)";
+                tagPanel.updateSuggestions();
               } else {
                 displayToast(qsTr("Nie udało się zapisać tagu"));
               }
