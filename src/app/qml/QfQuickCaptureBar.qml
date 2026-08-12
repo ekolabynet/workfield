@@ -789,6 +789,94 @@ Column {
   property var pendingLayer: null
   property var pendingFeature: null
   property var cameraSource: null
+  // warstwa, dla ktorej otwarto aparat — pending* bywa null (tryb distant),
+  // a seriesLayer bywa nieaktualny; to pole jest zawsze prawda
+  property var nazwaLayer: null
+
+  // WorkField: tor z paska omija widget zalacznika, ktory normalnie nadaje
+  // zdjeciu nazwe wg konwencji projektu (QFieldSync/attachment_naming) —
+  // liczymy wiec te sama nazwe sami, jedno zrodlo prawdy z formularzem.
+  ExpressionEvaluator {
+    id: nazwaFotoEvaluator
+    project: qgisProject
+    appExpressionContextScopesGenerator: appScopesGenerator
+  }
+
+  function wyrazenieNazewnicze(layer) {
+    if (!layer) {
+      return "";
+    }
+    let surowe = layer.customProperty("QFieldSync/attachment_naming");
+    if (surowe === undefined) {
+      surowe = layer.customProperty("QFieldSync/photo_naming");
+    }
+    if (surowe === undefined || surowe === "") {
+      return "";
+    }
+    try {
+      const mapa = JSON.parse(surowe);
+      for (const k in mapa) {
+        if (String(k).toLowerCase() === "foto") {
+          return mapa[k];
+        }
+      }
+      const klucze = Object.keys(mapa);
+      return klucze.length === 1 ? mapa[klucze[0]] : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function nadajNazweZdjecia(sciezkaBezwzgledna) {
+    const home = qgisProject ? qgisProject.homePath : "";
+    const layer = nazwaLayer || pendingLayer || seriesLayer;
+    if (home === "" || !layer || !sciezkaBezwzgledna || sciezkaBezwzgledna === "") {
+      return sciezkaBezwzgledna;
+    }
+    let wzgledna = "";
+    const wyrazenie = wyrazenieNazewnicze(layer);
+    if (wyrazenie !== "") {
+      nazwaFotoEvaluator.layer = layer;
+      nazwaFotoEvaluator.feature = pendingFeature;
+      nazwaFotoEvaluator.expressionText = wyrazenie;
+      wzgledna = String(nazwaFotoEvaluator.evaluate() || "");
+      if (wzgledna === "NULL") {
+        wzgledna = "";
+      }
+      // znaczniki widgetu: {filename} nie ma tu sensu, {extension} = jpg
+      wzgledna = wzgledna.replace("{filename}", "").replace("{extension}", "jpg");
+      wzgledna = FileUtils.sanitizeFilePath(wzgledna);
+    }
+    if (wzgledna === "") {
+      // fallback: konwencji w projekcie brak — nazwa warstwowa z ms
+      wzgledna = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss_zzz") + ".jpg";
+    }
+    while (wzgledna.startsWith("/")) {
+      wzgledna = wzgledna.substring(1);
+    }
+    if (wzgledna.indexOf(".") < 0) {
+      wzgledna += ".jpg";
+    }
+    const gdzieKropka = wzgledna.lastIndexOf(".");
+    const gdzieUkos = wzgledna.lastIndexOf("/");
+    if (gdzieUkos > 0) {
+      platformUtilities.createDir(home, wzgledna.substring(0, gdzieUkos));
+    }
+    // seria potrafi zrobic kilka klatek szybciej niz rosnie zegar nazwy
+    let cel = wzgledna;
+    let licznik = 2;
+    while (FileUtils.fileExists(home + "/" + cel)) {
+      cel = wzgledna.substring(0, gdzieKropka) + "_" + licznik + wzgledna.substring(gdzieKropka);
+      licznik++;
+    }
+    if (platformUtilities.renameFile(sciezkaBezwzgledna, home + "/" + cel)) {
+      return home + "/" + cel;
+    }
+    // rename nieudany: zostajemy przy surowej sciezce — obiekt i tak
+    // dostanie dzialajace zdjecie, tylko pod brzydka nazwa
+    console.log("QuickCapture: rename zdjecia nieudany, zostaje " + sciezkaBezwzgledna);
+    return sciezkaBezwzgledna;
+  }
 
   spacing: qcOdstep
   visible: (resolvedLayers.length > 0 || (qgisProject && qgisProject.fileName !== "")) && !overlayFeatureFormDrawer.opened && stateMachine.state !== "measure" && stateMachine.state !== "3d"
@@ -1031,7 +1119,8 @@ Column {
   }
 
   function openCameraFor(layer) {
-    const fileName = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss") + ".jpg";
+    nazwaLayer = layer;
+    const fileName = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss_zzz") + ".jpg";
     if (!(platformUtilities.capabilities & PlatformUtilities.NativeCamera) || !settings.valueBool("nativeCamera2", true)) {
       // wbudowany aparat: ujecia, seria ciagla, blysk i wibracja
       platformUtilities.createDir(qgisProject.homePath, "DCIM");
@@ -1633,6 +1722,9 @@ Column {
 
       onFinished: path => {
         quickCaptureBar.cameraSource = quickCaptureCamera;
+        // najpierw nazwa wg konwencji projektu (albo fallback z ms) —
+        // dopiero przemianowana sciezka idzie do atrybutu i galerii
+        path = quickCaptureBar.nadajNazweZdjecia(path);
         // pole "foto" oczekuje sciezki wzglednej wobec katalogu projektu
         let relativePhotoPath = path;
         const home = qgisProject.homePath;
