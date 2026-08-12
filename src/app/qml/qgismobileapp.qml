@@ -4990,11 +4990,23 @@ ApplicationWindow {
   QfQuickCaptureBar {
     id: quickCaptureBar
     // WorkField: przy biurku pasek przechwytywania zwykle przeszkadza;
-    // przełącznik w Ustawieniach terenowych pozwala go przywrócić
-    visible: Qt.platform.os === "android" || Qt.platform.os === "ios"
-             || settings.valueBool('WorkField/quickCaptureNaKomputerze', false)
-    x: quickCaptureBar.qcKrawedz === "lewa" ? 8 : parent.width - quickCaptureBar.width - 8
-    anchors.verticalCenter: parent.verticalCenter
+    // przełącznik w Ustawieniach terenowych pozwala go przywrócić.
+    // Przy pełnoekranowym formularzu pasek znika (nie ma wolnej mapy).
+    visible: (Qt.platform.os === "android" || Qt.platform.os === "ios"
+             || settings.valueBool('WorkField/quickCaptureNaKomputerze', false))
+             && !(featureListForm.visible && featureListForm.isFullscreen)
+
+    // WorkField: wolny obszar mapy — formularz atrybutów może zajmować
+    // dół ekranu (pion, y > 0) albo prawą stronę (poziom, x > 0);
+    // pasek centruje się w tym, co zostaje, zamiast na całym ekranie.
+    readonly property real wolnaSzerokosc: featureListForm.visible && !featureListForm.isFullscreen && featureListForm.x > 0 ? featureListForm.x : parent.width
+    readonly property real wolnaWysokosc: featureListForm.visible && !featureListForm.isFullscreen && featureListForm.y > 0 ? featureListForm.y : parent.height
+
+    x: quickCaptureBar.qcKrawedz === "lewa" ? 8 : wolnaSzerokosc - quickCaptureBar.width - 8
+    y: Math.max(8, (wolnaWysokosc - quickCaptureBar.height) / 2)
+
+    Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+    Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
   }
 
   Dialog {
