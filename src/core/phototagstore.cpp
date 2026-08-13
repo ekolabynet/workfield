@@ -596,3 +596,114 @@ bool PhotoTagStore::hasExifOrientation( const QString &path ) const
   reader.setAutoTransform( false );
   return reader.transformation() != QImageIOHandler::TransformationNone;
 }
+
+QVariantMap PhotoTagStore::speciesMeta( const QString &gatunek )
+{
+  QVariantMap meta;
+  if ( mProjectDir.isEmpty() )
+    return meta;
+
+  // klucz kanoniczny: czlon przed " - " i przed " [" — "Abies alba"
+  QString klucz = gatunek;
+  int p = klucz.indexOf( QLatin1String( " - " ) );
+  if ( p > 0 )
+    klucz = klucz.left( p );
+  p = klucz.indexOf( QLatin1String( " [" ) );
+  if ( p > 0 )
+    klucz = klucz.left( p );
+  klucz = klucz.trimmed().toLower();
+  if ( klucz.isEmpty() )
+    return meta;
+
+  if ( !mMetaSearched )
+  {
+    mMetaSearched = true;
+    const QStringList gpkgs = QDir( mProjectDir ).entryList( QStringList() << QStringLiteral( "*.gpkg" ), QDir::Files );
+    for ( const QString &name : gpkgs )
+    {
+      if ( name == QLatin1String( "foto_tagi.gpkg" ) )
+        continue;
+      sqlite3 *db = nullptr;
+      const QString path = QDir( mProjectDir ).filePath( name );
+      if ( sqlite3_open_v2( path.toUtf8().constData(), &db, SQLITE_OPEN_READONLY, nullptr ) != SQLITE_OK )
+      {
+        if ( db )
+          sqlite3_close( db );
+        continue;
+      }
+      sqlite3_stmt *ts = nullptr;
+      bool ma = false;
+      if ( sqlite3_prepare_v2( db, "SELECT 1 FROM sqlite_master WHERE type='table' AND name='SLOWNIK_GATUNKOW'", -1, &ts, nullptr ) == SQLITE_OK )
+      {
+        ma = sqlite3_step( ts ) == SQLITE_ROW;
+        sqlite3_finalize( ts );
+      }
+      sqlite3_close( db );
+      if ( ma )
+      {
+        mMetaGpkg = path;
+        break;
+      }
+    }
+  }
+  if ( mMetaGpkg.isEmpty() )
+    return meta;
+
+  sqlite3 *db = nullptr;
+  if ( sqlite3_open_v2( mMetaGpkg.toUtf8().constData(), &db, SQLITE_OPEN_READONLY, nullptr ) != SQLITE_OK )
+  {
+    if ( db )
+      sqlite3_close( db );
+    return meta;
+  }
+
+  bool maWsk = false;
+  sqlite3_stmt *ts = nullptr;
+  if ( sqlite3_prepare_v2( db, "SELECT 1 FROM sqlite_master WHERE type='table' AND name='wskazniki_polaczone'", -1, &ts, nullptr ) == SQLITE_OK )
+  {
+    maWsk = sqlite3_step( ts ) == SQLITE_ROW;
+    sqlite3_finalize( ts );
+  }
+
+  const char *sqlPelny = "SELECT s.*, w.zrodlo_eiv AS EIV_ZRODLO, w.L AS EIV_L, w.T AS EIV_T, w.M AS EIV_M, w.R AS EIV_R, w.N AS EIV_N, w.S AS EIV_S,"
+                         " w.zrodlo_zab AS ZAB_ZRODLO, w.\"Disturbance.Severity\" AS ZAB_SEVERITY, w.\"Disturbance.Frequency\" AS ZAB_FREQUENCY,"
+                         " w.\"Mowing.Frequency\" AS ZAB_MOWING, w.\"Grazing.Pressure\" AS ZAB_GRAZING, w.\"Soil.Disturbance\" AS ZAB_SOIL"
+                         " FROM SLOWNIK_GATUNKOW s LEFT JOIN wskazniki_polaczone w ON lower(trim(w.takson)) = lower(trim(s.GATUNEK))"
+                         " WHERE lower(trim(s.GATUNEK)) = ?1 OR lower(trim(s.ETYKIETA)) = lower(trim(?2)) LIMIT 1";
+  const char *sqlProsty = "SELECT s.* FROM SLOWNIK_GATUNKOW s WHERE lower(trim(s.GATUNEK)) = ?1 LIMIT 1";
+
+  sqlite3_stmt *st = nullptr;
+  if ( sqlite3_prepare_v2( db, maWsk ? sqlPelny : sqlProsty, -1, &st, nullptr ) != SQLITE_OK )
+  {
+    // zapasowo (np. slownik bez kolumny ETYKIETA)
+    if ( st )
+      sqlite3_finalize( st );
+    st = nullptr;
+    if ( sqlite3_prepare_v2( db, sqlProsty, -1, &st, nullptr ) != SQLITE_OK )
+    {
+      if ( st )
+        sqlite3_finalize( st );
+      sqlite3_close( db );
+      return meta;
+    }
+  }
+
+  const QByteArray k = klucz.toUtf8();
+  const QByteArray pelna = gatunek.trimmed().toUtf8();
+  sqlite3_bind_text( st, 1, k.constData(), -1, SQLITE_TRANSIENT );
+  if ( sqlite3_bind_parameter_count( st ) >= 2 )
+    sqlite3_bind_text( st, 2, pelna.constData(), -1, SQLITE_TRANSIENT );
+  if ( sqlite3_step( st ) == SQLITE_ROW )
+  {
+    const int n = sqlite3_column_count( st );
+    for ( int i = 0; i < n; i++ )
+    {
+      const QString kol = QString::fromUtf8( sqlite3_column_name( st, i ) );
+      const unsigned char *txt = sqlite3_column_text( st, i );
+      meta.insert( kol, txt ? QString::fromUtf8( reinterpret_cast<const char *>( txt ) ) : QString() );
+    }
+  }
+  sqlite3_finalize( st );
+  sqlite3_close( db );
+  return meta;
+}

@@ -82,6 +82,10 @@ class PhotoTagStore : public QObject
     //! widzetu pola "gatunek" (ValueMap/ValueRelation) warstw projektu.
     Q_INVOKABLE QStringList formSpecies();
 
+    //! Metadane gatunku: wiersz SLOWNIK_GATUNKOW + wskazniki_polaczone
+    //! (Tichy/Chytry EIV, Midolo) z GPKG projektu; pusta mapa gdy brak.
+    Q_INVOKABLE QVariantMap speciesMeta( const QString &gatunek );
+
   signals:
     void authorChanged();
     void storagePathChanged();
@@ -93,6 +97,8 @@ class PhotoTagStore : public QObject
     sqlite3 *mDb = nullptr;
     QString mProjectDir;
     QStringList mProjectSpecies;
+    QString mMetaGpkg;
+    bool mMetaSearched = false;
     bool mSpeciesLoaded = false;
     QStringList mFormSpecies;
     bool mFormSpeciesLoaded = false;
