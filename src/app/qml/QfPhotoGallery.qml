@@ -1523,6 +1523,7 @@ Popup {
     property bool trybWskazywania: false
     //! tryb siatki pokrycia (point-quadrat): klik przypisuje gatunek komórce
     property bool trybSiatki: false
+    property bool zrzutKadru: false
     //! pędzel pusty: komórka oceniona bez roślinności (mianownik 100%)
     property bool pedzelPusty: false
 
@@ -1758,7 +1759,7 @@ Popup {
           Rectangle {
             id: plakietkaPedzla
 
-            visible: (viewer.trybSiatki || viewer.trybWskazywania) && viewer.aktywnyPedzel() !== ""
+            visible: (viewer.trybSiatki || viewer.trybWskazywania) && viewer.aktywnyPedzel() !== "" && !viewer.zrzutKadru
             x: 10
             y: 10
             z: 50
@@ -1813,7 +1814,7 @@ Popup {
             id: siatkaCanvas
 
             anchors.fill: parent
-            visible: viewer.trybSiatki
+            visible: viewer.trybSiatki && !viewer.zrzutKadru
 
             onPaint: {
               const ctx = getContext("2d");
@@ -1919,7 +1920,7 @@ Popup {
 
               required property var modelData
 
-              visible: modelData.x !== undefined && modelData.x !== null && modelData.x >= 0 && modelData.y >= 0 && !(viewer.trybSiatki && modelData.uwagi !== undefined && modelData.uwagi !== null && String(modelData.uwagi).indexOf("siatka") === 0)
+              visible: !viewer.zrzutKadru && modelData.x !== undefined && modelData.x !== null && modelData.x >= 0 && modelData.y >= 0 && !(viewer.trybSiatki && modelData.uwagi !== undefined && modelData.uwagi !== null && String(modelData.uwagi).indexOf("siatka") === 0)
               x: modelData.x * fullImage.width - 8
               y: modelData.y * fullImage.height - 8
               width: 16
@@ -2306,9 +2307,11 @@ Popup {
         return "k-middle-europe";
       }
 
-      function pnIdentify() {
+      function pnIdentify(sciezkaKadru) {
         if (!viewer.cur)
           return;
+        const sciezkaFoto = (typeof sciezkaKadru === "string" && sciezkaKadru !== "") ? sciezkaKadru : viewer.cur.path;
+        const czyKadr = sciezkaFoto !== viewer.cur.path;
         if (pnKlucz() === "") {
           pnStatus = qsTr("Wpisz klucz API Pl@ntNet poniżej (konto: my.plantnet.org)");
           return;
@@ -2316,7 +2319,7 @@ Popup {
         pnBusy = true;
         pnResults = [];
         pnStatus = qsTr("Czytam zdjęcie…");
-        const zawartosc = FileUtils.readFileContent(viewer.cur.path);
+        const zawartosc = FileUtils.readFileContent(sciezkaFoto);
         const dlugosc = (zawartosc && zawartosc.byteLength !== undefined) ? zawartosc.byteLength : -1;
         if (dlugosc <= 0) {
           pnBusy = false;
@@ -2326,7 +2329,7 @@ Popup {
         const organ = String(settings.value("WorkFieldPlantNet/organ", "leaf"));
         const boundary = "----WorkFieldPlantNetGaleria" + Date.now();
         const czesci = [];
-        czesci.push(pnStr2bytes("--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="organs"\r\n\r\n' + organ + "\r\n" + "--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="images"; filename="' + FileUtils.fileName(viewer.cur.path) + '"\r\n' + "Content-Type: image/jpeg\r\n\r\n"));
+        czesci.push(pnStr2bytes("--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="organs"\r\n\r\n' + organ + "\r\n" + "--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="images"; filename="' + FileUtils.fileName(sciezkaFoto) + '"\r\n' + "Content-Type: image/jpeg\r\n\r\n"));
         czesci.push(new Uint8Array(zawartosc));
         czesci.push(pnStr2bytes("\r\n--" + boundary + "--\r\n"));
         let suma = 0;
@@ -2338,7 +2341,7 @@ Popup {
           cialo.set(czesci[i], od);
           od += czesci[i].length;
         }
-        pnStatus = qsTr("Pytam Pl@ntNet (") + Math.round(dlugosc / 1024) + " KB, " + pnOrganPL[organ] + ")…";
+        pnStatus = (czyKadr ? qsTr("Kadr → ") : "") + qsTr("Pytam Pl@ntNet (") + Math.round(dlugosc / 1024) + " KB, " + pnOrganPL[organ] + ", " + pnFlora() + ")…";
         const url = "https://my-api.plantnet.org/v2/identify/" + encodeURIComponent(pnFlora()) + "?api-key=" + encodeURIComponent(pnKlucz()) + "&lang=pl&nb-results=6";
         const xhr = new XMLHttpRequest();
         xhr.open("POST", url);
@@ -2603,6 +2606,29 @@ Popup {
             font: photoGallery.t.tipFont
             enabled: !tagPanel.pnBusy
             onClicked: tagPanel.pnIdentify()
+          }
+
+          Button {
+            text: qsTr("Kadr")
+            font: photoGallery.t.tipFont
+            enabled: !tagPanel.pnBusy
+            ToolTip.visible: hovered
+            ToolTip.text: qsTr("Rozpoznaj tylko widoczny wycinek — przybliż roślinę i kliknij")
+            onClicked: {
+              viewer.zrzutKadru = true;
+              const ok = flick.grabToImage(function (wynik) {
+                viewer.zrzutKadru = false;
+                const sciezka = photoGallery.projectDir + "/DCIM/.wf_kadr.jpg";
+                if (wynik.saveToFile(sciezka))
+                  tagPanel.pnIdentify(sciezka);
+                else
+                  tagPanel.pnStatus = qsTr("Nie udało się zapisać kadru.");
+              });
+              if (!ok) {
+                viewer.zrzutKadru = false;
+                tagPanel.pnStatus = qsTr("Nie udało się pobrać kadru z podglądu.");
+              }
+            }
           }
 
           ToolButton {
