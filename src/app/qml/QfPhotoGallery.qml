@@ -253,10 +253,10 @@ Popup {
   }
   onLayerFilterChanged: rebuildPhotos()
 
-  // <warstwa>_<yyyyMMdd_hhmmss> -> warstwa; image_0003 -> image (stary aparat)
+  // <warstwa>_<yyyyMMdd_hhmmss>[_zzz] -> warstwa; image_0003 -> image (stary aparat)
   function extractLayer(name) {
     const base = name.replace(/\.[^.]+$/, "");
-    let m = base.match(/^(.*)_\d{8}_\d{6}$/);
+    let m = base.match(/^(.*)_\d{8}_\d{6}(_\d{1,3})?$/);
     if (m)
       return m[1];
     m = base.match(/^(.*)_\d+$/);
