@@ -464,9 +464,20 @@ Popup {
           text: metaPanelOkno.w(metaPanelOkno.m.NAWIAZANIE_FITOSOCJOLOGICZNE)
         }
 
-        Button {
-          text: qsTr("Zamknij")
-          onClicked: metaPanelOkno.close()
+        Row {
+          spacing: 8
+
+          Button {
+            visible: metaPanelOkno.m.GATUNEK !== undefined
+            text: qsTr("🌐 atlas-roslin.pl")
+            onClicked: Qt.openUrlExternally("https://atlas-roslin.pl/gatunki/"
+                + String(metaPanelOkno.m.GATUNEK).trim().replace(/ /g, "_") + ".htm")
+          }
+
+          Button {
+            text: qsTr("Zamknij")
+            onClicked: metaPanelOkno.close()
+          }
         }
       }
     }

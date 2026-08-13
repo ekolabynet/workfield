@@ -618,9 +618,16 @@ QVariantMap PhotoTagStore::speciesMeta( const QString &gatunek )
   if ( !mMetaSearched )
   {
     mMetaSearched = true;
+    // najpierw samodzielny plik wskaznikow (dystrybucja np. przez NextCloud:
+    // wystarczy polozyc go w katalogu projektu, bez zmian w dane.gpkg)
+    const QString wolny = QDir( mProjectDir ).filePath( QStringLiteral( "wf_wskazniki.gpkg" ) );
+    if ( QFileInfo::exists( wolny ) )
+      mMetaGpkg = wolny;
     const QStringList gpkgs = QDir( mProjectDir ).entryList( QStringList() << QStringLiteral( "*.gpkg" ), QDir::Files );
     for ( const QString &name : gpkgs )
     {
+      if ( !mMetaGpkg.isEmpty() )
+        break;
       if ( name == QLatin1String( "foto_tagi.gpkg" ) )
         continue;
       sqlite3 *db = nullptr;
@@ -672,20 +679,25 @@ QVariantMap PhotoTagStore::speciesMeta( const QString &gatunek )
                          " WHERE lower(trim(s.GATUNEK)) = ?1 OR lower(trim(s.ETYKIETA)) = lower(trim(?2)) LIMIT 1";
   const char *sqlProsty = "SELECT s.* FROM SLOWNIK_GATUNKOW s WHERE lower(trim(s.GATUNEK)) = ?1 LIMIT 1";
 
+  const char *sqlPelnyBezEtykiety = "SELECT s.*, w.zrodlo_eiv AS EIV_ZRODLO, w.L AS EIV_L, w.T AS EIV_T, w.M AS EIV_M, w.R AS EIV_R, w.N AS EIV_N, w.S AS EIV_S,"
+                                    " w.zrodlo_zab AS ZAB_ZRODLO, w.\"Disturbance.Severity\" AS ZAB_SEVERITY, w.\"Disturbance.Frequency\" AS ZAB_FREQUENCY,"
+                                    " w.\"Mowing.Frequency\" AS ZAB_MOWING, w.\"Grazing.Pressure\" AS ZAB_GRAZING, w.\"Soil.Disturbance\" AS ZAB_SOIL"
+                                    " FROM SLOWNIK_GATUNKOW s LEFT JOIN wskazniki_polaczone w ON lower(trim(w.takson)) = lower(trim(s.GATUNEK))"
+                                    " WHERE lower(trim(s.GATUNEK)) = ?1 LIMIT 1";
   sqlite3_stmt *st = nullptr;
-  if ( sqlite3_prepare_v2( db, maWsk ? sqlPelny : sqlProsty, -1, &st, nullptr ) != SQLITE_OK )
+  const char *drabinka[3] = { maWsk ? sqlPelny : sqlProsty, maWsk ? sqlPelnyBezEtykiety : sqlProsty, sqlProsty };
+  for ( int i = 0; i < 3; i++ )
   {
-    // zapasowo (np. slownik bez kolumny ETYKIETA)
+    if ( sqlite3_prepare_v2( db, drabinka[i], -1, &st, nullptr ) == SQLITE_OK )
+      break;
     if ( st )
       sqlite3_finalize( st );
     st = nullptr;
-    if ( sqlite3_prepare_v2( db, sqlProsty, -1, &st, nullptr ) != SQLITE_OK )
-    {
-      if ( st )
-        sqlite3_finalize( st );
-      sqlite3_close( db );
-      return meta;
-    }
+  }
+  if ( !st )
+  {
+    sqlite3_close( db );
+    return meta;
   }
 
   const QByteArray k = klucz.toUtf8();
