@@ -76,8 +76,8 @@ QfPaneDrawer {
     featureForm.requestCancel();
   }
 
-  anchors.bottomMargin: featureFormList.canvasOperationRequested ? featureFormList.height : 0
-  anchors.rightMargin: featureFormList.canvasOperationRequested ? -featureFormList.width : 0
+  anchors.bottomMargin: featureFormList.canvasOperationRequested ? featureFormList.height : (Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? 12 : 0)
+  anchors.rightMargin: featureFormList.canvasOperationRequested ? -featureFormList.width : (Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? 12 : 0)
   opacity: featureFormList.canvasOperationRequested ? 0.5 : 1
 
   enabled: !featureFormList.canvasOperationRequested

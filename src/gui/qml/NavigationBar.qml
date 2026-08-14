@@ -72,7 +72,7 @@ Rectangle {
   anchors.left: parent.left
   anchors.right: parent.right
   height: toolBar.topMargin + Theme.toolButtonSize + 10
-  color: Theme.mainBackgroundColor
+  color: Theme.mainColor
   clip: true
 
   states: [
@@ -112,7 +112,7 @@ Rectangle {
       // Insure that the text is always visually centered by using the same left and right margin
       property double balancedMargin: Math.max((saveButton.visible ? saveButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (cancelButton.visible ? cancelButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (digitizeToggle.visible ? digitizeToggle.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
       font: Theme.strongFont
-      color: Theme.mainTextColor
+      color: Theme.mainOverlayColor
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
@@ -123,7 +123,8 @@ Rectangle {
       text: {
         if (model && selection && selection.focusedItem > -1 && (toolBar.state === 'Navigation' || toolBar.state === 'Edit')) {
           var featurePosition = model.count > 1 ? ((selection.focusedItem + 1) + '/' + model.count + ': ') : '';
-          return featurePosition + FeatureUtils.displayName(selection.focusedLayer, selection.focusedFeature);
+          const warstwa = selection.focusedLayer ? selection.focusedLayer.name + ' \u00b7 ' : '';
+          return featurePosition + warstwa + FeatureUtils.displayName(selection.focusedLayer, selection.focusedFeature);
         } else {
           return toolBar.title;
         }
@@ -188,7 +189,7 @@ Rectangle {
     clip: true
 
     iconSource: Theme.getThemeVectorIcon("ic_chevron_right_white_24dp")
-    iconColor: Theme.mainTextColor
+    iconColor: Theme.mainOverlayColor
 
     enabled: toolBar.state === "Navigation"
 
@@ -222,7 +223,7 @@ Rectangle {
     clip: true
 
     iconSource: toolBar.state === "Navigation" ? Theme.getThemeVectorIcon("ic_chevron_left_white_24dp") : Theme.getThemeVectorIcon("ic_arrow_left_white_24dp")
-    iconColor: Theme.mainTextColor
+    iconColor: Theme.mainOverlayColor
 
     enabled: toolBar.state !== "Edit" && !toolBar.multiSelection
 
@@ -256,7 +257,7 @@ Rectangle {
     clip: true
 
     iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
-    iconColor: !featureForm.model.constraintsHardValid ? Theme.mainOverlayColor : Theme.mainTextColor
+    iconColor: !featureForm.model.constraintsHardValid ? Theme.mainOverlayColor : Theme.mainOverlayColor
     bgcolor: !featureForm.model.constraintsHardValid ? Theme.errorColor : !featureForm.model.constraintsSoftValid ? Theme.warningColor : featureForm.model.hasConstraints ? Theme.goodColor : "transparent"
     borderColor: Theme.mainBackgroundColor
     roundborder: true
@@ -294,7 +295,7 @@ Rectangle {
     clip: true
 
     iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
-    iconColor: Theme.mainTextColor
+    iconColor: Theme.mainOverlayColor
 
     onClicked: {
       toolBar.cancel();
@@ -321,7 +322,7 @@ Rectangle {
 
     iconSource: Theme.getThemeVectorIcon("ic_create_white_24dp")
     bgcolor: stateMachine.state === "digitize" ? "#00E676" : "transparent"
-    iconColor: stateMachine.state === "digitize" ? "#062E12" : Theme.mainTextColor
+    iconColor: stateMachine.state === "digitize" ? "#062E12" : Theme.mainOverlayColor
 
     width: visible ? Theme.toolButtonSize : 0
     height: Theme.toolButtonSize
@@ -349,7 +350,7 @@ Rectangle {
     anchors.topMargin: toolBar.topMargin + 5
 
     iconSource: Theme.getThemeVectorIcon("ic_edit_geometry_white_24dp")
-    iconColor: Theme.mainTextColor
+    iconColor: Theme.mainOverlayColor
 
     width: visible ? Theme.toolButtonSize : 0
     height: Theme.toolButtonSize
@@ -391,7 +392,7 @@ Rectangle {
     clip: true
 
     iconSource: Theme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
-    iconColor: Theme.mainTextColor
+    iconColor: Theme.mainOverlayColor
 
     onClicked: {
       toolBar.editAttributesButtonClicked();
@@ -434,7 +435,7 @@ Rectangle {
     clip: true
 
     iconSource: Theme.getThemeVectorIcon("ic_dot_menu_black_24dp")
-    iconColor: Theme.mainTextColor
+    iconColor: Theme.mainOverlayColor
 
     onClicked: {
       if (toolBar.state === "Indication") {
@@ -464,7 +465,7 @@ Rectangle {
     clip: true
 
     iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
-    iconColor: Theme.mainTextColor
+    iconColor: Theme.mainOverlayColor
 
     enabled: (toolBar.multiSelection && toolBar.model)
 
@@ -489,7 +490,7 @@ Rectangle {
     height: Theme.toolButtonSize
     verticalAlignment: Text.AlignVCenter
     font: Theme.strongFont
-    color: Theme.mainTextColor
+    color: Theme.mainOverlayColor
 
     text: model.selectedFeatures.length < 100 ? model.selectedFeatures.length : '99+'
 
@@ -509,7 +510,7 @@ Rectangle {
     clip: true
 
     iconSource: Theme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
-    iconColor: Theme.mainTextColor
+    iconColor: Theme.mainOverlayColor
 
     enabled: toolBar.model && toolBar.model.canEditAttributesSelection && toolBar.model.selectedCount > 1 && projectInfo.editRights
 

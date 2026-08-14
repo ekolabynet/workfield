@@ -1,11 +1,23 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.Material
 
 /**
  * \ingroup qml
  */
 Pane {
   id: paneDrawer
+
+  //! WorkField: na komputerze panel rysuje sie jako plywajaca karta
+  //! (odsuniecie od krawedzi robi FeatureListForm przez anchors.margins)
+  readonly property bool naKomputerze: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+
+  background: Rectangle {
+    color: paneDrawer.Material.backgroundColor
+    radius: paneDrawer.naKomputerze ? 8 : 0
+    border.color: paneDrawer.naKomputerze ? "#55000000" : "transparent"
+    border.width: paneDrawer.naKomputerze ? 1 : 0
+  }
 
   //! TRUE when the pane is laid out vertically (portrait or narrow), driving the drag axis and resize animation direction
   readonly property bool isVertical: parent.width < parent.height || parent.width < 300
@@ -43,7 +55,7 @@ Pane {
         return props.lastWidth - props.dragWidthAdjustment;
       } else if (isFullscreen || parent.width <= parent.height || width >= 0.95 * parent.width) {
         props.lastWidth = parent.width;
-        return parent.width;
+        return parent.width - (naKomputerze ? 24 : 0);
       } else {
         const newWidth = Math.min(Math.max(200, parent.width / 2.25), parent.width);
         props.lastWidth = newWidth;
@@ -64,7 +76,7 @@ Pane {
         // WorkField: na komputerze panel odsuniety od belki chromu —
         // widac, ze to dokowany panel, nie przedluzenie naglowka
         if (Qt.platform.os !== "android" && Qt.platform.os !== "ios") {
-          return parent.height - 10;
+          return parent.height - 60;
         }
         return parent.height;
       } else {

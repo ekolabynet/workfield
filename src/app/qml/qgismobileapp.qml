@@ -390,6 +390,16 @@ ApplicationWindow {
             // WorkField: poza Androidem/iOS nie ma mainMenuBar z przyciskiem
             // "Stop editing" — Escape/Back konczy edycje geometrii
             geometryEditorsToolbar.cancelEditors();
+          } else if (stateMachine.state === 'digitize') {
+            // WorkField: wyjscie z trybu dodawania obiektow — pierwszy
+            // Escape/Back porzuca niedokonczony ksztalt, drugi wraca
+            // do Przegladania (dotad jedynym wyjsciem byl olowek w panelu)
+            if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 0) {
+              digitizingToolbar.cancel();
+            } else {
+              stateMachine.state = 'browse';
+              displayToast(qsTr("Przeglądanie"));
+            }
           } else if (stateMachine.state === 'measure') {
             mainWindow.closeMeasureTool();
           } else {
