@@ -2661,7 +2661,10 @@ ApplicationWindow {
 
       QfActionButton {
         id: closeGeometryEditorsTool
-        visible: (stateMachine.state === "digitize" && geometryEditingVertexModel.vertexCount > 0)
+        // WorkField: zbedny duch wystajacy spod belki terenowej — edycje
+        // koncza: sprzetowy "wstecz", fajka edytora (auto-powrot do
+        // Przegladania) i pisaczek w naglowku formularza
+        visible: false
         toolImage: geometryEditorsToolbar.image
         toolText: qsTr('Stop editing')
 
