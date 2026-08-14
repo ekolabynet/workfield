@@ -309,6 +309,25 @@ Column {
 
   onKotwicaTrybChanged: settings.setValue('WorkField/kotwicaTryb', kotwicaTryb)
 
+  // WorkField: czy trwa edycja geometrii istniejacego obiektu (ciecie,
+  // reshape, wierzcholki) — pytamy o FAKT w modelu, nie o stan maszyny,
+  // bo stan potrafi zgasnac od samego tapniecia kafelka
+  function edytorGeometriiAktywny() {
+    return typeof geometryEditingVertexModel !== 'undefined' && geometryEditingVertexModel.vertexCount > 0;
+  }
+
+  // linia, do ktorej naleza teraz wierzcholki z marszu: przy edycji
+  // geometrii linia edytora (np. linia ciecia), inaczej rysowanie nowego
+  function aktywnyRubberband() {
+    if (edytorGeometriiAktywny() && typeof geometryEditorsToolbar !== 'undefined' && geometryEditorsToolbar.editorRubberbandModel) {
+      return geometryEditorsToolbar.editorRubberbandModel;
+    }
+    if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model) {
+      return digitizingRubberband.model;
+    }
+    return null;
+  }
+
   function obsluzKotwice() {
     if (kotwice.length === 0) {
       return;
@@ -358,9 +377,11 @@ Column {
       return;
     }
     if (k.typ === "wierzcholek") {
-      if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount >= 1) {
-        const pkt = GeometryUtils.reprojectPoint(GeometryUtils.point(k.pozycja.x, k.pozycja.y), mapCanvas.mapSettings.destinationCrs, digitizingRubberband.model.crs);
-        digitizingRubberband.model.addVertexFromPoint(pkt);
+      const rbZ = aktywnyRubberband();
+      // edytor geometrii: linia ciecia moze zaczynac sie od zera wierzcholkow
+      if (rbZ && (edytorGeometriiAktywny() || rbZ.vertexCount >= 1)) {
+        const pkt = GeometryUtils.reprojectPoint(GeometryUtils.point(k.pozycja.x, k.pozycja.y), mapCanvas.mapSettings.destinationCrs, rbZ.crs);
+        rbZ.addVertexFromPoint(pkt);
         haptyka(10);
         if (timeout) {
           displayToast(qsTr("Kotwica: wierzchołek z pozycji bieżącej (fix z chwili tapnięcia nie nadszedł)"), "warning");
@@ -380,6 +401,18 @@ Column {
       }
     }
     feature = applyRasterContext(feature, k.layer);
+    // WorkField: trwa rysowanie/edycja geometrii — nie ruszamy sesji GPKG,
+    // punkt kotwicy idzie do kolejki odroczen (zapis po zamknieciu edycji)
+    if (stateMachine.state === "digitize" || edytorGeometriiAktywny()) {
+      odroczone.push({
+          "layer": k.layer,
+          "feature": feature
+        });
+      odroczone = odroczone;
+      haptyka(15);
+      displayToast(qsTr("Kotwica → odroczono do %1 — w kolejce: %2").arg(k.layer.name).arg(odroczone.length));
+      return;
+    }
     silentFeatureModel.currentLayer = k.layer;
     silentFeatureModel.feature = feature;
     if (silentFeatureModel.create()) {
@@ -415,7 +448,7 @@ Column {
       return;
     }
     // nie walczymy o edycje GPKG: czekamy na koniec rysowania i formularza
-    if (stateMachine.state === "digitize") {
+    if (stateMachine.state === "digitize" || edytorGeometriiAktywny()) {
       return;
     }
     if (typeof overlayFeatureFormDrawer !== 'undefined' && overlayFeatureFormDrawer.opened) {
@@ -458,6 +491,23 @@ Column {
     target: stateMachine
 
     function onStateChanged() {
+      quickCaptureBar.materializujOdroczone();
+    }
+  }
+
+  // WorkField: wyczyszczenie modelu wierzcholkow (koniec ciecia/edycji)
+  // tez uwalnia kolejke — stan maszyny mogl sie nie zmienic
+  Connections {
+    target: typeof geometryEditingVertexModel !== 'undefined' ? geometryEditingVertexModel : null
+    ignoreUnknownSignals: true
+
+    function onVertexCountChanged() {
+      // WorkField: koniec edycji geometrii (ciecie/anulowanie) -> powrot
+      // do Przegladania: klik wybiera kolejny obiekt zamiast dodawac nowe
+      if (geometryEditingVertexModel.vertexCount === 0 && stateMachine.state === "digitize") {
+        stateMachine.state = "browse";
+        displayToast(qsTr("Przeglądanie"));
+      }
       quickCaptureBar.materializujOdroczone();
     }
   }
@@ -1029,7 +1079,9 @@ Column {
     // Pierwszy fix o czasie >= tapniecia zamrozi pozycje (obsluzKotwice),
     // zwykle zanim uzytkownik skonczy kadrowac zdjecie.
     if (kotwicaTryb && !distantMode) {
-      const wierzcholekKsztaltu = bezZdjecia === true && typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1;
+      // WorkField: wierzcholkiem jest tez kazdy punkt linii ciecia w edytorze
+      const rbK = aktywnyRubberband();
+      const wierzcholekKsztaltu = bezZdjecia === true && rbK && (edytorGeometriiAktywny() || rbK.vertexCount > 1);
       kotwice.push({
           "typ": wierzcholekKsztaltu ? "wierzcholek" : "punkt",
           "layer": layer,
@@ -1047,11 +1099,12 @@ Column {
     // B: czysty punkt bez aparatu (tyczenie ciagow) — koniec przeplywu tutaj
     if (bezZdjecia === true) {
       if (!kotwicaTryb) {
-        if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1) {
+        const rb0 = aktywnyRubberband();
+        if (rb0 && (edytorGeometriiAktywny() || rb0.vertexCount > 1)) {
           const pos0 = positionSource.projectedPosition;
           if (pos0 && isFinite(pos0.x) && isFinite(pos0.y) && !(pos0.x === 0 && pos0.y === 0)) {
-            const pkt0 = GeometryUtils.reprojectPoint(GeometryUtils.point(pos0.x, pos0.y), mapCanvas.mapSettings.destinationCrs, digitizingRubberband.model.crs);
-            digitizingRubberband.model.addVertexFromPoint(pkt0);
+            const pkt0 = GeometryUtils.reprojectPoint(GeometryUtils.point(pos0.x, pos0.y), mapCanvas.mapSettings.destinationCrs, rb0.crs);
+            rb0.addVertexFromPoint(pkt0);
           } else {
             displayToast(qsTr("Brak użytecznej pozycji — wierzchołek nie powstał"), "warning");
           }
@@ -1070,7 +1123,7 @@ Column {
       }
       // tapniecie kafelka zgasilo stan rysowania — jesli w modelu czeka
       // niedokonczona geometria, wracamy do niej (pasek zatwierdzania wraca)
-      if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1 && stateMachine.state !== "digitize") {
+      if (((typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1) || edytorGeometriiAktywny()) && stateMachine.state !== "digitize") {
         stateMachine.state = "digitize";
       }
       return;

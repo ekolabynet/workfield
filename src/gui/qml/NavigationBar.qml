@@ -110,7 +110,7 @@ Rectangle {
 
     Text {
       // Insure that the text is always visually centered by using the same left and right margin
-      property double balancedMargin: Math.max((saveButton.visible ? saveButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (cancelButton.visible ? cancelButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
+      property double balancedMargin: Math.max((saveButton.visible ? saveButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (cancelButton.visible ? cancelButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (digitizeToggle.visible ? digitizeToggle.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
       font: Theme.strongFont
       color: Theme.mainTextColor
       anchors.left: parent.left
@@ -308,12 +308,41 @@ Rectangle {
   }
 
   QfToolButton {
+    id: digitizeToggle
+
+    // WorkField: przelacznik stanu rysowania, widoczny zawsze (On/Off);
+    // ten sam jezyk co olowek w panelu warstw: zielone kolo = rysowanie
+    visible: toolBar.state === "Navigation" && (projectInfo.editRights || editButton.isCreatedCloudFeature)
+    round: true
+
+    anchors.right: editGeomButton.left
+    anchors.top: parent.top
+    anchors.topMargin: toolBar.topMargin + 5
+
+    iconSource: Theme.getThemeVectorIcon("ic_create_white_24dp")
+    bgcolor: stateMachine.state === "digitize" ? "#00E676" : "transparent"
+    iconColor: stateMachine.state === "digitize" ? "#062E12" : Theme.mainTextColor
+
+    width: visible ? Theme.toolButtonSize : 0
+    height: Theme.toolButtonSize
+
+    onClicked: {
+      const rysuje = stateMachine.state === "digitize";
+      stateMachine.state = rysuje ? "browse" : "digitize";
+      displayToast(rysuje ? qsTr("Przeglądanie") : qsTr("Rysowanie: %1").arg(dashBoard.activeLayer ? dashBoard.activeLayer.name : ""));
+    }
+  }
+
+  QfToolButton {
     id: editGeomButton
 
     property bool supportsGeometryEditing: false
     property bool readOnly: false
 
-    visible: stateMachine.state === "digitize" && toolBar.state === "Navigation" && supportsGeometryEditing && !featureForm.model.featureModel.geometryEditingLocked && (projectInfo.editRights || editButton.isCreatedCloudFeature)
+    // WorkField: edycja geometrii dostepna takze w Przegladaniu — nasz
+    // workflow (olowek per warstwa + powrot do browse po edycji) chowal
+    // jedyna droge do kolejnego ciecia
+    visible: toolBar.state === "Navigation" && supportsGeometryEditing && !featureForm.model.featureModel.geometryEditingLocked && (projectInfo.editRights || editButton.isCreatedCloudFeature)
 
     anchors.right: editButton.left
     anchors.top: parent.top

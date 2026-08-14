@@ -50,6 +50,9 @@ QtObject {
   property var stylizacja: function () {}
   property var galeriaZdjec: function () {}
   property var kontrolaPrzypisan: function () {}
+  property var panelDanych: function () {}
+  property var ustawieniaTerenowe: function () {}
+  property var ustawieniaAplikacji: function () {}
   property var zglosUwage: function () {}
   property var oProgramie: function () {}
 
@@ -88,6 +91,9 @@ QtObject {
     { id: "galeria", nazwa: qsTr("Galeria zdjęć"), ikona: "wfg_zdjecia",
       grupa: "warstwy", desktop: true, telefon: true, wymagaProjektu: true,
       wykonaj: function () { akcje.galeriaZdjec(); } },
+    { id: "panel_danych", nazwa: qsTr("Panel danych"), ikona: "wfg_wymiana",
+      grupa: "warstwy", desktop: true, telefon: false, wymagaProjektu: true,
+      wykonaj: function () { akcje.panelDanych(); } },
 
     // —— Zarządzanie ——
     { id: "sprzet", nazwa: qsTr("Sprzęt"), ikona: "wfg_sprzet",
@@ -96,6 +102,13 @@ QtObject {
     { id: "kto_co_robil", nazwa: qsTr("Kto co robił"), ikona: "wfg_ludzie",
       grupa: "zarzadzanie", desktop: true, telefon: false, wymagaProjektu: false,
       wykonaj: function () { akcje.ktoCoRobil(); } },
+
+    { id: "teren", nazwa: qsTr("Ustawienia terenowe"), ikona: "wfg_teren",
+      grupa: "zarzadzanie", desktop: true, telefon: false, wymagaProjektu: false,
+      wykonaj: function () { akcje.ustawieniaTerenowe(); } },
+    { id: "ustawienia", nazwa: qsTr("Ustawienia aplikacji"), ikona: "wfg_ustawienia",
+      grupa: "zarzadzanie", desktop: true, telefon: false, wymagaProjektu: false,
+      wykonaj: function () { akcje.ustawieniaAplikacji(); } },
 
     // —— Pomoc ——
     { id: "zglos", nazwa: qsTr("Zgłoś uwagę"), ikona: "wfg_pomoc",

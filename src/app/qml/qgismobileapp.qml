@@ -81,6 +81,9 @@ ApplicationWindow {
     stylizacja: function () { dashBoard.otworzSekcje(3); }
     galeriaZdjec: function () { photoGallery.openPhotos(); }
     kontrolaPrzypisan: function () { photoGallery.openPhotos(); }
+    panelDanych: function () { dataDrawer.open(); }
+    ustawieniaTerenowe: function () { terenSettings.open(); }
+    ustawieniaAplikacji: function () { qfieldSettings.visible = true; }
     zglosUwage: function () { Qt.openUrlExternally('https://github.com/ekolabynet/workfield/issues'); }
     oProgramie: function () { aboutDialog.open(); }
   }
@@ -383,6 +386,10 @@ ApplicationWindow {
         if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
           if (featureListForm.visible) {
             featureListForm.hide();
+          } else if (geometryEditingVertexModel.vertexCount > 0) {
+            // WorkField: poza Androidem/iOS nie ma mainMenuBar z przyciskiem
+            // "Stop editing" — Escape/Back konczy edycje geometrii
+            geometryEditorsToolbar.cancelEditors();
           } else if (stateMachine.state === 'measure') {
             mainWindow.closeMeasureTool();
           } else {
@@ -4925,6 +4932,10 @@ ApplicationWindow {
       geometryEditingFeature.feature = featureListForm.selection.focusedFeature;
       if (geometryEditingVertexModel.editingAllowed) {
         featureListForm.state = "Hidden";
+        // WorkField: edytory geometrii i canvas widza edycje tylko w stanie
+        // "digitize" — wejscie z Przegladania ustawia stan samo; wyjscie
+        // przywraca browse (Connections w QfQuickCaptureBar)
+        stateMachine.state = "digitize";
         geometryEditorsToolbar.init();
       } else {
         displayToast(qsTr("Editing of multipart geometry is not supported yet."), 'warning');
