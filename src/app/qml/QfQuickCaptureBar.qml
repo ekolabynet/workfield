@@ -1161,7 +1161,7 @@ Column {
     // stan potrafi zgasnac od samego tapniecia kafelka — pytamy wiec o FAKT:
     // czy w modelu rysowania czeka niedokonczona geometria (wierzcholki)
     const wierzcholki = typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model ? digitizingRubberband.model.vertexCount : 0;
-    odroczenieFlow = stateMachine.state === "digitize" || wierzcholki > 1;
+    odroczenieFlow = stateMachine.state === "digitize" || wierzcholki > 1 || edytorGeometriiAktywny();
 
     // najpierw aparat, formularz otwiera sie po zdjeciu (lub po anulowaniu, bez foto)
     pendingLayer = layer;
@@ -1474,7 +1474,9 @@ Column {
         anchors.fill: parent
         onClicked: {
           if (modelData.mode === "photogeom") {
-            if (stateMachine.state === "digitize") {
+            // WorkField: podczas edycji geometrii (ciecie/reshape/pierscien)
+            // NIE wybijamy z trybu — edytor musi przezyc zdjecie
+            if (stateMachine.state === "digitize" && !quickCaptureBar.edytorGeometriiAktywny()) {
               stateMachine.state = "browse";
             }
             quickCaptureBar.captureGeometryFlow(modelData.layer);
@@ -1489,7 +1491,7 @@ Column {
               displayToast(modelData.tooltip, "info");
             }
           } else {
-            if (stateMachine.state === "digitize") {
+            if (stateMachine.state === "digitize" && !quickCaptureBar.edytorGeometriiAktywny()) {
               stateMachine.state = "browse";
             }
             quickCaptureBar.captureInto(modelData.layer, modelData.bezZdjecia === true);
@@ -1500,7 +1502,8 @@ Column {
             quickCaptureBar.dropLayer(modelData.customName);
           } else if (modelData.bezZdjecia === true) {
             // seria wierzcholkow: trzymasz — co sekunde jeden, puszczasz — koniec
-            if (typeof digitizingRubberband !== 'undefined' && digitizingRubberband.model && digitizingRubberband.model.vertexCount > 1) {
+            const rbSeria = quickCaptureBar.aktywnyRubberband();
+            if (rbSeria && (quickCaptureBar.edytorGeometriiAktywny() || rbSeria.vertexCount > 1)) {
               quickCaptureBar.haptyka(40);
               autoWierzcholek.start();
             } else {
@@ -1521,7 +1524,8 @@ Column {
           triggeredOnStart: true
 
           onTriggered: {
-            if (typeof digitizingRubberband === 'undefined' || !digitizingRubberband.model || digitizingRubberband.model.vertexCount < 2) {
+            const rbT = quickCaptureBar.aktywnyRubberband();
+            if (!rbT || (!quickCaptureBar.edytorGeometriiAktywny() && rbT.vertexCount < 2)) {
               autoWierzcholek.stop();
               return;
             }
