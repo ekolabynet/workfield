@@ -61,6 +61,11 @@ Pane {
         return Math.min(props.lastHeight - props.dragHeightAdjustment, parent.height - mainWindow.sceneTopMargin);
       } else if (isFullscreen || parent.width > parent.height || height >= 0.95 * parent.height) {
         props.lastHeight = parent.height;
+        // WorkField: na komputerze panel odsuniety od belki chromu —
+        // widac, ze to dokowany panel, nie przedluzenie naglowka
+        if (Qt.platform.os !== "android" && Qt.platform.os !== "ios") {
+          return parent.height - 10;
+        }
         return parent.height;
       } else {
         const defaultMin = Math.min(Math.max(200, parent.height / 2), parent.height);

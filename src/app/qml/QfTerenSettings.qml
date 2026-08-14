@@ -17,7 +17,8 @@ Popup {
 
   parent: mainWindow.contentItem
   width: Math.min(520, mainWindow.width - 24)
-  height: Math.min(560, mainWindow.height - 48)
+  height: Math.min(mainWindow.height - 48, przewijak.contentHeight + 2)
+  padding: 0
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
@@ -37,10 +38,23 @@ Popup {
     }
   }
 
-  ColumnLayout {
+  Flickable {
+    id: przewijak
     anchors.fill: parent
-    anchors.margins: 12
-    spacing: 10
+    contentWidth: width
+    contentHeight: tresc.implicitHeight + 24
+    clip: true
+    flickableDirection: Flickable.VerticalFlick
+
+    ScrollBar.vertical: ScrollBar {
+    }
+
+    ColumnLayout {
+      id: tresc
+      x: 12
+      y: 12
+      width: przewijak.width - 24
+      spacing: 10
 
     Text {
       Layout.fillWidth: true
@@ -240,7 +254,12 @@ Popup {
 
       Switch {
         checked: settings.valueBool('WorkField/quickCaptureNaKomputerze', false)
-        onToggled: settings.setValue('WorkField/quickCaptureNaKomputerze', checked)
+        onToggled: {
+          settings.setValue('WorkField/quickCaptureNaKomputerze', checked);
+          if (typeof quickCaptureBar !== 'undefined') {
+            quickCaptureBar.naKomputerze = checked;
+          }
+        }
       }
 
       Text {
@@ -284,6 +303,7 @@ Popup {
       Layout.fillWidth: true
       text: qsTr("Zamknij")
       onClicked: terenSettings.close()
+    }
     }
   }
 }

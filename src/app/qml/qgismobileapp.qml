@@ -5003,8 +5003,10 @@ ApplicationWindow {
     // WorkField: przy biurku pasek przechwytywania zwykle przeszkadza;
     // przełącznik w Ustawieniach terenowych pozwala go przywrócić.
     // Przy pełnoekranowym formularzu pasek znika (nie ma wolnej mapy).
-    visible: (Qt.platform.os === "android" || Qt.platform.os === "ios"
-             || settings.valueBool('WorkField/quickCaptureNaKomputerze', false))
+    // WorkField: wartosc w property, zeby przelacznik w oknie Teren
+    // dzialal od razu (odczyt settings nie jest reaktywny)
+    property bool naKomputerze: settings.valueBool('WorkField/quickCaptureNaKomputerze', false)
+    visible: (Qt.platform.os === "android" || Qt.platform.os === "ios" || naKomputerze)
              && !(featureListForm.visible && featureListForm.isFullscreen)
 
     // WorkField: wolny obszar mapy — formularz atrybutów może zajmować
