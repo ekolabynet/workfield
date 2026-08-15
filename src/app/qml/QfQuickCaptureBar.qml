@@ -458,6 +458,7 @@ Column {
     odroczone = [];
     let zapisane = 0;
     let nieudane = 0;
+    const zalacznikiNieudane = [];
     const wgWarstw = {};
     for (let i = 0; i < kolejka.length; ++i) {
       const wpis = kolejka[i];
@@ -470,6 +471,11 @@ Column {
       if (silentFeatureModel.create()) {
         zapisane += 1;
         wgWarstw[wpis.layer.name] = (wgWarstw[wpis.layer.name] || 0) + 1;
+        if (wpis.zalacznik) {
+          if (!dopnijZalacznik(wpis.layer, silentFeatureModel.feature, wpis.zalacznik.sciezka, wpis.zalacznik.ujecie, "foto")) {
+            zalacznikiNieudane.push(wpis.zalacznik.sciezka);
+          }
+        }
       } else {
         nieudane += 1;
       }
@@ -484,6 +490,9 @@ Column {
     }
     if (nieudane > 0) {
       displayToast(qsTr("Nie zapisano %1 wpisów odroczonych (zdjęcia ocalone w DCIM)").arg(nieudane), "error");
+    }
+    if (zalacznikiNieudane.length > 0) {
+      displayToast(qsTr("Obiekty zapisane, ale %1 zdjęć nie podpięło się jako załączniki — pliki są w DCIM").arg(zalacznikiNieudane.length), "error");
     }
   }
 
@@ -789,10 +798,16 @@ Column {
       return false;
     }
     const fieldNames = feature.fields.names;
-    if (fieldNames.indexOf("foto") >= 0) {
+    const ujecieGeom = cameraSource && cameraSource.photoShotType ? cameraSource.photoShotType : "";
+    // WorkField: obiekt powstaje przez formularz po narysowaniu geometrii,
+    // wiec zalacznik czeka na zapis formularza; bez tabeli zalacznikow
+    // scieżka idzie po staremu do pola "foto"
+    if (maZalaczniki(pendingGeomLayer)) {
+      ustawZalacznikOczekujacy(pendingGeomLayer, pendingGeomPhoto, ujecieGeom);
+    } else if (fieldNames.indexOf("foto") >= 0) {
       feature.setAttribute("foto", pendingGeomPhoto);
-      if (cameraSource && cameraSource.photoShotType && fieldNames.indexOf("ujecie") >= 0) {
-        feature.setAttribute("ujecie", cameraSource.photoShotType);
+      if (ujecieGeom !== "" && fieldNames.indexOf("ujecie") >= 0) {
+        feature.setAttribute("ujecie", ujecieGeom);
       }
     }
     feature = applyRasterContext(feature, pendingGeomLayer);
@@ -1260,10 +1275,20 @@ Column {
     }
     let feature = pendingFeature;
     const fieldNames = feature.fields.names;
-    if (photoPath && photoPath !== "" && fieldNames.indexOf("foto") >= 0) {
+    // WorkField: gdy warstwa ma tabele zalacznikow, scieżka idzie tam, a nie
+    // w pole "foto" — wiersz powstaje dopiero po zapisie rodzica, bo wczesniej
+    // nie ma klucza, do ktorego mozna by go przypiac.
+    const zalacznikiTutaj = maZalaczniki(pendingLayer);
+    const ujecieTeraz = cameraSource && cameraSource.photoShotType ? cameraSource.photoShotType : "";
+    // Pole "foto" pomijamy zawsze, gdy warstwa ma tabele zalacznikow — kazda
+    // droga paska ma juz swoje miejsce dopiecia: tryb szybki dopina od razu po
+    // cichym zapisie, kolejka odroczen przy materializacji, a tryb dokladny
+    // przez zalacznik oczekujacy, gdy formularz zglosi zapis.
+    const zapiszemyZalacznik = zalacznikiTutaj;
+    if (photoPath && photoPath !== "" && !zapiszemyZalacznik && fieldNames.indexOf("foto") >= 0) {
       feature.setAttribute("foto", photoPath);
-      if (cameraSource && cameraSource.photoShotType && fieldNames.indexOf("ujecie") >= 0) {
-        feature.setAttribute("ujecie", cameraSource.photoShotType);
+      if (ujecieTeraz !== "" && fieldNames.indexOf("ujecie") >= 0) {
+        feature.setAttribute("ujecie", ujecieTeraz);
       }
     }
     feature = applyRasterContext(feature, pendingLayer);
@@ -1273,7 +1298,13 @@ Column {
       odroczenieFlow = false;
       odroczone.push({
           "layer": pendingLayer,
-          "feature": feature
+          "feature": feature,
+          // WorkField: zalacznik czeka razem z obiektem — dopnie sie dopiero,
+          // gdy rodzic dostanie swoj klucz przy materializacji kolejki
+          "zalacznik": zapiszemyZalacznik && photoPath && photoPath !== "" ? {
+            "sciezka": photoPath,
+            "ujecie": ujecieTeraz
+          } : null
         });
       odroczone = odroczone;
       haptyka(15);
@@ -1326,9 +1357,37 @@ Column {
       // edycji, a szuflada formularza i jej bindingi zostaja nietkniete
       silentFeatureModel.currentLayer = pendingLayer;
       silentFeatureModel.feature = feature;
+      const warstwaZapisu = pendingLayer;
       if (silentFeatureModel.create()) {
         seriesCount += 1;
-        displayToast(qsTr("Zapisano: %1 (%2. w serii)").arg(pendingLayer.name).arg(seriesCount));
+        let zalacznikOk = true;
+        let zapasDoFoto = false;
+        if (zapiszemyZalacznik && photoPath && photoPath !== "") {
+          zalacznikOk = dopnijZalacznik(warstwaZapisu, silentFeatureModel.feature, photoPath, ujecieTeraz, "foto");
+          if (!zalacznikOk) {
+            // Zapas awaryjny: scieżka wraca do starego pola, zeby zdjecie z
+            // terenu nie zostalo bez dowiazania. Obiekt czytamy do zmiennej i
+            // przypisujemy z powrotem — wlasciwosc feature zwraca KOPIE, wiec
+            // zmiana na niej sama z siebie nie dotarlaby do modelu.
+            let ratunek = silentFeatureModel.feature;
+            const nazwyZapisu = ratunek.fields.names;
+            if (nazwyZapisu.indexOf("foto") >= 0) {
+              ratunek.setAttribute("foto", photoPath);
+              if (ujecieTeraz !== "" && nazwyZapisu.indexOf("ujecie") >= 0) {
+                ratunek.setAttribute("ujecie", ujecieTeraz);
+              }
+              silentFeatureModel.feature = ratunek;
+              zapasDoFoto = silentFeatureModel.save();
+            }
+          }
+        }
+        if (zalacznikOk) {
+          displayToast(qsTr("Zapisano: %1 (%2. w serii)").arg(pendingLayer.name).arg(seriesCount));
+        } else if (zapasDoFoto) {
+          displayToast(qsTr("Obiekt zapisany, załącznik NIE — ścieżka poszła awaryjnie do pola foto"), "warning");
+        } else {
+          displayToast(qsTr("UWAGA: zdjęcie bez dowiązania — plik jest w DCIM: %1").arg(photoPath), "error");
+        }
       } else {
         displayToast(qsTr("NIE zapisano obiektu — zdjęcie ocalone: %1").arg(photoPath), "error");
       }
@@ -1338,6 +1397,10 @@ Column {
       return;
     }
     // tryb dokladny: formularz przez szuflade
+    // WorkField: obiekt zapisze formularz, wiec zalacznik czeka na jego zapis
+    if (zapiszemyZalacznik && photoPath && photoPath !== "") {
+      ustawZalacznikOczekujacy(pendingLayer, photoPath, ujecieTeraz);
+    }
     // celowo bez dotykania dashBoard.activeLayer - przypisanie imperatywne,
     // binding do warstwy aktywnej odtwarzany przy zamknieciu szuflady
     overlayFeatureFormDrawer.featureModel.currentLayer = pendingLayer;
@@ -1353,6 +1416,140 @@ Column {
   FeatureModel {
     id: silentFeatureModel
     project: qgisProject
+  }
+
+  // WorkField: osobny model do zapisu zalacznikow (tabele ZAL_<warstwa>).
+  // Osobny, bo silentFeatureModel trzyma wlasnie zapisanego rodzica i jego
+  // klucz jest nam potrzebny az do konca dopinania.
+  FeatureModel {
+    id: zalacznikFeatureModel
+    project: qgisProject
+  }
+
+  // WorkField: zalacznik czekajacy na zapis obiektu przez FORMULARZ.
+  // {layer, sciezka, ujecie} albo null. Kasowany przy zamknieciu szuflady,
+  // zeby porzucone zdjecie nie przyklejalo sie do nastepnego obiektu.
+  property var zalacznikOczekujacy: null
+
+  function ustawZalacznikOczekujacy(layer, sciezka, ujecie) {
+    zalacznikOczekujacy = {
+      "layer": layer,
+      "sciezka": sciezka,
+      "ujecie": ujecie ? ujecie : ""
+    };
+  }
+
+  //! Dopina zalacznik oczekujacy do obiektu zapisanego przez szuflade formularza
+  function dopnijZalacznikPoFormularzu() {
+    const czeka = zalacznikOczekujacy;
+    zalacznikOczekujacy = null;
+    if (!czeka || !czeka.layer || !czeka.sciezka) {
+      return;
+    }
+    const model = overlayFeatureFormDrawer.featureModel;
+    if (!model || model.currentLayer !== czeka.layer) {
+      displayToast(qsTr("UWAGA: zdjęcie bez dowiązania — plik jest w DCIM: %1").arg(czeka.sciezka), "error");
+      return;
+    }
+    if (!dopnijZalacznik(czeka.layer, model.feature, czeka.sciezka, czeka.ujecie, "foto")) {
+      displayToast(qsTr("UWAGA: zdjęcie bez dowiązania — plik jest w DCIM: %1").arg(czeka.sciezka), "error");
+    }
+  }
+
+  Connections {
+    target: typeof overlayFeatureFormDrawer !== 'undefined' ? overlayFeatureFormDrawer.featureForm : null
+    ignoreUnknownSignals: true
+
+    // FeatureForm.save(): NOWY obiekt konczy sie sygnalem created(),
+    // istniejacy — saved(). Pasek tworzy zawsze nowe, wiec bez created()
+    // zalacznik oczekujacy nigdy by sie nie dopial.
+    function onCreated() {
+      quickCaptureBar.dopnijZalacznikPoFormularzu();
+    }
+
+    function onSaved() {
+      quickCaptureBar.dopnijZalacznikPoFormularzu();
+    }
+  }
+
+  Connections {
+    target: typeof overlayFeatureFormDrawer !== 'undefined' ? overlayFeatureFormDrawer : null
+    ignoreUnknownSignals: true
+
+    // porzucony formularz = porzucone dowiazanie; plik zostaje w DCIM
+    function onClosed() {
+      if (quickCaptureBar.zalacznikOczekujacy) {
+        const zgubione = quickCaptureBar.zalacznikOczekujacy.sciezka;
+        quickCaptureBar.zalacznikOczekujacy = null;
+        displayToast(qsTr("Formularz porzucony — zdjęcie zostało w DCIM: %1").arg(zgubione), "warning");
+      }
+    }
+  }
+
+  //! Czy warstwa ma tabele zalacznikow (relacja + pole ExternalResource)?
+  function maZalaczniki(layer) {
+    if (!layer) {
+      return false;
+    }
+    let opisDiag = null;
+    try {
+      opisDiag = ZalacznikiUtils.relacjaZalacznikow(layer);
+    } catch (e) {
+      return false;
+    }
+    return opisDiag && opisDiag.istnieje === true;
+  }
+
+  /**
+   * Dopina zalacznik do WLASNIE ZAPISANEGO obiektu rodzica.
+   *
+   * Zwraca true przy powodzeniu. Przy porazce nic nie zapisuje i zostawia
+   * decyzje wolajacemu — w trybie szybkim scieżka ląduje wtedy w starym polu
+   * "foto" rodzica, zeby zdjecie z terenu nigdy nie zniknelo tylko dlatego,
+   * ze nie zmiescilo sie w modelu danych.
+   */
+  function dopnijZalacznik(layerRodzica, featureRodzica, sciezka, ujecie, typ) {
+    if (!layerRodzica || !sciezka || sciezka === "") {
+      return false;
+    }
+    const opis = ZalacznikiUtils.relacjaZalacznikow(layerRodzica);
+    if (opis.istnieje !== true || !opis.warstwa) {
+      return false;
+    }
+    const klucz = ZalacznikiUtils.kluczRodzica(layerRodzica, featureRodzica);
+    if (klucz === undefined || klucz === null || klucz === "") {
+      return false;
+    }
+    const dziecko = FeatureUtils.createFeature(opis.warstwa);
+    // QgsFeature jest w QML typem wartosciowym: "!dziecko" nigdy nie bedzie
+    // prawda, a flaga "valid" bywa nieustawiona w obiekcie jeszcze niezapisanym.
+    // Sprawdzamy wiec to, co realnie musi byc: pola warstwy.
+    const nazwy = dziecko && dziecko.fields ? dziecko.fields.names : [];
+    if (nazwy.length === 0) {
+      return false;
+    }
+    dziecko.setAttribute(opis.poleObce, klucz);
+    dziecko.setAttribute(opis.poleSciezki, sciezka);
+    // kontrola po fakcie, nie po deklaracji: wynik setAttribute na gadgecie
+    // bywa nieuzyteczny, ale zapisana wartosc klamac nie moze
+    const kluczPo = dziecko.attribute(opis.poleObce);
+    const sciezkaPo = dziecko.attribute(opis.poleSciezki);
+    if (kluczPo === undefined || kluczPo === null || kluczPo === "") {
+      return false;
+    }
+    if (!sciezkaPo || sciezkaPo === "") {
+      return false;
+    }
+    if (opis.poleTypu && nazwy.indexOf(opis.poleTypu) >= 0) {
+      dziecko.setAttribute(opis.poleTypu, typ && typ !== "" ? typ : "foto");
+    }
+    if (ujecie && ujecie !== "" && opis.poleUjecia && nazwy.indexOf(opis.poleUjecia) >= 0) {
+      dziecko.setAttribute(opis.poleUjecia, ujecie);
+    }
+    zalacznikFeatureModel.currentLayer = opis.warstwa;
+    zalacznikFeatureModel.feature = dziecko;
+    const wynikDiag = zalacznikFeatureModel.create();
+    return wynikDiag;
   }
 
   Connections {

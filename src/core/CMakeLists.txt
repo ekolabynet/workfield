@@ -81,6 +81,7 @@ set(QFIELD_CORE_SRCS
     phototagstore.cpp
     tabelamodel.cpp
     procesystudio.cpp
+    utils/zalacznikiutils.cpp
     digitizinglogger.cpp
     distancearea.cpp
     drawingcanvas.cpp
@@ -210,6 +211,7 @@ set(QFIELD_CORE_HDRS
     phototagstore.h
     tabelamodel.h
     procesystudio.h
+    utils/zalacznikiutils.h
     digitizinglogger.h
     distancearea.h
     drawingcanvas.h

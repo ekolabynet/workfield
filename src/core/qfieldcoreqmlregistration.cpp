@@ -98,6 +98,7 @@
 #include "utils/projectutils.h"
 #include "utils/qfieldcloudutils.h"
 #include "utils/relationutils.h"
+#include "utils/zalacznikiutils.h"
 #include "utils/snappingutils.h"
 #include "utils/stringutils.h"
 #include "utils/urlutils.h"
@@ -201,6 +202,7 @@ namespace QFieldCore
     REGISTER_SINGLETON( "org.qfield", RelationUtils, "RelationUtils" );
     REGISTER_SINGLETON( "org.qfield", StringUtils, "StringUtils" );
     REGISTER_SINGLETON( "org.qfield", UrlUtils, "UrlUtils" );
+    REGISTER_SINGLETON( "org.qfield", ZalacznikiUtils, "ZalacznikiUtils" );
 
     qmlRegisterSingletonType<Theme>( "org.qfield", 1, 0, "Theme", []( QQmlEngine *, QJSEngine * ) -> QObject * {
       QScreen *screen = QGuiApplication::primaryScreen();
