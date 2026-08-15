@@ -281,6 +281,13 @@ RelationEditorBase {
     layer: referencingFeatureListModel.relation ? referencingFeatureListModel.relation.referencingLayer : null
     project: qgisProject
     appExpressionContextScopesGenerator: appScopesGenerator
+    // WorkField: konwencja nazw załączników potrzebuje klucza obiektu-rodzica
+    // (podkatalog na obiekt + klucz w nazwie pliku). Bez tych zmiennych
+    // wyrażenie attachment_naming nie ma skąd wziąć rodzica.
+    variables: ({
+        "rodzic_fid": referencingFeatureListModel.feature.id,
+        "rodzic_warstwa": referencingFeatureListModel.relation && referencingFeatureListModel.relation.referencedLayer ? referencingFeatureListModel.relation.referencedLayer.name : ""
+      })
   }
 
   function capturePhoto() {

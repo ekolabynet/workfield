@@ -254,11 +254,20 @@ Popup {
   onLayerFilterChanged: rebuildPhotos()
 
   // <warstwa>_<yyyyMMdd_hhmmss>[_zzz] -> warstwa; image_0003 -> image (stary aparat)
-  function extractLayer(name) {
+  // Konwencja załączników dokłada klucz obiektu: <warstwa>_<fid>_<data>_<ms>,
+  // a plik leży w podkatalogu o nazwie <warstwa>_<fid>. Klucz obcinamy tylko
+  // wtedy, gdy katalog to potwierdza — dzięki temu warstwa nazwana "dzialki_2"
+  // nie gubi swojej dwójki.
+  function extractLayer(name, katalog) {
     const base = name.replace(/\.[^.]+$/, "");
     let m = base.match(/^(.*)_\d{8}_\d{6}(_\d{1,3})?$/);
-    if (m)
+    if (m) {
+      if (katalog && katalog === m[1]) {
+        const bezKlucza = m[1].match(/^(.*)_\d+$/);
+        return bezKlucza ? bezKlucza[1] : m[1];
+      }
       return m[1];
+    }
     m = base.match(/^(.*)_\d+$/);
     return m ? m[1] : base;
   }
@@ -279,22 +288,38 @@ Popup {
     return Qt.hsla(h / 360, 0.55, 0.45, 1);
   }
 
-  function rebuildPhotos() {
-    const arr = [];
-    const prefixes = {};
-    for (let i = 0; i < dcimModel.count; i++) {
-      const name = dcimModel.get(i, "fileName");
-      const layer = extractLayer(name);
+  //! zbiera zdjecia z jednego modelu katalogu do wspolnej listy
+  function zbierzZKatalogu(model, katalog, arr, prefixes) {
+    for (let i = 0; i < model.count; i++) {
+      const name = model.get(i, "fileName");
+      const layer = extractLayer(name, katalog);
       prefixes[layer] = true;
       if (layerFilter === "" || layer === layerFilter) {
         arr.push({
-            "path": dcimModel.get(i, "filePath"),
+            "path": model.get(i, "filePath"),
             "name": name,
             "layer": layer,
-            "mtime": dcimModel.get(i, "fileModified")
+            "mtime": model.get(i, "fileModified")
           });
       }
     }
+  }
+
+  function rebuildPhotos() {
+    const arr = [];
+    const prefixes = {};
+    zbierzZKatalogu(dcimModel, "", arr, prefixes);
+    // zdjecia w podkatalogach obiektow (konwencja zalacznikow N:1)
+    for (let p = 0; p < podkatalogiDcim.count; p++) {
+      const poz = podkatalogiDcim.itemAt(p);
+      if (poz && poz.modelPlikow)
+        zbierzZKatalogu(poz.modelPlikow, poz.nazwaKatalogu, arr, prefixes);
+    }
+    // kolejnosc: najnowsze pierwsze. Wczesniej wystarczalo sortowanie samego
+    // FolderListModel, ale listy z kilku katalogow trzeba scalic recznie.
+    arr.sort(function (a, b) {
+      return b.mtime - a.mtime;
+    });
     photos = arr;
     const pl = Object.keys(prefixes);
     pl.sort();
@@ -491,6 +516,40 @@ Popup {
     showDirs: false
     sortField: FolderListModel.Time
     onCountChanged: photoGallery.rebuildPhotos()
+  }
+
+  // Podkatalogi DCIM: konwencja zalacznikow trzyma pliki obiektu w katalogu
+  // <warstwa>_<klucz>. Kosz (.kosz) jest ukryty, wiec nie wchodzi do modelu.
+  FolderListModel {
+    id: katalogiDcim
+    folder: photoGallery.projectDir !== "" ? "file://" + photoGallery.projectDir + "/DCIM" : ""
+    showDirs: true
+    showFiles: false
+    showDotAndDotDot: false
+    sortField: FolderListModel.Name
+    onCountChanged: photoGallery.rebuildPhotos()
+  }
+
+  Item {
+    visible: false
+    Repeater {
+      id: podkatalogiDcim
+      model: katalogiDcim
+      delegate: Item {
+        required property string fileName
+        required property string filePath
+        property string nazwaKatalogu: fileName
+        property alias modelPlikow: plikiPodkatalogu
+        FolderListModel {
+          id: plikiPodkatalogu
+          folder: "file://" + filePath
+          nameFilters: ["*.jpg", "*.jpeg", "*.JPG", "*.JPEG", "*.png", "*.PNG"]
+          showDirs: false
+          sortField: FolderListModel.Time
+          onCountChanged: photoGallery.rebuildPhotos()
+        }
+      }
+    }
   }
 
   contentItem: ColumnLayout {

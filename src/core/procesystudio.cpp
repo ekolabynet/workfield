@@ -318,7 +318,7 @@ namespace
     return true;
   }
 
-  //! czysci tabele FITO_* w jednym GPKG; zwraca liczbe wyczyszczonych
+  //! czysci tabele FITO_* i ZAL_* w jednym GPKG; zwraca liczbe wyczyszczonych
   int wyczyscFito( const QString &sciezka )
   {
     sqlite3 *baza = nullptr;
@@ -328,7 +328,8 @@ namespace
     sqlite3_stmt *zapytanie = nullptr;
     if ( sqlite3_prepare_v2( baza,
            "SELECT table_name FROM gpkg_contents "
-           "WHERE table_name LIKE 'FITO\\_%' ESCAPE '\\'",
+           "WHERE table_name LIKE 'FITO\\_%' ESCAPE '\\' "
+           "OR table_name LIKE 'ZAL\\_%' ESCAPE '\\'",
            -1, &zapytanie, nullptr ) == SQLITE_OK )
     {
       while ( sqlite3_step( zapytanie ) == SQLITE_ROW )
