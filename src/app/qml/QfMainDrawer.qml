@@ -67,6 +67,76 @@ Drawer {
     open();
   }
 
+  // WorkField: przyciąganie per warstwa. UWAGA na pułapkę silnika:
+  // setData dla roli SnappingEnabled IGNORUJE wartość i zawsze
+  // przełącza — dlatego najpierw czytamy stan i piszemy tylko wtedy,
+  // gdy trzeba go zmienić.
+  function ustawMagnesWarstwy(warstwa, wlaczony) {
+    const m = dashBoard.layerTree;
+    for (let i = 0; i < m.rowCount(); i++) {
+      const idx = m.index(i, 0);
+      if (m.data(idx, FlatLayerTreeModel.VectorLayerPointer) === warstwa) {
+        if ((m.data(idx, FlatLayerTreeModel.SnappingEnabled) === true) !== wlaczony) {
+          m.setData(idx, wlaczony, FlatLayerTreeModel.SnappingEnabled);
+          projectInfo.saveLayerSnappingConfiguration(warstwa);
+        }
+        return true;
+      }
+    }
+    console.log("WorkField magnes: warstwa nie znaleziona w modelu (" + (warstwa && warstwa.name ? warstwa.name : "?") + ")");
+    return false;
+  }
+
+  // tap magnesa w wierszu warstwy: pierwszy raz przełącza projekt
+  // w tryb magnesów i chroni rysowaną warstwę, potem zwykły przełącznik
+  function przelaczMagnesWarstwy(warstwa, nazwa) {
+    let cfg = qgisProject.snappingConfig;
+    if (cfg.mode !== Qgis.SnappingMode.AdvancedConfiguration) {
+      cfg.mode = Qgis.SnappingMode.AdvancedConfiguration;
+      cfg.enabled = true;
+      qgisProject.snappingConfig = cfg;
+      if (qgisProject.snappingConfig.mode !== Qgis.SnappingMode.AdvancedConfiguration) {
+        // zapis trybu z QML-a nie przeszedł — plan B do osobnej decyzji
+        displayToast(qsTr("Nie udało się przełączyć trybu przyciągania"), "error");
+        return;
+      }
+      projectInfo.snappingEnabled = true;
+      // QGIS przy przejściu w tryb zaawansowany zapala WSZYSTKIE
+      // warstwy — sprowadzamy to jawnie do zasady WorkField:
+      // rysowana warstwa + tapnięty podkład, reszta zgaszona
+      const m0 = dashBoard.layerTree;
+      const n0 = m0.rowCount();
+      for (let i0 = 0; i0 < n0; i0++) {
+        const idx0 = m0.index(i0, 0);
+        const wsk0 = m0.data(idx0, FlatLayerTreeModel.VectorLayerPointer);
+        if (!wsk0)
+          continue;
+        const chcemy = wsk0 === warstwa || wsk0 === dashBoard.activeLayer;
+        if ((m0.data(idx0, FlatLayerTreeModel.SnappingEnabled) === true) !== chcemy)
+          m0.setData(idx0, chcemy, FlatLayerTreeModel.SnappingEnabled);
+        projectInfo.saveLayerSnappingConfiguration(wsk0);
+      }
+      displayToast(qsTr("Dociąganie: rysowana warstwa + %1").arg(nazwa));
+      return;
+    }
+    if (!cfg.enabled) {
+      cfg.enabled = true;
+      qgisProject.snappingConfig = cfg;
+      projectInfo.snappingEnabled = true;
+    }
+    const m = dashBoard.layerTree;
+    for (let i = 0; i < m.rowCount(); i++) {
+      const idx = m.index(i, 0);
+      if (m.data(idx, FlatLayerTreeModel.VectorLayerPointer) === warstwa) {
+        const bylo = m.data(idx, FlatLayerTreeModel.SnappingEnabled) === true;
+        m.setData(idx, !bylo, FlatLayerTreeModel.SnappingEnabled);
+        projectInfo.saveLayerSnappingConfiguration(warstwa);
+        displayToast(!bylo ? qsTr("Dociąganie do: %1").arg(nazwa) : qsTr("Bez dociągania do: %1").arg(nazwa));
+        return;
+      }
+    }
+  }
+
   //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
   component QfPozycjaMenu: Button {
     id: pozycja
@@ -1251,12 +1321,40 @@ Drawer {
         }
       }
 
-    Text {
+    RowLayout {
       Layout.fillWidth: true
       Layout.margins: 8
-      text: qgisProject && qgisProject.crs && qgisProject.crs.authid !== "" ? qsTr("Warstwa robocza") + "  \u00b7  " + qgisProject.crs.authid : qsTr("Warstwa robocza")
-      font: t.strongTipFont
-      color: t.mainTextColor
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: qgisProject && qgisProject.crs && qgisProject.crs.authid !== "" ? qsTr("Warstwa robocza") + "  \u00b7  " + qgisProject.crs.authid : qsTr("Warstwa robocza")
+        font: t.strongTipFont
+        color: t.mainTextColor
+      }
+
+      // WorkField: główny włącznik przyciągania — gasi/wskrzesza całość,
+      // stany magnesów per warstwa czekają nietknięte
+      QfToolButton {
+        id: snapMaster
+        width: 30
+        height: 30
+        padding: 0
+        round: true
+        readonly property bool wl: qgisProject && qgisProject.snappingConfig.enabled
+        bgcolor: wl ? t.mainColor : "transparent"
+        iconSource: t.getThemeVectorIcon("ic_snapping_white_24dp")
+        iconColor: wl ? "white" : t.secondaryTextColor
+        opacity: wl ? 1.0 : 0.45
+
+        onClicked: {
+          let cfgM = qgisProject.snappingConfig;
+          cfgM.enabled = !cfgM.enabled;
+          qgisProject.snappingConfig = cfgM;
+          projectInfo.snappingEnabled = cfgM.enabled;
+          displayToast(cfgM.enabled ? qsTr("Przyciąganie włączone") : qsTr("Przyciąganie wyłączone"));
+        }
+      }
     }
 
     ListView {
@@ -1324,6 +1422,17 @@ Drawer {
               stateMachine.state = juz ? "browse" : "digitize";
               displayToast(juz ? qsTr("Przeglądanie") : qsTr("Rysowanie: %1").arg(model.Name));
               if (!juz) {
+                // WorkField: zasada domyślna dociągania — rysowana warstwa
+                // przyciąga sama do siebie; tryb "wszystkie warstwy"
+                // sprowadzamy do "aktywnej", a w trybie magnesów sami
+                // dopisujemy rysowaną warstwę
+                if (qgisProject.snappingConfig.mode === Qgis.SnappingMode.AllLayers) {
+                  let cfgO = qgisProject.snappingConfig;
+                  cfgO.mode = Qgis.SnappingMode.ActiveLayer;
+                  qgisProject.snappingConfig = cfgO;
+                } else if (qgisProject.snappingConfig.mode === Qgis.SnappingMode.AdvancedConfiguration) {
+                  dashBoard.ustawMagnesWarstwy(model.VectorLayerPointer, true);
+                }
                 dashBoard.close();
               }
             }
@@ -1377,6 +1486,27 @@ Drawer {
             iconSource: t.getThemeVectorIcon("ic_lock_white_24dp")
             iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
             opacity: 0.6
+          }
+
+          // WorkField: magnes — dociąganie do tej warstwy jako podkładu.
+          // Świeci, gdy warstwa FAKTYCZNIE dociąga: w trybie magnesów wg
+          // ustawienia warstwy, w trybie domyślnym — gdy właśnie w niej
+          // rysujemy (rysowana warstwa zawsze dociąga sama do siebie).
+          QfToolButton {
+            id: snapToggle
+            visible: isVector && (geomType === Qgis.GeometryType.Point || geomType === Qgis.GeometryType.Line || geomType === Qgis.GeometryType.Polygon)
+            width: 30
+            height: 30
+            padding: 0
+            round: true
+            readonly property bool trybMagnesow: qgisProject && qgisProject.snappingConfig.mode === Qgis.SnappingMode.AdvancedConfiguration
+            readonly property bool przyciaga: qgisProject && qgisProject.snappingConfig.enabled && (trybMagnesow ? model.SnappingEnabled === true : isCurrent && stateMachine.state === "digitize")
+            bgcolor: przyciaga ? t.mainColor : "transparent"
+            iconSource: t.getThemeVectorIcon("ic_snapping_white_24dp")
+            iconColor: przyciaga ? "white" : isCurrent ? t.mainOverlayColor : t.secondaryTextColor
+            opacity: przyciaga ? 1.0 : 0.45
+
+            onClicked: dashBoard.przelaczMagnesWarstwy(model.VectorLayerPointer, model.Name)
           }
 
           QfToolButton {
