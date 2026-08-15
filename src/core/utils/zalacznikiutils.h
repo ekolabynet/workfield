@@ -64,6 +64,21 @@ class ZalacznikiUtils : public QObject
      */
     Q_INVOKABLE QVariant kluczRodzica( QgsVectorLayer *warstwa, const QgsFeature &rodzic ) const;
 
+    /**
+     * Prosi o zrobienie zdjecia i podpiecie go jako zalacznik obiektu
+     * \a obiekt z warstwy \a warstwa.
+     *
+     * Most miedzy naglowkiem formularza a paskiem szybkiego przechwytu.
+     * NavigationBar.qml siedzi w innym komponencie QML niz pasek i nie ma
+     * jak go zawolac po id; ta klasa jest singletonem, wiec widza ja obie
+     * strony. Sama nic nie robi — tylko rozglasza zadanie.
+     */
+    Q_INVOKABLE void zazadajZdjecia( QgsVectorLayer *warstwa, const QgsFeature &obiekt );
+
+  signals:
+    //! Ktos poprosil o zdjecie-zalacznik dla istniejacego obiektu
+    void zazadanoZdjecia( QgsVectorLayer *warstwa, const QgsFeature &obiekt );
+
   private:
     //! Nazwa pierwszego pola o podanej nazwie (bez wzgledu na wielkosc liter)
     static QString polePoNazwie( const QgsVectorLayer *warstwa, const QString &nazwa );

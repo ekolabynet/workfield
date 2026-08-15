@@ -114,6 +114,14 @@ QVariantMap ZalacznikiUtils::relacjaZalacznikow( QgsVectorLayer *warstwa ) const
   return wynik;
 }
 
+void ZalacznikiUtils::zazadajZdjecia( QgsVectorLayer *warstwa, const QgsFeature &obiekt )
+{
+  if ( !warstwa || !obiekt.isValid() )
+    return;
+
+  emit zazadanoZdjecia( warstwa, obiekt );
+}
+
 bool ZalacznikiUtils::czyTabelaZalacznikow( const QgsVectorLayer *warstwa )
 {
   if ( !warstwa )

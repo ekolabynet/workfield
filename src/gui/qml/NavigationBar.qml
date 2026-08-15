@@ -110,7 +110,7 @@ Rectangle {
 
     Text {
       // Insure that the text is always visually centered by using the same left and right margin
-      property double balancedMargin: Math.max((saveButton.visible ? saveButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (cancelButton.visible ? cancelButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (digitizeToggle.visible ? digitizeToggle.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
+      property double balancedMargin: Math.max((saveButton.visible ? saveButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (cancelButton.visible ? cancelButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (digitizeToggle.visible ? digitizeToggle.width : 0) + (zalacznikButton.visible ? zalacznikButton.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
       font: Theme.strongFont
       color: Theme.mainOverlayColor
       anchors.left: parent.left
@@ -305,6 +305,37 @@ Rectangle {
       PropertyAnimation {
         easing.type: Easing.OutQuart
       }
+    }
+  }
+
+  QfToolButton {
+    id: zalacznikButton
+
+    // WorkField: aparat zalacznikow. Widoczny tylko dla warstw z tabela
+    // ZAL_<warstwa> i tylko przy obiekcie juz zapisanym — przed zapisem nie
+    // ma klucza, do ktorego mozna by zalacznik przypiac.
+    property bool warstwaZZalacznikami: {
+      if (!selection || !selection.focusedLayer)
+        return false;
+      return ZalacznikiUtils.relacjaZalacznikow(selection.focusedLayer).istnieje === true;
+    }
+
+    visible: toolBar.state === "Navigation" && warstwaZZalacznikami && selection && selection.focusedFeature && selection.focusedFeature.id >= 0
+    round: true
+
+    anchors.right: digitizeToggle.left
+    anchors.top: parent.top
+    anchors.topMargin: toolBar.topMargin + 5
+
+    iconSource: Theme.getThemeVectorIcon("ic_camera_photo_black_24dp")
+    iconColor: Theme.mainOverlayColor
+    bgcolor: "transparent"
+
+    width: visible ? Theme.toolButtonSize : 0
+    height: Theme.toolButtonSize
+
+    onClicked: {
+      ZalacznikiUtils.zazadajZdjecia(selection.focusedLayer, selection.focusedFeature);
     }
   }
 

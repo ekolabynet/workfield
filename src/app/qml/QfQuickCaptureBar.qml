@@ -1232,6 +1232,26 @@ Column {
 
   function openPendingForm(photoPath) {
     uzupelnijMetadane(photoPath ? qgisProject.homePath + "/" + photoPath : "");
+    // WorkField: zdjecie z ikony w naglowku — obiekt juz jest, wiec nie ma
+    // czego tworzyc; dopinamy zalacznik i konczymy. Ta galaz musi byc PIERWSZA,
+    // zeby nie wpasc w zaden z przeplywow tworzacych nowe obiekty.
+    if (zalacznikDoObiektu) {
+      const cel = zalacznikDoObiektu;
+      zalacznikDoObiektu = null;
+      if (!photoPath || photoPath === "") {
+        displayToast(qsTr("Anulowano — bez załącznika"));
+        return;
+      }
+      const ujecieIkona = cameraSource && cameraSource.photoShotType ? cameraSource.photoShotType : "";
+      if (dopnijZalacznik(cel.layer, cel.feature, photoPath, ujecieIkona, "foto")) {
+        haptyka(40);
+        displayToast(qsTr("Załącznik dodany do: %1").arg(cel.layer.name));
+      } else {
+        displayToast(qsTr("UWAGA: zdjęcie bez dowiązania — plik jest w DCIM: %1").arg(photoPath), "error");
+      }
+      cameraSource = null;
+      return;
+    }
     if (distantFlow) {
       distantFlow = false;
       if (!photoPath || photoPath === "") {
@@ -1484,6 +1504,31 @@ Column {
         displayToast(qsTr("Formularz porzucony — zdjęcie zostało w DCIM: %1").arg(zgubione), "warning");
       }
     }
+  }
+
+  // WorkField: zdjecie robione dla obiektu, ktory JUZ ISTNIEJE — z ikony
+  // aparatu w naglowku formularza. {layer, feature} albo null.
+  property var zalacznikDoObiektu: null
+
+  Connections {
+    target: ZalacznikiUtils
+    ignoreUnknownSignals: true
+
+    function onZazadanoZdjecia(warstwa, obiekt) {
+      quickCaptureBar.zrobZdjecieDoObiektu(warstwa, obiekt);
+    }
+  }
+
+  //! Uruchamia aparat, zeby dopiac zdjecie do istniejacego obiektu
+  function zrobZdjecieDoObiektu(layer, feature) {
+    if (!layer || !feature) {
+      return;
+    }
+    zalacznikDoObiektu = {
+      "layer": layer,
+      "feature": feature
+    };
+    openCameraFor(layer);
   }
 
   //! Czy warstwa ma tabele zalacznikow (relacja + pole ExternalResource)?
