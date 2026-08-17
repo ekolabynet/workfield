@@ -369,6 +369,23 @@ bool NarzedziaProjektu::unikajNakladania( QgsProject *projekt, int tryb, const Q
 
 // ----------------------------------------------------------------------- warstwy
 
+QString NarzedziaProjektu::katalogZadan( const QString &korzen ) const
+{
+  if ( korzen.isEmpty() )
+    return QString();
+
+  const QDir k( korzen );
+  const QString wydania = k.filePath( QStringLiteral( "wydania" ) );
+  if ( QDir( wydania ).exists() )
+    return wydania;
+
+  const QString wymiana = k.filePath( QStringLiteral( "wymiana" ) );
+  if ( QDir( wymiana ).exists() )
+    return wymiana;
+
+  return QDir::cleanPath( korzen );
+}
+
 QString NarzedziaProjektu::nowyProjekt( const QString &korzen, const QString &nazwa, const QString &crsAuthId ) const
 {
   if ( korzen.isEmpty() || nazwa.isEmpty() )

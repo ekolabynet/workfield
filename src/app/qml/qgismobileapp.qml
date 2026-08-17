@@ -255,6 +255,9 @@ ApplicationWindow {
   }
 
   // WorkField: tytul projektu do paska stanu i szuflady
+  //! WorkField: interpreter przepisow widoczny jako mainWindow.przepisy
+  property alias przepisy: qfPrzepis
+
   property string projectTitle: ""
   function refreshProjectTitle() {
     projectTitle = qgisProject && qgisProject.fileName !== "" ? iface.projectTitle() : "";

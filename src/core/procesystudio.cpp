@@ -200,9 +200,15 @@ void ProcesyStudio::przeszukaj( const QString &katalog, const QString &korzen,
                                           QDir::Files, QDir::Name );
   const QStringList gpkgi = dir.entryList( { QStringLiteral( "*.gpkg" ) }, QDir::Files, QDir::Name );
 
-  if ( !qgsy.isEmpty() || !gpkgi.isEmpty() )
+  // WorkField: katalog z samym przepis.json tez jest szablonem.
+  const QString plikPrzepisu = dir.filePath( QStringLiteral( "przepis.json" ) );
+  const bool maPrzepis = QFileInfo::exists( plikPrzepisu );
+
+  if ( !qgsy.isEmpty() || !gpkgi.isEmpty() || maPrzepis )
   {
     QDateTime najnowszy;
+    if ( maPrzepis )
+      najnowszy = QFileInfo( plikPrzepisu ).lastModified();
     for ( const QString &p : qgsy + gpkgi )
     {
       const QDateTime m = QFileInfo( dir.filePath( p ) ).lastModified();
@@ -210,12 +216,13 @@ void ProcesyStudio::przeszukaj( const QString &katalog, const QString &korzen,
         najnowszy = m;
     }
     const QString sciezka = dir.absolutePath();
-    const bool szablon = sciezka.toLower().contains( QLatin1String( "szablon" ) );
+    const bool szablon = maPrzepis || sciezka.toLower().contains( QLatin1String( "szablon" ) );
     QVariantMap wpis;
     wpis[QStringLiteral( "nazwa" )] = dir.dirName();
     wpis[QStringLiteral( "sciezka" )] = sciezka;
     wpis[QStringLiteral( "qgs" )] = qgsy.isEmpty() ? QString() : dir.filePath( qgsy.first() );
     wpis[QStringLiteral( "typ" )] = szablon ? QStringLiteral( "szablon" ) : QStringLiteral( "projekt" );
+    wpis[QStringLiteral( "przepis" )] = maPrzepis ? plikPrzepisu : QString();
     wpis[QStringLiteral( "zmodyfikowano" )] = najnowszy.toString( Qt::ISODate );
     QString gdzie = QDir( korzen ).relativeFilePath( QFileInfo( sciezka ).absolutePath() );
     if ( gdzie == QLatin1String( "." ) )

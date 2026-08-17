@@ -574,6 +574,21 @@ ColumnLayout {
           enabled: wyborSzablonu.currentIndex >= 0 && poleNazwy.text.trim() !== ""
           onClicked: {
             const szablon = wyborSzablonu.model[wyborSzablonu.currentIndex];
+
+            // WorkField: szablon z przepisem budujemy od zera z aktualnego
+            // wyposazenia; kopia katalogu zostaje dla szablonow bez przepisu.
+            if (szablon.przepis && szablon.przepis !== "") {
+              const korzenZadan = NarzedziaProjektu.katalogZadan(ustawieniaStudia.korzenProjektow);
+              if (mainWindow.przepisy.noweZadanie(szablon.przepis, korzenZadan, poleNazwy.text.trim())) {
+                zapis.dopisz(qsTr("Buduje %1 z przepisu (szablon %2)...").arg(poleNazwy.text.trim()).arg(szablon.nazwa));
+                kreatorNowego.close();
+                studio.przeladuj();
+              } else {
+                zapis.dopisz(qsTr("Nie udalo sie zbudowac z przepisu."));
+              }
+              return;
+            }
+
             const w = procesy.nowyZSzablonu(szablon.sciezka, "", poleNazwy.text,
                                             ustawieniaStudia.korzenProjektow);
             if (w.ok) {

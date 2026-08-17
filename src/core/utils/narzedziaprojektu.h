@@ -144,6 +144,16 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE QString nowyProjekt( const QString &korzen, const QString &nazwa, const QString &crsAuthId = QStringLiteral( "EPSG:2178" ) ) const;
 
     /**
+     * Katalog, w ktorym rodza sie nowe zadania: <korzen>/wydania, a gdy go
+     * nie ma — <korzen>/wymiana (stare drzewa), a gdy i tego nie ma — sam
+     * korzen. Ta sama regula co ProcesyStudio::nowyZSzablonu (docs/MAGAZYN.md).
+     *
+     * Osobny czasownik, bo FileUtils::fileExists() wymaga isFile() i na
+     * katalogu zwraca false — zadanie ladowalo przez to w korzeniu magazynu.
+     */
+    Q_INVOKABLE QString katalogZadan( const QString &korzen ) const;
+
+    /**
      * Przenosi warstwe do grupy w drzewie warstw, zakladajac grupe w razie
      * potrzeby. Grupy sluza do chowania tabel pomocniczych (Zalaczniki,
      * Slowniki), zeby nie zasmiecaly panelu w terenie.
