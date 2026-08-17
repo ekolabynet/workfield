@@ -75,6 +75,48 @@ def stempel_czasu():
     return datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
 
+def numer(nr):
+    """'0.1' -> (0, 1). Do porównywania standardów, nie do wyświetlania."""
+    czesci = str(nr).split('.')
+    try:
+        return tuple(int(c) for c in czesci)
+    except ValueError:
+        return (0, 0)
+
+
+def standard_projektu(proj, kat, stempel):
+    """
+    Standard projektu — WYLICZANY, nie odczytywany ze stempla.
+
+    Projekt jest w najwyższym standardzie, którego KAŻDY moduł ma stan zgodny
+    (kroki przechodzą) i — o ile stempel go zna — wersję nie niższą niż wymagana.
+    Stan jest rozstrzygający; stempel dokłada tylko precyzję wersji. Dzięki temu
+    numer nie może kłamać: zdjęcie modułu zbija projekt do niższego standardu
+    natychmiast, bez niczyjego udziału.
+
+    Zwraca (nr, wymagana_wersja_aplikacji) albo (None, None).
+    """
+    for s in kat.standardy():
+        komplet = True
+        for mid, wymagana in s['moduly'].items():
+            modul = kat.moduly.get(mid)
+            if modul is None:
+                komplet = False
+                break
+            if not dotyczy(proj, modul):
+                continue  # moduł bez zastosowania nie blokuje standardu
+            if any(not krok_sprawdz(proj, k) for k in modul.get('kroki', [])):
+                komplet = False
+                break
+            wpis = stempel.get(mid)
+            if wpis is not None and wpis['wersja'] < wymagana:
+                komplet = False
+                break
+        if komplet:
+            return s['nr'], s.get('wymaga_aplikacji')
+    return None, None
+
+
 # --------------------------------------------------------------------- katalog
 
 class Katalog:
@@ -98,6 +140,16 @@ class Katalog:
                     'Katalog kłamie: %s ma w spisie wersję %s, a w module %s'
                     % (m['id'], wpis['wersja'], m['wersja']))
             self.moduly[m['id']] = m
+
+    def standardy(self):
+        """Lista standardów, od najwyższego. Pusta, gdy nie ma standardy.json."""
+        plik = os.path.join(self.korzen, 'standardy.json')
+        if not os.path.exists(plik):
+            return []
+        with open(plik, encoding='utf-8') as f:
+            dane = json.load(f)
+        lista = dane.get('standardy', [])
+        return sorted(lista, key=lambda s: numer(s['nr']), reverse=True)
 
     def kolejnosc(self, wybrane=None):
         """Moduły w kolejności zależności (wymaga → potem)."""
@@ -489,6 +541,19 @@ def czasownik_spis(kat):
     print()
 
 
+def czasownik_standardy(kat):
+    lista = kat.standardy()
+    if not lista:
+        print('Brak pliku standardy.json obok katalogu.')
+        return
+    print('Standardy projektu WorkField (zasady: docs/WERSJONOWANIE.md)\n')
+    for s in lista:
+        print('  %-6s %s   aplikacja %s+' % (s['nr'], s.get('data', ''), s.get('wymaga_aplikacji', '?')))
+        print('         %s' % s.get('opis', ''))
+        print('         moduły: %s' % ', '.join('%s v%d' % (m, w) for m, w in sorted(s['moduly'].items())))
+        print()
+
+
 def czasownik_sprawdz(kat, sciezka, glosno=False):
     projekty = znajdz_projekty(sciezka)
     sieroty = znajdz_sieroty(sciezka)
@@ -501,9 +566,11 @@ def czasownik_sprawdz(kat, sciezka, glosno=False):
     mids = kat.kolejnosc()
     szer = max(24, max(len(os.path.basename(os.path.dirname(p))) for p in projekty) + 2)
 
+    najwyzszy = kat.standardy()[0]['nr'] if kat.standardy() else None
+
     print()
-    print(' ' * szer + ''.join('%-7s' % m[:6] for m in mids))
-    print('-' * (szer + 7 * len(mids)))
+    print(' ' * szer + ''.join('%-7s' % m[:6] for m in mids) + 'standard')
+    print('-' * (szer + 7 * len(mids) + 8))
 
     rozjazdy = 0
     for p in projekty:
@@ -517,13 +584,21 @@ def czasownik_sprawdz(kat, sciezka, glosno=False):
             if stan in (BRAK, ROZJECHANY, STARSZY) and braki:
                 rozjazdy += 1
                 szczegoly.append((mid, stan, braki))
+        nr, apka = standard_projektu(proj, kat, st)
+        wiersz += '%-8s' % (nr if nr else '—')
+        if nr and najwyzszy and numer(nr) < numer(najwyzszy):
+            wiersz += '(katalog ma %s)' % najwyzszy
+        elif not nr and najwyzszy:
+            wiersz += '(nie sięga %s)' % najwyzszy
+        elif apka:
+            wiersz += 'wymaga aplikacji %s+' % apka
         print(wiersz)
         if glosno:
             for mid, stan, braki in szczegoly:
                 for k in braki:
                     print('        %-14s %s: %s' % (mid, stan, opis_kroku(k)))
 
-    print('-' * (szer + 7 * len(mids)))
+    print('-' * (szer + 7 * len(mids) + 8))
     print('OK = założony   STAR = starszy/niestemplowany   BRAK = nie ma')
     print('ROZJ = stempel mówi, że jest, a nie ma   - = nie dotyczy')
     if rozjazdy:
@@ -683,7 +758,7 @@ def znajdz_projekty(sciezka):
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description='Wyposażenie WorkField — sprawdzanie i doposażanie projektów.')
-    ap.add_argument('czasownik', choices=['spis', 'sprawdz', 'doposaz', 'zdejmij'])
+    ap.add_argument('czasownik', choices=['spis', 'standardy', 'sprawdz', 'doposaz', 'zdejmij'])
     ap.add_argument('sciezka', nargs='?', help='projekt albo katalog do przejrzenia')
     ap.add_argument('--katalog', default=None, help='ścieżka do katalog.json')
     ap.add_argument('--moduly', default='', help='lista modułów po przecinku')
@@ -703,6 +778,8 @@ def main(argv=None):
 
     if a.czasownik == 'spis':
         return czasownik_spis(kat)
+    if a.czasownik == 'standardy':
+        return czasownik_standardy(kat)
     if a.sciezka is None:
         raise SystemExit('Podaj ścieżkę do projektu albo katalogu.')
     if a.czasownik == 'sprawdz':

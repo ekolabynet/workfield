@@ -369,50 +369,6 @@ bool NarzedziaProjektu::unikajNakladania( QgsProject *projekt, int tryb, const Q
 
 // ----------------------------------------------------------------------- warstwy
 
-QVariantList NarzedziaProjektu::warstwyRobocze( QgsProject *projekt ) const
-{
-  QVariantList wynik;
-  QgsProject *p = projekt ? projekt : QgsProject::instance();
-  if ( !p )
-    return wynik;
-
-  const QMap<QString, QgsMapLayer *> wszystkie = p->mapLayers();
-  for ( QgsMapLayer *kandydat : wszystkie )
-  {
-    QgsVectorLayer *warstwa = qobject_cast<QgsVectorLayer *>( kandydat );
-    if ( !warstwa || warstwa->readOnly() )
-      continue;
-
-    const QString nazwa = warstwa->name();
-    if ( nazwa.startsWith( QLatin1String( "ZAL_" ), Qt::CaseInsensitive )
-         || nazwa.startsWith( QLatin1String( "REF_" ), Qt::CaseInsensitive ) )
-      continue;
-
-    QString geometria;
-    switch ( warstwa->geometryType() )
-    {
-      case Qgis::GeometryType::Point:
-        geometria = QStringLiteral( "Punkt" );
-        break;
-      case Qgis::GeometryType::Line:
-        geometria = QStringLiteral( "Linia" );
-        break;
-      case Qgis::GeometryType::Polygon:
-        geometria = QStringLiteral( "Poligon" );
-        break;
-      default:
-        continue;   // bezgeometryczne to slowniki, nie warstwy robocze
-    }
-
-    QVariantMap wpis;
-    wpis.insert( QStringLiteral( "nazwa" ), nazwa );
-    wpis.insert( QStringLiteral( "geometria" ), geometria );
-    wpis.insert( QStringLiteral( "punktowa" ), geometria == QLatin1String( "Punkt" ) );
-    wynik.append( wpis );
-  }
-  return wynik;
-}
-
 QString NarzedziaProjektu::katalogSzablonow( const QString &korzen ) const
 {
   if ( korzen.isEmpty() )

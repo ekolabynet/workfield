@@ -48,8 +48,6 @@ Popup {
     if (katalogSzablonow === "")
       katalogSzablonow = iface.dataRoot() + "Szablony";
     if (katalogProjektow === "")
-      katalogProjektow = NarzedziaProjektu.katalogZadan(iface.dataRoot());
-    if (katalogProjektow === "")
       katalogProjektow = iface.dataRoot() + "Imported Projects";
     poleData.text = new Date().toLocaleDateString(Qt.locale(), "yyyy-MM-dd");
     szablonWybrany = "";

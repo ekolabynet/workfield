@@ -168,19 +168,6 @@ class NarzedziaProjektu : public QObject
      */
     Q_INVOKABLE bool doGrupy( QgsProject *projekt, QgsMapLayer *warstwa, const QString &grupa, bool zwinieta = true, bool widoczna = false ) const;
 
-    /**
-     * Warstwy ROBOCZE projektu — te, na ktorych sie zbiera dane.
-     * Pomija tabele zalacznikow (ZAL_), warstwy odniesienia (REF_),
-     * tylko-do-odczytu i bezgeometryczne. Zwraca liste map:
-     *   nazwa      QString
-     *   geometria  QString  "Punkt" | "Linia" | "Poligon"
-     *   punktowa   bool
-     *
-     * Osobny czasownik, bo QML nie ma jak bezpiecznie odroznic warstwy
-     * wektorowej od rastrowej — rzutowanie robimy po stronie C++.
-     */
-    Q_INVOKABLE QVariantList warstwyRobocze( QgsProject *projekt ) const;
-
     //! Warstwa projektu po nazwie; nullptr, gdy nie ma.
     Q_INVOKABLE QgsVectorLayer *warstwaPoNazwie( QgsProject *projekt, const QString &nazwa ) const;
 

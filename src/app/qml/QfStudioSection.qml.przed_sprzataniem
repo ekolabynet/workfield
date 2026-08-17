@@ -1,6 +1,5 @@
 import QtCore
 import QtQuick
-import Qt5Compat.GraphicalEffects
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
@@ -54,16 +53,15 @@ ColumnLayout {
         sourceSize: Qt.size(22, 22)
         visible: false
       }
-      ColorOverlay {
-        // MultiEffect.colorization BARWI, ZACHOWUJAC JASNOSC — ciemna ikona
-        // Breeze zostawala ciemna takze w ciemnym motywie (17.08.2026).
-        // ColorOverlay zamienia piksele na podany kolor, zachowujac alfe.
+      MultiEffect {
+        // barwienie ikony kolorem tekstu motywu: jasne w ciemnym, ciemne w jasnym
         Layout.leftMargin: 6
         Layout.preferredWidth: 22
         Layout.preferredHeight: 22
         source: obrazIkony
-        visible: obrazIkony.status === Image.Ready
-        color: pozycja.enabled ? Theme.mainTextColor : Theme.secondaryTextColor
+        colorization: 1.0
+        colorizationColor: Theme.mainTextColor
+        opacity: pozycja.enabled ? 1.0 : 0.4
       }
       Text {
         Layout.fillWidth: true
@@ -352,14 +350,30 @@ ColumnLayout {
       ikona: "wfg_nowe"
       onClicked: kreatorNowego.open()
     }
-    // WorkField 17.08.2026: "Zbuduj projekt" USUNIETE. Uruchamialo
-    // zbuduj_projekt.py z katalogu szablonu — drugi krok starego swiata,
-    // wymagajacy QGIS-a z Pythonem. Projekt z przepisu powstaje kompletny
-    // od razu, wiec ta czynnosc nie ma juz czego robic. docs/WYPOSAZENIE.md
-    // WorkField 17.08.2026: "Wyslij na telefon" USUNIETE. Pakowalo zipem
-    // przez powloke i wolalo adb — zalezne od zainstalowanego adb, wpietego
-    // kabla i sciezki do karty. Dublowalo natywne "Wyslij w teren"
-    // (QfWymianaLokalna), ktore dziala bez zadnego z tych trzech warunkow.
+    QfPozycjaMenu {
+      text: qsTr("Zbuduj projekt")
+      ikona: "wfg_zbuduj"
+      enabled: studio.wybrany && !procesy.dziala
+      onClicked: {
+        zapis.dopisz(qsTr("Buduję %1 ...").arg(studio.wybrany.nazwa));
+        procesy.uruchomPyQgis(studio.wybrany.sciezka + "/zbuduj_projekt.py");
+      }
+    }
+    QfPozycjaMenu {
+      text: qsTr("Wyślij na telefon")
+      ikona: "wfg_wyslij"
+      enabled: studio.wybrany && !procesy.dziala
+      onClicked: {
+        // droga udowodniona na obecnym APK: zip -> karta -> import z przeglądarki
+        const p = studio.wybrany.sciezka;
+        const n = studio.wybrany.nazwa;
+        zapis.dopisz(qsTr("Pakuję i wysyłam %1 ...").arg(n));
+        procesy.uruchomPowloke("set -e; cd '" + p + "'"
+          + " && zip -qr '/tmp/" + n + ".zip' . -x 'archiwum/*' '.kosz/*'"
+          + " && adb push '/tmp/" + n + ".zip' '" + ustawieniaStudia.telefonKarta + "'"
+          + " && echo 'Na telefonie: przeglądarka plików -> WorkField/data -> " + n + ".zip -> import.'");
+      }
+    }
     QfPozycjaMenu {
       text: qsTr("Zamień na szablon")
       ikona: "wfg_paczka"

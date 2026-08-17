@@ -1,0 +1,19 @@
+{
+  "wersja_formatu": 1,
+  "opis": "Standard projektu WorkField — etykieta nad wersjami modułów. Numer jest WYLICZANY ze stanu projektu, nie zapisywany: projekt jest w najwyższym standardzie, którego pełny zestaw modułów spełnia. Dzięki temu numer nie może się rozjechać ze stanem. Zasady podbijania: docs/WERSJONOWANIE.md.",
+  "standardy": [
+    {
+      "nr": "0.1",
+      "data": "2026-08-17",
+      "opis": "Pierwszy standard. Projekt terenowy ma włączone przyciąganie i unikanie nakładania poligonów, kafle paska szybkiego przechwytu wskazujące na istniejące warstwy, warstwę roboczą tyczenia i załączniki N:1 z relacjami kompozycji.",
+      "wymaga_aplikacji": 813,
+      "moduly": {
+        "przyciaganie": 1,
+        "bez_nakladania": 1,
+        "klawisze": 1,
+        "tyczenie": 1,
+        "zalaczniki": 1
+      }
+    }
+  ]
+}

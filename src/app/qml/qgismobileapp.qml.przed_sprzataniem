@@ -81,9 +81,12 @@ ApplicationWindow {
     }
     // WorkField: Studio jest na razie tylko desktopowe (QfStudioSection),
     // wiec na telefonie ta sama czynnosc otwiera dialog QfNoweZadanie.
-    // WorkField: jeden kreator na obu platformach. Wczesniej komputer
-    // otwieral sekcje Magazyn i trzeba bylo szukac dalej.
-    nowyZSzablonu: function () { noweZadanie.open(); }
+    nowyZSzablonu: function () {
+      if (Qt.platform.os === "android" || Qt.platform.os === "ios")
+        noweZadanie.open();
+      else
+        dashBoard.otworzSekcje(0);
+    }
     zbudujProjekt: function () { dashBoard.otworzSekcje(0); }
     wyslijWTeren: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
     odbierzZwrot: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }

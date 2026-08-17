@@ -1,6 +1,5 @@
 import QtCore
 import QtQuick
-import Qt5Compat.GraphicalEffects
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
@@ -54,16 +53,15 @@ ColumnLayout {
         sourceSize: Qt.size(22, 22)
         visible: false
       }
-      ColorOverlay {
-        // MultiEffect.colorization BARWI, ZACHOWUJAC JASNOSC — ciemna ikona
-        // Breeze zostawala ciemna takze w ciemnym motywie (17.08.2026).
-        // ColorOverlay zamienia piksele na podany kolor, zachowujac alfe.
+      MultiEffect {
+        // barwienie ikony kolorem tekstu motywu: jasne w ciemnym, ciemne w jasnym
         Layout.leftMargin: 6
         Layout.preferredWidth: 22
         Layout.preferredHeight: 22
         source: obrazIkony
-        visible: obrazIkony.status === Image.Ready
-        color: pozycja.enabled ? Theme.mainTextColor : Theme.secondaryTextColor
+        colorization: 1.0
+        colorizationColor: Theme.mainTextColor
+        opacity: pozycja.enabled ? 1.0 : 0.4
       }
       Text {
         Layout.fillWidth: true
