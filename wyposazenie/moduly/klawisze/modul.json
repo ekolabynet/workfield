@@ -1,0 +1,17 @@
+{
+  "id": "klawisze",
+  "nazwa": "Kafle paska szybkiego przechwytu",
+  "wersja": 1,
+  "rodzaj": "kontrola",
+  "gdzie": ["biuro", "teren"],
+  "odwracalny": false,
+  "opis": "Plik workfield_klawisze.json obok projektu, z kaflami wskazującymi na ISTNIEJĄCE warstwy. Treść jest branżowa (D/G/U/T w dendro, inna w płatach), więc moduł jej nie wpisuje — sprawdza, czy jest i czy jest poprawna.",
+  "grunt": "QfQuickCaptureBar.loadDefinitions() czyta klucze 'etykieta', 'warstwa', 'kolor', 'zdjecie', opcjonalnie 'rozmiar'. Klucz 'nazwa' zamiast 'etykieta' daje w logu 'definicje z pliku, 0 klawiszy' — pasek wstaje pusty i dowiadujesz się o tym w terenie.",
+  "podpowiedz": "wpisz kafle do workfield_klawisze.json obok projektu; klucz to 'etykieta', NIE 'nazwa', a 'warstwa' musi się zgadzać z nazwą warstwy w projekcie",
+  "kroki": [
+    {
+      "typ": "kontrola_klawiszy",
+      "nazwa": "workfield_klawisze.json"
+    }
+  ]
+}

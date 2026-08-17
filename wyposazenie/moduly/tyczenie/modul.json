@@ -1,0 +1,17 @@
+{
+  "id": "tyczenie",
+  "nazwa": "Warstwa robocza tyczenia",
+  "wersja": 1,
+  "rodzaj": "struktura",
+  "gdzie": ["biuro"],
+  "odwracalny": false,
+  "opis": "Punktowa warstwa robocza do wyznaczania i nawigacji, plus kafel paska z \"zdjecie\": false. Kafel bez zdjęcia na warstwie punktowej odblokowuje trzy tryby naraz: punkt bez aparatu, serię wierzchołków pod długim przytrzymaniem i dokładanie wierzchołków z GNSS do rysowanej geometrii — bez niego nie obejdziesz obrysu grupy pieszo.",
+  "grunt": "QfQuickCaptureBar captureInto (l. 1114-1130). Wzorzec warstwy: DEN_TYCZENIE w szablonie dendro 1.1.",
+  "skrypt": "skrypty/zaloz_tyczenie.py",
+  "kroki": [
+    {
+      "typ": "warstwa_istnieje",
+      "nazwa": "tyczenie"
+    }
+  ]
+}

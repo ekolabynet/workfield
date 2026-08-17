@@ -1,0 +1,26 @@
+{
+  "id": "przyciaganie",
+  "nazwa": "Przyciąganie włączone",
+  "wersja": 1,
+  "rodzaj": "ustawienie",
+  "gdzie": ["biuro", "teren"],
+  "odwracalny": true,
+  "opis": "Przyciąganie do wierzchołków i odcinków wszystkich warstw wektorowych, tolerancja 12 px, z przecięciami. Bez tego sąsiadujące płaty nie stykają się po granicy, a w rękawicach nie da się trafić w wierzchołek.",
+  "grunt": "QgsSnappingConfig::readProject — atrybuty elementu <snapping-settings>. mode 2 = AllLayers, type 3 = Vertex|Segment (Qgis::SnappingType: Vertex=1, Segment=2), unit 1 = piksele.",
+  "kroki": [
+    {
+      "typ": "snapping",
+      "atrybuty": {
+        "enabled": 1,
+        "mode": 2,
+        "type": 3,
+        "unit": 1,
+        "tolerance": 12,
+        "intersection-snapping": 1
+      },
+      "atrybuty_cofniecia": {
+        "enabled": 0
+      }
+    }
+  ]
+}

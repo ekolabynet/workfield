@@ -5074,29 +5074,7 @@ ApplicationWindow {
       const dir = FileUtils.absolutePath(templatePath);
       const parts = dir.split("/").filter(part => part.length > 0);
       const templateName = parts.length > 0 ? parts[parts.length - 1] : qsTr("Szablon");
-      const nazwa = templateName + " Projekt " + new Date().toISOString().slice(0, 10);
-
-      // WorkField: szablon z przepisem budujemy od zera z aktualnego
-      // wyposazenia. Kopia katalogu (createProjectFromTemplate) byla dotad
-      // jedynym mechanizmem — i jedynym zrodlem dryfu (17.08.2026).
-      if (FileUtils.fileExists(dir + "/przepis.json")) {
-        qfPrzepis.noweZadanie(dir + "/przepis.json", iface.dataRoot() + "Imported Projects", nazwa);
-      } else {
-        welcomeScreen.createProjectFromTemplate(dir, nazwa);
-      }
-    }
-  }
-
-  // WorkField: interpreter przepisow — buduje zadanie z przepisu zamiast
-  // kopiowac katalog szablonu. Patrz docs/WYPOSAZENIE.md.
-  QfPrzepis {
-    id: qfPrzepis
-
-    onZbudowano: function (sciezka, nazwa) {
-      displayToast(qsTr("Zadanie %1 gotowe").arg(nazwa));
-    }
-    onPotknieto: function (komunikat) {
-      displayToast(komunikat, "error");
+      welcomeScreen.createProjectFromTemplate(dir, templateName + " Projekt " + new Date().toISOString().slice(0, 10));
     }
   }
 

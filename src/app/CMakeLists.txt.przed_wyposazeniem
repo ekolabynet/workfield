@@ -147,7 +147,6 @@ set(QFIELD_APP_QML_FILES
     qml/QfMainDrawer.qml
     qml/QfNewLayerDialog.qml
     qml/QfNoweZadanie.qml
-    qml/QfPrzepis.qml
     qml/QfStudioSection.qml
     qml/QfAkcje.qml
     qml/QfPanelAkcji.qml

@@ -1,0 +1,307 @@
+{
+  "id": "platy_roslinnosci",
+  "wersja": 1,
+  "nazwa": "Mapa płatów roślinności",
+  "opis": "Kartowanie płatów zbiorowisk: obrys płatu, zdjęcia fitosocjologiczne, punkty gatunkowe, zalążki i warstwa tyczenia. Struktura pól przeniesiona 1:1 z szablon_obs_roslinnosc; dołożone jest to, czego temu szablonowi brakowało 17.08.2026 — tyczenie, kafle paska, załączniki N:1, przyciąganie i unikanie nakładania.",
+  "uklad": "EPSG:2178",
+  "dane": "dane.gpkg",
+  "zrodlo": "github:ekolabynet/workfield",
+
+  "warstwy": [
+    {
+      "nazwa": "platy",
+      "geometria": "MultiPolygon",
+      "pola": [
+        { "name": "nr_platu", "type": "integer" },
+        { "name": "zbiorowisko", "type": "text" },
+        { "name": "uwagi", "type": "multiline" }
+      ],
+      "aliasy": {
+        "nr_platu": "Nr płatu",
+        "zbiorowisko": "Zbiorowisko",
+        "uwagi": "Uwagi"
+      },
+      "domyslne": {
+        "nr_platu": { "wyrazenie": "coalesce(maximum(\"nr_platu\"), 0) + 1" }
+      },
+      "wyswietlanie": "coalesce(\"nr_platu\", '?') || ' — ' || coalesce(\"zbiorowisko\", '')",
+      "bezPotwierdzenia": true,
+      "zakladki": [
+        { "tytul": "Płat", "pola": ["nr_platu", "zbiorowisko", "uwagi"] },
+        { "tytul": "Załączniki", "relacja": "zal_platy_rel" }
+      ]
+    },
+    {
+      "nazwa": "zdjecia_fito",
+      "geometria": "Point",
+      "pola": [
+        { "name": "nr_platu", "type": "integer" },
+        { "name": "nr_zdjecia", "type": "integer" },
+        { "name": "powierzchnia_m2", "type": "real" },
+        { "name": "data_czas", "type": "datetime" },
+        { "name": "dokladnosc_m", "type": "real" },
+        { "name": "uwagi", "type": "multiline" }
+      ],
+      "aliasy": {
+        "nr_platu": "Nr płatu",
+        "nr_zdjecia": "Nr zdjęcia",
+        "powierzchnia_m2": "Powierzchnia [m2]",
+        "data_czas": "Data i czas",
+        "dokladnosc_m": "Dokładność [m]",
+        "uwagi": "Uwagi"
+      },
+      "domyslne": {
+        "data_czas": "now()",
+        "dokladnosc_m": "@gnss_horizontal_accuracy",
+        "nr_zdjecia": { "wyrazenie": "coalesce(maximum(\"nr_zdjecia\"), 0) + 1" }
+      },
+      "widgety": {
+        "dokladnosc_m": { "typ": "TextEdit" }
+      },
+      "wyswietlanie": "'Zdj. ' || coalesce(\"nr_zdjecia\", '?')",
+      "bezPotwierdzenia": true,
+      "zakladki": [
+        { "tytul": "Zdjęcie", "pola": ["nr_platu", "nr_zdjecia", "powierzchnia_m2", "uwagi"] },
+        { "tytul": "Pomiar", "pola": ["data_czas", "dokladnosc_m"] },
+        { "tytul": "Załączniki", "relacja": "zal_zdjecia_fito_rel" }
+      ]
+    },
+    {
+      "nazwa": "gatunki",
+      "geometria": "Point",
+      "pola": [
+        { "name": "nr_platu", "type": "integer" },
+        { "name": "gatunek", "type": "text" },
+        { "name": "ilosciowosc", "type": "text" },
+        { "name": "data_czas", "type": "datetime" },
+        { "name": "dokladnosc_m", "type": "real" },
+        { "name": "uwagi", "type": "multiline" }
+      ],
+      "aliasy": {
+        "nr_platu": "Nr płatu",
+        "gatunek": "Gatunek",
+        "ilosciowosc": "Ilościowość",
+        "data_czas": "Data i czas",
+        "dokladnosc_m": "Dokładność [m]",
+        "uwagi": "Uwagi"
+      },
+      "domyslne": {
+        "data_czas": "now()",
+        "dokladnosc_m": "@gnss_horizontal_accuracy"
+      },
+      "wyswietlanie": "coalesce(\"gatunek\", '(bez nazwy)')",
+      "bezPotwierdzenia": true,
+      "zakladki": [
+        { "tytul": "Gatunek", "pola": ["nr_platu", "gatunek", "ilosciowosc", "uwagi"] },
+        { "tytul": "Pomiar", "pola": ["data_czas", "dokladnosc_m"] },
+        { "tytul": "Załączniki", "relacja": "zal_gatunki_rel" }
+      ]
+    },
+    {
+      "nazwa": "platy_zalazki",
+      "geometria": "Point",
+      "pola": [
+        { "name": "nr_platu", "type": "integer" },
+        { "name": "data_czas", "type": "datetime" },
+        { "name": "dokladnosc_m", "type": "real" },
+        { "name": "uwagi", "type": "multiline" }
+      ],
+      "aliasy": {
+        "nr_platu": "Nr płatu",
+        "data_czas": "Data i czas",
+        "dokladnosc_m": "Dokładność [m]",
+        "uwagi": "Uwagi"
+      },
+      "domyslne": {
+        "data_czas": "now()",
+        "dokladnosc_m": "@gnss_horizontal_accuracy"
+      },
+      "bezPotwierdzenia": true
+    },
+    {
+      "nazwa": "tyczenie",
+      "geometria": "Point",
+      "pola": [
+        { "name": "etykieta", "type": "text" },
+        { "name": "data_czas", "type": "datetime" },
+        { "name": "dokladnosc_m", "type": "real" },
+        { "name": "uwagi", "type": "multiline" }
+      ],
+      "aliasy": {
+        "etykieta": "Etykieta",
+        "data_czas": "Data i czas",
+        "dokladnosc_m": "Dokładność [m]",
+        "uwagi": "Uwagi"
+      },
+      "domyslne": {
+        "data_czas": "now()",
+        "dokladnosc_m": "@gnss_horizontal_accuracy"
+      },
+      "wyswietlanie": "coalesce(\"etykieta\", 'T' || \"fid\")",
+      "bezPotwierdzenia": true
+    },
+
+    {
+      "nazwa": "ZAL_PLATY",
+      "geometria": "NoGeometry",
+      "grupa": "Załączniki",
+      "widoczna": false,
+      "pola": [
+        { "name": "ID_RODZICA", "type": "integer" },
+        { "name": "TYP", "type": "text" },
+        { "name": "SCIEZKA", "type": "text" },
+        { "name": "UJECIE", "type": "integer" },
+        { "name": "CZAS", "type": "datetime" },
+        { "name": "AUTOR", "type": "text" },
+        { "name": "UWAGI", "type": "multiline" }
+      ],
+      "widgety": {
+        "ID_RODZICA": { "typ": "Hidden" },
+        "SCIEZKA": {
+          "typ": "ExternalResource",
+          "opcje": {
+            "RelativeStorage": 1,
+            "DocumentViewer": 1,
+            "StorageMode": 0,
+            "FileWidget": true,
+            "FileWidgetButton": true
+          }
+        },
+        "TYP": {
+          "typ": "ValueMap",
+          "opcje": { "map": [{ "zdjęcie": "foto" }, { "szkic": "szkic" }, { "audio": "audio" }, { "notatka": "notatka" }] }
+        }
+      },
+      "domyslne": {
+        "TYP": "'foto'",
+        "CZAS": "now()"
+      },
+      "wlasciwosci": {
+        "QFieldSync/attachment_naming": "{\"SCIEZKA\": \"'DCIM/platy_' || coalesce(@rodzic_fid, 'x') || '/platy_' || coalesce(@rodzic_fid, 'x') || '_' || format_date(now(), 'yyyyMMdd_HHmmss_zzz') || '.jpg'\"}"
+      }
+    },
+    {
+      "nazwa": "ZAL_ZDJECIA_FITO",
+      "geometria": "NoGeometry",
+      "grupa": "Załączniki",
+      "widoczna": false,
+      "pola": [
+        { "name": "ID_RODZICA", "type": "integer" },
+        { "name": "TYP", "type": "text" },
+        { "name": "SCIEZKA", "type": "text" },
+        { "name": "UJECIE", "type": "integer" },
+        { "name": "CZAS", "type": "datetime" },
+        { "name": "AUTOR", "type": "text" },
+        { "name": "UWAGI", "type": "multiline" }
+      ],
+      "widgety": {
+        "ID_RODZICA": { "typ": "Hidden" },
+        "SCIEZKA": {
+          "typ": "ExternalResource",
+          "opcje": { "RelativeStorage": 1, "DocumentViewer": 1, "StorageMode": 0, "FileWidget": true, "FileWidgetButton": true }
+        }
+      },
+      "domyslne": { "TYP": "'foto'", "CZAS": "now()" }
+    },
+    {
+      "nazwa": "ZAL_GATUNKI",
+      "geometria": "NoGeometry",
+      "grupa": "Załączniki",
+      "widoczna": false,
+      "pola": [
+        { "name": "ID_RODZICA", "type": "integer" },
+        { "name": "TYP", "type": "text" },
+        { "name": "SCIEZKA", "type": "text" },
+        { "name": "UJECIE", "type": "integer" },
+        { "name": "CZAS", "type": "datetime" },
+        { "name": "AUTOR", "type": "text" },
+        { "name": "UWAGI", "type": "multiline" }
+      ],
+      "widgety": {
+        "ID_RODZICA": { "typ": "Hidden" },
+        "SCIEZKA": {
+          "typ": "ExternalResource",
+          "opcje": { "RelativeStorage": 1, "DocumentViewer": 1, "StorageMode": 0, "FileWidget": true, "FileWidgetButton": true }
+        }
+      },
+      "domyslne": { "TYP": "'foto'", "CZAS": "now()" }
+    }
+  ],
+
+  "relacje": [
+    {
+      "id": "zal_platy_rel",
+      "nazwa": "Załączniki",
+      "rodzic": "platy",
+      "dziecko": "ZAL_PLATY",
+      "poleDziecka": "ID_RODZICA",
+      "poleRodzica": "fid",
+      "kompozycja": true
+    },
+    {
+      "id": "zal_zdjecia_fito_rel",
+      "nazwa": "Załączniki",
+      "rodzic": "zdjecia_fito",
+      "dziecko": "ZAL_ZDJECIA_FITO",
+      "poleDziecka": "ID_RODZICA",
+      "poleRodzica": "fid",
+      "kompozycja": true
+    },
+    {
+      "id": "zal_gatunki_rel",
+      "nazwa": "Załączniki",
+      "rodzic": "gatunki",
+      "dziecko": "ZAL_GATUNKI",
+      "poleDziecka": "ID_RODZICA",
+      "poleRodzica": "fid",
+      "kompozycja": true
+    }
+  ],
+
+  "projekt": {
+    "przyciaganie": {
+      "wlaczone": true,
+      "tryb": 2,
+      "typ": 3,
+      "tolerancja": 12,
+      "jednostka": 1,
+      "przeciecia": true
+    },
+    "unikajNakladania": {
+      "tryb": 2,
+      "warstwy": ["platy"]
+    },
+    "wlasciwosci": {
+      "qfieldsync": {
+        "initialMapMode": "digitize"
+      }
+    },
+    "zmienne": {
+      "wf_przepis": "platy_roslinnosci",
+      "wf_przepis_wersja": 1
+    }
+  },
+
+  "pliki": [
+    {
+      "nazwa": "workfield_klawisze.json",
+      "tresc": {
+        "odleglosci": [25, 50, 100, 200],
+        "klawisze": [
+          { "etykieta": "P", "warstwa": "platy", "kolor": "#2E7D32", "zdjecie": true },
+          { "etykieta": "Z", "warstwa": "zdjecia_fito", "kolor": "#00897B", "zdjecie": true },
+          { "etykieta": "G", "warstwa": "gatunki", "kolor": "#F9A825", "zdjecie": true },
+          { "etykieta": "T", "warstwa": "tyczenie", "kolor": "#546E7A", "zdjecie": false }
+        ]
+      }
+    }
+  ],
+
+  "wyposazenie": [
+    { "modul": "przyciaganie", "wersja": 1 },
+    { "modul": "bez_nakladania", "wersja": 1 },
+    { "modul": "klawisze", "wersja": 1 },
+    { "modul": "tyczenie", "wersja": 1 },
+    { "modul": "zalaczniki", "wersja": 1 }
+  ]
+}

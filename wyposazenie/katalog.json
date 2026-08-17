@@ -1,0 +1,12 @@
+{
+  "wersja_formatu": 1,
+  "zrodlo": "github:ekolabynet/workfield",
+  "opis": "Wyposażenie WorkField — spis modułów, które projekt terenowy powinien mieć założone. Kolejność w spisie nie ma znaczenia; zależności rozstrzyga pole 'wymaga' w module.",
+  "moduly": [
+    { "id": "przyciaganie",   "wersja": 1, "sciezka": "moduly/przyciaganie" },
+    { "id": "bez_nakladania", "wersja": 1, "sciezka": "moduly/bez_nakladania" },
+    { "id": "klawisze",       "wersja": 1, "sciezka": "moduly/klawisze" },
+    { "id": "tyczenie",       "wersja": 1, "sciezka": "moduly/tyczenie" },
+    { "id": "zalaczniki",     "wersja": 1, "sciezka": "moduly/zalaczniki" }
+  ]
+}

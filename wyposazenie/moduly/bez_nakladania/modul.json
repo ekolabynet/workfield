@@ -1,0 +1,32 @@
+{
+  "id": "bez_nakladania",
+  "nazwa": "Unikaj nakładania poligonów",
+  "wersja": 1,
+  "rodzaj": "ustawienie",
+  "gdzie": ["biuro", "teren"],
+  "odwracalny": true,
+  "wymaga": ["przyciaganie"],
+  "dotyczy": { "geometria": ["Polygon", "MultiPolygon"] },
+  "opis": "Nowy poligon nie wchodzi w istniejące — przy mapowaniu płatów roślinności to jedyny sposób, żeby granice sąsiadów były wspólne, a nie podwójne. Obejmuje wszystkie edytowalne warstwy poligonowe projektu poza warstwą zasięgu.",
+  "grunt": "QgsProject: właściwości Digitizing/AvoidIntersectionsMode (int) i Digitizing/AvoidIntersectionsList (QStringList z identyfikatorami warstw). Qgis::AvoidIntersectionsMode: 0 = AllowIntersections, 1 = AvoidIntersectionsCurrentLayer, 2 = AvoidIntersectionsLayers.",
+  "kroki": [
+    {
+      "typ": "wlasciwosc",
+      "grupa": "Digitizing",
+      "klucz": "AvoidIntersectionsMode",
+      "typ_wartosci": "int",
+      "wartosc": 2,
+      "wartosc_cofniecia": 0
+    },
+    {
+      "typ": "wlasciwosc_warstwy",
+      "grupa": "Digitizing",
+      "klucz": "AvoidIntersectionsList",
+      "wybor": {
+        "geometria": ["Polygon", "MultiPolygon"],
+        "tylko_edytowalne": true,
+        "pomin_nazwy": ["zasieg", "zasięg", "DEN_ZASIEG", "granica", "granica_opracowania"]
+      }
+    }
+  ]
+}

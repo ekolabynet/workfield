@@ -1,0 +1,17 @@
+{
+  "id": "zalaczniki",
+  "nazwa": "Załączniki N:1 (multiodnośniki)",
+  "wersja": 1,
+  "rodzaj": "struktura",
+  "gdzie": ["biuro"],
+  "odwracalny": false,
+  "opis": "Tabele ZAL_<WARSTWA> w GeoPackage, relacje o sile kompozycji (ID_RODZICA → fid), galeria w formularzu i konwencja nazw plików zgodna z Mapit Spatial. Bez tego obiekt niesie jedno zdjęcie w polu FOTO.",
+  "grunt": "docs/ZALACZNIKI.md; skrypt jest idempotentny i nie rusza istniejących pól FOTO.",
+  "skrypt": "skrypty/zaloz_zalaczniki.py",
+  "kroki": [
+    {
+      "typ": "tabele_gpkg",
+      "wzorzec": "ZAL_%"
+    }
+  ]
+}
