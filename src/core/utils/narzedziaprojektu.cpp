@@ -369,6 +369,23 @@ bool NarzedziaProjektu::unikajNakladania( QgsProject *projekt, int tryb, const Q
 
 // ----------------------------------------------------------------------- warstwy
 
+QString NarzedziaProjektu::katalogSzablonow( const QString &korzen ) const
+{
+  if ( korzen.isEmpty() )
+    return QString();
+
+  const QDir k( korzen );
+  const QStringList kandydaci = { QStringLiteral( "Szablony" ), QStringLiteral( "szablony" ),
+                                  QStringLiteral( "templates" ) };
+  for ( const QString &nazwa : kandydaci )
+  {
+    const QString sciezka = k.filePath( nazwa );
+    if ( QDir( sciezka ).exists() )
+      return sciezka;
+  }
+  return QString();
+}
+
 QString NarzedziaProjektu::katalogZadan( const QString &korzen ) const
 {
   if ( korzen.isEmpty() )

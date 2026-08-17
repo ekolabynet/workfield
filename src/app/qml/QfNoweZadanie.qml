@@ -44,6 +44,8 @@ Popup {
   onOpened: {
     // dopiero tutaj: przy tworzeniu obiektu iface może jeszcze nie być gotowy
     if (katalogSzablonow === "")
+      katalogSzablonow = NarzedziaProjektu.katalogSzablonow(iface.dataRoot());
+    if (katalogSzablonow === "")
       katalogSzablonow = iface.dataRoot() + "Szablony";
     if (katalogProjektow === "")
       katalogProjektow = iface.dataRoot() + "Imported Projects";
@@ -252,6 +254,19 @@ Popup {
       return;
     }
 
+    // WorkField: szablon z przepisem budujemy od zera z aktualnego
+    // wyposazenia. Interpreter sam wczytuje gotowy projekt, wiec NIE
+    // emitujemy utworzono() — inaczej wczytalby sie dwa razy.
+    if (szablonWybrany !== "" && FileUtils.fileExists(zrodlo + "/przepis.json")) {
+      if (!mainWindow.przepisy.noweZadanie(zrodlo + "/przepis.json", katalogProjektow, nazwa)) {
+        komunikat.text = qsTr("Nie udało się zbudować zadania z przepisu.");
+        return;
+      }
+      kreator.zapiszMetryczke(cel, nazwa);
+      kreator.close();
+      return;
+    }
+
     if (szablonWybrany === "") {
       // bez szablonu: pusty projekt w nowym katalogu
       platformUtilities.createDir(katalogProjektow, nazwa);
@@ -264,7 +279,15 @@ Popup {
       return;
     }
 
-    // Metryczka zadania: po niej rozpoznaje się, dokąd wracają dane z terenu.
+    zapiszMetryczke(cel, nazwa);
+
+    displayToast(qsTr("Utworzono zadanie %1").arg(nazwa));
+    kreator.utworzono(cel);
+    kreator.close();
+  }
+
+  // Metryczka zadania: po niej rozpoznaje się, dokąd wracają dane z terenu.
+  function zapiszMetryczke(cel, nazwa) {
     const tagi = poleTagi.text.split(",").map(s => s.trim()).filter(s => s !== "");
     const zadanie = {
       "id_zadania": nazwa,
@@ -279,9 +302,5 @@ Popup {
     };
     FileUtils.writeFileContent(cel + "/ZADANIE.json",
                                JSON.stringify(zadanie, null, 2));
-
-    displayToast(qsTr("Utworzono zadanie %1").arg(nazwa));
-    kreator.utworzono(cel);
-    kreator.close();
   }
 }

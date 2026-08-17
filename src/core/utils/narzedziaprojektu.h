@@ -154,6 +154,14 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE QString katalogZadan( const QString &korzen ) const;
 
     /**
+     * Katalog z szablonami: pierwszy istniejacy z "Szablony", "szablony",
+     * "templates" pod \a korzen; gdy zadnego nie ma — pusty string.
+     * Na telefonie korzen narzuca system, a nazwa katalogu bywa rozna
+     * w zaleznosci od tego, czym magazyn byl zakladany.
+     */
+    Q_INVOKABLE QString katalogSzablonow( const QString &korzen ) const;
+
+    /**
      * Przenosi warstwe do grupy w drzewie warstw, zakladajac grupe w razie
      * potrzeby. Grupy sluza do chowania tabel pomocniczych (Zalaczniki,
      * Slowniki), zeby nie zasmiecaly panelu w terenie.

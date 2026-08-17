@@ -700,6 +700,13 @@ Drawer {
       Layout.preferredHeight: visible ? implicitHeight : 0
       currentIndex: 1
 
+      // WorkField: menu (otworzSekcje) wymusza sekcje przez sekcjaWymuszona,
+      // ale na telefonie NIC jej nie zerowalo — stos zostawal na wymuszonej
+      // sekcji na zawsze i zakladki przestawaly cokolwiek zmieniac.
+      // Tapniecie zakladki zwalnia wymuszenie. Na komputerze ten TabBar
+      // jest niewidoczny i nigdy sie nie zmienia, wiec zmiana jest tam bezczynna.
+      onCurrentIndexChanged: dashBoard.sekcjaWymuszona = -1
+
       TabButton {
         text: qsTr("Magazyn")
         font: Theme.tipFont

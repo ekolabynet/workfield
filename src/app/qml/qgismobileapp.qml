@@ -68,8 +68,25 @@ ApplicationWindow {
       }
     }
     noweZadanie: function () { noweZadanie.open(); }
-    otworzZMagazynu: function () { dashBoard.otworzSekcje(0); }
-    nowyZSzablonu: function () { dashBoard.otworzSekcje(0); }
+    // WorkField: sekcja Magazyn (0) istnieje tylko na komputerze
+    // (QfMainDrawer: Loader active tylko poza Androidem). Na telefonie
+    // ta czynnosc otwiera przegladarke projektow, zamiast pustej sekcji.
+    otworzZMagazynu: function () {
+      if (Qt.platform.os === "android" || Qt.platform.os === "ios") {
+        qfieldLocalDataPickerScreen.projectFolderView = false;
+        qfieldLocalDataPickerScreen.visible = true;
+      } else {
+        dashBoard.otworzSekcje(0);
+      }
+    }
+    // WorkField: Studio jest na razie tylko desktopowe (QfStudioSection),
+    // wiec na telefonie ta sama czynnosc otwiera dialog QfNoweZadanie.
+    nowyZSzablonu: function () {
+      if (Qt.platform.os === "android" || Qt.platform.os === "ios")
+        noweZadanie.open();
+      else
+        dashBoard.otworzSekcje(0);
+    }
     zbudujProjekt: function () { dashBoard.otworzSekcje(0); }
     wyslijWTeren: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
     odbierzZwrot: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
