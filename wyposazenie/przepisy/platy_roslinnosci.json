@@ -6,15 +6,23 @@
   "uklad": "EPSG:2178",
   "dane": "dane.gpkg",
   "zrodlo": "github:ekolabynet/workfield",
-
   "warstwy": [
     {
       "nazwa": "platy",
       "geometria": "MultiPolygon",
       "pola": [
-        { "name": "nr_platu", "type": "integer" },
-        { "name": "zbiorowisko", "type": "text" },
-        { "name": "uwagi", "type": "multiline" }
+        {
+          "name": "nr_platu",
+          "type": "integer"
+        },
+        {
+          "name": "zbiorowisko",
+          "type": "text"
+        },
+        {
+          "name": "uwagi",
+          "type": "multiline"
+        }
       ],
       "aliasy": {
         "nr_platu": "Nr płatu",
@@ -22,25 +30,55 @@
         "uwagi": "Uwagi"
       },
       "domyslne": {
-        "nr_platu": { "wyrazenie": "coalesce(maximum(\"nr_platu\"), 0) + 1" }
+        "nr_platu": {
+          "wyrazenie": "coalesce(maximum(\"nr_platu\"), 0) + 1"
+        }
       },
       "wyswietlanie": "coalesce(\"nr_platu\", '?') || ' — ' || coalesce(\"zbiorowisko\", '')",
       "bezPotwierdzenia": true,
       "zakladki": [
-        { "tytul": "Płat", "pola": ["nr_platu", "zbiorowisko", "uwagi"] },
-        { "tytul": "Załączniki", "relacja": "zal_platy_rel" }
+        {
+          "tytul": "Płat",
+          "pola": [
+            "nr_platu",
+            "zbiorowisko",
+            "uwagi"
+          ]
+        },
+        {
+          "tytul": "Załączniki",
+          "relacja": "zal_platy_rel"
+        }
       ]
     },
     {
       "nazwa": "zdjecia_fito",
       "geometria": "Point",
       "pola": [
-        { "name": "nr_platu", "type": "integer" },
-        { "name": "nr_zdjecia", "type": "integer" },
-        { "name": "powierzchnia_m2", "type": "real" },
-        { "name": "data_czas", "type": "datetime" },
-        { "name": "dokladnosc_m", "type": "real" },
-        { "name": "uwagi", "type": "multiline" }
+        {
+          "name": "nr_platu",
+          "type": "integer"
+        },
+        {
+          "name": "nr_zdjecia",
+          "type": "integer"
+        },
+        {
+          "name": "powierzchnia_m2",
+          "type": "real"
+        },
+        {
+          "name": "data_czas",
+          "type": "datetime"
+        },
+        {
+          "name": "dokladnosc_m",
+          "type": "real"
+        },
+        {
+          "name": "uwagi",
+          "type": "multiline"
+        }
       ],
       "aliasy": {
         "nr_platu": "Nr płatu",
@@ -53,29 +91,68 @@
       "domyslne": {
         "data_czas": "now()",
         "dokladnosc_m": "@gnss_horizontal_accuracy",
-        "nr_zdjecia": { "wyrazenie": "coalesce(maximum(\"nr_zdjecia\"), 0) + 1" }
+        "nr_zdjecia": {
+          "wyrazenie": "coalesce(maximum(\"nr_zdjecia\"), 0) + 1"
+        }
       },
       "widgety": {
-        "dokladnosc_m": { "typ": "TextEdit" }
+        "dokladnosc_m": {
+          "typ": "TextEdit"
+        }
       },
       "wyswietlanie": "'Zdj. ' || coalesce(\"nr_zdjecia\", '?')",
       "bezPotwierdzenia": true,
       "zakladki": [
-        { "tytul": "Zdjęcie", "pola": ["nr_platu", "nr_zdjecia", "powierzchnia_m2", "uwagi"] },
-        { "tytul": "Pomiar", "pola": ["data_czas", "dokladnosc_m"] },
-        { "tytul": "Załączniki", "relacja": "zal_zdjecia_fito_rel" }
+        {
+          "tytul": "Zdjęcie",
+          "pola": [
+            "nr_platu",
+            "nr_zdjecia",
+            "powierzchnia_m2",
+            "uwagi"
+          ]
+        },
+        {
+          "tytul": "Pomiar",
+          "pola": [
+            "data_czas",
+            "dokladnosc_m"
+          ]
+        },
+        {
+          "tytul": "Załączniki",
+          "relacja": "zal_zdjecia_fito_rel"
+        }
       ]
     },
     {
       "nazwa": "gatunki",
       "geometria": "Point",
       "pola": [
-        { "name": "nr_platu", "type": "integer" },
-        { "name": "gatunek", "type": "text" },
-        { "name": "ilosciowosc", "type": "text" },
-        { "name": "data_czas", "type": "datetime" },
-        { "name": "dokladnosc_m", "type": "real" },
-        { "name": "uwagi", "type": "multiline" }
+        {
+          "name": "nr_platu",
+          "type": "integer"
+        },
+        {
+          "name": "gatunek",
+          "type": "text"
+        },
+        {
+          "name": "ilosciowosc",
+          "type": "text"
+        },
+        {
+          "name": "data_czas",
+          "type": "datetime"
+        },
+        {
+          "name": "dokladnosc_m",
+          "type": "real"
+        },
+        {
+          "name": "uwagi",
+          "type": "multiline"
+        }
       ],
       "aliasy": {
         "nr_platu": "Nr płatu",
@@ -92,19 +169,48 @@
       "wyswietlanie": "coalesce(\"gatunek\", '(bez nazwy)')",
       "bezPotwierdzenia": true,
       "zakladki": [
-        { "tytul": "Gatunek", "pola": ["nr_platu", "gatunek", "ilosciowosc", "uwagi"] },
-        { "tytul": "Pomiar", "pola": ["data_czas", "dokladnosc_m"] },
-        { "tytul": "Załączniki", "relacja": "zal_gatunki_rel" }
+        {
+          "tytul": "Gatunek",
+          "pola": [
+            "nr_platu",
+            "gatunek",
+            "ilosciowosc",
+            "uwagi"
+          ]
+        },
+        {
+          "tytul": "Pomiar",
+          "pola": [
+            "data_czas",
+            "dokladnosc_m"
+          ]
+        },
+        {
+          "tytul": "Załączniki",
+          "relacja": "zal_gatunki_rel"
+        }
       ]
     },
     {
       "nazwa": "platy_zalazki",
       "geometria": "Point",
       "pola": [
-        { "name": "nr_platu", "type": "integer" },
-        { "name": "data_czas", "type": "datetime" },
-        { "name": "dokladnosc_m", "type": "real" },
-        { "name": "uwagi", "type": "multiline" }
+        {
+          "name": "nr_platu",
+          "type": "integer"
+        },
+        {
+          "name": "data_czas",
+          "type": "datetime"
+        },
+        {
+          "name": "dokladnosc_m",
+          "type": "real"
+        },
+        {
+          "name": "uwagi",
+          "type": "multiline"
+        }
       ],
       "aliasy": {
         "nr_platu": "Nr płatu",
@@ -122,10 +228,22 @@
       "nazwa": "tyczenie",
       "geometria": "Point",
       "pola": [
-        { "name": "etykieta", "type": "text" },
-        { "name": "data_czas", "type": "datetime" },
-        { "name": "dokladnosc_m", "type": "real" },
-        { "name": "uwagi", "type": "multiline" }
+        {
+          "name": "etykieta",
+          "type": "text"
+        },
+        {
+          "name": "data_czas",
+          "type": "datetime"
+        },
+        {
+          "name": "dokladnosc_m",
+          "type": "real"
+        },
+        {
+          "name": "uwagi",
+          "type": "multiline"
+        }
       ],
       "aliasy": {
         "etykieta": "Etykieta",
@@ -140,23 +258,45 @@
       "wyswietlanie": "coalesce(\"etykieta\", 'T' || \"fid\")",
       "bezPotwierdzenia": true
     },
-
     {
       "nazwa": "ZAL_PLATY",
       "geometria": "NoGeometry",
       "grupa": "Załączniki",
       "widoczna": false,
       "pola": [
-        { "name": "ID_RODZICA", "type": "integer" },
-        { "name": "TYP", "type": "text" },
-        { "name": "SCIEZKA", "type": "text" },
-        { "name": "UJECIE", "type": "integer" },
-        { "name": "CZAS", "type": "datetime" },
-        { "name": "AUTOR", "type": "text" },
-        { "name": "UWAGI", "type": "multiline" }
+        {
+          "name": "ID_RODZICA",
+          "type": "integer"
+        },
+        {
+          "name": "TYP",
+          "type": "text"
+        },
+        {
+          "name": "SCIEZKA",
+          "type": "text"
+        },
+        {
+          "name": "UJECIE",
+          "type": "text"
+        },
+        {
+          "name": "CZAS",
+          "type": "text"
+        },
+        {
+          "name": "AUTOR",
+          "type": "text"
+        },
+        {
+          "name": "UWAGI",
+          "type": "multiline"
+        }
       ],
       "widgety": {
-        "ID_RODZICA": { "typ": "Hidden" },
+        "ID_RODZICA": {
+          "typ": "Hidden"
+        },
         "SCIEZKA": {
           "typ": "ExternalResource",
           "opcje": {
@@ -169,12 +309,27 @@
         },
         "TYP": {
           "typ": "ValueMap",
-          "opcje": { "map": [{ "zdjęcie": "foto" }, { "szkic": "szkic" }, { "audio": "audio" }, { "notatka": "notatka" }] }
+          "opcje": {
+            "map": [
+              {
+                "zdjęcie": "foto"
+              },
+              {
+                "szkic": "szkic"
+              },
+              {
+                "audio": "audio"
+              },
+              {
+                "notatka": "notatka"
+              }
+            ]
+          }
         }
       },
       "domyslne": {
         "TYP": "'foto'",
-        "CZAS": "now()"
+        "CZAS": "format_date(now(),'yyyy-MM-dd HH:mm:ss')"
       },
       "wlasciwosci": {
         "QFieldSync/attachment_naming": "{\"SCIEZKA\": \"'DCIM/platy_' || coalesce(@rodzic_fid, 'x') || '/platy_' || coalesce(@rodzic_fid, 'x') || '_' || format_date(now(), 'yyyyMMdd_HHmmss_zzz') || '.jpg'\"}"
@@ -186,22 +341,54 @@
       "grupa": "Załączniki",
       "widoczna": false,
       "pola": [
-        { "name": "ID_RODZICA", "type": "integer" },
-        { "name": "TYP", "type": "text" },
-        { "name": "SCIEZKA", "type": "text" },
-        { "name": "UJECIE", "type": "integer" },
-        { "name": "CZAS", "type": "datetime" },
-        { "name": "AUTOR", "type": "text" },
-        { "name": "UWAGI", "type": "multiline" }
+        {
+          "name": "ID_RODZICA",
+          "type": "integer"
+        },
+        {
+          "name": "TYP",
+          "type": "text"
+        },
+        {
+          "name": "SCIEZKA",
+          "type": "text"
+        },
+        {
+          "name": "UJECIE",
+          "type": "text"
+        },
+        {
+          "name": "CZAS",
+          "type": "text"
+        },
+        {
+          "name": "AUTOR",
+          "type": "text"
+        },
+        {
+          "name": "UWAGI",
+          "type": "multiline"
+        }
       ],
       "widgety": {
-        "ID_RODZICA": { "typ": "Hidden" },
+        "ID_RODZICA": {
+          "typ": "Hidden"
+        },
         "SCIEZKA": {
           "typ": "ExternalResource",
-          "opcje": { "RelativeStorage": 1, "DocumentViewer": 1, "StorageMode": 0, "FileWidget": true, "FileWidgetButton": true }
+          "opcje": {
+            "RelativeStorage": 1,
+            "DocumentViewer": 1,
+            "StorageMode": 0,
+            "FileWidget": true,
+            "FileWidgetButton": true
+          }
         }
       },
-      "domyslne": { "TYP": "'foto'", "CZAS": "now()" }
+      "domyslne": {
+        "TYP": "'foto'",
+        "CZAS": "format_date(now(),'yyyy-MM-dd HH:mm:ss')"
+      }
     },
     {
       "nazwa": "ZAL_GATUNKI",
@@ -209,25 +396,56 @@
       "grupa": "Załączniki",
       "widoczna": false,
       "pola": [
-        { "name": "ID_RODZICA", "type": "integer" },
-        { "name": "TYP", "type": "text" },
-        { "name": "SCIEZKA", "type": "text" },
-        { "name": "UJECIE", "type": "integer" },
-        { "name": "CZAS", "type": "datetime" },
-        { "name": "AUTOR", "type": "text" },
-        { "name": "UWAGI", "type": "multiline" }
+        {
+          "name": "ID_RODZICA",
+          "type": "integer"
+        },
+        {
+          "name": "TYP",
+          "type": "text"
+        },
+        {
+          "name": "SCIEZKA",
+          "type": "text"
+        },
+        {
+          "name": "UJECIE",
+          "type": "text"
+        },
+        {
+          "name": "CZAS",
+          "type": "text"
+        },
+        {
+          "name": "AUTOR",
+          "type": "text"
+        },
+        {
+          "name": "UWAGI",
+          "type": "multiline"
+        }
       ],
       "widgety": {
-        "ID_RODZICA": { "typ": "Hidden" },
+        "ID_RODZICA": {
+          "typ": "Hidden"
+        },
         "SCIEZKA": {
           "typ": "ExternalResource",
-          "opcje": { "RelativeStorage": 1, "DocumentViewer": 1, "StorageMode": 0, "FileWidget": true, "FileWidgetButton": true }
+          "opcje": {
+            "RelativeStorage": 1,
+            "DocumentViewer": 1,
+            "StorageMode": 0,
+            "FileWidget": true,
+            "FileWidgetButton": true
+          }
         }
       },
-      "domyslne": { "TYP": "'foto'", "CZAS": "now()" }
+      "domyslne": {
+        "TYP": "'foto'",
+        "CZAS": "format_date(now(),'yyyy-MM-dd HH:mm:ss')"
+      }
     }
   ],
-
   "relacje": [
     {
       "id": "zal_platy_rel",
@@ -257,7 +475,6 @@
       "kompozycja": true
     }
   ],
-
   "projekt": {
     "przyciaganie": {
       "wlaczone": true,
@@ -269,7 +486,9 @@
     },
     "unikajNakladania": {
       "tryb": 2,
-      "warstwy": ["platy"]
+      "warstwy": [
+        "platy"
+      ]
     },
     "wlasciwosci": {
       "qfieldsync": {
@@ -281,27 +500,65 @@
       "wf_przepis_wersja": 1
     }
   },
-
   "pliki": [
     {
       "nazwa": "workfield_klawisze.json",
       "tresc": {
-        "odleglosci": [25, 50, 100, 200],
+        "odleglosci": [
+          25,
+          50,
+          100,
+          200
+        ],
         "klawisze": [
-          { "etykieta": "P", "warstwa": "platy", "kolor": "#2E7D32", "zdjecie": true },
-          { "etykieta": "Z", "warstwa": "zdjecia_fito", "kolor": "#00897B", "zdjecie": true },
-          { "etykieta": "G", "warstwa": "gatunki", "kolor": "#F9A825", "zdjecie": true },
-          { "etykieta": "T", "warstwa": "tyczenie", "kolor": "#546E7A", "zdjecie": false }
+          {
+            "etykieta": "P",
+            "warstwa": "platy",
+            "kolor": "#2E7D32",
+            "zdjecie": true
+          },
+          {
+            "etykieta": "Z",
+            "warstwa": "zdjecia_fito",
+            "kolor": "#00897B",
+            "zdjecie": true
+          },
+          {
+            "etykieta": "G",
+            "warstwa": "gatunki",
+            "kolor": "#F9A825",
+            "zdjecie": true
+          },
+          {
+            "etykieta": "T",
+            "warstwa": "tyczenie",
+            "kolor": "#546E7A",
+            "zdjecie": false
+          }
         ]
       }
     }
   ],
-
   "wyposazenie": [
-    { "modul": "przyciaganie", "wersja": 1 },
-    { "modul": "bez_nakladania", "wersja": 1 },
-    { "modul": "klawisze", "wersja": 1 },
-    { "modul": "tyczenie", "wersja": 1 },
-    { "modul": "zalaczniki", "wersja": 1 }
+    {
+      "modul": "przyciaganie",
+      "wersja": 1
+    },
+    {
+      "modul": "bez_nakladania",
+      "wersja": 1
+    },
+    {
+      "modul": "klawisze",
+      "wersja": 1
+    },
+    {
+      "modul": "tyczenie",
+      "wersja": 1
+    },
+    {
+      "modul": "zalaczniki",
+      "wersja": 1
+    }
   ]
 }
