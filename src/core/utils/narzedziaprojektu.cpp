@@ -16,6 +16,7 @@
 #include <qgscoordinatereferencesystem.h>
 #include <qgsprojectmetadata.h>
 
+#include <qgsabstractgeometry.h>
 #include <qgsattributeeditorcontainer.h>
 #include <qgsattributeeditorfield.h>
 #include <qgsattributeeditorrelation.h>
@@ -24,6 +25,7 @@
 #include <qgseditorwidgetsetup.h>
 #include <qgsexpressioncontextutils.h>
 #include <qgsfieldconstraints.h>
+#include <qgsgeometry.h>
 #include <qgslayertree.h>
 #include <qgslayertreegroup.h>
 #include <qgsrelation.h>
@@ -976,4 +978,291 @@ bool NarzedziaProjektu::zapiszTekst( const QString &sciezka, const QString &tres
   const bool ok = plik.write( tresc.toUtf8() ) >= 0;
   plik.close();
   return ok;
+}
+
+// ------------------------------------------------------------------ geometria
+
+QVariantMap NarzedziaProjektu::sprawdzGeometrie( QgsVectorLayer *warstwa, QgsFeatureId fid ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+  wynik.insert( QStringLiteral( "wazna" ), false );
+  wynik.insert( QStringLiteral( "wieloczesciowa" ), false );
+  wynik.insert( QStringLiteral( "czesci" ), 0 );
+  wynik.insert( QStringLiteral( "bledy" ), QVariantList() );
+  wynik.insert( QStringLiteral( "opis" ), QString() );
+
+  if ( !warstwa )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Brak warstwy." ) );
+    return wynik;
+  }
+
+  const QgsFeature obiekt = warstwa->getFeature( fid );
+  const QgsGeometry geom = obiekt.geometry();
+  if ( geom.isNull() || geom.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Obiekt nie ma geometrii." ) );
+    return wynik;
+  }
+
+  const bool wazna = geom.isGeosValid();
+  const bool wielo = geom.isMultipart();
+  const int czesci = geom.constGet() ? geom.constGet()->partCount() : 0;
+
+  QVector<QgsGeometry::Error> bledy;
+  geom.validateGeometry( bledy, Qgis::GeometryValidationEngine::QgisInternal );
+
+  QVariantList listaBledow;
+  for ( int i = 0; i < bledy.size(); ++i )
+  {
+    const QgsGeometry::Error &blad = bledy.at( i );
+    QVariantMap m;
+    m.insert( QStringLiteral( "opis" ), blad.what() );
+    m.insert( QStringLiteral( "maMiejsce" ), blad.hasWhere() );
+    if ( blad.hasWhere() )
+    {
+      m.insert( QStringLiteral( "x" ), blad.where().x() );
+      m.insert( QStringLiteral( "y" ), blad.where().y() );
+    }
+    listaBledow << m;
+  }
+
+  QString opis;
+  if ( wazna && !wielo )
+    opis = tr( "Geometria poprawna." );
+  else if ( wazna && wielo )
+    opis = tr( "Geometria poprawna, ale obiekt ma %1 części." ).arg( czesci );
+  else if ( !bledy.isEmpty() )
+    opis = tr( "Geometria niepoprawna: %1" ).arg( bledy.at( 0 ).what() );
+  else
+    opis = tr( "Geometria niepoprawna." );
+
+  wynik.insert( QStringLiteral( "ok" ), true );
+  wynik.insert( QStringLiteral( "wazna" ), wazna );
+  wynik.insert( QStringLiteral( "wieloczesciowa" ), wielo );
+  wynik.insert( QStringLiteral( "czesci" ), czesci );
+  wynik.insert( QStringLiteral( "bledy" ), listaBledow );
+  wynik.insert( QStringLiteral( "opis" ), opis );
+  return wynik;
+}
+
+QVariantMap NarzedziaProjektu::naprawGeometrie( QgsVectorLayer *warstwa, QgsFeatureId fid, bool zapisz ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+  wynik.insert( QStringLiteral( "bylaWazna" ), false );
+  wynik.insert( QStringLiteral( "czesciPrzed" ), 0 );
+  wynik.insert( QStringLiteral( "czesciPo" ), 0 );
+  wynik.insert( QStringLiteral( "wymagaPodzialu" ), false );
+  wynik.insert( QStringLiteral( "opis" ), QString() );
+
+  if ( !warstwa )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Brak warstwy." ) );
+    return wynik;
+  }
+
+  const QgsFeature obiekt = warstwa->getFeature( fid );
+  const QgsGeometry geom = obiekt.geometry();
+  if ( geom.isNull() || geom.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Obiekt nie ma geometrii." ) );
+    return wynik;
+  }
+
+  const int czesciPrzed = geom.constGet() ? geom.constGet()->partCount() : 0;
+  wynik.insert( QStringLiteral( "czesciPrzed" ), czesciPrzed );
+
+  if ( geom.isGeosValid() )
+  {
+    wynik.insert( QStringLiteral( "ok" ), true );
+    wynik.insert( QStringLiteral( "bylaWazna" ), true );
+    wynik.insert( QStringLiteral( "czesciPo" ), czesciPrzed );
+    wynik.insert( QStringLiteral( "opis" ), tr( "Geometria była poprawna — nic nie zmieniono." ) );
+    return wynik;
+  }
+
+  const QgsGeometry naprawiona = geom.makeValid();
+  if ( naprawiona.isNull() || naprawiona.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Nie udało się naprawić geometrii." ) );
+    return wynik;
+  }
+
+  // Czy warstwa w ogole przyjmie taki ksztalt? coerceToType tnie wynik na
+  // tyle geometrii, ile potrzeba, zeby zmiescic go w typie warstwy.
+  const QVector<QgsGeometry> dopasowane = naprawiona.coerceToType( warstwa->wkbType() );
+  if ( dopasowane.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Naprawiona geometria nie pasuje do typu warstwy." ) );
+    return wynik;
+  }
+
+  if ( dopasowane.size() > 1 )
+  {
+    // Swiadomie nie zapisujemy: to zmiana LICZBY obiektow, nie ksztaltu.
+    wynik.insert( QStringLiteral( "wymagaPodzialu" ), true );
+    wynik.insert( QStringLiteral( "czesciPo" ), dopasowane.size() );
+    wynik.insert( QStringLiteral( "opis" ),
+                  tr( "Naprawa rozdziela obiekt na %1 osobne obiekty, a warstwa przyjmuje pojedyncze. "
+                      "Popraw wierzchołki ręcznie albo rozdziel obiekt świadomie." )
+                    .arg( dopasowane.size() ) );
+    return wynik;
+  }
+
+  QgsGeometry docelowa = dopasowane.at( 0 );
+  const int czesciPo = docelowa.constGet() ? docelowa.constGet()->partCount() : 0;
+  wynik.insert( QStringLiteral( "czesciPo" ), czesciPo );
+
+  if ( !zapisz )
+  {
+    wynik.insert( QStringLiteral( "ok" ), true );
+    wynik.insert( QStringLiteral( "opis" ), czesciPo > czesciPrzed
+                                              ? tr( "Naprawa da obiekt z %1 częściami." ).arg( czesciPo )
+                                              : tr( "Naprawa da poprawną geometrię." ) );
+    return wynik;
+  }
+
+  // Cudzej sesji edycji nie zamykamy — piszemy do jej bufora.
+  const bool bylaEdycja = warstwa->isEditable();
+  if ( !bylaEdycja && !warstwa->startEditing() )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Nie udało się otworzyć warstwy do edycji." ) );
+    return wynik;
+  }
+
+  warstwa->changeGeometry( fid, docelowa );
+
+  if ( !bylaEdycja && !warstwa->commitChanges() )
+  {
+    warstwa->rollBack();
+    wynik.insert( QStringLiteral( "opis" ), tr( "Zapis naprawionej geometrii nie powiódł się." ) );
+    return wynik;
+  }
+
+  // Stan sprawdzamy PO fakcie, nie z wartosci zwracanej.
+  const QgsGeometry poZapisie = warstwa->getFeature( fid ).geometry();
+  const bool udalo = !poZapisie.isNull() && poZapisie.isGeosValid();
+
+  wynik.insert( QStringLiteral( "ok" ), udalo );
+  wynik.insert( QStringLiteral( "opis" ), udalo
+                                            ? ( czesciPo > czesciPrzed
+                                                  ? tr( "Naprawiono — obiekt ma teraz %1 części." ).arg( czesciPo )
+                                                  : tr( "Naprawiono." ) )
+                                            : tr( "Po zapisie geometria nadal jest niepoprawna." ) );
+  return wynik;
+}
+
+QVariantMap NarzedziaProjektu::polaczObiekty( QgsVectorLayer *warstwa, const QVariantList &fidy, bool zapisz ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+  wynik.insert( QStringLiteral( "fid" ), static_cast<qlonglong>( -1 ) );
+  wynik.insert( QStringLiteral( "zlaczono" ), 0 );
+  wynik.insert( QStringLiteral( "czesci" ), 0 );
+  wynik.insert( QStringLiteral( "opis" ), QString() );
+
+  if ( !warstwa )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Brak warstwy." ) );
+    return wynik;
+  }
+
+  if ( fidy.size() < 2 )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Do złączenia potrzebne są co najmniej dwa obiekty." ) );
+    return wynik;
+  }
+
+  QList<QgsFeatureId> lista;
+  for ( int i = 0; i < fidy.size(); ++i )
+  {
+    const QgsFeatureId f = static_cast<QgsFeatureId>( fidy.at( i ).toLongLong() );
+    if ( !lista.contains( f ) )
+      lista << f;
+  }
+
+  QgsGeometry suma;
+  for ( int i = 0; i < lista.size(); ++i )
+  {
+    const QgsGeometry g = warstwa->getFeature( lista.at( i ) ).geometry();
+    if ( g.isNull() || g.isEmpty() )
+      continue;
+
+    // Niepoprawne skladniki psuja wynik combine — prostujemy je po drodze.
+    const QgsGeometry skladnik = g.isGeosValid() ? g : g.makeValid();
+    if ( skladnik.isNull() || skladnik.isEmpty() )
+      continue;
+
+    suma = suma.isNull() ? skladnik : suma.combine( skladnik );
+    if ( suma.isNull() )
+    {
+      wynik.insert( QStringLiteral( "opis" ), tr( "Nie udało się złączyć geometrii." ) );
+      return wynik;
+    }
+  }
+
+  if ( suma.isNull() || suma.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Wskazane obiekty nie mają geometrii." ) );
+    return wynik;
+  }
+
+  const QVector<QgsGeometry> dopasowane = suma.coerceToType( warstwa->wkbType() );
+  if ( dopasowane.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Wynik złączenia nie pasuje do typu warstwy." ) );
+    return wynik;
+  }
+
+  if ( dopasowane.size() > 1 )
+  {
+    wynik.insert( QStringLiteral( "czesci" ), dopasowane.size() );
+    wynik.insert( QStringLiteral( "opis" ),
+                  tr( "Obiekty nie stykają się — złączenie dałoby %1 osobnych obiektów, "
+                      "a warstwa przyjmuje pojedyncze." )
+                    .arg( dopasowane.size() ) );
+    return wynik;
+  }
+
+  QgsGeometry docelowa = dopasowane.at( 0 );
+  const QgsFeatureId zostaje = lista.at( 0 );
+  wynik.insert( QStringLiteral( "fid" ), static_cast<qlonglong>( zostaje ) );
+  wynik.insert( QStringLiteral( "zlaczono" ), lista.size() );
+  wynik.insert( QStringLiteral( "czesci" ), docelowa.constGet() ? docelowa.constGet()->partCount() : 0 );
+
+  if ( !zapisz )
+  {
+    wynik.insert( QStringLiteral( "ok" ), true );
+    wynik.insert( QStringLiteral( "opis" ), tr( "Złączenie %1 obiektów jest możliwe." ).arg( lista.size() ) );
+    return wynik;
+  }
+
+  const bool bylaEdycja = warstwa->isEditable();
+  if ( !bylaEdycja && !warstwa->startEditing() )
+  {
+    wynik.insert( QStringLiteral( "opis" ), tr( "Nie udało się otworzyć warstwy do edycji." ) );
+    return wynik;
+  }
+
+  warstwa->changeGeometry( zostaje, docelowa );
+  for ( int i = 1; i < lista.size(); ++i )
+    warstwa->deleteFeature( lista.at( i ) );
+
+  if ( !bylaEdycja && !warstwa->commitChanges() )
+  {
+    warstwa->rollBack();
+    wynik.insert( QStringLiteral( "opis" ), tr( "Zapis złączenia nie powiódł się." ) );
+    return wynik;
+  }
+
+  const QgsGeometry poZapisie = warstwa->getFeature( zostaje ).geometry();
+  const bool udalo = !poZapisie.isNull() && !poZapisie.isEmpty();
+
+  wynik.insert( QStringLiteral( "ok" ), udalo );
+  wynik.insert( QStringLiteral( "opis" ), udalo
+                                            ? tr( "Złączono %1 obiektów w jeden." ).arg( lista.size() )
+                                            : tr( "Po zapisie obiekt nie ma geometrii." ) );
+  return wynik;
 }

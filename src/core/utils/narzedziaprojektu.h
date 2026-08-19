@@ -190,6 +190,52 @@ class NarzedziaProjektu : public QObject
      */
     Q_INVOKABLE int dosypTabele( const QString &zrodloGpkg, const QString &celGpkg, const QStringList &tabele ) const;
 
+    // -------------------------------------------------------------- geometria
+
+    /**
+     * Diagnoza geometrii obiektu. Zwraca mape:
+     *   ok              bool   udalo sie sprawdzic (obiekt istnieje, ma geometrie)
+     *   wazna           bool   geometria poprawna wg GEOS
+     *   wieloczesciowa  bool
+     *   czesci          int
+     *   bledy           lista map { opis, maMiejsce, x, y }
+     *   opis            QString  zdanie do pokazania czlowiekowi
+     *
+     * Miejsce bledu (x, y w ukladzie warstwy) jest tu najwazniejsze:
+     * pozwala pokazac, GDZIE geometria sie przecina, zamiast informowac,
+     * ze cos jest nie tak. Osemki na malym ekranie nie widac.
+     */
+    Q_INVOKABLE QVariantMap sprawdzGeometrie( QgsVectorLayer *warstwa, QgsFeatureId fid ) const;
+
+    /**
+     * Naprawa geometrii obiektu (makeValid). Zwraca mape:
+     *   ok             bool   naprawiono i zapisano
+     *   bylaWazna      bool   nie bylo czego naprawiac
+     *   czesciPrzed    int
+     *   czesciPo       int
+     *   wymagaPodzialu bool   naprawa daje wiecej czesci, niz warstwa przyjmie
+     *   opis           QString
+     *
+     * \a zapisz = false liczy skutek bez dotykania danych — do pokazania
+     * w pytaniu "naprawic?" zanim czlowiek sie zgodzi.
+     */
+    Q_INVOKABLE QVariantMap naprawGeometrie( QgsVectorLayer *warstwa, QgsFeatureId fid, bool zapisz = true ) const;
+
+    /**
+     * Zlaczenie obiektow w jeden. Geometrie sumuje (combine), atrybuty
+     * zostaja z PIERWSZEGO fid na liscie, pozostale obiekty sa kasowane.
+     * Zwraca mape:
+     *   ok        bool
+     *   fid       QgsFeatureId  obiekt, ktory zostal
+     *   zlaczono  int           ile obiektow weszlo
+     *   czesci    int           ile czesci ma wynik
+     *   opis      QString
+     *
+     * Gdy obiekty sie nie stykaja, a warstwa jest jednoczesciowa —
+     * nie zapisujemy nic i mowimy dlaczego.
+     */
+    Q_INVOKABLE QVariantMap polaczObiekty( QgsVectorLayer *warstwa, const QVariantList &fidy, bool zapisz = true ) const;
+
     // ---------------------------------------------------------------- stempel
 
     /**
