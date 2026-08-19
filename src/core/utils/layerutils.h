@@ -306,6 +306,32 @@ class LayerUtils : public QObject
      * with "index", "label", "color" and "visible" keys.
      */
     //! Nazwy ramp kolorow z biblioteki QGIS-a (Turbo, Viridis, Spectral...).
+    /**
+     * Dokłada znacznik w środku każdego poligonu, kolorowany wartością pola
+     * \a fieldName (NIE / CZĘŚCIOWO / KOMPLET). Wypełnienie warstwy zostaje
+     * nietknięte, więc stan jest widoczny RAZEM z kategorią, nie zamiast niej.
+     */
+    static Q_INVOKABLE bool addStatusMarker( QgsVectorLayer *layer, const QString &fieldName );
+
+    /**
+     * Dokłada znaczniki na wierzchołkach geometrii (poligony i linie).
+     * Pokazuje, gdzie naprawdę siedzą wierzchołki — przypadkowe samoprzecięcie
+     * przestaje być niewidzialne.
+     */
+    static Q_INVOKABLE bool addVertexMarkers( QgsVectorLayer *layer, const QColor &color = QColor( 255, 255, 255 ), double size = 1.6 );
+
+    //! Stan znaczników wierzchołka: { present, color, size, shape }.
+    static Q_INVOKABLE QVariantMap vertexMarkerConfig( QgsVectorLayer *layer );
+
+    /**
+     * Zmienia wygląd ISTNIEJĄCYCH znaczników wierzchołka. Nie zakłada ich,
+     * gdy ich nie ma — od tego jest addVertexMarkers().
+     */
+    static Q_INVOKABLE bool setVertexMarker( QgsVectorLayer *layer, const QColor &color, double size, const QString &shape );
+
+    //! Zdejmuje dołożone warstwy symbolu, zostawiając pierwszą (podstawową).
+    static Q_INVOKABLE bool removeExtraSymbolLayers( QgsVectorLayer *layer );
+
     static Q_INVOKABLE QVariantList colorRampNames();
 
     //! \a count kolorow rozlozonych rowno na rampie — do paska podgladu w QML.

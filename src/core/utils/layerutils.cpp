@@ -36,6 +36,8 @@
 #include <qgsclassificationquantile.h>
 #include <QRandomGenerator>
 #include <cmath>
+#include <qgsproperty.h>
+#include <qgsrendercontext.h>
 #include <qgscolorramp.h>
 #include <qgsstyle.h>
 #include <qgsgraduatedsymbolrenderer.h>
@@ -1335,6 +1337,260 @@ namespace
 
     return false;
   }
+}
+
+namespace
+{
+  /**
+   * Wszystkie symbole renderera — jeden dla symbolu pojedynczego, po jednym
+   * na kategorię przy kategoriach. Dzięki temu znacznik stanu dokłada się
+   * RAZEM z kolorowaniem kategorii, a nie zamiast niego.
+   */
+  QgsSymbolList symbolsOf( QgsVectorLayer *layer )
+  {
+    if ( !layer || !layer->renderer() )
+      return QgsSymbolList();
+
+    QgsRenderContext context;
+    return layer->renderer()->symbols( context );
+  }
+
+  void repaintStyle( QgsVectorLayer *layer )
+  {
+    layer->triggerRepaint();
+    emit layer->styleChanged();
+  }
+}
+
+bool LayerUtils::addStatusMarker( QgsVectorLayer *layer, const QString &fieldName )
+{
+  if ( !layer || fieldName.isEmpty() )
+    return false;
+
+  if ( layer->geometryType() != Qgis::GeometryType::Polygon )
+    return false;
+
+  if ( layer->fields().lookupField( fieldName ) < 0 )
+    return false;
+
+  const QgsSymbolList symbols = symbolsOf( layer );
+  if ( symbols.isEmpty() )
+    return false;
+
+  // Kolor z wartości pola. Wszystko, co nie jest znanym stanem — także pusta
+  // wartość — czyta się jako "nie zrobione": brak informacji to nie to samo
+  // co informacja o gotowości.
+  const QString expression = QStringLiteral(
+                               "CASE WHEN \"%1\" = 'KOMPLET' THEN '#66bb6a' "
+                               "WHEN \"%1\" = 'CZĘŚCIOWO' THEN '#ffa726' "
+                               "ELSE '#ef5350' END" )
+                               .arg( fieldName );
+
+  for ( QgsSymbol *symbol : symbols )
+  {
+    if ( !symbol || symbol->type() != Qgis::SymbolType::Fill )
+      continue;
+
+    std::unique_ptr<QgsSimpleMarkerSymbolLayer> marker(
+      new QgsSimpleMarkerSymbolLayer( Qgis::MarkerShape::Circle, 3.6 ) );
+    marker->setColor( QColor( 239, 83, 80 ) );
+    marker->setStrokeColor( QColor( 255, 255, 255 ) );
+    marker->setStrokeWidth( 0.4 );
+    marker->setDataDefinedProperty( QgsSymbolLayer::Property::FillColor,
+                                    QgsProperty::fromExpression( expression ) );
+
+    QgsSymbolLayerList lista;
+    lista << marker.release();
+    std::unique_ptr<QgsMarkerSymbol> markerSymbol( new QgsMarkerSymbol( lista ) );
+
+    std::unique_ptr<QgsCentroidFillSymbolLayer> centroid( new QgsCentroidFillSymbolLayer() );
+    // Centroid geometryczny płatu w kształcie litery C wypada POZA płatem.
+    // Punkt na powierzchni zawsze jest w środku — znacznik obok obiektu,
+    // do którego należy, byłby gorszy niż brak znacznika.
+    centroid->setPointOnSurface( true );
+    centroid->setPointOnAllParts( false );
+    centroid->setSubSymbol( markerSymbol.release() );
+
+    symbol->appendSymbolLayer( centroid.release() );
+  }
+
+  repaintStyle( layer );
+  return true;
+}
+
+bool LayerUtils::addVertexMarkers( QgsVectorLayer *layer, const QColor &color, double size )
+{
+  if ( !layer )
+    return false;
+
+  const Qgis::GeometryType type = layer->geometryType();
+  if ( type != Qgis::GeometryType::Polygon && type != Qgis::GeometryType::Line )
+    return false;
+
+  const QgsSymbolList symbols = symbolsOf( layer );
+  if ( symbols.isEmpty() )
+    return false;
+
+  for ( QgsSymbol *symbol : symbols )
+  {
+    if ( !symbol )
+      continue;
+
+    std::unique_ptr<QgsSimpleMarkerSymbolLayer> marker(
+      new QgsSimpleMarkerSymbolLayer( Qgis::MarkerShape::Square, size ) );
+    marker->setColor( color );
+    marker->setStrokeColor( QColor( 0, 0, 0 ) );
+    marker->setStrokeWidth( 0.2 );
+
+    QgsSymbolLayerList lista;
+    lista << marker.release();
+    std::unique_ptr<QgsMarkerSymbol> markerSymbol( new QgsMarkerSymbol( lista ) );
+
+    std::unique_ptr<QgsMarkerLineSymbolLayer> linia( new QgsMarkerLineSymbolLayer() );
+    linia->setPlacements( Qgis::MarkerLinePlacement::Vertex );
+    linia->setSubSymbol( markerSymbol.release() );
+
+    symbol->appendSymbolLayer( linia.release() );
+  }
+
+  repaintStyle( layer );
+  return true;
+}
+
+namespace
+{
+  Qgis::MarkerShape shapeFromName( const QString &name )
+  {
+    if ( name == QLatin1String( "square" ) )
+      return Qgis::MarkerShape::Square;
+    if ( name == QLatin1String( "diamond" ) )
+      return Qgis::MarkerShape::Diamond;
+    if ( name == QLatin1String( "triangle" ) )
+      return Qgis::MarkerShape::Triangle;
+    if ( name == QLatin1String( "cross" ) )
+      return Qgis::MarkerShape::Cross2;
+    return Qgis::MarkerShape::Circle;
+  }
+
+  QString nameFromShape( Qgis::MarkerShape shape )
+  {
+    switch ( shape )
+    {
+      case Qgis::MarkerShape::Square:
+        return QStringLiteral( "square" );
+      case Qgis::MarkerShape::Diamond:
+        return QStringLiteral( "diamond" );
+      case Qgis::MarkerShape::Triangle:
+        return QStringLiteral( "triangle" );
+      case Qgis::MarkerShape::Cross2:
+        return QStringLiteral( "cross" );
+      default:
+        return QStringLiteral( "circle" );
+    }
+  }
+
+  //! Znacznik siedzący w warstwie MarkerLine — jedna droga dla odczytu i zapisu.
+  QgsSimpleMarkerSymbolLayer *vertexMarkerOf( QgsSymbol *symbol )
+  {
+    if ( !symbol )
+      return nullptr;
+
+    for ( int i = 0; i < symbol->symbolLayerCount(); ++i )
+    {
+      QgsMarkerLineSymbolLayer *linia = dynamic_cast<QgsMarkerLineSymbolLayer *>( symbol->symbolLayer( i ) );
+      if ( !linia || !linia->subSymbol() )
+        continue;
+
+      QgsSymbol *pod = linia->subSymbol();
+      if ( pod->symbolLayerCount() < 1 )
+        continue;
+
+      if ( QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( pod->symbolLayer( 0 ) ) )
+        return marker;
+    }
+    return nullptr;
+  }
+}
+
+QVariantMap LayerUtils::vertexMarkerConfig( QgsVectorLayer *layer )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "present" ), false );
+  result.insert( QStringLiteral( "color" ), QColor( 255, 255, 255 ) );
+  result.insert( QStringLiteral( "size" ), 1.6 );
+  result.insert( QStringLiteral( "shape" ), QStringLiteral( "square" ) );
+
+  const QgsSymbolList symbols = symbolsOf( layer );
+  for ( QgsSymbol *symbol : symbols )
+  {
+    QgsSimpleMarkerSymbolLayer *marker = vertexMarkerOf( symbol );
+    if ( !marker )
+      continue;
+
+    result.insert( QStringLiteral( "present" ), true );
+    result.insert( QStringLiteral( "color" ), marker->fillColor() );
+    result.insert( QStringLiteral( "size" ), marker->size() );
+    result.insert( QStringLiteral( "shape" ), nameFromShape( marker->shape() ) );
+    break;
+  }
+  return result;
+}
+
+bool LayerUtils::setVertexMarker( QgsVectorLayer *layer, const QColor &color, double size, const QString &shape )
+{
+  const QgsSymbolList symbols = symbolsOf( layer );
+  if ( symbols.isEmpty() )
+    return false;
+
+  bool zmienione = false;
+  for ( QgsSymbol *symbol : symbols )
+  {
+    QgsSimpleMarkerSymbolLayer *marker = vertexMarkerOf( symbol );
+    if ( !marker )
+      continue;
+
+    if ( color.isValid() )
+    {
+      marker->setColor( color );
+      marker->setFillColor( color );
+    }
+    if ( size > 0 )
+      marker->setSize( size );
+    if ( !shape.isEmpty() )
+      marker->setShape( shapeFromName( shape ) );
+
+    zmienione = true;
+  }
+
+  if ( zmienione )
+  {
+    layer->triggerRepaint();
+    emit layer->styleChanged();
+  }
+  return zmienione;
+}
+
+bool LayerUtils::removeExtraSymbolLayers( QgsVectorLayer *layer )
+{
+  const QgsSymbolList symbols = symbolsOf( layer );
+  if ( symbols.isEmpty() )
+    return false;
+
+  bool zdjete = false;
+  for ( QgsSymbol *symbol : symbols )
+  {
+    if ( !symbol )
+      continue;
+    while ( symbol->symbolLayerCount() > 1 )
+    {
+      symbol->deleteSymbolLayer( symbol->symbolLayerCount() - 1 );
+      zdjete = true;
+    }
+  }
+
+  if ( zdjete )
+    repaintStyle( layer );
+  return zdjete;
 }
 
 QVariantList LayerUtils::colorRampNames()

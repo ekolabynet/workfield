@@ -79,6 +79,13 @@ QfPopup {
   property int pendingClassCount: 5
   //! WorkField: rampa uzywana przy zakladaniu i przemalowywaniu klasyfikacji
   property string pendingRamp: "Turbo"
+  //! WorkField: stan znaczników wierzchołka, odświeżany po każdej zmianie.
+  property var vertexCfg: ({
+      "present": false,
+      "color": "#ffffff",
+      "size": 1.6,
+      "shape": "square"
+    })
 
   parent: mainWindow.contentItem
   width: Math.min(childrenRect.width, mainWindow.width - Theme.popupScreenEdgeHorizontalMargin)
@@ -549,6 +556,156 @@ QfPopup {
                   projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
                 }
               }
+            }
+          }
+
+          // WorkField 19.08.2026: warstwy symbolu. Znacznik stanu i wierzchołki
+          // to jeden byt w dwóch wariantach — dokładane DO symbolu warstwy,
+          // więc kolorowanie kategorii zostaje nietknięte.
+          ColumnLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            Layout.topMargin: 6
+            spacing: 4
+            visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer) ? true : false
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Znaczniki")
+              font: Theme.strongTipFont
+              color: Theme.mainTextColor
+            }
+
+            Flow {
+              Layout.fillWidth: true
+              spacing: 6
+
+              QfButton {
+                text: qsTr("Stan w środku")
+                font.pointSize: Theme.tinyFont.pointSize
+                bgcolor: Theme.controlBackgroundAlternateColor
+                color: Theme.mainTextColor
+                onClicked: {
+                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  if (!vl)
+                    return;
+                  if (LayerUtils.addStatusMarker(vl, "ZROBIONE")) {
+                    projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                    displayToast(qsTr("Znacznik stanu dodany."));
+                  } else {
+                    // Uczciwie: najczęstsza przyczyna to brak pola, a nie awaria.
+                    displayToast(qsTr("Nie dodano — warstwa musi być poligonowa i mieć pole ZROBIONE."), 'warning');
+                  }
+                }
+              }
+
+              QfButton {
+                text: qsTr("Wierzchołki")
+                font.pointSize: Theme.tinyFont.pointSize
+                bgcolor: Theme.controlBackgroundAlternateColor
+                color: Theme.mainTextColor
+                onClicked: {
+                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  if (!vl)
+                    return;
+                  if (LayerUtils.addVertexMarkers(vl)) {
+                    vertexCfg = LayerUtils.vertexMarkerConfig(vl);
+                    projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                    displayToast(qsTr("Znaczniki wierzchołków dodane."));
+                  } else {
+                    displayToast(qsTr("Nie dodano — to działa na poligonach i liniach."), 'warning');
+                  }
+                }
+              }
+
+              QfButton {
+                text: qsTr("Zdejmij dodatki")
+                font.pointSize: Theme.tinyFont.pointSize
+                bgcolor: Theme.controlBackgroundAlternateColor
+                color: Theme.mainTextColor
+                onClicked: {
+                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  if (!vl)
+                    return;
+                  displayToast(LayerUtils.removeExtraSymbolLayers(vl)
+                               ? qsTr("Zdjęte.")
+                               : qsTr("Nie było czego zdejmować."));
+                  vertexCfg = LayerUtils.vertexMarkerConfig(vl);
+                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                }
+              }
+            }
+
+            // Regulacja wierzchołków — te same trzy pokrętła, co dla symbolu
+            // pojedynczego. Widoczne dopiero, gdy jest co regulować.
+            RowLayout {
+              Layout.fillWidth: true
+              Layout.topMargin: 2
+              spacing: 8
+              visible: vertexCfg.present
+
+              function zapisz(kolor, rozmiar, ksztalt) {
+                const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                if (!vl)
+                  return;
+                LayerUtils.setVertexMarker(vl, kolor, rozmiar, ksztalt);
+                vertexCfg = LayerUtils.vertexMarkerConfig(vl);
+                projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+              }
+
+              Rectangle {
+                width: 44
+                height: 30
+                radius: 4
+                color: vertexCfg.color
+                border.width: 1
+                border.color: Theme.controlBorderColor
+
+                MouseArea {
+                  anchors.fill: parent
+                  onClicked: openColorPicker(qsTr("Wierzchołki"), vertexCfg.color, function (chosen) {
+                    parent.parent.zapisz(chosen, vertexCfg.size, vertexCfg.shape);
+                  })
+                }
+              }
+
+              ComboBox {
+                Layout.preferredWidth: 116
+                font: Theme.defaultFont
+                model: [qsTr("kwadrat"), qsTr("kółko"), qsTr("romb"), qsTr("krzyżyk")]
+                readonly property var klucze: ["square", "circle", "diamond", "cross"]
+                currentIndex: Math.max(0, klucze.indexOf(vertexCfg.shape))
+                onActivated: parent.zapisz(vertexCfg.color, vertexCfg.size, klucze[currentIndex])
+              }
+
+              Slider {
+                Layout.fillWidth: true
+                from: 0.4
+                to: 5.0
+                stepSize: 0.2
+                value: vertexCfg.size
+                // dopiero po puszczeniu: przy każdym drgnięciu przebudowa
+                // symbolu na kilkuset wierzchołkach zamula płótno
+                onPressedChanged: {
+                  if (!pressed)
+                    parent.zapisz(vertexCfg.color, value, vertexCfg.shape);
+                }
+              }
+
+              Text {
+                text: vertexCfg.size.toFixed(1) + " mm"
+                font: Theme.tinyFont
+                color: Theme.secondaryTextColor
+              }
+            }
+
+            Text {
+              Layout.fillWidth: true
+              wrapMode: Text.WordWrap
+              font: Theme.tipFont
+              color: Theme.secondaryTextColor
+              text: qsTr("Znaczniki dokładają się do symbolu warstwy — kolory kategorii zostają. „Zdejmij dodatki” zostawia sam symbol podstawowy.")
             }
           }
 
