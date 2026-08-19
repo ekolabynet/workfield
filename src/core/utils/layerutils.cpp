@@ -34,6 +34,8 @@
 #include <qgsmarkersymbol.h>
 #include <qgscategorizedsymbolrenderer.h>
 #include <qgsclassificationquantile.h>
+#include <QRandomGenerator>
+#include <cmath>
 #include <qgscolorramp.h>
 #include <qgsstyle.h>
 #include <qgsgraduatedsymbolrenderer.h>
@@ -1207,6 +1209,210 @@ void LayerUtils::setSingleSymbolRenderer( QgsVectorLayer *layer )
   layer->setRenderer( new QgsSingleSymbolRenderer( symbol.release() ) );
   layer->triggerRepaint();
   emit layer->styleChanged();
+}
+
+namespace
+{
+  const QString RAMPA_ZLOTY_KAT = QStringLiteral( "Kontrast (złoty kąt)" );
+  const QString RAMPA_LOSOWA_KONTRAST = QStringLiteral( "Losowe (kontrast)" );
+  const QString RAMPA_LOSOWA = QStringLiteral( "Losowe" );
+
+  bool isSyntheticRamp( const QString &name )
+  {
+    return name == RAMPA_ZLOTY_KAT || name == RAMPA_LOSOWA_KONTRAST || name == RAMPA_LOSOWA;
+  }
+
+  //! Odleglosc barw — na tyle dobra, zeby odsiac "podobne", bez pretensji do CIE.
+  double colorDistance( const QColor &a, const QColor &b )
+  {
+    const double dr = a.redF() - b.redF();
+    const double dg = a.greenF() - b.greenF();
+    const double db = a.blueF() - b.blueF();
+    // oko jest najczulsze na zielen, najmniej na blekit
+    return 2.0 * dr * dr + 4.0 * dg * dg + 3.0 * db * db;
+  }
+
+  /**
+   * Kolory dla ramp syntetycznych.
+   *
+   * Zloty kat: barwa i-tej pozycji to i * 137,507 stopnia. Ta liczba ma
+   * wlasnosc, ktorej nie ma zaden podzial rowny — kolejne pozycje nigdy
+   * nie trafiaja blisko siebie, niezaleznie od tego, ile ich ostatecznie
+   * bedzie. Nasycenie i jasnosc krazy po czterech poziomach, zeby powtorka
+   * barwy po pelnym obrocie nie dala powtorki koloru.
+   *
+   * Losowe (kontrast): kazdy kolejny kolor to najlepszy z 24 kandydatow —
+   * najdalszy od trzech poprzednich. Stad "lokalny kontrast": sasiedzi
+   * w legendzie sa rozroznialni, a calosc nie uklada sie w gradient.
+   */
+  QList<QColor> syntheticRampColors( const QString &name, int count )
+  {
+    QList<QColor> colors;
+    if ( count < 1 )
+      return colors;
+
+    if ( name == RAMPA_ZLOTY_KAT )
+    {
+      static const double kat = 137.507764;
+      static const double nasycenie[4] = { 0.75, 0.55, 0.85, 0.65 };
+      static const double jasnosc[4] = { 0.90, 0.75, 0.65, 0.95 };
+      for ( int i = 0; i < count; ++i )
+      {
+        const double h = std::fmod( i * kat, 360.0 ) / 360.0;
+        colors << QColor::fromHsvF( h, nasycenie[i % 4], jasnosc[i % 4] );
+      }
+      return colors;
+    }
+
+    QRandomGenerator *rng = QRandomGenerator::global();
+    const bool kontrast = ( name == RAMPA_LOSOWA_KONTRAST );
+
+    for ( int i = 0; i < count; ++i )
+    {
+      if ( !kontrast )
+      {
+        colors << QColor::fromHsvF( rng->generateDouble(),
+                                    0.55 + rng->generateDouble() * 0.35,
+                                    0.65 + rng->generateDouble() * 0.30 );
+        continue;
+      }
+
+      QColor best;
+      double bestScore = -1.0;
+      for ( int proba = 0; proba < 24; ++proba )
+      {
+        const QColor kandydat = QColor::fromHsvF( rng->generateDouble(),
+                                                  0.55 + rng->generateDouble() * 0.35,
+                                                  0.65 + rng->generateDouble() * 0.30 );
+        double score = 10.0;
+        const int wstecz = colors.size() < 3 ? static_cast<int>( colors.size() ) : 3;
+        for ( int k = 1; k <= wstecz; ++k )
+          score = std::min( score, colorDistance( kandydat, colors.at( colors.size() - k ) ) );
+
+        if ( score > bestScore )
+        {
+          bestScore = score;
+          best = kandydat;
+        }
+      }
+      colors << best;
+    }
+    return colors;
+  }
+
+  //! Maluje istniejaca klasyfikacje lista kolorow, bez ruszania podzialu.
+  bool paintClassification( QgsVectorLayer *layer, const QString &name )
+  {
+    if ( QgsCategorizedSymbolRenderer *renderer = dynamic_cast<QgsCategorizedSymbolRenderer *>( layer->renderer() ) )
+    {
+      const int count = renderer->categories().size();
+      const QList<QColor> colors = syntheticRampColors( name, count );
+      for ( int i = 0; i < count && i < colors.size(); ++i )
+      {
+        if ( !renderer->categories().at( i ).symbol() )
+          continue;
+        std::unique_ptr<QgsSymbol> symbol( renderer->categories().at( i ).symbol()->clone() );
+        symbol->setColor( colors.at( i ) );
+        renderer->updateCategorySymbol( i, symbol.release() );
+      }
+      return true;
+    }
+
+    if ( QgsGraduatedSymbolRenderer *renderer = dynamic_cast<QgsGraduatedSymbolRenderer *>( layer->renderer() ) )
+    {
+      const int count = renderer->ranges().size();
+      const QList<QColor> colors = syntheticRampColors( name, count );
+      for ( int i = 0; i < count && i < colors.size(); ++i )
+      {
+        if ( !renderer->ranges().at( i ).symbol() )
+          continue;
+        std::unique_ptr<QgsSymbol> symbol( renderer->ranges().at( i ).symbol()->clone() );
+        symbol->setColor( colors.at( i ) );
+        renderer->updateRangeSymbol( i, symbol.release() );
+      }
+      return true;
+    }
+
+    return false;
+  }
+}
+
+QVariantList LayerUtils::colorRampNames()
+{
+  QVariantList result;
+
+  // Rampy syntetyczne na poczatku listy: dane jakosciowe (kategorie) potrzebuja
+  // kolorow ROZNYCH, a nie ulozonych w skale. Rampy ciagle robia z 84 kategorii
+  // gradient, w ktorym sasiadow nie da sie odroznic.
+  result.append( RAMPA_ZLOTY_KAT );
+  result.append( RAMPA_LOSOWA_KONTRAST );
+  result.append( RAMPA_LOSOWA );
+
+  QgsStyle *style = QgsStyle::defaultStyle();
+  if ( !style )
+    return result;
+
+  const QStringList names = style->colorRampNames();
+  for ( const QString &name : names )
+    result.append( name );
+  return result;
+}
+
+QVariantList LayerUtils::colorRampPreview( const QString &rampName, int count )
+{
+  QVariantList result;
+
+  if ( isSyntheticRamp( rampName ) )
+  {
+    const QList<QColor> colors = syntheticRampColors( rampName, count );
+    for ( int i = 0; i < colors.size(); ++i )
+      result.append( colors.at( i ) );
+    return result;
+  }
+
+  std::unique_ptr<QgsColorRamp> ramp( rampByName( rampName ) );
+  if ( !ramp || count < 2 )
+    return result;
+
+  for ( int i = 0; i < count; ++i )
+    result.append( ramp->color( static_cast<double>( i ) / ( count - 1 ) ) );
+  return result;
+}
+
+bool LayerUtils::applyColorRamp( QgsVectorLayer *layer, const QString &rampName )
+{
+  if ( !layer )
+    return false;
+
+  if ( isSyntheticRamp( rampName ) )
+  {
+    if ( !paintClassification( layer, rampName ) )
+      return false;
+    layer->triggerRepaint();
+    emit layer->styleChanged();
+    return true;
+  }
+
+  std::unique_ptr<QgsColorRamp> ramp( rampByName( rampName ) );
+  if ( !ramp )
+    return false;
+
+  if ( QgsCategorizedSymbolRenderer *renderer = dynamic_cast<QgsCategorizedSymbolRenderer *>( layer->renderer() ) )
+  {
+    renderer->updateColorRamp( ramp.release() );
+  }
+  else if ( QgsGraduatedSymbolRenderer *renderer = dynamic_cast<QgsGraduatedSymbolRenderer *>( layer->renderer() ) )
+  {
+    renderer->updateColorRamp( ramp.release() );
+  }
+  else
+  {
+    return false;
+  }
+
+  layer->triggerRepaint();
+  emit layer->styleChanged();
+  return true;
 }
 
 bool LayerUtils::setCategorizedRenderer( QgsVectorLayer *layer, const QString &fieldName, const QString &rampName )

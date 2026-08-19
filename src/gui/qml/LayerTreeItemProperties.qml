@@ -77,6 +77,8 @@ QfPopup {
   property color labelBufferColor: "white"
   property string pendingField: ""
   property int pendingClassCount: 5
+  //! WorkField: rampa uzywana przy zakladaniu i przemalowywaniu klasyfikacji
+  property string pendingRamp: "Turbo"
 
   parent: mainWindow.contentItem
   width: Math.min(childrenRect.width, mainWindow.width - Theme.popupScreenEdgeHorizontalMargin)
@@ -335,12 +337,17 @@ QfPopup {
             } else if (mode === "categorized") {
               if (pendingField === "")
                 return;
-              LayerUtils.setCategorizedRenderer(vl, pendingField);
+              LayerUtils.setCategorizedRenderer(vl, pendingField, pendingRamp);
             } else if (mode === "graduated") {
               if (pendingField === "")
                 return;
-              LayerUtils.setGraduatedRenderer(vl, pendingField, pendingClassCount);
+              LayerUtils.setGraduatedRenderer(vl, pendingField, pendingClassCount, pendingRamp);
             }
+            // WorkField: rampy syntetyczne (losowe, zloty kat) nie przechodza
+            // przez setCategorizedRenderer — malowanie trzeba dolozyc osobno.
+            // Dla ramp zwyklych to powtorzenie tego samego, wiec nieszkodliwe.
+            if (mode !== "single")
+              LayerUtils.applyColorRamp(vl, pendingRamp);
             symbologyVisible = LayerUtils.hasSimpleSymbology(vl);
             categoriesVisible = LayerUtils.hasCategorizedSymbology(vl);
             categoryEntries = categoriesVisible ? LayerUtils.rendererCategories(vl) : [];
@@ -427,6 +434,141 @@ QfPopup {
               value: pendingClassCount
               font: Theme.defaultFont
               onValueChanged: pendingClassCount = value
+            }
+          }
+
+          // WorkField 19.08.2026: wybor rampy kolorow. Rampa jest AUTOMATEM —
+          // daje sensowny start przy kilkudziesieciu kategoriach; pojedyncze
+          // kategorie poprawia sie potem paleta Materialize.
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            Layout.topMargin: 4
+            spacing: 6
+            visible: categoriesVisible || fieldCombo.currentNumeric
+
+            Text {
+              text: qsTr("Rampa")
+              font: Theme.defaultFont
+              color: Theme.mainTextColor
+            }
+
+            ComboBox {
+              id: rampCombo
+
+              Layout.fillWidth: true
+              font: Theme.defaultFont
+              model: LayerUtils.colorRampNames()
+              currentIndex: Math.max(0, model.indexOf(pendingRamp))
+
+              // WorkField 19.08.2026: nazwa rampy nic nie mowi o tym, jak
+              // rampa wyglada ("Mako", "PuBuGn", "RdYlBu"). Kazda pozycja
+              // niesie wiec wlasny gradient — wybiera sie okiem, nie pamiecia.
+              component RampSwatch: Row {
+                id: rampSwatch
+
+                property string rampName: ""
+                property int cells: 12
+                property real cellWidth: 5
+                property real cellHeight: 14
+
+                spacing: 0
+
+                Repeater {
+                  model: LayerUtils.colorRampPreview(rampSwatch.rampName, rampSwatch.cells)
+
+                  delegate: Rectangle {
+                    required property var modelData
+                    width: rampSwatch.cellWidth
+                    height: rampSwatch.cellHeight
+                    color: modelData
+                  }
+                }
+              }
+
+              delegate: ItemDelegate {
+                id: rampItem
+
+                required property var modelData
+                required property int index
+
+                width: rampCombo.width
+                highlighted: rampCombo.highlightedIndex === index
+
+                contentItem: RowLayout {
+                  spacing: 8
+
+                  RampSwatch {
+                    rampName: rampItem.modelData
+                  }
+
+                  Text {
+                    Layout.fillWidth: true
+                    text: rampItem.modelData
+                    font: Theme.defaultFont
+                    // WorkField: liste rozwijana rysuje STYL, nie Theme — kolor
+                    // tekstu musi pochodzic z tego samego zrodla co tlo popupu,
+                    // inaczej wychodzi jasne na jasnym (notatka z 18.08).
+                    color: rampItem.highlighted ? rampItem.palette.highlightedText : rampItem.palette.text
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                  }
+                }
+              }
+
+              // zwiniete pole: gradient wybranej rampy zamiast samego napisu
+              contentItem: RowLayout {
+                spacing: 8
+
+                RampSwatch {
+                  Layout.leftMargin: 8
+                  rampName: rampCombo.currentText
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  text: rampCombo.currentText
+                  font: Theme.defaultFont
+                  color: Theme.mainTextColor
+                  elide: Text.ElideRight
+                  verticalAlignment: Text.AlignVCenter
+                }
+              }
+
+              onActivated: {
+                pendingRamp = currentText;
+                const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                if (!vl)
+                  return;
+                // Przemalowanie, nie odtworzenie klasyfikacji: recznie
+                // poprawione kategorie przezywaja zmiane rampy tylko wtedy,
+                // gdy nie przechodzimy przez setCategorizedRenderer.
+                if (LayerUtils.applyColorRamp(vl, pendingRamp)) {
+                  categoryEntries = LayerUtils.rendererCategories(vl);
+                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                }
+              }
+            }
+          }
+
+          // pasek podgladu wybranej rampy
+          Row {
+            Layout.fillWidth: true
+            Layout.leftMargin: 8
+            Layout.rightMargin: 8
+            visible: rampCombo.visible
+            spacing: 0
+
+            Repeater {
+              model: LayerUtils.colorRampPreview(pendingRamp, 24)
+
+              delegate: Rectangle {
+                required property var modelData
+                width: (rampCombo.width) / 24
+                height: 10
+                color: modelData
+              }
             }
           }
         }

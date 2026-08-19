@@ -305,6 +305,19 @@ class LayerUtils : public QObject
      * Returns the categories of a categorized/graduated renderer as a list of maps
      * with "index", "label", "color" and "visible" keys.
      */
+    //! Nazwy ramp kolorow z biblioteki QGIS-a (Turbo, Viridis, Spectral...).
+    static Q_INVOKABLE QVariantList colorRampNames();
+
+    //! \a count kolorow rozlozonych rowno na rampie — do paska podgladu w QML.
+    static Q_INVOKABLE QVariantList colorRampPreview( const QString &rampName, int count = 12 );
+
+    /**
+     * Przemalowuje ISTNIEJACA klasyfikacje rampa, bez odtwarzania jej od zera.
+     * Podzial na kategorie, etykiety i widocznosc zostaja nietkniete — inaczej
+     * zmiana rampy kasowalaby kolory poprawione recznie.
+     */
+    static Q_INVOKABLE bool applyColorRamp( QgsVectorLayer *layer, const QString &rampName );
+
     static Q_INVOKABLE QVariantList rendererCategories( QgsVectorLayer *layer );
 
     //! Sets the color of the category at \a categoryIndex.
