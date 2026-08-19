@@ -193,6 +193,32 @@ class NarzedziaProjektu : public QObject
     // -------------------------------------------------------------- geometria
 
     /**
+     * Scala czesci obiektu wieloczesciowego w jedna (unia). Zwraca mape:
+     *   ok           bool
+     *   partsBefore  int
+     *   partsAfter   int
+     *   message      QString
+     *
+     * Gdy czesci sie nie stykaja, unia nadal ma wiecej niz jedna czesc —
+     * wtedy nic nie zapisujemy i mowimy to wprost.
+     */
+    Q_INVOKABLE QVariantMap mergeParts( QgsVectorLayer *layer, QgsFeatureId fid, bool write = true ) const;
+
+    /**
+     * Rozdziela obiekt wieloczesciowy na osobne obiekty. Pierwsza czesc
+     * zostaje na istniejacym fid, pozostale staja sie nowymi obiektami
+     * z kopia atrybutow (klucze glowne wyzerowane). Zwraca mape:
+     *   ok       bool
+     *   parts    int           na ile czesci rozdzielono
+     *   created  QVariantList  fid nowych obiektow
+     *   message  QString
+     *
+     * Zalaczniki zostaja przy pierwotnym obiekcie.
+     */
+    Q_INVOKABLE QVariantMap splitParts( QgsVectorLayer *layer, QgsFeatureId fid, bool write = true ) const;
+
+
+    /**
      * Diagnoza geometrii obiektu. Zwraca mape:
      *   ok              bool   udalo sie sprawdzic (obiekt istnieje, ma geometrie)
      *   wazna           bool   geometria poprawna wg GEOS

@@ -1266,3 +1266,215 @@ QVariantMap NarzedziaProjektu::polaczObiekty( QgsVectorLayer *warstwa, const QVa
                                             : tr( "Po zapisie obiekt nie ma geometrii." ) );
   return wynik;
 }
+
+QVariantMap NarzedziaProjektu::mergeParts( QgsVectorLayer *layer, QgsFeatureId fid, bool write ) const
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  result.insert( QStringLiteral( "partsBefore" ), 0 );
+  result.insert( QStringLiteral( "partsAfter" ), 0 );
+  result.insert( QStringLiteral( "message" ), QString() );
+
+  if ( !layer )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Brak warstwy." ) );
+    return result;
+  }
+
+  const QgsGeometry geom = layer->getFeature( fid ).geometry();
+  if ( geom.isNull() || geom.isEmpty() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Obiekt nie ma geometrii." ) );
+    return result;
+  }
+
+  const int partsBefore = geom.constGet() ? geom.constGet()->partCount() : 0;
+  result.insert( QStringLiteral( "partsBefore" ), partsBefore );
+
+  if ( partsBefore < 2 )
+  {
+    result.insert( QStringLiteral( "ok" ), true );
+    result.insert( QStringLiteral( "partsAfter" ), partsBefore );
+    result.insert( QStringLiteral( "message" ), tr( "Obiekt ma jedną część — nie ma czego scalać." ) );
+    return result;
+  }
+
+  const QVector<QgsGeometry> parts = geom.asGeometryCollection();
+  QgsGeometry merged;
+  for ( int i = 0; i < parts.size(); ++i )
+  {
+    const QgsGeometry &part = parts.at( i );
+    if ( part.isNull() || part.isEmpty() )
+      continue;
+
+    const QgsGeometry piece = part.isGeosValid() ? part : part.makeValid();
+    if ( piece.isNull() || piece.isEmpty() )
+      continue;
+
+    merged = merged.isNull() ? piece : merged.combine( piece );
+    if ( merged.isNull() )
+    {
+      result.insert( QStringLiteral( "message" ), tr( "Nie udało się scalić części." ) );
+      return result;
+    }
+  }
+
+  if ( merged.isNull() || merged.isEmpty() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Nie udało się scalić części." ) );
+    return result;
+  }
+
+  const int partsAfter = merged.constGet() ? merged.constGet()->partCount() : 0;
+  result.insert( QStringLiteral( "partsAfter" ), partsAfter );
+
+  if ( partsAfter > 1 )
+  {
+    result.insert( QStringLiteral( "message" ),
+                   tr( "Części nie stykają się — scalenie nadal dałoby %1 części. "
+                       "Użyj rozdzielenia albo dociągnij granice." )
+                     .arg( partsAfter ) );
+    return result;
+  }
+
+  const QVector<QgsGeometry> fitted = merged.coerceToType( layer->wkbType() );
+  if ( fitted.size() != 1 )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Scalona geometria nie pasuje do typu warstwy." ) );
+    return result;
+  }
+
+  if ( !write )
+  {
+    result.insert( QStringLiteral( "ok" ), true );
+    result.insert( QStringLiteral( "message" ), tr( "Scalenie %1 części jest możliwe." ).arg( partsBefore ) );
+    return result;
+  }
+
+  QgsGeometry target = fitted.at( 0 );
+
+  const bool wasEditing = layer->isEditable();
+  if ( !wasEditing && !layer->startEditing() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Nie udało się otworzyć warstwy do edycji." ) );
+    return result;
+  }
+
+  layer->changeGeometry( fid, target );
+
+  if ( !wasEditing && !layer->commitChanges() )
+  {
+    layer->rollBack();
+    result.insert( QStringLiteral( "message" ), tr( "Zapis scalenia nie powiódł się." ) );
+    return result;
+  }
+
+  const QgsGeometry after = layer->getFeature( fid ).geometry();
+  const int reallyAfter = ( !after.isNull() && after.constGet() ) ? after.constGet()->partCount() : 0;
+  const bool done = reallyAfter == 1;
+
+  result.insert( QStringLiteral( "ok" ), done );
+  result.insert( QStringLiteral( "partsAfter" ), reallyAfter );
+  result.insert( QStringLiteral( "message" ), done
+                                                ? tr( "Scalono %1 części w jedną." ).arg( partsBefore )
+                                                : tr( "Po zapisie obiekt nadal ma %1 części." ).arg( reallyAfter ) );
+  return result;
+}
+
+QVariantMap NarzedziaProjektu::splitParts( QgsVectorLayer *layer, QgsFeatureId fid, bool write ) const
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  result.insert( QStringLiteral( "parts" ), 0 );
+  result.insert( QStringLiteral( "created" ), QVariantList() );
+  result.insert( QStringLiteral( "message" ), QString() );
+
+  if ( !layer )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Brak warstwy." ) );
+    return result;
+  }
+
+  const QgsFeature source = layer->getFeature( fid );
+  const QgsGeometry geom = source.geometry();
+  if ( geom.isNull() || geom.isEmpty() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Obiekt nie ma geometrii." ) );
+    return result;
+  }
+
+  const QVector<QgsGeometry> parts = geom.asGeometryCollection();
+  result.insert( QStringLiteral( "parts" ), parts.size() );
+
+  if ( parts.size() < 2 )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Obiekt ma jedną część — nie ma czego rozdzielać." ) );
+    return result;
+  }
+
+  if ( !write )
+  {
+    result.insert( QStringLiteral( "ok" ), true );
+    result.insert( QStringLiteral( "message" ), tr( "Rozdzielenie da %1 osobnych obiektów." ).arg( parts.size() ) );
+    return result;
+  }
+
+  const bool wasEditing = layer->isEditable();
+  if ( !wasEditing && !layer->startEditing() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Nie udało się otworzyć warstwy do edycji." ) );
+    return result;
+  }
+
+  // Pierwsza czesc zostaje na istniejacym obiekcie.
+  const QVector<QgsGeometry> firstFitted = parts.at( 0 ).coerceToType( layer->wkbType() );
+  if ( firstFitted.size() != 1 )
+  {
+    if ( !wasEditing )
+      layer->rollBack();
+    result.insert( QStringLiteral( "message" ), tr( "Część geometrii nie pasuje do typu warstwy." ) );
+    return result;
+  }
+
+  QgsGeometry firstGeometry = firstFitted.at( 0 );
+  layer->changeGeometry( fid, firstGeometry );
+
+  // Pozostale czesci — nowe obiekty z kopia atrybutow.
+  const QgsAttributeList keys = layer->primaryKeyAttributes();
+  QVariantList created;
+
+  for ( int i = 1; i < parts.size(); ++i )
+  {
+    const QVector<QgsGeometry> fitted = parts.at( i ).coerceToType( layer->wkbType() );
+    if ( fitted.size() != 1 )
+      continue;
+
+    QgsFeature copy( layer->fields() );
+    copy.setAttributes( source.attributes() );
+    for ( int k = 0; k < keys.size(); ++k )
+      copy.setAttribute( keys.at( k ), QVariant() );
+    copy.setGeometry( fitted.at( 0 ) );
+
+    if ( layer->addFeature( copy ) )
+      created << QVariant::fromValue( static_cast<qlonglong>( copy.id() ) );
+  }
+
+  if ( !wasEditing && !layer->commitChanges() )
+  {
+    layer->rollBack();
+    result.insert( QStringLiteral( "message" ), tr( "Zapis rozdzielenia nie powiódł się." ) );
+    return result;
+  }
+
+  // Stan sprawdzamy po fakcie.
+  const QgsGeometry after = layer->getFeature( fid ).geometry();
+  const int stillParts = ( !after.isNull() && after.constGet() ) ? after.constGet()->partCount() : 0;
+  const bool done = stillParts == 1 && created.size() == parts.size() - 1;
+
+  result.insert( QStringLiteral( "ok" ), done );
+  result.insert( QStringLiteral( "created" ), created );
+  result.insert( QStringLiteral( "message" ), done
+                                                ? tr( "Rozdzielono na %1 obiektów. Załączniki zostały przy pierwszym." ).arg( parts.size() )
+                                                : tr( "Rozdzielenie częściowe: powstało %1 z %2 obiektów." ).arg( created.size() + 1 ).arg( parts.size() ) );
+  return result;
+}

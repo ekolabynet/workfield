@@ -4961,7 +4961,11 @@ ApplicationWindow {
         stateMachine.state = "digitize";
         geometryEditorsToolbar.init();
       } else {
-        displayToast(qsTr("Editing of multipart geometry is not supported yet."), 'warning');
+        // WorkField: multipart nie jest slepa uliczka — okno daje dwie drogi
+        multipartGeometryDialog.targetLayer = featureListForm.selection.focusedLayer;
+        multipartGeometryDialog.targetFid = featureListForm.selection.focusedFeature.id;
+        multipartGeometryDialog.partCount = NarzedziaProjektu.sprawdzGeometrie(featureListForm.selection.focusedLayer, featureListForm.selection.focusedFeature.id).czesci;
+        multipartGeometryDialog.open();
         geometryEditingVertexModel.clear();
       }
     }
@@ -6174,6 +6178,66 @@ ApplicationWindow {
     id: screenLocker
     objectName: "screenLocker"
     enabled: false
+  }
+
+  // WorkField: wyjscie z geometrii wieloczesciowej (patrz latka 30).
+  // Edytor wierzcholkow obsluguje wylacznie obiekty jednoczesciowe
+  // (VertexModel::editingAllowed == !mIsMulti), wiec zamiast komunikatu
+  // bez wyjscia dajemy dwa czasowniki, ktore ten stan zdejmuja.
+  QfDialog {
+    id: multipartGeometryDialog
+    parent: mainWindow.contentItem
+    z: 10000
+
+    width: Math.min(mainWindow.width - Theme.popupScreenEdgeVerticalMargin * 2, 400)
+
+    property var targetLayer: null
+    property var targetFid: -1
+    property int partCount: 0
+
+    title: qsTr("Geometria wieloczęściowa")
+
+    Column {
+      width: parent.width
+      spacing: 12
+
+      Label {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        color: Theme.mainTextColor
+        text: qsTr("Obiekt składa się z %1 części. Edytor wierzchołków obsługuje tylko obiekty jednoczęściowe.").arg(multipartGeometryDialog.partCount)
+      }
+
+      QfButton {
+        width: parent.width
+        text: qsTr("Scal w jedną część")
+        onClicked: {
+          const wynik = NarzedziaProjektu.mergeParts(multipartGeometryDialog.targetLayer, multipartGeometryDialog.targetFid, true);
+          displayToast(wynik.message, wynik.ok ? 'info' : 'warning');
+          multipartGeometryDialog.close();
+        }
+      }
+
+      QfButton {
+        width: parent.width
+        text: qsTr("Rozdziel na osobne obiekty")
+        onClicked: {
+          const wynik = NarzedziaProjektu.splitParts(multipartGeometryDialog.targetLayer, multipartGeometryDialog.targetFid, true);
+          displayToast(wynik.message, wynik.ok ? 'info' : 'warning');
+          multipartGeometryDialog.close();
+        }
+      }
+
+      Label {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        font: Theme.tipFont
+        color: Theme.secondaryTextColor
+        text: qsTr("Scalanie działa, gdy części się stykają. Rozdzielenie kopiuje atrybuty; załączniki zostają przy pierwszym obiekcie.")
+      }
+    }
+
+    standardButtons: Dialog.Cancel
   }
 
   QfDialog {
