@@ -42,7 +42,19 @@ RoundButton {
     color: 'transparent'
     // WorkField: semantyka round (koło) sterowana ustawieniem Teren -> Okrągłe przyciski;
     // przyciski bez round zachowują zaokrąglenie 12 zgodnie z M3
-    radius: round && (typeof settings === 'undefined' || settings.valueBool('WorkField/przyciskiOkragle', true)) ? height / 2 : 12
+    // WorkField 18.08.2026: `settings` bywa cudzym `id: settings` (QtCore
+    // Settings, bez valueBool) albo null — zaleznie od pliku, w ktorym ten
+    // przycisk stoi. Bez tej kontroli kazde narysowanie przycisku dokladalo
+    // linie TypeError do logu; przy pelnym ekranie narzedzi to setki linii.
+    readonly property bool okragleZUstawien: {
+      if (typeof settings === 'undefined' || settings === null)
+        return true;
+      if (typeof settings.valueBool !== 'function')
+        return true;
+      return settings.valueBool('WorkField/przyciskiOkragle', true);
+    }
+
+    radius: round && okragleZUstawien ? height / 2 : 12
     clip: true
 
     Behavior on color {

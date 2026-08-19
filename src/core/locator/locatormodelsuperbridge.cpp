@@ -28,11 +28,13 @@
 #include "peliasgeocoder.h"
 #include "qfieldlocatorfilter.h"
 #include "qgsquickmapsettings.h"
+#include "wfnominatimlocatorfilter.h"
 
 #include <QStandardItem>
 #include <qgslocator.h>
 #include <qgslocatormodel.h>
 #include <qgssettings.h>
+#include <qgsnominatimgeocoder.h>
 
 
 LocatorModelSuperBridge::LocatorModelSuperBridge( QObject *parent )
@@ -48,6 +50,12 @@ LocatorModelSuperBridge::LocatorModelSuperBridge( QObject *parent )
   // Finnish's Digitransit geocoder (disabled until API access can be sorted)
   //mFinlandGeocoder = new PeliasGeocoder( QStringLiteral( "https://api.digitransit.fi/geocoding/v1/search" ) );
   //locator()->registerFilter( new FinlandLocatorFilter( mFinlandGeocoder, this ) );
+
+  // WorkField 18.08.2026: globalne wyszukiwanie miejsc przez OSM Nominatim.
+  // QgsNominatimGeocoder z rdzenia QGIS (czysty C++, dziala bez Pythona)
+  // sam dlawi zapytania do 1/s zgodnie z polityka Nominatim.
+  mNominatimGeocoder = new QgsNominatimGeocoder();
+  locator()->registerFilter( new WfNominatimLocatorFilter( mNominatimGeocoder, this ) );
 }
 
 void LocatorModelSuperBridge::registerQFieldLocatorFilter( QFieldLocatorFilter *filter )

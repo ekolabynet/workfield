@@ -1,4 +1,5 @@
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
@@ -20,6 +21,23 @@ ToolBar {
   id: chrom
 
   property var akcje: wfAkcje
+
+  //! WorkField 18.08.2026: płaska lista wszystkich czynności z nagłówkami grup,
+  //! do menu „⋯". Trzymamy je dostępne, dopóki nie mają miejsca w szufladzie.
+  readonly property var pozycjeWiecej: {
+    const wynik = [];
+    const grupy = akcje ? akcje.grupy : [];
+    for (const g of grupy) {
+      const lista = akcje.wGrupie(g.id);
+      if (!lista || lista.length === 0)
+        continue;
+      wynik.push({ "naglowek": true, "nazwa": g.nazwa, "akcja": null });
+      for (const a of lista)
+        wynik.push({ "naglowek": false, "nazwa": "", "akcja": a });
+    }
+    return wynik;
+  }
+
   //! zachowane dla zgodności wywołania; chrom nie zmienia się na starcie
   property bool ekranStartowy: false
 
@@ -36,52 +54,114 @@ ToolBar {
     anchors.rightMargin: 10
     spacing: 0
 
+    // WorkField 18.08.2026: bliźniak przełącznika widoków z lewej szuflady —
+    // te same cztery zakładki, ikona + etykieta, podświetlenie aktywnej.
     Repeater {
-      model: chrom.akcje ? chrom.akcje.grupy : []
+      model: [{ "nazwa": qsTr("Zlecenia"), "ikona": "wfg_magazyn", "sekcja": 0 }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }]
 
       delegate: Item {
+        id: zakladkaBelki
+
         required property var modelData
 
-        Layout.preferredWidth: etykieta.implicitWidth + 20
+        readonly property bool aktywna: dashBoard.sekcjaAktywna === modelData.sekcja
+
+        Layout.preferredWidth: trescZakladki.implicitWidth + 22
         Layout.fillHeight: true
 
         Rectangle {
           anchors.fill: parent
           color: "white"
-          opacity: obszar.containsMouse || menuGrupy.opened ? 0.15 : 0
+          opacity: zakladkaBelki.aktywna ? 0.22 : (obszarZakladki.containsMouse ? 0.12 : 0)
         }
 
-        Text {
-          id: etykieta
+        RowLayout {
+          id: trescZakladki
           anchors.centerIn: parent
-          text: modelData.nazwa
-          font: Theme.tipFont
-          color: "white"
+          spacing: 6
+
+          Image {
+            id: ikonaZakladki
+            Layout.preferredWidth: 15
+            Layout.preferredHeight: 15
+            fillMode: Image.PreserveAspectFit
+            sourceSize.width: 15
+            sourceSize.height: 15
+            source: Theme.getThemeVectorIcon(zakladkaBelki.modelData.ikona)
+            visible: false
+          }
+          ColorOverlay {
+            // Belka ma ciemnozielone tło, ikony Breeze są ciemne — bez
+            // przemalowania na biało byłyby nieczytelne.
+            Layout.preferredWidth: 15
+            Layout.preferredHeight: 15
+            source: ikonaZakladki
+            visible: ikonaZakladki.status === Image.Ready
+            color: "white"
+          }
+          Text {
+            text: zakladkaBelki.modelData.nazwa
+            font: Theme.tipFont
+            color: "white"
+          }
         }
 
         MouseArea {
-          id: obszar
+          id: obszarZakladki
           anchors.fill: parent
           hoverEnabled: true
-          onClicked: menuGrupy.opened ? menuGrupy.close() : menuGrupy.open()
+          onClicked: dashBoard.otworzSekcje(zakladkaBelki.modelData.sekcja)
         }
+      }
+    }
 
-        Menu {
-          id: menuGrupy
-          y: parent.height
+    // WorkField 18.08.2026: czynności z grup Zarządzanie/Pomoc nie mają
+    // (jeszcze) miejsca w szufladzie — Sprzęt, Kto co robił, Ustawienia
+    // terenowe i aplikacji byłyby bez tego menu NIEDOSTĘPNE. Chowamy je,
+    // nie kasujemy. Do usunięcia dopiero, gdy trafią do szuflady.
+    Item {
+      Layout.preferredWidth: 34
+      Layout.fillHeight: true
 
-          Repeater {
-            model: chrom.akcje ? chrom.akcje.wGrupie(modelData.id) : []
+      Rectangle {
+        anchors.fill: parent
+        color: "white"
+        opacity: obszarWiecej.containsMouse || menuWiecej.opened ? 0.12 : 0
+      }
 
-            delegate: MenuItem {
-              required property var modelData
+      Text {
+        anchors.centerIn: parent
+        text: "\u22ef"
+        font: Theme.strongTipFont
+        color: "white"
+      }
 
-              text: modelData.nazwa
-              enabled: chrom.akcje ? chrom.akcje.dostepna(modelData) : false
-              icon.source: Theme.getThemeVectorIcon(modelData.ikona)
-              icon.width: 18
-              icon.height: 18
-              onTriggered: modelData.wykonaj()
+      MouseArea {
+        id: obszarWiecej
+        anchors.fill: parent
+        hoverEnabled: true
+        onClicked: menuWiecej.opened ? menuWiecej.close() : menuWiecej.open()
+      }
+
+      Menu {
+        id: menuWiecej
+        y: parent.height
+
+        Repeater {
+          model: chrom.pozycjeWiecej
+
+          delegate: MenuItem {
+            required property var modelData
+
+            text: modelData.naglowek ? "— " + modelData.nazwa + " —" : modelData.akcja.nazwa
+            enabled: modelData.naglowek ? false
+                                        : (chrom.akcje ? chrom.akcje.dostepna(modelData.akcja) : false)
+            icon.source: modelData.naglowek ? "" : Theme.getThemeVectorIcon(modelData.akcja.ikona)
+            icon.width: 18
+            icon.height: 18
+            onTriggered: {
+              if (!modelData.naglowek)
+                modelData.akcja.wykonaj();
             }
           }
         }

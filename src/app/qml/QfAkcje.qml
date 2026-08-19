@@ -28,7 +28,9 @@ QtObject {
   //! bez grupy "Projekt" — życie projektu toczy się w Magazynie;
   //! zdjęcia to zawartość projektu, więc weszły do grupy Warstwy)
   readonly property var grupy: [
-    { id: "magazyn", nazwa: qsTr("Magazyn") },
+    // id grupy zostaje "magazyn": zmiana identyfikatora zabralaby
+    // zapisane ustawienia uzytkownika i nie dalaby nic w zamian.
+    { id: "magazyn", nazwa: qsTr("Zlecenia") },
     { id: "warstwy", nazwa: qsTr("Warstwy") },
     { id: "zarzadzanie", nazwa: qsTr("Zarządzanie") },
     { id: "pomoc", nazwa: qsTr("Pomoc") }
@@ -62,7 +64,7 @@ QtObject {
 
   readonly property var lista: [
     // —— Magazyn: cykl życia zadania (docs/MAGAZYN.md) ——
-    { id: "otworz_magazyn", nazwa: qsTr("Otwórz magazyn"), ikona: "wfg_magazyn",
+    { id: "otworz_magazyn", nazwa: qsTr("Otwórz zlecenia"), ikona: "wfg_magazyn",
       grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.otworzZMagazynu(); } },
     { id: "nowy_z_szablonu", nazwa: qsTr("Nowy z szablonu"), ikona: "wfg_nowe",

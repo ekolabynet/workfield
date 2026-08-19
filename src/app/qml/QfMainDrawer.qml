@@ -63,6 +63,11 @@ Drawer {
   //! WorkField: sekcja wskazywana przez menu (komputer); -1 = wg zakładek
   property int sekcjaWymuszona: -1
 
+  //! WorkField 18.08.2026: która sekcja jest NAPRAWDĘ widoczna. Górna belka
+  //! podświetla po tym aktywną zakładkę; sekcjaWymuszona nie wystarczy, bo
+  //! przy -1 o wyborze decydują zakładki telefonu.
+  readonly property int sekcjaAktywna: dashStack.currentIndex
+
   function otworzSekcje(numer) {
     sekcjaWymuszona = numer;
     open();
@@ -141,6 +146,16 @@ Drawer {
   //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
   component QfPozycjaMenu: Button {
     id: pozycja
+
+    // WorkField 18.08.2026: wlasne tlo NIE jest kosmetyka. Styl pulpitowy
+    // rysuje ramke RAZEM Z NAPISEM w delegacie `background`, wiec sam
+    // `contentItem` nie zastepowal napisu, tylko dokladal drugi obok
+    // (zrzut z 18.08: kazda pozycja menu widoczna dwa razy, z przesunieciem).
+    // Pusty background zabiera stylowi miejsce na jego napis.
+    background: Rectangle {
+      color: pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+      radius: 4
+    }
 
     property string ikona: ""
 
@@ -631,12 +646,13 @@ Drawer {
       spacing: 2
 
       Repeater {
-        model: [{ "nazwa": qsTr("Magazyn"), "ikona": "wfg_magazyn", "sekcja": 0 }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }]
+        model: [{ "nazwa": qsTr("Zlecenia"), "ikona": "wfg_magazyn", "sekcja": 0 }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }]
 
         delegate: ItemDelegate {
           id: przelacznikWidoku
 
           required property var modelData
+
 
           readonly property bool aktywny: dashStack.currentIndex === modelData.sekcja
 
@@ -667,13 +683,14 @@ Drawer {
               visible: false
             }
 
-            MultiEffect {
+            ColorOverlay {
+              // MultiEffect.colorization zachowuje jasnosc — ciemna ikona
+              // Breeze zostawala ciemna takze w ciemnym motywie (17.08.2026).
               Layout.preferredWidth: 16
               Layout.preferredHeight: 16
               source: ikonaWidoku
-              colorization: 1.0
-              colorizationColor: przelacznikWidoku.aktywny ? "white" : Theme.mainTextColor
-              brightness: 0.2
+              visible: ikonaWidoku.status === Image.Ready
+              color: przelacznikWidoku.aktywny ? "white" : Theme.mainTextColor
             }
 
             Text {
@@ -710,10 +727,9 @@ Drawer {
       onCurrentIndexChanged: dashBoard.sekcjaWymuszona = -1
 
       TabButton {
-        text: qsTr("Magazyn")
+        // WorkField 18.08.2026: zakladka jest juz na obu platformach.
+        text: qsTr("Zlecenia")
         font: Theme.tipFont
-        visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
-        width: visible ? implicitWidth : 0
       }
       TabButton {
         text: qsTr("Projekt")
@@ -736,12 +752,17 @@ Drawer {
       Layout.fillHeight: true
       currentIndex: dashBoard.sekcjaWymuszona >= 0 ? dashBoard.sekcjaWymuszona : dashTabs.currentIndex
 
-      // ── Magazyn (0, tylko desktop) ──────────────────────────────
-      Loader {
-        active: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
-        sourceComponent: QfStudioSection {
-        }
+      // ── Zlecenia (0, komputer i telefon) ────────────────────────
+      // WorkField 18.08.2026: strona = samo drzewo. „Stan zleceń” wtopiony
+      // w wiersze drzewa (konsolidacja), osobne kafle zlikwidowane.
+      QfStudioSection {
+        // WorkField 18.08.2026: id, bo zakładka Projekt woła stąd
+        // zamienNaSzablonDla() — dialog i silnik mieszkają w tym komponencie.
+        id: drzewoZlecen
+        Layout.fillWidth: true
+        Layout.fillHeight: true
       }
+
 
       // ── Projekt ─────────────────────────────────────────────
       ColumnLayout {
@@ -865,140 +886,6 @@ Drawer {
         }
       }
 
-      // ── Stan zleceń: dashboard nad masterem (docs/MAGAZYN.md) ──
-      ColumnLayout {
-        id: stanZlecen
-
-        Layout.fillWidth: true
-        Layout.topMargin: 10
-        spacing: 4
-        visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
-
-        property var stan: null
-
-        Settings {
-          id: ustawieniaStanu
-          category: "WFGStudio"
-          property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
-        }
-        ProcesyStudio {
-          id: procesyStanu
-        }
-
-        function odswiez() {
-          const surowe = procesyStanu.czytajTekst(ustawieniaStanu.korzenProjektow + "/dziennik/stan.json");
-          if (surowe === "") {
-            stan = null;
-            return;
-          }
-          try {
-            stan = JSON.parse(surowe);
-          } catch (e) {
-            stan = null;
-          }
-        }
-
-        Component.onCompleted: odswiez()
-
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 6
-
-          Text {
-            Layout.fillWidth: true
-            text: qsTr("Stan zleceń")
-                  + (stanZlecen.stan ? "  ·  " + stanZlecen.stan.wygenerowano : "")
-            font: t.strongTipFont
-            color: t.mainTextColor
-            elide: Text.ElideRight
-          }
-          Button {
-            flat: true
-            text: qsTr("Odśwież")
-            font.pointSize: t.tinyFont.pointSize
-            onClicked: stanZlecen.odswiez()
-          }
-        }
-
-        Text {
-          Layout.fillWidth: true
-          visible: stanZlecen.stan === null
-          text: qsTr("Brak dziennik/stan.json — uruchom generuj_stan.py i kliknij Odśwież")
-          font: t.tinyFont
-          color: t.secondaryTextColor
-          wrapMode: Text.WordWrap
-        }
-
-        Repeater {
-          model: stanZlecen.stan ? stanZlecen.stan.zlecenia : []
-
-          delegate: Rectangle {
-            required property var modelData
-
-            Layout.fillWidth: true
-            implicitHeight: kolumnaKarty.implicitHeight + 12
-            radius: 6
-            color: modelData.w_terenie > 0 ? Qt.alpha(t.warningColor, 0.10)
-                                           : Qt.alpha(t.mainColor, 0.06)
-            border.color: modelData.w_terenie > 0 ? Qt.alpha(t.warningColor, 0.5)
-                                                  : Qt.alpha(t.mainColor, 0.25)
-
-            ColumnLayout {
-              id: kolumnaKarty
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              anchors.margins: 8
-              spacing: 2
-
-              RowLayout {
-                Layout.fillWidth: true
-                spacing: 6
-
-                Text {
-                  Layout.fillWidth: true
-                  text: modelData.zamawiajacy + " · " + modelData.obszar + " "
-                        + modelData.id + " · " + modelData.zadanie
-                  font: t.tipFont
-                  color: t.mainTextColor
-                  elide: Text.ElideRight
-                }
-                Text {
-                  visible: modelData.w_terenie > 0
-                  text: qsTr("w terenie: %1").arg(modelData.w_terenie)
-                  font: t.tinyFont
-                  color: t.warningColor
-                }
-              }
-              Text {
-                Layout.fillWidth: true
-                text: qsTr("wydań %1 · ostatni zwrot: %2")
-                      .arg(modelData.wydania.length)
-                      .arg(modelData.ostatni_zwrot !== "" ? modelData.ostatni_zwrot : "—")
-                font: t.tinyFont
-                color: t.secondaryTextColor
-                elide: Text.ElideRight
-              }
-              Text {
-                Layout.fillWidth: true
-                visible: modelData.master !== null && modelData.master.liczniki !== undefined
-                         && modelData.master.liczniki.FITO_TOPOSEKTORY !== undefined
-                text: modelData.master !== null && modelData.master.liczniki !== undefined
-                      ? qsTr("master: topo %1 · płaty %2 · spis %3 · zdj %4")
-                        .arg(modelData.master.liczniki.FITO_TOPOSEKTORY || 0)
-                        .arg(modelData.master.liczniki.FITO_PLATY || 0)
-                        .arg(modelData.master.liczniki.FITO_SPIS_GATUNKOWY || 0)
-                        .arg(modelData.master.liczniki.FITO_ZDJECIA || 0)
-                      : ""
-                font: t.tinyFont
-                color: t.secondaryTextColor
-                elide: Text.ElideRight
-              }
-            }
-          }
-        }
-      }
-
       RowLayout {
         Layout.fillWidth: true
         Layout.topMargin: 6
@@ -1030,17 +917,31 @@ Drawer {
         rowSpacing: 2
 
         QfPozycjaMenu {
-          text: qsTr("Magazyn")
+          text: qsTr("Zlecenia")
           ikona: "wfg_magazyn"
           onClicked: dashBoard.sekcjaWymuszona = 0
         }
         QfPozycjaMenu {
-          text: qsTr("Nowe zadanie")
+          // WorkField 18.08.2026: osobne okno z kaskada z istniejacych
+          // wartosci (zleceniodawca→teren→zlecenie). Wybor z listy zamiast
+          // dziedziczenia po jednym otwartym projekcie — dziala takze, gdy
+          // nic nie jest otwarte, i nie myli sie o zlecenie.
+          text: qsTr("Nowy projekt")
           ikona: "wfg_nowe"
           onClicked: {
-            // szablon + kontekst zlecenia = nowe zadanie z własnym katalogiem
             dashBoard.close();
-            noweZadanie.open();
+            nowyProjekt.open();
+          }
+        }
+        QfPozycjaMenu {
+          text: qsTr("Zapisz jako szablon")
+          ikona: "wfg_paczka"
+          enabled: qgisProject && qgisProject.homePath !== ""
+          onClicked: {
+            // Odwrocenie interpretera: projekt -> przepis. Szablon przestaje
+            // byc katalogiem do skopiowania, a staje sie ODCZYTANYM opisem
+            // dobrego projektu. docs/WYPOSAZENIE.md
+            projectNameDialog.openFor("szablon");
           }
         }
         QfPozycjaMenu {
@@ -1103,6 +1004,18 @@ Drawer {
         columnSpacing: 4
         rowSpacing: 2
 
+        QfPozycjaMenu {
+          // WorkField 18.08.2026: przyszło ze Zleceń — dotyczy projektu
+          // OTWARTEGO. Wymaga projektu zapisanego na dysku, bo kopiujemy katalog.
+          text: qsTr("Zamień na szablon")
+          ikona: "wfg_paczka"
+          enabled: projectSection.filePath !== "" && qgisProject && qgisProject.homePath !== ""
+          onClicked: {
+            dashBoard.close();
+            drzewoZlecen.zamienNaSzablonDla(qgisProject.homePath,
+                                            FileUtils.fileName(qgisProject.homePath));
+          }
+        }
         QfPozycjaMenu {
           text: qsTr("Zapisz")
           ikona: "wfg_zapisz"
@@ -1682,7 +1595,9 @@ Drawer {
 
       Text {
         Layout.fillWidth: true
-        text: projectNameDialog.mode === "blank" ? qsTr("Nowy pusty projekt") : qsTr("Zapisz projekt jako")
+        text: projectNameDialog.mode === "blank" ? qsTr("Nowy pusty projekt")
+            : projectNameDialog.mode === "szablon" ? qsTr("Zapisz jako szablon")
+            : qsTr("Zapisz projekt jako")
         font: t.strongFont
         color: t.mainTextColor
       }
@@ -1718,6 +1633,46 @@ Drawer {
             const root = welcomeScreen.templatesDataRoot();
             platformUtilities.createDir(root, "Imported Projects");
             const destination = root + "Imported Projects/" + safeName;
+            // ---- zapis jako szablon: sam przepis, bez danych i bez zdjec
+            if (projectNameDialog.mode === "szablon") {
+              // korzeniem jest magazyn, nie katalog aplikacji — patrz QfNoweZadanie
+              const korzenSzablonow = NarzedziaProjektu.katalogSzablonow(ustawieniaStanu.korzenProjektow);
+              if (korzenSzablonow === "") {
+                displayToast(qsTr("Nie znalazłem katalogu szablonów"), "error");
+                return;
+              }
+              const celSzablonu = korzenSzablonow + "/" + safeName;
+              if (FileUtils.fileExists(celSzablonu + "/przepis.json")) {
+                displayToast(qsTr("Szablon %1 już istnieje").arg(safeName), "error");
+                return;
+              }
+              const przepis = NarzedziaProjektu.zrzucPrzepis(qgisProject);
+              if (!przepis || !przepis.warstwy || przepis.warstwy.length === 0) {
+                displayToast(qsTr("Nie udało się odczytać struktury projektu"), "error");
+                return;
+              }
+              przepis.id = safeName;
+              // kafle paska to tresc branzowa — jada w przepisie, zeby szablon
+              // byl samowystarczalny (dziesiec kilobajtow zamiast gigabajtow)
+              const trescKlawiszy = NarzedziaProjektu.czytajTekst(qgisProject.homePath + "/workfield_klawisze.json");
+              if (trescKlawiszy !== "") {
+                try {
+                  przepis.pliki = [{
+                    "nazwa": "workfield_klawisze.json",
+                    "tresc": JSON.parse(trescKlawiszy)
+                  }];
+                } catch (e) {}
+              }
+              platformUtilities.createDir(korzenSzablonow, safeName);
+              if (NarzedziaProjektu.zapiszTekst(celSzablonu + "/przepis.json", JSON.stringify(przepis, null, 2))) {
+                displayToast(qsTr("Szablon %1 zapisany — %2 warstw").arg(safeName).arg(przepis.warstwy.length));
+              } else {
+                displayToast(qsTr("Nie udało się zapisać przepisu"), "error");
+              }
+              projectNameDialog.close();
+              return;
+            }
+
             if (projectNameDialog.mode === "blank") {
               platformUtilities.createDir(root + "Imported Projects", safeName);
               const centerPoints = iface.visibleExtentPointsIn2180(dashBoard.mapSettings, 2);

@@ -27,6 +27,7 @@
 class QgsQuickMapSettings;
 class FeatureListExtentController;
 class PeliasGeocoder;
+class QgsNominatimGeocoder;
 class GnssPositionInformation;
 class QFieldLocatorFilter;
 class QgsLocator;
@@ -179,6 +180,9 @@ class LocatorModelSuperBridge : public QgsLocatorModelBridge
     bool mKeepScale = false;
 
     PeliasGeocoder *mFinlandGeocoder = nullptr;
+    // WorkField 18.08.2026: geokoder Nominatim zyje tak dlugo jak most —
+    // filtr go tylko wspoldzieli, nie przejmuje wlasnosci.
+    QgsNominatimGeocoder *mNominatimGeocoder = nullptr;
     BookmarkModel *mBookmarks = nullptr;
     Navigation *mNavigation = nullptr;
 };

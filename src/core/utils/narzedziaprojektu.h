@@ -224,6 +224,19 @@ class NarzedziaProjektu : public QObject
      */
     Q_INVOKABLE QString czytajTekst( const QString &sciezka ) const;
 
+    /**
+     * ODWROCENIE INTERPRETERA: czyta wczytany projekt i zwraca przepis.
+     *
+     * Dzieki temu szablon przestaje byc katalogiem do skopiowania, a staje
+     * sie odczytanym opisem dobrego projektu — i dryf znika u zrodla, bo
+     * nie ma czego kopiowac. Zwraca mape o ksztalcie, ktory konsumuje
+     * QfPrzepis.zastosuj(); do JSON-a zamienia ja QML.
+     *
+     * Pomija podklady i rastry (to dane, nie struktura) oraz warstwy REF_,
+     * ktore zaklada wtyczka. Pola `fid` nie wypisuje — zaklada je GeoPackage.
+     */
+    Q_INVOKABLE QVariantMap zrzucPrzepis( QgsProject *projekt ) const;
+
     //! Zapisuje tekst jako UTF-8 (np. workfield_klawisze.json obok projektu).
     Q_INVOKABLE bool zapiszTekst( const QString &sciezka, const QString &tresc ) const;
 

@@ -30,6 +30,7 @@
 #include <qgsrelationcontext.h>
 #include <qgsrelationmanager.h>
 #include <qgssnappingconfig.h>
+#include <qgswkbtypes.h>
 
 #include <gdal.h>
 #include <ogr_api.h>
@@ -663,6 +664,296 @@ bool NarzedziaProjektu::zapiszProjekt( QgsProject *projekt ) const
     return false;
 
   return p->write();
+}
+
+QVariantMap NarzedziaProjektu::zrzucPrzepis( QgsProject *projekt ) const
+{
+  QVariantMap przepis;
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p )
+    return przepis;
+
+  // ------------------------------------------------------------- nagłówek
+  const QString nazwaProjektu = p->baseName().isEmpty() ? p->title() : p->baseName();
+  przepis.insert( QStringLiteral( "id" ), nazwaProjektu );
+  przepis.insert( QStringLiteral( "wersja" ), 1 );
+  przepis.insert( QStringLiteral( "nazwa" ), p->title().isEmpty() ? nazwaProjektu : p->title() );
+  przepis.insert( QStringLiteral( "opis" ), tr( "Przepis odczytany z projektu %1." ).arg( nazwaProjektu ) );
+  przepis.insert( QStringLiteral( "uklad" ), p->crs().authid() );
+  przepis.insert( QStringLiteral( "zrodlo" ), QStringLiteral( "zrzut" ) );
+
+  // ---------------------------------------------------------------- warstwy
+  QVariantList warstwy;
+  QString plikDanych;
+  const QMap<QString, QgsMapLayer *> wszystkie = p->mapLayers();
+  for ( QgsMapLayer *kandydat : wszystkie )
+  {
+    QgsVectorLayer *w = qobject_cast<QgsVectorLayer *>( kandydat );
+    if ( !w )
+      continue;   // podkłady i rastry to dane, nie struktura — muszą przyjechać
+
+    const QString nazwa = w->name();
+    if ( nazwa.startsWith( QLatin1String( "REF_" ), Qt::CaseInsensitive ) )
+      continue;   // warstwy odniesienia zakłada wtyczka, nie przepis
+
+    // plik danych bierzemy z pierwszej warstwy w GeoPackage
+    if ( plikDanych.isEmpty() )
+    {
+      const QString zrodlo = w->source().section( QLatin1Char( '|' ), 0, 0 );
+      if ( zrodlo.endsWith( QLatin1String( ".gpkg" ), Qt::CaseInsensitive ) )
+        plikDanych = QFileInfo( zrodlo ).fileName();
+    }
+
+    QVariantMap opis;
+    opis.insert( QStringLiteral( "nazwa" ), nazwa );
+    opis.insert( QStringLiteral( "geometria" ),
+                 w->geometryType() == Qgis::GeometryType::Null
+                   ? QStringLiteral( "NoGeometry" )
+                   : QgsWkbTypes::displayString( w->wkbType() ) );
+
+    // ---- pola (fid pomijamy — zakłada je GeoPackage)
+    QVariantList pola;
+    QVariantMap aliasy, widgety, domyslne, ograniczenia;
+    const QgsFields poleLista = w->fields();
+    for ( int i = 0; i < poleLista.count(); ++i )
+    {
+      const QgsField f = poleLista.at( i );
+      if ( f.name().compare( QLatin1String( "fid" ), Qt::CaseInsensitive ) == 0 )
+        continue;
+
+      const QgsEditorWidgetSetup ustawienieWidgetu = w->editorWidgetSetup( i );
+
+      QString typ;
+      switch ( f.type() )
+      {
+        case QMetaType::Int:
+        case QMetaType::UInt:
+        case QMetaType::LongLong:
+          typ = QStringLiteral( "integer" );
+          break;
+        case QMetaType::Double:
+          typ = QStringLiteral( "real" );
+          break;
+        case QMetaType::QDate:
+          typ = QStringLiteral( "date" );
+          break;
+        case QMetaType::QDateTime:
+          typ = QStringLiteral( "datetime" );
+          break;
+        case QMetaType::Bool:
+          typ = QStringLiteral( "bool" );
+          break;
+        default:
+          // TextEdit z IsMultiline zapisuje sie jako osobny typ przepisu
+          typ = ( ustawienieWidgetu.type() == QLatin1String( "TextEdit" )
+                  && ustawienieWidgetu.config().value( QStringLiteral( "IsMultiline" ) ).toBool() )
+                  ? QStringLiteral( "multiline" )
+                  : QStringLiteral( "text" );
+          break;
+      }
+
+      QVariantMap pole;
+      pole.insert( QStringLiteral( "name" ), f.name() );
+      pole.insert( QStringLiteral( "type" ), typ );
+      pola.append( pole );
+
+      if ( !f.alias().isEmpty() )
+        aliasy.insert( f.name(), f.alias() );
+
+      // widget zapisujemy tylko wtedy, gdy NIE wynika juz z typu pola —
+      // inaczej przepis puchnie od oczywistosci
+      const QString typWidgetu = ustawienieWidgetu.type();
+      if ( !typWidgetu.isEmpty()
+           && typWidgetu != QLatin1String( "TextEdit" )
+           && typWidgetu != QLatin1String( "Range" )
+           && typWidgetu != QLatin1String( "DateTime" ) )
+      {
+        QVariantMap widget;
+        widget.insert( QStringLiteral( "typ" ), typWidgetu );
+        if ( !ustawienieWidgetu.config().isEmpty() )
+          widget.insert( QStringLiteral( "opcje" ), ustawienieWidgetu.config() );
+        widgety.insert( f.name(), widget );
+      }
+
+      const QgsDefaultValue domyslna = w->defaultValueDefinition( i );
+      if ( !domyslna.expression().isEmpty() )
+      {
+        if ( domyslna.applyOnUpdate() )
+        {
+          QVariantMap d;
+          d.insert( QStringLiteral( "wyrazenie" ), domyslna.expression() );
+          d.insert( QStringLiteral( "przyAktualizacji" ), true );
+          domyslne.insert( f.name(), d );
+        }
+        else
+        {
+          domyslne.insert( f.name(), domyslna.expression() );
+        }
+      }
+
+      const QString wyrOgraniczenia = w->constraintExpression( i );
+      if ( !wyrOgraniczenia.isEmpty() )
+      {
+        QVariantMap o;
+        o.insert( QStringLiteral( "wyrazenie" ), wyrOgraniczenia );
+        o.insert( QStringLiteral( "opis" ), w->constraintDescription( i ) );
+        ograniczenia.insert( f.name(), o );
+      }
+    }
+    opis.insert( QStringLiteral( "pola" ), pola );
+    if ( !aliasy.isEmpty() )
+      opis.insert( QStringLiteral( "aliasy" ), aliasy );
+    if ( !widgety.isEmpty() )
+      opis.insert( QStringLiteral( "widgety" ), widgety );
+    if ( !domyslne.isEmpty() )
+      opis.insert( QStringLiteral( "domyslne" ), domyslne );
+    if ( !ograniczenia.isEmpty() )
+      opis.insert( QStringLiteral( "ograniczenia" ), ograniczenia );
+
+    if ( !w->displayExpression().isEmpty() )
+      opis.insert( QStringLiteral( "wyswietlanie" ), w->displayExpression() );
+
+    const QgsEditFormConfig konfiguracja = w->editFormConfig();
+    if ( konfiguracja.suppress() == Qgis::AttributeFormSuppression::On )
+      opis.insert( QStringLiteral( "bezPotwierdzenia" ), true );
+
+    // ---- zakladki formularza (tylko uklad DragAndDrop cokolwiek znaczy)
+    if ( konfiguracja.layout() == Qgis::AttributeFormLayout::DragAndDrop )
+    {
+      QVariantList zakladki;
+      const QList<QgsAttributeEditorElement *> gorne = konfiguracja.tabs();
+      for ( QgsAttributeEditorElement *element : gorne )
+      {
+        if ( element->type() != Qgis::AttributeEditorType::Container )
+          continue;
+        QgsAttributeEditorContainer *pojemnik = dynamic_cast<QgsAttributeEditorContainer *>( element );
+        if ( !pojemnik )
+          continue;
+
+        QVariantMap zakladka;
+        zakladka.insert( QStringLiteral( "tytul" ), pojemnik->name() );
+
+        QStringList polaZakladki;
+        QString idRelacji;
+        const QList<QgsAttributeEditorElement *> dzieci = pojemnik->children();
+        for ( QgsAttributeEditorElement *dziecko : dzieci )
+        {
+          if ( dziecko->type() == Qgis::AttributeEditorType::Field )
+          {
+            QgsAttributeEditorField *poleElement = dynamic_cast<QgsAttributeEditorField *>( dziecko );
+            if ( poleElement && poleElement->idx() >= 0 && poleElement->idx() < poleLista.count() )
+              polaZakladki << poleLista.at( poleElement->idx() ).name();
+          }
+          else if ( dziecko->type() == Qgis::AttributeEditorType::Relation )
+          {
+            QgsAttributeEditorRelation *relElement = dynamic_cast<QgsAttributeEditorRelation *>( dziecko );
+            if ( relElement )
+              idRelacji = relElement->relation().id();
+          }
+        }
+
+        if ( !idRelacji.isEmpty() )
+          zakladka.insert( QStringLiteral( "relacja" ), idRelacji );
+        else if ( !polaZakladki.isEmpty() )
+          zakladka.insert( QStringLiteral( "pola" ), polaZakladki );
+        else
+          continue;   // pusta zakladka nie niesie informacji
+
+        zakladki.append( zakladka );
+      }
+      if ( !zakladki.isEmpty() )
+        opis.insert( QStringLiteral( "zakladki" ), zakladki );
+    }
+
+    // ---- grupa w drzewie warstw
+    if ( QgsLayerTree *korzen = p->layerTreeRoot() )
+    {
+      if ( QgsLayerTreeLayer *wezel = korzen->findLayer( w->id() ) )
+      {
+        if ( QgsLayerTreeGroup *rodzic = qobject_cast<QgsLayerTreeGroup *>( wezel->parent() ) )
+        {
+          if ( !rodzic->name().isEmpty() )
+          {
+            opis.insert( QStringLiteral( "grupa" ), rodzic->name() );
+            opis.insert( QStringLiteral( "widoczna" ), wezel->itemVisibilityChecked() );
+          }
+        }
+      }
+    }
+
+    // ---- wlasciwosci niestandardowe warstwy (tedy idzie konwencja nazw zdjec)
+    QVariantMap wlasciwosciWarstwy;
+    const QStringList klucze = w->customPropertyKeys();
+    for ( const QString &klucz : klucze )
+    {
+      if ( klucz.startsWith( QLatin1String( "QFieldSync/" ) ) )
+        wlasciwosciWarstwy.insert( klucz, w->customProperty( klucz ) );
+    }
+    if ( !wlasciwosciWarstwy.isEmpty() )
+      opis.insert( QStringLiteral( "wlasciwosci" ), wlasciwosciWarstwy );
+
+    warstwy.append( opis );
+  }
+  przepis.insert( QStringLiteral( "warstwy" ), warstwy );
+  przepis.insert( QStringLiteral( "dane" ), plikDanych.isEmpty() ? QStringLiteral( "dane.gpkg" ) : plikDanych );
+
+  // ---------------------------------------------------------------- relacje
+  QVariantList relacje;
+  const QList<QgsRelation> wszystkieRelacje = p->relationManager()->relations().values();
+  for ( const QgsRelation &r : wszystkieRelacje )
+  {
+    if ( !r.isValid() )
+      continue;
+    QgsVectorLayer *rodzic = r.referencedLayer();
+    QgsVectorLayer *dziecko = r.referencingLayer();
+    if ( !rodzic || !dziecko )
+      continue;
+    const QList<QgsRelation::FieldPair> pary = r.fieldPairs();
+    if ( pary.isEmpty() )
+      continue;
+
+    QVariantMap opisRelacji;
+    opisRelacji.insert( QStringLiteral( "id" ), r.id() );
+    opisRelacji.insert( QStringLiteral( "nazwa" ), r.name() );
+    opisRelacji.insert( QStringLiteral( "rodzic" ), rodzic->name() );
+    opisRelacji.insert( QStringLiteral( "dziecko" ), dziecko->name() );
+    opisRelacji.insert( QStringLiteral( "poleDziecka" ), pary.first().referencingField() );
+    opisRelacji.insert( QStringLiteral( "poleRodzica" ), pary.first().referencedField() );
+    opisRelacji.insert( QStringLiteral( "kompozycja" ),
+                        r.strength() == Qgis::RelationshipStrength::Composition );
+    relacje.append( opisRelacji );
+  }
+  if ( !relacje.isEmpty() )
+    przepis.insert( QStringLiteral( "relacje" ), relacje );
+
+  // ------------------------------------------------------------- ustawienia
+  QVariantMap ustawienia;
+
+  const QgsSnappingConfig snap = p->snappingConfig();
+  QVariantMap przyciaganie;
+  przyciaganie.insert( QStringLiteral( "wlaczone" ), snap.enabled() );
+  przyciaganie.insert( QStringLiteral( "tryb" ), static_cast<int>( snap.mode() ) );
+  przyciaganie.insert( QStringLiteral( "typ" ), static_cast<int>( snap.typeFlag() ) );
+  przyciaganie.insert( QStringLiteral( "tolerancja" ), snap.tolerance() );
+  przyciaganie.insert( QStringLiteral( "jednostka" ), static_cast<int>( snap.units() ) );
+  przyciaganie.insert( QStringLiteral( "przeciecia" ), snap.intersectionSnapping() );
+  ustawienia.insert( QStringLiteral( "przyciaganie" ), przyciaganie );
+
+  QVariantMap nakladanie;
+  nakladanie.insert( QStringLiteral( "tryb" ), static_cast<int>( p->avoidIntersectionsMode() ) );
+  QStringList nazwyUnikania;
+  const QList<QgsVectorLayer *> unikane = p->avoidIntersectionsLayers();
+  for ( QgsVectorLayer *u : unikane )
+  {
+    if ( u )
+      nazwyUnikania << u->name();
+  }
+  nakladanie.insert( QStringLiteral( "warstwy" ), nazwyUnikania );
+  ustawienia.insert( QStringLiteral( "unikajNakladania" ), nakladanie );
+
+  przepis.insert( QStringLiteral( "projekt" ), ustawienia );
+
+  return przepis;
 }
 
 QString NarzedziaProjektu::czytajTekst( const QString &sciezka ) const

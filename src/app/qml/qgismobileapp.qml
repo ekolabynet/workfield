@@ -68,17 +68,10 @@ ApplicationWindow {
       }
     }
     noweZadanie: function () { noweZadanie.open(); }
-    // WorkField: sekcja Magazyn (0) istnieje tylko na komputerze
-    // (QfMainDrawer: Loader active tylko poza Androidem). Na telefonie
-    // ta czynnosc otwiera przegladarke projektow, zamiast pustej sekcji.
-    otworzZMagazynu: function () {
-      if (Qt.platform.os === "android" || Qt.platform.os === "ios") {
-        qfieldLocalDataPickerScreen.projectFolderView = false;
-        qfieldLocalDataPickerScreen.visible = true;
-      } else {
-        dashBoard.otworzSekcje(0);
-      }
-    }
+    // WorkField 18.08.2026: sekcja Zlecen (0) stoi juz na obu platformach,
+    // wiec proteza otwierajaca przegladarke plikow na telefonie znika.
+    // Zostawiona byla najlepszym kandydatem na „przeciez to dziala".
+    otworzZMagazynu: function () { dashBoard.otworzSekcje(0); }
     // WorkField: Studio jest na razie tylko desktopowe (QfStudioSection),
     // wiec na telefonie ta sama czynnosc otwiera dialog QfNoweZadanie.
     // WorkField: jeden kreator na obu platformach. Wczesniej komputer
@@ -5941,6 +5934,16 @@ ApplicationWindow {
 
   QfNoweZadanie {
     id: noweZadanie
+    t: Theme
+    onUtworzono: sciezka => {
+      iface.loadFile(sciezka + "/projekt.qgs");
+    }
+  }
+
+  // WorkField 18.08.2026: drugi czasownik tworzenia — projekt w istniejacym
+  // zleceniu (kaskada zleceniodawca→teren→zlecenie). claude/MODEL_ZLECENIA.md
+  QfNowyProjekt {
+    id: nowyProjekt
     t: Theme
     onUtworzono: sciezka => {
       iface.loadFile(sciezka + "/projekt.qgs");

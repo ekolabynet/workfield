@@ -22,6 +22,25 @@ ColumnLayout {
 
   property var wybrany: null
 
+  readonly property bool naTelefonie: Qt.platform.os === "android" || Qt.platform.os === "ios"
+
+  /**
+   * Korzen, po ktorym szukamy zlecen.
+   *
+   * Komputer: ustawienie z „Zmien..." (domyslnie ~/WorkField).
+   * Telefon: katalog danych aplikacji. Domyslne ~/WorkField na Androidzie
+   * nie istnieje, a sekcja pokazujaca puste drzewo zamiast powiedziec „nie ma
+   * takiego katalogu" jest gorsza niz brak sekcji.
+   *
+   * To samo zrodlo co QfNoweZadanie.korzenMagazynu() — kreator i drzewo musza
+   * patrzec w to samo miejsce, inaczej wychodzi „utworzylem, a nie widze".
+   *
+   * WLASCIWOSC, NIE FUNKCJA: naglowek sekcji pokazuje te sciezke, a wiazanie
+   * do wywolania funkcji nie przeliczyloby sie po zmianie katalogu w „Zmien...".
+   */
+  readonly property string korzen: naTelefonie ? iface.dataRoot()
+                                               : ustawieniaStudia.korzenProjektow
+
   Settings {
     id: ustawieniaStudia
     category: "WFGStudio"
@@ -37,6 +56,16 @@ ColumnLayout {
   //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
   component QfPozycjaMenu: Button {
     id: pozycja
+
+    // WorkField 18.08.2026: wlasne tlo NIE jest kosmetyka. Styl pulpitowy
+    // rysuje ramke RAZEM Z NAPISEM w delegacie `background`, wiec sam
+    // `contentItem` nie zastepowal napisu, tylko dokladal drugi obok
+    // (zrzut z 18.08: kazda pozycja menu widoczna dwa razy, z przesunieciem).
+    // Pusty background zabiera stylowi miejsce na jego napis.
+    background: Rectangle {
+      color: pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+      radius: 4
+    }
 
     property string ikona: ""
 
@@ -109,6 +138,55 @@ ColumnLayout {
 
   // człony z konwencji nazw (docs/MAGAZYN.md); szuka w nazwie projektu,
   // a gdy trzeba — w segmentach ścieżki (master/zzw_2026/zzw_pze_2605_inw/projekt)
+  // WorkField 18.08.2026 (konsolidacja): stan zlecenia z dziennik/stan.json,
+  // ten sam plik co dawne kafle. Klucz: zamawiajacy|obszar id|zadanie.
+  //! WorkField 18.08.2026: cel operacji „Zamień na szablon" — {sciezka, nazwa}.
+  //! Ustawiany z zewnątrz, bo czynność mieszka teraz w zakładce Projekt
+  //! i dotyczy projektu OTWARTEGO, nie zaznaczonego w drzewie.
+  property var celSzablonu: null
+
+  //! Publiczne wejście dla zakładki Projekt.
+  function zamienNaSzablonDla(sciezka, nazwa) {
+    studio.celSzablonu = { "sciezka": sciezka, "nazwa": nazwa };
+    poleNazwySzablonu.text = String(nazwa).replace(/_v[0-9]+$/, "") + "_szablon";
+    dialogSzablonu.open();
+  }
+
+  function wczytajStan() {
+    const mapa = {};
+    const surowe = procesy.czytajTekst(studio.korzen + "/dziennik/stan.json");
+    if (surowe === "")
+      return mapa;
+    try {
+      const s = JSON.parse(surowe);
+      const lista = s.zlecenia || [];
+      for (const e of lista) {
+        const klucz = e.zamawiajacy + "|" + e.obszar + " " + e.id + "|" + e.zadanie;
+        mapa[klucz] = e;
+      }
+    } catch (err) {
+      // zły stan.json — po prostu bez wzbogacenia
+    }
+    return mapa;
+  }
+
+  //! jednolinijkowy opis stanu do wiersza zlecenia
+  function opisStanu(s) {
+    if (!s)
+      return "";
+    const czesci = [];
+    if (s.w_terenie > 0)
+      czesci.push(qsTr("w terenie %1").arg(s.w_terenie));
+    czesci.push(qsTr("ostatni zwrot: %1").arg(s.ostatni_zwrot && s.ostatni_zwrot !== "" ? s.ostatni_zwrot : "—"));
+    if (s.master && s.master.liczniki) {
+      const l = s.master.liczniki;
+      czesci.push(qsTr("master: topo %1 · płaty %2 · spis %3 · zdj %4")
+                  .arg(l.FITO_TOPOSEKTORY || 0).arg(l.FITO_PLATY || 0)
+                  .arg(l.FITO_SPIS_GATUNKOWY || 0).arg(l.FITO_ZDJECIA || 0));
+    }
+    return czesci.join(" · ");
+  }
+
   function parsujCzlony(p) {
     const segmenty = String(p.gdzie || "").split("/").filter(x => x !== "");
     const kandydaci = [String(p.nazwa || "")].concat(segmenty.slice().reverse());
@@ -134,7 +212,8 @@ ColumnLayout {
 
   function przeladuj() {
     const zaznaczona = wybrany ? wybrany.sciezka : "";
-    const plaska = procesy.znajdzProjekty(ustawieniaStudia.korzenProjektow, 4);
+    const plaska = procesy.znajdzProjekty(studio.korzen, 4);
+    const stanMapa = studio.wczytajStan();
 
     let nowyWybrany = null;
     for (const p of plaska)
@@ -209,8 +288,19 @@ ColumnLayout {
     }
 
     function dodajZlecenie(etykieta, statusy, poziom, klucz) {
+      // WorkField 18.08.2026: dokladamy stan z pierwszego projektu zlecenia.
+      let stan = null;
+      for (const st of STATUSY) {
+        const g = statusy[st.klucz];
+        if (g && g.length > 0) {
+          const c = parsujCzlony(g[0]);
+          if (c)
+            stan = stanMapa[c.zam + "|" + c.obszar + "|" + c.zadanie] || null;
+          break;
+        }
+      }
       wiersze.push({ rodzaj: "galaz", poziom: poziom, klucz: klucz,
-                     nazwa: etykieta, licznik: policz(statusy) });
+                     nazwa: etykieta, licznik: policz(statusy), stan: stan });
       if (zwiniete[klucz])
         return;
       for (const st of STATUSY) {
@@ -297,28 +387,93 @@ ColumnLayout {
 
     Text {
       Layout.fillWidth: true
-      text: ustawieniaStudia.korzenProjektow
+      text: studio.korzen
       font: Theme.tinyFont
       color: Theme.secondaryTextColor
       elide: Text.ElideMiddle
     }
+    // WorkField 18.08.2026: te dwa przyciski rysowaly ikone przez
+    // `icon.source:`, czyli kanalem stylu Material — a nie naszym Theme.
+    // Dlatego zostawaly ciemne mimo dwoch wczesniejszych latek na ikony:
+    // tamte zmienialy komponenty z wlasnym contentItem, ten wiersz nie.
+    // Teraz jedzie tym samym wzorcem co QfPozycjaMenu: ukryty Image +
+    // ColorOverlay, kolor z Theme. Styl nie ma juz nic do powiedzenia.
     Button {
+      id: przyciskZmien
       flat: true
+      // WorkField 18.08.2026: na telefonie FolderDialog nie siega poza
+      // katalog aplikacji, wiec ten przycisk obiecywalby cos, czego nie zrobi.
+      visible: !studio.naTelefonie
+
+      // WorkField 18.08.2026: patrz komentarz przy QfPozycjaMenu — styl
+      // pulpitowy rysuje napis w `background`, wiec musi go tu nie byc.
+      background: Rectangle {
+        color: przyciskZmien.down ? Qt.rgba(1, 1, 1, 0.14) : przyciskZmien.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+        radius: 4
+      }
       text: qsTr("Zmień…")
-      icon.source: Theme.getThemeVectorIcon("wfg_ustawienia")
-      icon.width: 18
-      icon.height: 18
       font: Theme.tinyFont
       onClicked: wyborKorzenia.open()
+
+      contentItem: RowLayout {
+        spacing: 6
+        Image {
+          id: ikonaZmien
+          source: Theme.getThemeVectorIcon("wfg_ustawienia")
+          sourceSize: Qt.size(18, 18)
+          visible: false
+        }
+        ColorOverlay {
+          Layout.preferredWidth: 18
+          Layout.preferredHeight: 18
+          source: ikonaZmien
+          visible: ikonaZmien.status === Image.Ready
+          color: Theme.mainTextColor
+        }
+        Text {
+          text: przyciskZmien.text
+          font: przyciskZmien.font
+          color: Theme.mainTextColor
+          verticalAlignment: Text.AlignVCenter
+        }
+      }
     }
     Button {
+      id: przyciskOdswiez
       flat: true
+
+      // WorkField 18.08.2026: patrz komentarz przy QfPozycjaMenu — styl
+      // pulpitowy rysuje napis w `background`, wiec musi go tu nie byc.
+      background: Rectangle {
+        color: przyciskOdswiez.down ? Qt.rgba(1, 1, 1, 0.14) : przyciskOdswiez.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+        radius: 4
+      }
       text: qsTr("Odśwież")
-      icon.source: Theme.getThemeVectorIcon("wfg_odswiez")
-      icon.width: 18
-      icon.height: 18
       font: Theme.tinyFont
       onClicked: studio.przeladuj()
+
+      contentItem: RowLayout {
+        spacing: 6
+        Image {
+          id: ikonaOdswiez
+          source: Theme.getThemeVectorIcon("wfg_odswiez")
+          sourceSize: Qt.size(18, 18)
+          visible: false
+        }
+        ColorOverlay {
+          Layout.preferredWidth: 18
+          Layout.preferredHeight: 18
+          source: ikonaOdswiez
+          visible: ikonaOdswiez.status === Image.Ready
+          color: Theme.mainTextColor
+        }
+        Text {
+          text: przyciskOdswiez.text
+          font: przyciskOdswiez.font
+          color: Theme.mainTextColor
+          verticalAlignment: Text.AlignVCenter
+        }
+      }
     }
   }
 
@@ -348,9 +503,16 @@ ColumnLayout {
       }
     }
     QfPozycjaMenu {
-      text: qsTr("Nowy z szablonu")
+      // WorkField 18.08.2026 (zamiana, uwaga Piotra): zakladka Zlecen
+      // zaklada ZLECENIA — od zera, pelne pola. Projekt w ramach zlecenia
+      // zaklada sie z zakladki Projekt, gdzie jest kontekst otwartego
+      // projektu do odziedziczenia.
+      text: qsTr("Nowe zlecenie")
       ikona: "wfg_nowe"
-      onClicked: kreatorNowego.open()
+      onClicked: {
+        noweZadanie.dziedziczone = null;
+        noweZadanie.open();
+      }
     }
     // WorkField 17.08.2026: "Zbuduj projekt" USUNIETE. Uruchamialo
     // zbuduj_projekt.py z katalogu szablonu — drugi krok starego swiata,
@@ -360,15 +522,9 @@ ColumnLayout {
     // przez powloke i wolalo adb — zalezne od zainstalowanego adb, wpietego
     // kabla i sciezki do karty. Dublowalo natywne "Wyslij w teren"
     // (QfWymianaLokalna), ktore dziala bez zadnego z tych trzech warunkow.
-    QfPozycjaMenu {
-      text: qsTr("Zamień na szablon")
-      ikona: "wfg_paczka"
-      enabled: studio.wybrany && !procesy.dziala
-      onClicked: {
-        poleNazwySzablonu.text = studio.wybrany.nazwa.replace(/_v[0-9]+$/, "") + "_szablon";
-        dialogSzablonu.open();
-      }
-    }
+    // WorkField 18.08.2026: „Zamień na szablon" przeniesione do zakładki
+    // Projekt — czynność dotyczy projektu otwartego, nie zaznaczenia w drzewie.
+    // Dialog i silnik zostają tutaj; wejściem jest zamienNaSzablonDla().
     QfPozycjaMenu {
       text: qsTr("Przerwij operację")
       ikona: "wfg_przerwij"
@@ -418,12 +574,27 @@ ColumnLayout {
           font: Theme.tipFont
           color: Theme.secondaryTextColor
         }
-        Text {
+        ColumnLayout {
           Layout.fillWidth: true
-          text: wierszGalezi ? modelData.nazwa : ""
-          font: (modelData.poziom || 0) === 0 ? Theme.strongTipFont : Theme.tipFont
-          color: Theme.mainTextColor
-          elide: Text.ElideRight
+          spacing: 0
+
+          Text {
+            Layout.fillWidth: true
+            text: wierszGalezi ? modelData.nazwa : ""
+            font: (modelData.poziom || 0) === 0 ? Theme.strongTipFont : Theme.tipFont
+            color: Theme.mainTextColor
+            elide: Text.ElideRight
+          }
+          // WorkField 18.08.2026: stan zlecenia wtopiony w wiersz drzewa —
+          // kafle „Stanu zleceń" zlikwidowane (konsolidacja, decyzja Piotra).
+          Text {
+            Layout.fillWidth: true
+            visible: modelData.stan !== undefined && modelData.stan !== null
+            text: studio.opisStanu(modelData.stan)
+            font: Theme.tinyFont
+            color: (modelData.stan && modelData.stan.w_terenie > 0) ? Theme.warningColor : Theme.secondaryTextColor
+            elide: Text.ElideRight
+          }
         }
         Text {
           text: wierszGalezi ? modelData.licznik : ""
@@ -479,12 +650,30 @@ ColumnLayout {
   }
 
 
+  // WorkField 18.08.2026: puste drzewo bez tego zdania jest nierozroznialne
+  // od zepsutego drzewa. Mowimy WPROST, gdzie szukalismy.
+  Text {
+    Layout.fillWidth: true
+    Layout.leftMargin: 8
+    Layout.rightMargin: 8
+    Layout.bottomMargin: 4
+    visible: listaProjektow.count === 0
+    text: qsTr("Nie znaleziono żadnych zleceń w:\n%1").arg(studio.korzen)
+    font: Theme.tipFont
+    color: Theme.secondaryTextColor
+    wrapMode: Text.Wrap
+  }
+
   // ── zapis operacji ─────────────────────────────────────────────
   Text {
     Layout.leftMargin: 8
     text: qsTr("Zapis operacji")
     font: Theme.tinyFont
     color: Theme.secondaryTextColor
+    // WorkField 18.08.2026: puste pole zabieralo 110 px nalezacych sie drzewu.
+    // Pokazuje sie dopiero, gdy cos w nim jest — pierwsza dopisana linia
+    // przywoluje je z powrotem, wiec nic nie ginie.
+    visible: zapis.length > 0
   }
   ScrollView {
     Layout.fillWidth: true
@@ -493,6 +682,7 @@ ColumnLayout {
     Layout.bottomMargin: 8
     Layout.preferredHeight: 110
     clip: true
+    visible: zapis.length > 0
 
     TextArea {
       id: zapis
@@ -508,88 +698,6 @@ ColumnLayout {
     }
   }
 
-  // ── kreator: nowy projekt z szablonu ───────────────────────────
-  Popup {
-    id: kreatorNowego
-
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(420, mainWindow.width - 32)
-    modal: true
-
-    onAboutToShow: {
-      const szablony = [];
-      const wszystkie = procesy.znajdzProjekty(ustawieniaStudia.korzenProjektow, 4);
-      for (const p of wszystkie)
-        if (p.typ === "szablon")
-          szablony.push(p);
-      wyborSzablonu.model = szablony;
-      poleNazwy.text = "";
-    }
-
-    ColumnLayout {
-      width: parent.width
-      spacing: 8
-
-      Text {
-        text: qsTr("Nowy projekt z szablonu")
-        font: Theme.strongTipFont
-        color: Theme.mainTextColor
-      }
-      ComboBox {
-        id: wyborSzablonu
-        Layout.fillWidth: true
-        textRole: "nazwa"
-      }
-      TextField {
-        id: poleNazwy
-        Layout.fillWidth: true
-        placeholderText: qsTr("nazwa, np. zzw_ptr_2603_inw")
-      }
-      RowLayout {
-        Layout.fillWidth: true
-        Item { Layout.fillWidth: true }
-        Button {
-          flat: true
-          text: qsTr("Anuluj")
-          onClicked: kreatorNowego.close()
-        }
-        Button {
-          text: qsTr("Utwórz")
-          enabled: wyborSzablonu.currentIndex >= 0 && poleNazwy.text.trim() !== ""
-          onClicked: {
-            const szablon = wyborSzablonu.model[wyborSzablonu.currentIndex];
-
-            // WorkField: szablon z przepisem budujemy od zera z aktualnego
-            // wyposazenia; kopia katalogu zostaje dla szablonow bez przepisu.
-            if (szablon.przepis && szablon.przepis !== "") {
-              const korzenZadan = NarzedziaProjektu.katalogZadan(ustawieniaStudia.korzenProjektow);
-              if (mainWindow.przepisy.noweZadanie(szablon.przepis, korzenZadan, poleNazwy.text.trim())) {
-                zapis.dopisz(qsTr("Buduje %1 z przepisu (szablon %2)...").arg(poleNazwy.text.trim()).arg(szablon.nazwa));
-                kreatorNowego.close();
-                studio.przeladuj();
-              } else {
-                zapis.dopisz(qsTr("Nie udalo sie zbudowac z przepisu."));
-              }
-              return;
-            }
-
-            const w = procesy.nowyZSzablonu(szablon.sciezka, "", poleNazwy.text,
-                                            ustawieniaStudia.korzenProjektow);
-            if (w.ok) {
-              zapis.dopisz(qsTr("Utworzono %1 (z szablonu %2)").arg(w.sciezka).arg(szablon.nazwa));
-              zapis.dopisz(qsTr("Teraz: Zbuduj projekt, potem Wyślij na telefon."));
-              kreatorNowego.close();
-              studio.przeladuj();
-            } else {
-              zapis.dopisz(qsTr("✗ %1").arg(w.blad));
-            }
-          }
-        }
-      }
-    }
-  }
 
   // ── dialog: Zamień na szablon ─────────────────────────────────
   Popup {
@@ -612,8 +720,8 @@ ColumnLayout {
       }
       Text {
         Layout.fillWidth: true
-        text: studio.wybrany
-              ? qsTr("Kopia %1 trafi do szablonów bez części terenowej:\nbez DCIM, zdjęć i foto_tagi; tabele FITO_* zostaną wyczyszczone.\nOryginał pozostanie nietknięty.").arg(studio.wybrany.nazwa)
+        text: studio.celSzablonu
+              ? qsTr("Kopia %1 trafi do szablonów bez części terenowej:\nbez DCIM, zdjęć i foto_tagi; tabele FITO_* zostaną wyczyszczone.\nOryginał pozostanie nietknięty.").arg(studio.celSzablonu.nazwa)
               : ""
         font: Theme.tinyFont
         color: Theme.secondaryTextColor
@@ -636,8 +744,8 @@ ColumnLayout {
           text: qsTr("Utwórz szablon")
           enabled: poleNazwySzablonu.text.trim() !== ""
           onClicked: {
-            const w = procesy.zamienNaSzablon(studio.wybrany.sciezka,
-                                              ustawieniaStudia.korzenProjektow,
+            const w = procesy.zamienNaSzablon(studio.celSzablonu.sciezka,
+                                              studio.korzen,
                                               poleNazwySzablonu.text);
             if (w.ok) {
               zapis.dopisz(qsTr("Szablon utworzony: %1 (wyczyszczono tabel FITO: %2)").arg(w.sciezka).arg(w.wyczyszczono));

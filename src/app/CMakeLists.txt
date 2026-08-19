@@ -147,6 +147,7 @@ set(QFIELD_APP_QML_FILES
     qml/QfMainDrawer.qml
     qml/QfNewLayerDialog.qml
     qml/QfNoweZadanie.qml
+    qml/QfNowyProjekt.qml
     qml/QfPrzepis.qml
     qml/QfKontrolaProjektu.qml
     qml/QfNaprawaProjektu.qml

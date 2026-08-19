@@ -37,6 +37,7 @@ set(QFIELD_CORE_SRCS
     locator/expressioncalculatorlocatorfilter.cpp
     locator/featureslocatorfilter.cpp
     locator/finlandlocatorfilter.cpp
+    locator/wfnominatimlocatorfilter.cpp
     locator/gotolocatorfilter.cpp
     locator/helplocatorfilter.cpp
     locator/qfieldlocatorfilter.cpp
@@ -167,6 +168,7 @@ set(QFIELD_CORE_HDRS
     locator/expressioncalculatorlocatorfilter.h
     locator/featureslocatorfilter.h
     locator/finlandlocatorfilter.h
+    locator/wfnominatimlocatorfilter.h
     locator/gotolocatorfilter.h
     locator/helplocatorfilter.h
     locator/qfieldlocatorfilter.h

@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 import QtQuick.Controls
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
@@ -27,6 +28,28 @@ Popup {
 
   signal utworzono(string sciezka)
 
+  //! WorkField 18.08.2026: dziedziczenie metadanych zlecenia (model
+  //! Zlecenie -> Projekt, claude/MODEL_ZLECENIA.md). Wolajacy ustawia
+  //! PRZED open(): { zleceniodawca, teren, tagi } — pola przychodza
+  //! wypelnione, a tytul mowi „Nowy projekt w zleceniu". Null = nowe
+  //! zlecenie od zera. Dziedziczymy po METADANYCH, nie po sciezkach,
+  //! wiec uklad katalogow na dysku zostaje bez zmian.
+  property var dziedziczone: null
+
+  // WorkField: korzeniem jest MAGAZYN (~/WorkField), nie katalog aplikacji.
+  // iface.dataRoot() na desktopie wskazuje "Dokumenty/QField Documents" —
+  // zadania ladowaly tam zamiast w wydania/ (18.08.2026). Ta sama nastawa
+  // co w Studiu, wiec "Zmien..." w magazynie zmienia oba naraz.
+  Settings {
+    id: ustawieniaMagazynu
+    category: "WFGStudio"
+    property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
+  }
+
+  function korzenMagazynu() {
+    return ustawieniaMagazynu.korzenProjektow !== "" ? ustawieniaMagazynu.korzenProjektow : iface.dataRoot();
+  }
+
   width: Math.min(mainWindow.width - 32, 520)
   height: Math.min(mainWindow.height - 64, 640)
   x: Math.round((mainWindow.width - width) / 2)
@@ -44,16 +67,23 @@ Popup {
   onOpened: {
     // dopiero tutaj: przy tworzeniu obiektu iface może jeszcze nie być gotowy
     if (katalogSzablonow === "")
+      katalogSzablonow = NarzedziaProjektu.katalogSzablonow(korzenMagazynu());
+    if (katalogSzablonow === "")
       katalogSzablonow = NarzedziaProjektu.katalogSzablonow(iface.dataRoot());
     if (katalogSzablonow === "")
-      katalogSzablonow = iface.dataRoot() + "Szablony";
+      katalogSzablonow = korzenMagazynu() + "/szablony";
     if (katalogProjektow === "")
-      katalogProjektow = NarzedziaProjektu.katalogZadan(iface.dataRoot());
+      katalogProjektow = NarzedziaProjektu.katalogZadan(korzenMagazynu());
     if (katalogProjektow === "")
       katalogProjektow = iface.dataRoot() + "Imported Projects";
     poleData.text = new Date().toLocaleDateString(Qt.locale(), "yyyy-MM-dd");
     szablonWybrany = "";
     komunikat.text = "";
+    if (dziedziczone) {
+      poleKlient.text = dziedziczone.zleceniodawca !== undefined ? dziedziczone.zleceniodawca : "";
+      poleTeren.text = dziedziczone.teren !== undefined ? dziedziczone.teren : "";
+      poleTagi.text = dziedziczone.tagi !== undefined ? dziedziczone.tagi : "";
+    }
   }
 
   property string szablonWybrany: ""
@@ -110,7 +140,7 @@ Popup {
     spacing: 10
 
     Label {
-      text: qsTr("Nowe zadanie z szablonu")
+      text: kreator.dziedziczone ? qsTr("Nowy projekt w zleceniu") : qsTr("Nowe zlecenie")
       font: t.strongTipFont
       color: t.mainTextColor
     }
