@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
@@ -47,6 +48,28 @@ Page {
   property bool featureCreated: false
   property bool isVertical: false
   property bool isDraggable: false
+
+  // WorkField: how much of this form the on-screen keyboard covers.
+  // Feeds the form Flickable's bottom margin, so the content has somewhere
+  // to scroll to instead of hiding the caret behind the keyboard.
+  //
+  // Qt is ambiguous about the units of keyboardRectangle on Android
+  // (physical vs logical pixels). We do not guess: a rectangle that does
+  // not fit inside the window must have arrived in physical pixels.
+  readonly property real keyboardInset: {
+    if (!Qt.inputMethod.visible)
+      return 0;
+    const kr = Qt.inputMethod.keyboardRectangle;
+    if (!kr || kr.height <= 0)
+      return 0;
+    let scale = 1;
+    const windowHeight = form.Window.height;
+    if (windowHeight > 0 && kr.y > windowHeight)
+      scale = Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1;
+    const keyboardTop = kr.y / scale;
+    const formBottom = form.mapToItem(null, 0, form.height).y;
+    return Math.max(0, formBottom - keyboardTop);
+  }
 
   property double topMargin: 0.0
   property double leftMargin: 0.0
@@ -204,7 +227,10 @@ Page {
             width: form.width - form.leftMargin - form.rightMargin
             contentWidth: content.width
             contentHeight: content.height
-            bottomMargin: form.bottomMargin + (form.model.isWizard ? wizardNavigationContainer.height : 0)
+            // WorkField: keyboardInset is read back by TextEdit.qml, which
+            // needs to know how much of this Flickable is actually covered.
+            property real keyboardInset: form.keyboardInset
+            bottomMargin: form.bottomMargin + (form.model.isWizard ? wizardNavigationContainer.height : 0) + keyboardInset
             clip: true
             ScrollBar.vertical: QfScrollBar {}
             boundsBehavior: Flickable.StopAtBounds

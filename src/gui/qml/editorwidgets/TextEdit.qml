@@ -49,6 +49,13 @@ EditorWidgetBase {
 
   TextField {
     id: textField
+
+    // WorkField: caret above the keyboard (patch 31)
+    onCursorRectangleChanged: topItem.scrollCaretIntoView(textField)
+    onActiveFocusChanged: {
+      if (activeFocus)
+        Qt.callLater(topItem.scrollCaretIntoView, textField);
+    }
     leftPadding: isEditing ? 10 : 0
     visible: (config['IsMultiline'] === undefined || config['IsMultiline'] == false) && isEditing
     enabled: isEditable
@@ -94,6 +101,14 @@ EditorWidgetBase {
 
   TextArea {
     id: textArea
+
+    // WorkField: caret above the keyboard (patch 31) — this is the variant
+    // the UWAGI field uses, so this is the one that matters in the field.
+    onCursorRectangleChanged: topItem.scrollCaretIntoView(textArea)
+    onActiveFocusChanged: {
+      if (activeFocus)
+        Qt.callLater(topItem.scrollCaretIntoView, textArea);
+    }
     leftPadding: isEditing ? 10 : 0
     height: config['IsMultiline'] === true ? undefined : 0
     visible: config['IsMultiline'] === true && isEditing
@@ -114,6 +129,40 @@ EditorWidgetBase {
     }
 
     background.visible: enabled || (!isEditable && isEditing)
+  }
+
+  // WorkField: keep the caret above the on-screen keyboard while typing.
+  // The enclosing Flickable is found by walking up the parent chain, so this
+  // works in the feature form, in embedded relation forms and anywhere else
+  // a text widget is placed inside a scrollable view.
+  function scrollCaretIntoView(editor) {
+    if (!editor || !editor.activeFocus)
+      return;
+
+    let flick = topItem.parent;
+    while (flick && (flick.contentY === undefined || flick.contentHeight === undefined))
+      flick = flick.parent;
+    if (!flick)
+      return;
+
+    const inset = flick.keyboardInset !== undefined ? flick.keyboardInset : 0;
+    const caret = editor.cursorRectangle;
+    const caretTop = editor.mapToItem(flick.contentItem, 0, caret.y).y;
+    const caretBottom = caretTop + caret.height;
+    const margin = caret.height;
+
+    const visibleHeight = flick.height - inset;
+    if (visibleHeight <= 0)
+      return;
+
+    let target = flick.contentY;
+    if (caretBottom + margin > flick.contentY + visibleHeight)
+      target = caretBottom + margin - visibleHeight;
+    else if (caretTop - margin < flick.contentY)
+      target = caretTop - margin;
+
+    const maxY = Math.max(0, flick.contentHeight + flick.bottomMargin - flick.height);
+    flick.contentY = Math.max(0, Math.min(target, maxY));
   }
 
   FontMetrics {
