@@ -1,13 +1,23 @@
 {
   "id": "bez_nakladania",
   "nazwa": "Unikaj nakładania poligonów",
-  "wersja": 1,
+  "wersja": 2,
   "rodzaj": "ustawienie",
-  "gdzie": ["biuro", "teren"],
+  "gdzie": [
+    "biuro",
+    "teren"
+  ],
   "odwracalny": true,
-  "wymaga": ["przyciaganie"],
-  "dotyczy": { "geometria": ["Polygon", "MultiPolygon"] },
-  "opis": "Nowy poligon nie wchodzi w istniejące — przy mapowaniu płatów roślinności to jedyny sposób, żeby granice sąsiadów były wspólne, a nie podwójne. Obejmuje wszystkie edytowalne warstwy poligonowe projektu poza warstwą zasięgu.",
+  "wymaga": [
+    "przyciaganie"
+  ],
+  "dotyczy": {
+    "geometria": [
+      "Polygon",
+      "MultiPolygon"
+    ]
+  },
+  "opis": "Nowy poligon nie wchodzi w istniejące — przy mapowaniu płatów roślinności to jedyny sposób, żeby granice sąsiadów były wspólne, a nie podwójne. Obejmuje edytowalne warstwy poligonowe projektu POZA warstwami POKRYWAJĄCYMI CAŁY TEREN (zasięg, toposektory, podkłady): unikanie nakładania z taką warstwą przycina każdy nowy obiekt do zera i nic się nie da narysować — bez komunikatu. Kosztowało to pół dnia terenu 21.08.2026.",
   "grunt": "QgsProject: właściwości Digitizing/AvoidIntersectionsMode (int) i Digitizing/AvoidIntersectionsList (QStringList z identyfikatorami warstw). Qgis::AvoidIntersectionsMode: 0 = AllowIntersections, 1 = AvoidIntersectionsCurrentLayer, 2 = AvoidIntersectionsLayers.",
   "kroki": [
     {
@@ -23,9 +33,27 @@
       "grupa": "Digitizing",
       "klucz": "AvoidIntersectionsList",
       "wybor": {
-        "geometria": ["Polygon", "MultiPolygon"],
+        "geometria": [
+          "Polygon",
+          "MultiPolygon"
+        ],
         "tylko_edytowalne": true,
-        "pomin_nazwy": ["zasieg", "zasięg", "DEN_ZASIEG", "granica", "granica_opracowania"]
+        "pomin_nazwy": [
+          "zasieg",
+          "zasięg",
+          "DEN_ZASIEG",
+          "granica",
+          "granica_opracowania",
+          "toposektory",
+          "FITO_TOPOSEKTORY",
+          "TOPOSEKTORY",
+          "podklad",
+          "podkład",
+          "wydzielenia",
+          "zadrzewienia",
+          "REF_wydzielenia",
+          "REF_zadrzewienia"
+        ]
       }
     }
   ]

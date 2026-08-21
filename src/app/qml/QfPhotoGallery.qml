@@ -2616,6 +2616,52 @@ Popup {
         }
       }
 
+      function skrocNazwe(n) {
+        const cz = String(n).split(" ");
+        return cz.length > 1 ? cz[0][0] + ". " + cz.slice(1).join(" ") : n;
+      }
+
+      // Porownuje cechy kandydatow Pl@ntNet obecnych w WF_CECHY.
+      // Zwraca wiersze: {naglowek, tekst}. Najpierw cechy kluczowe,
+      // potem maks. 3 kolumny, w ktorych kandydaci sie ROZNIA.
+      function zbudujCechy(results) {
+        if (!results || results.length === 0)
+          return [];
+        const kolejnosc = ["JEZYCZEK", "POCHWY", "BLASZKA", "OSCI", "ROZLOGI", "KWIATOSTAN", "POKROJ", "KLOSKI", "USZKA", "WYSOKOSC_CM", "SIEDLISKO", "KWITNIENIE"];
+        const kand = [];
+        for (let i = 0; i < results.length && kand.length < 3; i++) {
+          const c = tagStore.speciesCechy(results[i].lacina);
+          if (c && c.GATUNEK !== undefined)
+            kand.push({ nazwa: String(c.GATUNEK), rob: String(c.WERYFIKACJA || "").trim() === "", c: c });
+        }
+        if (kand.length === 0)
+          return [];
+        const out = [];
+        for (const k of kand) {
+          const v = String(k.c.CECHA_KLUCZOWA || "").trim();
+          if (v !== "")
+            out.push({ naglowek: skrocNazwe(k.nazwa) + (k.rob ? " (rob.)" : ""), tekst: v });
+        }
+        if (kand.length >= 2) {
+          let dodane = 0;
+          for (const kn of kolejnosc) {
+            const vals = kand.map(k => String(k.c[kn] || "").trim());
+            if (vals.filter(v => v !== "").length < 2)
+              continue;
+            let rozne = false;
+            for (let i = 1; i < vals.length; i++)
+              if (vals[i] !== "" && vals[0] !== "" && vals[i] !== vals[0])
+                rozne = true;
+            if (!rozne)
+              continue;
+            out.push({ naglowek: "≠ " + kn.toLowerCase(), tekst: kand.map((k, i) => skrocNazwe(k.nazwa) + ": " + (vals[i] || "—")).join("   •   ") });
+            if (++dodane >= 3)
+              break;
+          }
+        }
+        return out;
+      }
+
       onSortAZChanged: {
         settings.setValue("workfield/tagSortAZ", sortAZ);
         updateSuggestions();
@@ -2989,6 +3035,46 @@ Popup {
                 tagPanel.updateSuggestions();
               } else {
                 displayToast(qsTr("Nie udało się zapisać tagu"));
+              }
+            }
+          }
+        }
+
+        // ---- WorkField: czym rozroznic kandydatow Pl@ntNet ----
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 2
+          visible: cechyLista.count > 0
+
+          Label {
+            text: qsTr("Czym je rozróżnić:")
+            color: "#80DEEA"
+            font: photoGallery.t.tipFont
+          }
+
+          Repeater {
+            id: cechyLista
+            model: tagPanel.zbudujCechy(tagPanel.pnResults)
+
+            delegate: ColumnLayout {
+              required property var modelData
+              Layout.fillWidth: true
+              spacing: 0
+
+              Label {
+                Layout.fillWidth: true
+                text: modelData.naglowek
+                color: "#A5D6A7"
+                font: photoGallery.t.tinyFont
+                wrapMode: Text.WordWrap
+              }
+
+              Label {
+                Layout.fillWidth: true
+                text: modelData.tekst
+                color: "white"
+                font: photoGallery.t.tinyFont
+                wrapMode: Text.WordWrap
               }
             }
           }

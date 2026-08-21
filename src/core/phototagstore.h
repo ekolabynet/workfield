@@ -86,6 +86,9 @@ class PhotoTagStore : public QObject
     //! (Tichy/Chytry EIV, Midolo) z GPKG projektu; pusta mapa gdy brak.
     Q_INVOKABLE QVariantMap speciesMeta( const QString &gatunek );
 
+    //! Cechy diagnostyczne gatunku z tabeli WF_CECHY (macierz rozrozniania).
+    Q_INVOKABLE QVariantMap speciesCechy( const QString &gatunek );
+
   signals:
     void authorChanged();
     void storagePathChanged();

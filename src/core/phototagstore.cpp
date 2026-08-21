@@ -719,3 +719,56 @@ QVariantMap PhotoTagStore::speciesMeta( const QString &gatunek )
   sqlite3_close( db );
   return meta;
 }
+
+QVariantMap PhotoTagStore::speciesCechy( const QString &gatunek )
+{
+  QVariantMap cechy;
+  if ( mProjectDir.isEmpty() )
+    return cechy;
+  if ( !mMetaSearched )
+    speciesMeta( gatunek ); // przy okazji ustala mMetaGpkg
+  if ( mMetaGpkg.isEmpty() )
+    return cechy;
+
+  QString klucz = gatunek;
+  int p = klucz.indexOf( QLatin1String( " - " ) );
+  if ( p > 0 )
+    klucz = klucz.left( p );
+  p = klucz.indexOf( QLatin1String( " [" ) );
+  if ( p > 0 )
+    klucz = klucz.left( p );
+  klucz = klucz.trimmed().toLower();
+  if ( klucz.isEmpty() )
+    return cechy;
+
+  sqlite3 *db = nullptr;
+  if ( sqlite3_open_v2( mMetaGpkg.toUtf8().constData(), &db, SQLITE_OPEN_READONLY, nullptr ) != SQLITE_OK )
+  {
+    if ( db )
+      sqlite3_close( db );
+    return cechy;
+  }
+  sqlite3_stmt *st = nullptr;
+  if ( sqlite3_prepare_v2( db, "SELECT * FROM WF_CECHY WHERE lower(trim(GATUNEK)) = ?1 LIMIT 1", -1, &st, nullptr ) != SQLITE_OK )
+  {
+    if ( st )
+      sqlite3_finalize( st );
+    sqlite3_close( db ); // tabeli moze nie byc - to nie blad
+    return cechy;
+  }
+  const QByteArray k = klucz.toUtf8();
+  sqlite3_bind_text( st, 1, k.constData(), -1, SQLITE_TRANSIENT );
+  if ( sqlite3_step( st ) == SQLITE_ROW )
+  {
+    const int n = sqlite3_column_count( st );
+    for ( int i = 0; i < n; i++ )
+    {
+      const QString kol = QString::fromUtf8( sqlite3_column_name( st, i ) );
+      const unsigned char *txt = sqlite3_column_text( st, i );
+      cechy.insert( kol, txt ? QString::fromUtf8( reinterpret_cast<const char *>( txt ) ) : QString() );
+    }
+  }
+  sqlite3_finalize( st );
+  sqlite3_close( db );
+  return cechy;
+}
