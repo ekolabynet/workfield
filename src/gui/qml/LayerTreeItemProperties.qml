@@ -810,38 +810,6 @@ QfPopup {
             color: Theme.mainTextColor
           }
 
-          component ColorGrid: Flow {
-            id: grid
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            Layout.rightMargin: 8
-            spacing: 6
-
-            property color currentColor: "transparent"
-            signal picked(color chosen)
-
-            readonly property var swatches: ["#e53935", "#d81b60", "#8e24aa", "#3949ab", "#1e88e5", "#00897b", "#43a047", "#c0ca33", "#fdd835", "#fb8c00", "#6d4c41", "#212121", "#ffffff"]
-
-            Repeater {
-              model: grid.swatches
-
-              delegate: Rectangle {
-                required property string modelData
-
-                width: 30
-                height: 30
-                radius: 4
-                color: modelData
-                border.width: Qt.colorEqual(grid.currentColor, modelData) ? 3 : 1
-                border.color: Qt.colorEqual(grid.currentColor, modelData) ? Theme.mainColor : Theme.controlBorderColor
-
-                MouseArea {
-                  anchors.fill: parent
-                  onClicked: grid.picked(parent.modelData)
-                }
-              }
-            }
-          }
 
           SectionLabel {
             text: symbolKind === 1 ? qsTr("Kolor linii") : qsTr("Wypełnienie")
@@ -1084,7 +1052,21 @@ QfPopup {
 
                   MouseArea {
                     anchors.fill: parent
-                    onClicked: categoryList.editingIndex = categoryList.editingIndex === index ? -1 : index
+                    // WorkField 21.08.2026: wspólny picker (256 odcieni
+                    // Materialize) zamiast trzynastu kolorów wklejonych
+                    // w ten plik. Ten sam pomocnik, co przy wypełnieniu
+                    // i konturze — kategorie jako jedyne go nie wołały.
+                    onClicked: {
+                      if (!styleTargetLayer)
+                        return;
+                      const nrKategorii = index;
+                      openColorPicker(qsTr("Kategoria"), modelData.color, function (chosen) {
+                        LayerUtils.setCategoryColor(styleTargetLayer, nrKategorii, chosen);
+                        categoryEntries = LayerUtils.rendererCategories(styleTargetLayer);
+                        if (styleTargetMapLayer)
+                          projectInfo.saveLayerStyle(styleTargetMapLayer);
+                      });
+                    }
                   }
                 }
 
@@ -1108,52 +1090,23 @@ QfPopup {
                   height: 32
                   padding: 0
                   bgcolor: "transparent"
-                  iconSource: Theme.getThemeVectorIcon(modelData.visible ? "WŁAŚCIWA_NAZWA" : "WŁAŚCIWA_NAZWA_2")
-                  iconColor: Theme.mainTextColor
+                  // WorkField 21.08.2026: nazwy ikon były niewypełnionymi
+                  // zaślepkami, a obsługa kliknięcia pobierała warstwę
+                  // i ją wyrzucała — przycisk widoczny, prowadzący donikąd.
+                  iconSource: Theme.getThemeVectorIcon(modelData.visible ? "ic_eye_black_24dp" : "ic_eye_off_black_24dp")
+                  iconColor: modelData.visible ? Theme.mainTextColor : Theme.mainTextDisabledColor
 
                   onClicked: {
-                    const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                    if (!styleTargetLayer)
+                      return;
+                    LayerUtils.setCategoryVisible(styleTargetLayer, index, !modelData.visible);
+                    categoryEntries = LayerUtils.rendererCategories(styleTargetLayer);
+                    if (styleTargetMapLayer)
+                      projectInfo.saveLayerStyle(styleTargetMapLayer);
                   }
                 }
               }
 
-              Flow {
-                width: parent.width - 16
-                x: 8
-                spacing: 5
-                bottomPadding: 6
-                visible: categoryList.editingIndex === index
-
-                readonly property var swatches: ["#e53935", "#d81b60", "#8e24aa", "#3949ab", "#1e88e5", "#00897b", "#43a047", "#c0ca33", "#fdd835", "#fb8c00", "#6d4c41", "#212121", "#ffffff"]
-
-                Repeater {
-                  model: parent.swatches
-
-                  delegate: Rectangle {
-                    required property string modelData
-
-                    width: 26
-                    height: 26
-                    radius: 4
-                    color: modelData
-                    border.width: 1
-                    border.color: Theme.controlBorderColor
-
-                    MouseArea {
-                      anchors.fill: parent
-                      onClicked: {
-                        if (!styleTargetLayer)
-                          return;
-                        LayerUtils.setCategoryColor(styleTargetLayer, categoryList.editingIndex, parent.modelData);
-                        categoryEntries = LayerUtils.rendererCategories(styleTargetLayer);
-                        categoryList.editingIndex = -1;
-                        if (styleTargetMapLayer)
-                          projectInfo.saveLayerStyle(styleTargetMapLayer);
-                      }
-                    }
-                  }
-                }
-              }
             }
           }
         }
