@@ -81,6 +81,10 @@ Tag powstaje ZAWSZE razem z bumpem — wydanie bez taga to wydanie widmo
   sprzeczne z GPL. Liczby Zarzyckiego zostają publicznie: ochrona sui
   generis wydania z 2002 wygasła z końcem 2017 (art. 10 ust. 2 ustawy
   o ochronie baz danych). Rozbiór: `taxonomy/docs/LICENCJE_audyt.md`.
+  Kanał prywatny chodzi przez konta serwisowe NextClouda: `wf_desktop`
+  publikuje bibliotekę (maska 5 — bez nadpisywania), telefony czytają ją
+  z prawem odczytu i piszą wyłącznie do własnych katalogów zwrotów.
+  Opis: `docs/KANAL_NC.md`, wysyłka: `skrypty/wyslij_do_nc.sh`.
 - `taxonomy/` — nazwy gatunków i przypisane im prawo: warstwy prawne jako
   CSV, skrypty budujące słownik `TAKSONY`, rejestr `taxonomy/WERSJE.md`.
   Dane jako CSV (źródło prawdy), GPKG tylko jako wydruk przy wydaniu.
