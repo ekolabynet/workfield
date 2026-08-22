@@ -139,7 +139,7 @@ ApplicationWindow {
     // WorkField 22.08: wysokosc z tresci, nie na sztywno — kolumna ma trzy
     // wiersze (tytul, warstwa, uklad wspolrzednych) i przy 64 px trzeci
     // wychodzil poza belke na mape.
-    height: visible ? Math.max(64, belkaKolumna.implicitHeight + 16) + mainWindow.sceneTopMargin : 0
+    height: visible ? Math.max(88, belkaKolumna.implicitHeight + 20) + mainWindow.sceneTopMargin : 0
     topPadding: mainWindow.sceneTopMargin
     Material.background: Theme.mainColor
 
