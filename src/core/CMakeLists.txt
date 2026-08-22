@@ -113,7 +113,14 @@ set(QFIELD_CORE_SRCS
     qfvertexmodel.cpp
     qfvideosinkcapture.cpp
     qfviewstatus.cpp
-    qfwebdavconnection.cpp)
+    qfwebdavconnection.cpp
+    locator/wfnominatimlocatorfilter.cpp
+    utils/narzedziaprojektu.cpp
+    utils/zalacznikiutils.cpp
+    procesystudio.cpp
+    phototagstore.cpp
+    tabelamodel.cpp
+    captureattitude.cpp)
 
 set(QFIELD_CORE_HDRS
     cogo/qfcogoexecutor.h
@@ -232,7 +239,14 @@ set(QFIELD_CORE_HDRS
     qfvideosinkcapture.h
     qfviewstatus.h
     qfwebdavconnection.h
-    ${CMAKE_CURRENT_BINARY_DIR}/qfield.h)
+    ${CMAKE_CURRENT_BINARY_DIR}/qfield.h
+    locator/wfnominatimlocatorfilter.h
+    utils/narzedziaprojektu.h
+    utils/zalacznikiutils.h
+    procesystudio.h
+    phototagstore.h
+    tabelamodel.h
+    captureattitude.h)
 
 if(WITH_BLUETOOTH)
   list(APPEND QFIELD_CORE_SRCS positioning/qfbluetoothdevicemodel.cpp
@@ -263,13 +277,6 @@ if(ANDROID)
       platforms/android/qfandroidplatformutilities.cpp
       platforms/android/qfandroidresourcesource.cpp
       platforms/android/qfandroidviewstatus.cpp
-    locator/wfnominatimlocatorfilter.cpp
-    utils/narzedziaprojektu.cpp
-    utils/zalacznikiutils.cpp
-    procesystudio.cpp
-    phototagstore.cpp
-    tabelamodel.cpp
-    captureattitude.cpp
       platforms/android/qfandroidprojectsource.cpp)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
   set(QFIELD_CORE_HDRS
