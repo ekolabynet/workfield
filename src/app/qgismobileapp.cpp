@@ -392,10 +392,10 @@ void QgisMobileapp::initDeclarative( QQmlEngine *engine )
   Qf3D::registerQmlTypes();
   QfGui::registerQmlTypes();
   QfApp::registerQmlTypes();
-  qmlRegisterType<CaptureAttitude>( "org.qfield", 1, 0, "CaptureAttitude" );
-  qmlRegisterType<PhotoTagStore>( "org.qfield", 1, 0, "PhotoTagStore" );
-  qmlRegisterType<TabelaModel>( "org.qfield", 1, 0, "TabelaModel" );
-  qmlRegisterType<ProcesyStudio>( "org.qfield", 1, 0, "ProcesyStudio" );
+  qmlRegisterType<CaptureAttitude>( "org.qfield.core", 1, 0, "CaptureAttitude" );
+  qmlRegisterType<PhotoTagStore>( "org.qfield.core", 1, 0, "PhotoTagStore" );
+  qmlRegisterType<TabelaModel>( "org.qfield.core", 1, 0, "TabelaModel" );
+  qmlRegisterType<ProcesyStudio>( "org.qfield.core", 1, 0, "ProcesyStudio" );
 
 
   qRegisterMetaType<QfNtripMountPoint>( "QfNtripMountPoint" );
