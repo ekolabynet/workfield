@@ -388,9 +388,9 @@ Page {
               if (item) {
                 if (item.itemMetaType === QfLocalFilesModel.Folder || item.itemMetaType === QfLocalFilesModel.Favorite) {
                   table.model.currentPath = item.itemPath;
-                } else if (qfieldLocalDataPickerScreen.pickerMode && item.itemMetaType === QfLocalFilesModel.Dataset) {
+                } else if (qfieldLocalDataPickerScreen.pickerMode && item.itemMetaType === LocalFilesModel.Dataset) {
                   qfieldLocalDataPickerScreen.datasetPicked(item.itemPath);
-                } else if (!qfieldLocalDataPickerScreen.projectFolderView && (item.itemMetaType === QfLocalFilesModel.Project || item.itemMetaType === QfLocalFilesModel.Dataset)) {
+                } else if (!qfieldLocalDataPickerScreen.projectFolderView && (item.itemMetaType === LocalFilesModel.Project || item.itemMetaType === LocalFilesModel.Dataset)) {
                   iface.loadFile(item.itemPath, item.itemTitle);
                   finished(true);
                 }
@@ -559,12 +559,12 @@ Page {
 
       MenuItem {
         id: addToProjectItem
-        enabled: itemMenu.itemMetaType == QfLocalFilesModel.Dataset && qgisProject && qgisProject.fileName !== ''
+        enabled: itemMenu.itemMetaType == LocalFilesModel.Dataset && qgisProject && qgisProject.fileName !== ''
         visible: enabled
-        font: QfTheme.defaultFont
+        font: Theme.defaultFont
         width: parent.width
         height: enabled ? 48 : 0
-        leftPadding: QfTheme.menuItemLeftPadding
+        leftPadding: Theme.menuItemLeftPadding
         text: qsTr("Dodaj do projektu")
         onTriggered: {
           subLayerPicker.openFor(itemMenu.itemPath);
@@ -593,10 +593,10 @@ Page {
         id: gotoPathItem
         enabled: true
         visible: enabled
-        font: QfTheme.defaultFont
+        font: Theme.defaultFont
         width: parent.width
         height: enabled ? 48 : 0
-        leftPadding: QfTheme.menuItemLeftPadding
+        leftPadding: Theme.menuItemLeftPadding
         text: qsTr("Przejdź do katalogu…")
         onTriggered: {
           gotoPathField.text = table.model.currentPath === "root" ? "" : table.model.currentPath;
@@ -1395,7 +1395,7 @@ Page {
 
     onAboutToShow: {
       swipeDialog.currentIndex = 0;
-      importWebdavDialog.standardButton(QfDialog.Ok).enabled = false;
+      importWebdavDialog.standardButton(Dialog.Ok).enabled = false;
       reloadHistory();
     }
 
@@ -1638,8 +1638,8 @@ Page {
           id: importWebdavPathContainer
           width: parent.width
           height: 340
-          outlineColor: QfTheme.controlBorderColor
-          focusedOutlineColor: QfTheme.mainColor
+          outlineColor: Theme.controlBorderColor
+          focusedOutlineColor: Theme.mainColor
           controlHasActiveFocus: importWebdavPathInput.activeFocus
 
           ListView {
@@ -1657,7 +1657,7 @@ Page {
 
             onCurrentIndexChanged: {
               if (swipeDialog.currentIndex === 1) {
-                importWebdavDialog.standardButton(QfDialog.Ok).enabled = currentIndex > -1;
+                importWebdavDialog.standardButton(Dialog.Ok).enabled = currentIndex > -1;
               }
             }
 
@@ -1914,15 +1914,15 @@ Page {
       Text {
         Layout.fillWidth: true
         text: qsTr("Przejdź do katalogu")
-        font: QfTheme.strongFont
-        color: QfTheme.mainTextColor
+        font: Theme.strongFont
+        color: Theme.mainTextColor
       }
 
       TextField {
         id: gotoPathField
 
         Layout.fillWidth: true
-        font: QfTheme.defaultFont
+        font: Theme.defaultFont
         placeholderText: "/DATA/GIS"
         selectByMouse: true
 
@@ -1932,8 +1932,8 @@ Page {
       Text {
         Layout.fillWidth: true
         text: qsTr("Po wejściu możesz dodać katalog do ulubionych przez menu obok jego nazwy.")
-        font: QfTheme.tipFont
-        color: QfTheme.secondaryTextColor
+        font: Theme.tipFont
+        color: Theme.secondaryTextColor
         wrapMode: Text.WordWrap
       }
 
@@ -1942,13 +1942,13 @@ Page {
         Layout.topMargin: 8
         spacing: 8
 
-        QfButton {
+        Button {
           Layout.fillWidth: true
           text: qsTr("Anuluj")
           onClicked: gotoPathPopup.close()
         }
 
-        QfButton {
+        Button {
           Layout.fillWidth: true
           text: qsTr("Przejdź")
           highlighted: true
@@ -1961,7 +1961,7 @@ Page {
       const path = gotoPathField.text.trim();
       if (path === "")
         return;
-      if (!QfFileUtils.fileExists(path)) {
+      if (!FileUtils.fileExists(path)) {
         displayToast(qsTr("Katalog nie istnieje"));
         return;
       }

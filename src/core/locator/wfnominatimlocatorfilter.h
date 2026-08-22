@@ -8,7 +8,7 @@
  DLACZEGO WŁASNY. Standardowy QField nie rejestruje żadnego geokodera —
  jedyny (fiński Digitransit) jest zakomentowany. QgsNominatimGeocoder siedzi
  w rdzeniu QGIS w czystym C++, więc nasze -DWITH_PYTHON=OFF go nie blokuje.
- Ten filtr to cienka nakładka na wzór QfFinlandLocatorFilter.
+ Ten filtr to cienka nakładka na wzór FinlandLocatorFilter.
 
  GRANICE UŻYCIA NOMINATIM. Publiczny serwer Nominatim wymaga:
    • najwyżej 1 zapytanie na sekundę — pilnuje tego sam QgsNominatimGeocoder,

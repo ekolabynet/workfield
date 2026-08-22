@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import org.qgis
 import org.qfield.core
 import org.qfield.gui
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
@@ -97,8 +97,8 @@ Drawer {
         anchors.left: parent.left
         anchors.leftMargin: mainWindow.sceneLeftMargin
         anchors.bottom: parent.bottom
-        iconSource: QfTheme.getThemeVectorIcon('ic_arrow_left_white_24dp')
-        iconColor: QfTheme.mainTextColor
+        iconSource: Theme.getThemeVectorIcon('ic_arrow_left_white_24dp')
+        iconColor: Theme.mainTextColor
         bgcolor: "transparent"
         onClicked: close()
       }
@@ -108,7 +108,7 @@ Drawer {
       id: sideMenu
       Layout.fillWidth: true
       Layout.leftMargin: mainWindow.sceneLeftMargin
-      t: QfTheme
+      t: Theme
 
       onActionTriggered: (action, origin) => {
         switch (action) {
@@ -163,7 +163,7 @@ Drawer {
     Rectangle {
       Layout.fillWidth: true
       Layout.preferredHeight: 1
-      color: QfTheme.controlBorderColor
+      color: Theme.controlBorderColor
     }
     RowLayout {
       id: projectInformationLayout
@@ -270,7 +270,7 @@ Drawer {
       visible: false
       objectName: "mapThemeContainer"
       Layout.fillWidth: true
-      title: qsTr("Map QfTheme")
+      title: qsTr("Map Theme")
       leftPadding: 10
       rightPadding: 10
       topPadding: label.height + 5
@@ -448,12 +448,12 @@ Drawer {
         // WorkField: przelacznika trybu nie ma - warstwe do edycji wybiera sie
         // olowkiem w liscie warstw, a rysowanie zaczynaja kafle paska zapisu.
         width: parent.width
-        height: QfTheme.toolButtonSize
+        height: Theme.toolButtonSize
         anchors.verticalCenter: parent.verticalCenter
-        leftPadding: QfTheme.menuItemLeftPadding
+        leftPadding: Theme.menuItemLeftPadding
 
-        font: QfTheme.defaultFont
-        icon.source: QfTheme.getThemeVectorIcon("ic_home_black_24dp")
+        font: Theme.defaultFont
+        icon.source: Theme.getThemeVectorIcon("ic_home_black_24dp")
 
         text: qsTr("Home")
 
@@ -462,7 +462,7 @@ Drawer {
     }
   }
 
-  QfTemporalProperties {
+  TemporalProperties {
     id: temporalProperties
     mapSettings: dashBoard.mapSettings
   }

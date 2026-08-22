@@ -1,5 +1,5 @@
 /***************************************************************************
-  qflayerutils.cpp - QfLayerUtils
+  layerutils.cpp - LayerUtils
 
  ---------------------
  begin                : 01.03.2021

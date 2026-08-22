@@ -71,13 +71,13 @@ Rectangle {
   anchors.topMargin: 5
   anchors.left: parent.left
   anchors.right: parent.right
-  height: toolBar.topMargin + QfTheme.toolButtonSize + 10
-  color: QfTheme.mainColor
+  height: toolBar.topMargin + Theme.toolButtonSize + 10
+  color: Theme.mainColor
   clip: true
 
   states: [
     State {
-      name: "QfNavigation"
+      name: "Navigation"
     },
     State {
       name: "Indication"
@@ -111,8 +111,8 @@ Rectangle {
     Text {
       // Insure that the text is always visually centered by using the same left and right margin
       property double balancedMargin: Math.max((saveButton.visible ? saveButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (cancelButton.visible ? cancelButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (digitizeToggle.visible ? digitizeToggle.width : 0) + (zalacznikButton.visible ? zalacznikButton.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
-      font: QfTheme.strongFont
-      color: QfTheme.mainOverlayColor
+      font: Theme.strongFont
+      color: Theme.mainOverlayColor
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
@@ -121,10 +121,10 @@ Rectangle {
       height: QfTheme.toolButtonSize
 
       text: {
-        if (model && selection && selection.focusedItem > -1 && (toolBar.state === 'QfNavigation' || toolBar.state === 'Edit')) {
+        if (model && selection && selection.focusedItem > -1 && (toolBar.state === 'Navigation' || toolBar.state === 'Edit')) {
           var featurePosition = model.count > 1 ? ((selection.focusedItem + 1) + '/' + model.count + ': ') : '';
           const warstwa = selection.focusedLayer ? selection.focusedLayer.name + ' \u00b7 ' : '';
-          return featurePosition + warstwa + QfFeatureUtils.displayName(selection.focusedLayer, selection.focusedFeature);
+          return featurePosition + warstwa + FeatureUtils.displayName(selection.focusedLayer, selection.focusedFeature);
         } else {
           return toolBar.title;
         }
@@ -183,15 +183,15 @@ Rectangle {
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    visible: toolBar.state === "QfNavigation"
+    visible: toolBar.state === "Navigation"
     width: visible ? QfTheme.toolButtonSize : 0
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_chevron_right_white_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: Theme.getThemeVectorIcon("ic_chevron_right_white_24dp")
+    iconColor: Theme.mainOverlayColor
 
-    enabled: toolBar.state === "QfNavigation"
+    enabled: toolBar.state === "Navigation"
 
     onClicked: {
       if (toolBar.model && (selection.focusedItem + 1) < toolBar.model.count) {
@@ -222,8 +222,8 @@ Rectangle {
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: toolBar.state === "QfNavigation" ? QfTheme.getThemeVectorIcon("ic_chevron_left_white_24dp") : QfTheme.getThemeVectorIcon("ic_arrow_left_white_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: toolBar.state === "Navigation" ? Theme.getThemeVectorIcon("ic_chevron_left_white_24dp") : Theme.getThemeVectorIcon("ic_arrow_left_white_24dp")
+    iconColor: Theme.mainOverlayColor
 
     enabled: toolBar.state !== "Edit" && !toolBar.multiSelection
 
@@ -256,10 +256,10 @@ Rectangle {
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_check_white_24dp")
-    iconColor: !featureForm.model.constraintsHardValid ? QfTheme.mainOverlayColor : QfTheme.mainOverlayColor
-    bgcolor: !featureForm.model.constraintsHardValid ? QfTheme.errorColor : !featureForm.model.constraintsSoftValid ? QfTheme.warningColor : featureForm.model.hasConstraints ? QfTheme.goodColor : "transparent"
-    borderColor: QfTheme.mainBackgroundColor
+    iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
+    iconColor: !featureForm.model.constraintsHardValid ? Theme.mainOverlayColor : Theme.mainOverlayColor
+    bgcolor: !featureForm.model.constraintsHardValid ? Theme.errorColor : !featureForm.model.constraintsSoftValid ? Theme.warningColor : featureForm.model.hasConstraints ? Theme.goodColor : "transparent"
+    borderColor: Theme.mainBackgroundColor
     roundborder: true
     round: true
 
@@ -294,8 +294,8 @@ Rectangle {
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_clear_white_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
+    iconColor: Theme.mainOverlayColor
 
     onClicked: {
       toolBar.cancel();
@@ -320,19 +320,19 @@ Rectangle {
       return ZalacznikiUtils.relacjaZalacznikow(selection.focusedLayer).istnieje === true;
     }
 
-    visible: toolBar.state === "QfNavigation" && warstwaZZalacznikami && selection && selection.focusedFeature && selection.focusedFeature.id >= 0
+    visible: toolBar.state === "Navigation" && warstwaZZalacznikami && selection && selection.focusedFeature && selection.focusedFeature.id >= 0
     round: true
 
     anchors.right: digitizeToggle.left
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_camera_photo_black_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: Theme.getThemeVectorIcon("ic_camera_photo_black_24dp")
+    iconColor: Theme.mainOverlayColor
     bgcolor: "transparent"
 
-    width: visible ? QfTheme.toolButtonSize : 0
-    height: QfTheme.toolButtonSize
+    width: visible ? Theme.toolButtonSize : 0
+    height: Theme.toolButtonSize
 
     onClicked: {
       ZalacznikiUtils.zazadajZdjecia(selection.focusedLayer, selection.focusedFeature);
@@ -344,19 +344,19 @@ Rectangle {
 
     // WorkField: przelacznik stanu rysowania, widoczny zawsze (On/Off);
     // ten sam jezyk co olowek w panelu warstw: zielone kolo = rysowanie
-    visible: toolBar.state === "QfNavigation" && (projectInfo.editRights || editButton.isCreatedCloudFeature)
+    visible: toolBar.state === "Navigation" && (projectInfo.editRights || editButton.isCreatedCloudFeature)
     round: true
 
     anchors.right: editGeomButton.left
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_create_white_24dp")
+    iconSource: Theme.getThemeVectorIcon("ic_create_white_24dp")
     bgcolor: stateMachine.state === "digitize" ? "#00E676" : "transparent"
-    iconColor: stateMachine.state === "digitize" ? "#062E12" : QfTheme.mainOverlayColor
+    iconColor: stateMachine.state === "digitize" ? "#062E12" : Theme.mainOverlayColor
 
-    width: visible ? QfTheme.toolButtonSize : 0
-    height: QfTheme.toolButtonSize
+    width: visible ? Theme.toolButtonSize : 0
+    height: Theme.toolButtonSize
 
     onClicked: {
       const rysuje = stateMachine.state === "digitize";
@@ -374,14 +374,14 @@ Rectangle {
     // WorkField: edycja geometrii dostepna takze w Przegladaniu — nasz
     // workflow (olowek per warstwa + powrot do browse po edycji) chowal
     // jedyna droge do kolejnego ciecia
-    visible: toolBar.state === "QfNavigation" && supportsGeometryEditing && !featureForm.model.featureModel.geometryEditingLocked && (projectInfo.editRights || editButton.isCreatedCloudFeature)
+    visible: toolBar.state === "Navigation" && supportsGeometryEditing && !featureForm.model.featureModel.geometryEditingLocked && (projectInfo.editRights || editButton.isCreatedCloudFeature)
 
     anchors.right: editButton.left
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_edit_geometry_white_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: Theme.getThemeVectorIcon("ic_edit_geometry_white_24dp")
+    iconColor: Theme.mainOverlayColor
 
     width: visible ? QfTheme.toolButtonSize : 0
     height: QfTheme.toolButtonSize
@@ -417,13 +417,13 @@ Rectangle {
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    visible: toolBar.state === "QfNavigation" && supportsEditing && !featureForm.model.featureModel.attributeEditingLocked && (projectInfo.editRights || isCreatedCloudFeature)
+    visible: toolBar.state === "Navigation" && supportsEditing && !featureForm.model.featureModel.attributeEditingLocked && (projectInfo.editRights || isCreatedCloudFeature)
     width: visible ? QfTheme.toolButtonSize : 0
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: Theme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
+    iconColor: Theme.mainOverlayColor
 
     onClicked: {
       toolBar.editAttributesButtonClicked();
@@ -465,13 +465,13 @@ Rectangle {
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_dot_menu_black_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: Theme.getThemeVectorIcon("ic_dot_menu_black_24dp")
+    iconColor: Theme.mainOverlayColor
 
     onClicked: {
       if (toolBar.state === "Indication") {
         featureListMenu.popup(menuButton.x + menuButton.width - featureListMenu.width, menuButton.y);
-      } else if (toolBar.state === "QfNavigation") {
+      } else if (toolBar.state === "Navigation") {
         featureMenu.popup(menuButton.x + menuButton.width - featureMenu.width, menuButton.y);
       }
     }
@@ -495,8 +495,8 @@ Rectangle {
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_clear_white_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
+    iconColor: Theme.mainOverlayColor
 
     enabled: (toolBar.multiSelection && toolBar.model)
 
@@ -520,8 +520,8 @@ Rectangle {
     visible: width > 0
     height: QfTheme.toolButtonSize
     verticalAlignment: Text.AlignVCenter
-    font: QfTheme.strongFont
-    color: QfTheme.mainOverlayColor
+    font: Theme.strongFont
+    color: Theme.mainOverlayColor
 
     text: model.selectedFeatures.length < 100 ? model.selectedFeatures.length : '99+'
 
@@ -540,8 +540,8 @@ Rectangle {
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: QfTheme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
-    iconColor: QfTheme.mainOverlayColor
+    iconSource: Theme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
+    iconColor: Theme.mainOverlayColor
 
     enabled: toolBar.model && toolBar.model.canEditAttributesSelection && toolBar.model.selectedCount > 1 && projectInfo.editRights
 
@@ -559,7 +559,7 @@ Rectangle {
   QfMenu {
     id: featureListMenu
     objectName: "featureListMenu"
-    title: qsTr("Feature List QfMenu")
+    title: qsTr("Feature List Menu")
 
     topMargin: mainWindow.sceneTopMargin
     bottomMargin: mainWindow.sceneBottomMargin
@@ -679,7 +679,7 @@ Rectangle {
   QfMenu {
     id: featureMenu
     objectName: "featureMenu"
-    title: qsTr("Feature QfMenu")
+    title: qsTr("Feature Menu")
 
     topMargin: mainWindow.sceneTopMargin
     bottomMargin: mainWindow.sceneBottomMargin

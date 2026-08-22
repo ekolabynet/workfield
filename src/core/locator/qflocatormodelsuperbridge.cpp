@@ -48,8 +48,8 @@ QfLocatorModelSuperBridge::QfLocatorModelSuperBridge( QObject *parent )
   locator()->registerFilter( new QfHelpLocatorFilter( this ) );
 
   // Finnish's Digitransit geocoder (disabled until API access can be sorted)
-  //mFinlandGeocoder = new QfPeliasGeocoder( QStringLiteral( "https://api.digitransit.fi/geocoding/v1/search" ) );
-  //locator()->registerFilter( new QfFinlandLocatorFilter( mFinlandGeocoder, this ) );
+  //mFinlandGeocoder = new PeliasGeocoder( QStringLiteral( "https://api.digitransit.fi/geocoding/v1/search" ) );
+  //locator()->registerFilter( new FinlandLocatorFilter( mFinlandGeocoder, this ) );
 
   // WorkField 18.08.2026: globalne wyszukiwanie miejsc przez OSM Nominatim.
   // QgsNominatimGeocoder z rdzenia QGIS (czysty C++, dziala bez Pythona)

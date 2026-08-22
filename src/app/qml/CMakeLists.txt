@@ -1,10 +1,8 @@
 set(QFIELD_APP_QML_FILES
     QfAbout.qml
-    QfAkcje.qml
     QfBadLayerItem.qml
-    QfBasemapScreen.qml
-    QfCaptureSettings.qml
     QfChangelog.qml
+    QfCoordinateLocator.qml
     QfCloudDangerZone.qml
     QfCloudDeltaHistory.qml
     QfCloudLogin.qml
@@ -14,51 +12,53 @@ set(QFIELD_APP_QML_FILES
     QfCloudProjectDetails.qml
     QfCloudProjectFilter.qml
     QfCloudScreen.qml
-    QfCloudSettings.qml
     QfCloudStatusBanner.qml
-    QfColorPicker.qml
-    QfCoordinateLocator.qml
     QfDashBoard.qml
-    QfDataDrawer.qml
-    QfDesktopChrome.qml
     QfDummy.qml
     QfFeatureListSelectionHighlight.qml
     QfGuide.qml
+    QfLocalDataPickerScreen.qml
+    QfMeasuringTool.qml
+    QfNyuki.qml
+    QfPluginItem.qml
+    QfPluginManagerSettings.qml
+    QfPositioningSettings.qml
+    QfScreenLocker.qml
+    QfSettings.qml
+    QfSketcher.qml
+    QfTrackerSettings.qml
+    QfWelcomeScreen.qml
+    QgisMobileapp.qml
+    QfAkcje.qml
+    QfBasemapScreen.qml
+    QfCaptureSettings.qml
+    QfCloudSettings.qml
+    QfColorPicker.qml
+    QfDataDrawer.qml
+    QfDesktopChrome.qml
     QfKontrolaProjektu.qml
     QfLayerExportDialog.qml
     QfLayerFieldsScreen.qml
     QfLegendScreen.qml
-    QfLocalDataPickerScreen.qml
     QfMainDrawer.qml
-    QfMeasuringTool.qml
     QfNaprawaProjektu.qml
     QfNewLayerDialog.qml
     QfNoweZadanie.qml
     QfNowyProjekt.qml
-    QfNyuki.qml
     QfPanelAkcji.qml
     QfPhotoGallery.qml
-    QfPluginItem.qml
-    QfPluginManagerSettings.qml
-    QfPositioningSettings.qml
     QfPrzepis.qml
     QfQuickCaptureBar.qml
-    QfScreenLocker.qml
-    QfSettings.qml
     QfSettingsAdvanced.qml
     QfSettingsDigitizing.qml
     QfSettingsIndex.qml
     QfSettingsInterface.qml
     QfSettingsMapCanvas.qml
-    QfSketcher.qml
     QfStudioSection.qml
     QfSubLayerPicker.qml
     QfTerenSettings.qml
     QfTextEditor.qml
-    QfTrackerSettings.qml
-    QfWelcomeScreen.qml
     QfWymianaLokalna.qml
-    QgisMobileapp.qml
     SettingsNetwork.qml
     SideMenu.qml)
 

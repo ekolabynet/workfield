@@ -76,7 +76,7 @@ QfVisibilityFadingRow {
 
     width: Math.round(44 * skalaPrzyciskow)
     height: width
-    iconSource: QfTheme.getThemeVectorIcon("ic_clear_white_24dp")
+    iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
     visible: rubberbandModel && rubberbandModel.vertexCount > 1
     round: true
     bgcolor: QfTheme.darkRed
@@ -100,7 +100,7 @@ QfVisibilityFadingRow {
 
     width: Math.round(56 * skalaPrzyciskow)
     height: width
-    iconSource: QfTheme.getThemeVectorIcon("ic_check_white_24dp")
+    iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
     visible: {
       if (!showConfirmButton) {
         false;
@@ -173,8 +173,8 @@ QfVisibilityFadingRow {
 
     width: Math.round(48 * skalaPrzyciskow)
     height: width
-    iconSource: QfTheme.getThemeVectorIcon("ic_remove_white_24dp")
-    iconColor: QfTheme.toolButtonColor
+    iconSource: Theme.getThemeVectorIcon("ic_remove_white_24dp")
+    iconColor: Theme.toolButtonColor
     visible: rubberbandModel && rubberbandModel.vertexCount > 1
     round: true
     bgcolor: QfTheme.toolButtonBackgroundColor
@@ -199,10 +199,10 @@ QfVisibilityFadingRow {
     height: width
     enabled: (cogoEnabled && cogoExecutor.isReady) || (!cogoEnabled && !screenHovering)
     // WorkField: sygnałowa czerwień dla widoczności w terenie (rękawice, słońce);
-    // celowo jaśniejsza niż QfTheme.darkRed przycisku anulowania
-    bgcolor: enabled ? "#d32f2f" : QfTheme.toolButtonBackgroundSemiOpaqueColor
-    iconSource: QfTheme.getThemeVectorIcon("ic_add_white_24dp")
-    iconColor: enabled ? QfTheme.toolButtonColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
+    // celowo jaśniejsza niż Theme.darkRed przycisku anulowania
+    bgcolor: enabled ? "#d32f2f" : Theme.toolButtonBackgroundSemiOpaqueColor
+    iconSource: Theme.getThemeVectorIcon("ic_add_white_24dp")
+    iconColor: enabled ? Theme.toolButtonColor : Theme.toolButtonBackgroundSemiOpaqueColor
 
     property bool lastAdditionAveraged: false
     property bool averagedPositionPressAndHeld: false

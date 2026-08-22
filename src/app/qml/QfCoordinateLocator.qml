@@ -20,7 +20,7 @@ Item {
 
   //! Cursor shape: 0 = dot, 1 = cross, 2 = cross with dot, 3 = classic circle crosshair, 4 = reticle
   property int cursorShape: 3
-  readonly property color effectiveCursorColor: !!overrideLocation && overrideLocation.x ? Qt.darker(QfTheme.positionColor, 1.25) : cursorFillColor
+  readonly property color effectiveCursorColor: !!overrideLocation && overrideLocation.x ? Qt.darker(Theme.positionColor, 1.25) : cursorFillColor
   readonly property real crossHalfLength: cursorSizeScale >= 2.0 ? 16 : cursorSizeScale >= 1.5 ? 14 : 8
 
   /**

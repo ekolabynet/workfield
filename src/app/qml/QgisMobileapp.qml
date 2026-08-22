@@ -98,8 +98,8 @@ ApplicationWindow {
 
   Component.onCompleted: {
     // WorkField: metryki paneli akcji z zapisanych ustawień
-    QfTheme.gestosc = settings.valueInt('WorkField/gestosc', 1);
-    QfTheme.ukladAkcji = settings.valueInt('WorkField/ukladAkcji', 0);
+    Theme.gestosc = settings.valueInt('WorkField/gestosc', 1);
+    Theme.ukladAkcji = settings.valueInt('WorkField/ukladAkcji', 0);
   }
   flags: Qt.platform.os === "ios" || Qt.platform.os === "android" ? Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint : Qt.Window | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint | (sceneBorderless ? Qt.FramelessWindowHint : 0)
 
@@ -138,16 +138,16 @@ ApplicationWindow {
     visible: !legendScreen.visible && !qfieldSettings.visible && !qfieldLocalDataPickerScreen.visible && !qfieldCloudScreen.visible && !welcomeScreen.visible && !aboutDialog.visible && !codeReader.visible && !sketcher.visible
     height: visible ? 64 + mainWindow.sceneTopMargin : 0
     topPadding: mainWindow.sceneTopMargin
-    Material.background: QfTheme.mainColor
+    Material.background: Theme.mainColor
 
     RowLayout {
       anchors.fill: parent
       spacing: 0
 
-      QfToolButton {
+      ToolButton {
         Layout.preferredWidth: 64
         Layout.preferredHeight: 64
-        icon.source: QfTheme.getThemeVectorIcon("ic_baseline-list_white_24dp")
+        icon.source: Theme.getThemeVectorIcon("ic_baseline-list_white_24dp")
         icon.width: 32
         icon.height: 32
         icon.color: "white"
@@ -164,17 +164,17 @@ ApplicationWindow {
           Layout.fillWidth: true
           visible: mainWindow.projectTitle !== ""
           text: mainWindow.projectTitle
-          color: QfTheme.mainOverlayColor
+          color: Theme.mainOverlayColor
           opacity: 0.75
-          font.pointSize: QfTheme.tinyFont.pointSize
+          font.pointSize: Theme.tinyFont.pointSize
           elide: Text.ElideRight
         }
 
         Text {
           Layout.fillWidth: true
           text: dashBoard.activeLayer ? dashBoard.activeLayer.name : qsTr("Brak aktywnej warstwy")
-          color: QfTheme.mainOverlayColor
-          font.pointSize: QfTheme.tipFont.pointSize
+          color: Theme.mainOverlayColor
+          font.pointSize: Theme.tipFont.pointSize
           font.bold: true
           elide: Text.ElideRight
         }
@@ -185,9 +185,9 @@ ApplicationWindow {
 
           Text {
             Layout.fillWidth: true
-            color: QfTheme.mainOverlayColor
+            color: Theme.mainOverlayColor
             opacity: 0.75
-            font.pointSize: QfTheme.tinyFont.pointSize
+            font.pointSize: Theme.tinyFont.pointSize
             elide: Text.ElideMiddle
             text: {
               let parts = [];
@@ -223,7 +223,7 @@ ApplicationWindow {
             }
 
             visible: positionSource.active && positionSource.enableNtrip
-            font.pointSize: QfTheme.tinyFont.pointSize
+            font.pointSize: Theme.tinyFont.pointSize
             font.bold: true
             text: ageSeconds < 0 ? "RTCM \u00b7" : "RTCM " + Math.round(ageSeconds) + "s"
             color: ageSeconds < 0 ? "#FFA726" : ageSeconds <= 5 ? "#00E676" : ageSeconds <= 15 ? "#FFEB3B" : "#EF5350"
@@ -241,7 +241,7 @@ ApplicationWindow {
 
             readonly property real acc: positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid ? positionSource.positionInformation.hacc : -1
 
-            font.pointSize: QfTheme.tinyFont.pointSize
+            font.pointSize: Theme.tinyFont.pointSize
             font.bold: true
             text: acc < 0 ? qsTr("BRAK") : acc <= 0.03 ? "FIX" : acc <= 0.10 ? "FLOAT+" : acc <= 0.25 ? "FLOAT" : acc <= 0.50 ? "FLOAT-" : "GPS"
             color: acc < 0 ? "#EF5350" : acc <= 0.03 ? "#00E676" : acc <= 0.10 ? "#B2FF59" : acc <= 0.25 ? "#FFEB3B" : acc <= 0.50 ? "#FFA726" : "#EF5350"
@@ -249,10 +249,10 @@ ApplicationWindow {
         }
       }
 
-      QfToolButton {
+      ToolButton {
         Layout.preferredWidth: 64
         Layout.preferredHeight: 64
-        icon.source: QfTheme.getThemeVectorIcon("ic_baseline-list_white_24dp")
+        icon.source: Theme.getThemeVectorIcon("ic_baseline-list_white_24dp")
         icon.width: 32
         icon.height: 32
         icon.color: "white"
@@ -688,7 +688,7 @@ ApplicationWindow {
     }
 
     onDeviceLastErrorChanged: {
-      displayToast(qsTr('QfPositioning device error: %1').arg(positionSource.deviceLastError), 'error');
+      displayToast(qsTr('Positioning device error: %1').arg(positionSource.deviceLastError), 'error');
     }
 
     onBackgroundModeChanged: {
@@ -1215,7 +1215,7 @@ ApplicationWindow {
 
               // When it's released, it will normally cause a release event to close the attribute form.
               // We get around this by temporarily switching the closePolicy.
-              overlayFeatureFormDrawer.closePolicy = QfPopup.CloseOnEscape;
+              overlayFeatureFormDrawer.closePolicy = Popup.CloseOnEscape;
               digitizingToolbar.confirm();
               return;
             }
@@ -1247,7 +1247,7 @@ ApplicationWindow {
         if (type === "stylus") {
           // The user has released the long press. We can re-enable the default close behavior for the feature form.
           // The next press will be intentional to close the form.
-          overlayFeatureFormDrawer.closePolicy = QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside;
+          overlayFeatureFormDrawer.closePolicy = Popup.CloseOnEscape | Popup.CloseOnPressOutside;
         }
       }
 
@@ -1322,7 +1322,7 @@ ApplicationWindow {
           canvasMenuFeatureListInstantiator.active = true;
         } else {
           if (qfieldSettings.autoOpenFormSingleIdentify && !featureListForm.multiSelection && featureListForm.model.count === 1) {
-            featureListForm.state = "QfFeatureForm";
+            featureListForm.state = "FeatureForm";
             featureListForm.selection.focusedItem = 0;
           }
           if (qfieldSettings.autoZoomToIdentifiedFeature && featureListForm.model.count > 0) {
@@ -1510,7 +1510,7 @@ ApplicationWindow {
       orientation: !isNaN(positionSource.orientation) ? positionSource.orientation + positionSource.bearingTrueNorth < 0 ? 360 + positionSource.orientation + positionSource.bearingTrueNorth : positionSource.orientation + positionSource.bearingTrueNorth : -1
 
       Component.onCompleted: {
-        pointHandler.registerHandler("QfLocationMarker", (point, type, interactionType) => {
+        pointHandler.registerHandler("LocationMarker", (point, type, interactionType) => {
           if (!locationMarker.visible || !locationMarker.isOnMapCanvas || (interactionType !== "clicked" && interactionType !== "pressedAndHold")) {
             return false;
           }
@@ -2932,7 +2932,7 @@ ApplicationWindow {
             snapToCommonAngleMenu.popup(parent.x, parent.y);
           }
 
-          QfMenu {
+          Menu {
             id: snapToCommonAngleMenu
             width: QfTheme.menuItemIconlessLeftPadding + Math.max(angles.count * 35, tolorences.count * 55) + 24
 
@@ -3149,11 +3149,11 @@ ApplicationWindow {
             informationDrawer.elevationProfile.profileCurve = QfGeometryUtils.lineFromRubberband(digitizingToolbar.rubberbandModel, informationDrawer.elevationProfile.crs);
             informationDrawer.elevationProfile.refresh();
           }
-          settings.setValue("/QField/Measuring/QfElevationProfile", elevationProfileActive);
+          settings.setValue("/QField/Measuring/ElevationProfile", elevationProfileActive);
         }
 
         Component.onCompleted: {
-          elevationProfileActive = settings.valueBool("/QField/Measuring/QfElevationProfile", false);
+          elevationProfileActive = settings.valueBool("/QField/Measuring/ElevationProfile", false);
         }
       }
 
@@ -3247,7 +3247,7 @@ ApplicationWindow {
         onClicked: {
           if (positionSource.active && gnssButton.followActive) {
             followIncludeDestination = !followIncludeDestination;
-            settings.setValue("/QField/QfNavigation/FollowIncludeDestination", followIncludeDestination);
+            settings.setValue("/QField/Navigation/FollowIncludeDestination", followIncludeDestination);
             gnssButton.followLocation(true);
           } else {
             mapCanvasMap.jumpTo(navigation.destination, -1, -1, true);
@@ -3259,7 +3259,7 @@ ApplicationWindow {
         }
 
         Component.onCompleted: {
-          followIncludeDestination = settings.valueBool("/QField/QfNavigation/FollowIncludeDestination", true);
+          followIncludeDestination = settings.valueBool("/QField/Navigation/FollowIncludeDestination", true);
         }
       }
 
@@ -3301,9 +3301,9 @@ ApplicationWindow {
             name: "Off"
             PropertyChanges {
               target: gnssButton
-              iconSource: QfTheme.getThemeVectorIcon("ic_location_disabled_white_24dp")
-              iconColor: QfTheme.toolButtonColor
-              bgcolor: QfTheme.toolButtonBackgroundColor
+              iconSource: Theme.getThemeVectorIcon("ic_location_disabled_white_24dp")
+              iconColor: Theme.toolButtonColor
+              bgcolor: Theme.toolButtonBackgroundColor
             }
           },
           State {
@@ -3319,9 +3319,9 @@ ApplicationWindow {
             name: "Locked"
             PropertyChanges {
               target: gnssButton
-              iconSource: QfTheme.getThemeVectorIcon("ic_location_cursor_lock_white_24dp")
-              iconColor: QfTheme.toolButtonColor
-              bgcolor: QfTheme.mainColor
+              iconSource: Theme.getThemeVectorIcon("ic_location_cursor_lock_white_24dp")
+              iconColor: Theme.toolButtonColor
+              bgcolor: Theme.mainColor
             }
           }
         ]
@@ -3425,7 +3425,7 @@ ApplicationWindow {
 
         property int followLocationMinScale: 125
         property int followLocationMinMargin: 60
-        property int followLocationScreenFraction: settings ? settings.value("/QField/QfPositioning/FollowScreenFraction", 5) : 5
+        property int followLocationScreenFraction: settings ? settings.value("/QField/Positioning/FollowScreenFraction", 5) : 5
 
         function followLocation(forceRecenter) {
           if (navigation.isActive && navigationButton.followIncludeDestination) {
@@ -3756,7 +3756,7 @@ ApplicationWindow {
               displayToast(qsTr("Enable positioning service to get points at your location"));
               item.requestedPositionReceived(QfGeometryUtils.emptyPoint(), undefined);
             } else if (!positionSource.positionInformation.latitudeValid) {
-              displayToast(qsTr("QfPositioning service has not yet received a valid location"));
+              displayToast(qsTr("Positioning service has not yet received a valid location"));
               item.requestedPositionReceived(QfGeometryUtils.emptyPoint(), undefined);
             } else {
               item.requestedPositionReceived(positionSource.projectedPosition, positionSource.positionInformation);
@@ -3904,7 +3904,7 @@ ApplicationWindow {
     }
 
     onToggleMeasurementTool: {
-      if (featureListForm.state === "QfProcessingAlgorithmForm") {
+      if (featureListForm.state === "ProcessingAlgorithmForm") {
         cancelAlgorithmDialog.visible = true;
       } else {
         activateMeasurementMode();
@@ -3995,7 +3995,7 @@ ApplicationWindow {
     id: mainMenu
     objectName: "mainMenu"
 
-    title: qsTr("Main QfMenu")
+    title: qsTr("Main Menu")
 
     topMargin: sceneTopMargin
     bottomMargin: sceneBottomMargin
@@ -4229,7 +4229,7 @@ ApplicationWindow {
     }
 
     MenuItem {
-      text: qsTr("QfAbout %1").arg(Qfield.name)
+      text: qsTr("About %1").arg(Qfield.name)
 
       font: QfTheme.defaultFont
       icon.source: Qfield.name === "QField" ? QfTheme.getThemeVectorIcon("ic_qfield_black_24dp") : ""
@@ -4573,7 +4573,7 @@ ApplicationWindow {
           onTriggered: {
             featureListForm.model.setFeatures(menu.featureLayer, '@id = ' + menu.fid);
             featureListForm.selection.focusedItem = 0;
-            featureListForm.state = "QfFeatureForm";
+            featureListForm.state = "FeatureForm";
           }
         }
 
@@ -4723,7 +4723,7 @@ ApplicationWindow {
     id: navigationMenu
     objectName: "navigationMenu"
 
-    title: qsTr("QfNavigation Options")
+    title: qsTr("Navigation Options")
     font: QfTheme.defaultFont
 
     topMargin: sceneTopMargin
@@ -4765,7 +4765,7 @@ ApplicationWindow {
     id: gnssMenu
     objectName: "gnssMenu"
 
-    title: qsTr("QfPositioning Options")
+    title: qsTr("Positioning Options")
     font: QfTheme.defaultFont
 
     topMargin: sceneTopMargin
@@ -4785,7 +4785,7 @@ ApplicationWindow {
 
     MenuItem {
       id: positioningItem
-      text: qsTr("Enable QfPositioning")
+      text: qsTr("Enable Positioning")
       height: 48
       leftPadding: QfTheme.menuItemCheckLeftPadding
       font: QfTheme.defaultFont
@@ -4830,7 +4830,7 @@ ApplicationWindow {
     }
 
     MenuItem {
-      text: qsTr("QfPositioning Settings")
+      text: qsTr("Positioning Settings")
       height: 48
       leftPadding: QfTheme.menuItemIconlessLeftPadding
       font: QfTheme.defaultFont
@@ -5074,7 +5074,7 @@ ApplicationWindow {
     Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
   }
 
-  QfDialog {
+  Dialog {
     id: templateGuardDialog
 
     property string templatePath: ""
@@ -5092,25 +5092,25 @@ ApplicationWindow {
       Label {
         Layout.fillWidth: true
         text: qsTr("Ten projekt jest wzorcem w katalogu szablonów. Dane dodane tutaj zmienią szablon dla wszystkich przyszłych projektów.")
-        font: QfTheme.defaultFont
-        color: QfTheme.mainTextColor
+        font: Theme.defaultFont
+        color: Theme.mainTextColor
         wrapMode: Text.WordWrap
       }
     }
 
     footer: DialogButtonBox {
-      QfButton {
+      Button {
         text: qsTr("Utwórz kopię roboczą")
         DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
       }
-      QfButton {
+      Button {
         text: qsTr("Pracuj na wzorcu")
         DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
       }
     }
 
     onAccepted: {
-      const dir = QfFileUtils.absolutePath(templatePath);
+      const dir = FileUtils.absolutePath(templatePath);
       const parts = dir.split("/").filter(part => part.length > 0);
       const templateName = parts.length > 0 ? parts[parts.length - 1] : qsTr("Szablon");
       const nazwa = templateName + " Projekt " + new Date().toISOString().slice(0, 10);
@@ -5118,7 +5118,7 @@ ApplicationWindow {
       // WorkField: szablon z przepisem budujemy od zera z aktualnego
       // wyposazenia. Kopia katalogu (createProjectFromTemplate) byla dotad
       // jedynym mechanizmem — i jedynym zrodlem dryfu (17.08.2026).
-      if (QfFileUtils.fileExists(dir + "/przepis.json")) {
+      if (FileUtils.fileExists(dir + "/przepis.json")) {
         qfPrzepis.noweZadanie(dir + "/przepis.json", iface.dataRoot() + "Imported Projects", nazwa);
       } else {
         welcomeScreen.createProjectFromTemplate(dir, nazwa);
@@ -5151,7 +5151,7 @@ ApplicationWindow {
     }
   }
 
-  QfOverlayFeatureFormDrawer {
+  OverlayFeatureFormDrawer {
     id: overlayFeatureFormDrawer
     objectName: "overlayFeatureFormDrawer"
     digitizingToolbar: digitizingToolbar
@@ -5191,8 +5191,8 @@ ApplicationWindow {
     repeat: true
     running: qfieldSettings.projectAutoSaveInterval > 0 && qgisProject && qgisProject.fileName !== "" && qgisProject.fileName.indexOf("/templates/") === -1
     onTriggered: {
-      if (QfProjectUtils.isProjectDirty(qgisProject)) {
-        if (QfProjectUtils.saveProject(qgisProject)) {
+      if (ProjectUtils.isProjectDirty(qgisProject)) {
+        if (ProjectUtils.saveProject(qgisProject)) {
           displayToast(qsTr("Autozapis projektu"));
         }
       }
@@ -5619,7 +5619,7 @@ ApplicationWindow {
       height: parent.height - Math.max(QfTheme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4)
       x: QfTheme.popupScreenEdgeHorizontalMargin
       y: (mainWindow.height - height) / 2
-      closePolicy: QfPopup.CloseOnEscape
+      closePolicy: Popup.CloseOnEscape
 
       QfLayerLoginDialog {
         id: loginDialog
@@ -5918,7 +5918,7 @@ ApplicationWindow {
 
   QfLegendScreen {
     id: legendScreen
-    t: QfTheme
+    t: Theme
     layerTree: flatLayerTree
     activeLayer: dashBoard.activeLayer
     allowActiveLayerChange: !digitizingToolbar.isDigitizing
@@ -5931,7 +5931,7 @@ ApplicationWindow {
 
   QfDataDrawer {
     id: dataDrawer
-    t: QfTheme
+    t: Theme
     layerTree: flatLayerTree
     activeLayer: dashBoard.activeLayer
 
@@ -5950,17 +5950,17 @@ ApplicationWindow {
 
   QfBasemapScreen {
     id: basemapScreen
-    t: QfTheme
+    t: Theme
   }
 
   QfLayerFieldsScreen {
     id: layerFieldsScreen
-    t: QfTheme
+    t: Theme
   }
 
   QfNoweZadanie {
     id: noweZadanie
-    t: QfTheme
+    t: Theme
     onUtworzono: sciezka => {
       iface.loadFile(sciezka + "/projekt.qgs");
     }
@@ -5970,7 +5970,7 @@ ApplicationWindow {
   // zleceniu (kaskada zleceniodawca→teren→zlecenie). claude/MODEL_ZLECENIA.md
   QfNowyProjekt {
     id: nowyProjekt
-    t: QfTheme
+    t: Theme
     onUtworzono: sciezka => {
       iface.loadFile(sciezka + "/projekt.qgs");
     }
@@ -5978,27 +5978,27 @@ ApplicationWindow {
 
   QfWymianaLokalna {
     id: wymianaLokalna
-    t: QfTheme
+    t: Theme
   }
 
   QfPhotoGallery {
     id: photoGallery
-    t: QfTheme
+    t: Theme
   }
 
   QfColorPicker {
     id: colorPicker
-    t: QfTheme
+    t: Theme
   }
 
   QfNewLayerDialog {
     id: newLayerDialog
-    t: QfTheme
+    t: Theme
   }
 
   QfCaptureSettings {
     id: captureSettings
-    t: QfTheme
+    t: Theme
   }
 
   QfTerenSettings {
@@ -6011,13 +6011,13 @@ ApplicationWindow {
 
   QfSubLayerPicker {
     id: subLayerPicker
-    t: QfTheme
+    t: Theme
 
     onLayersChosen: uris => {
       let added = 0;
       for (let i = 0; i < uris.length; i++) {
-        const vl = QfLayerUtils.loadVectorLayer(uris[i].uri, uris[i].name, uris[i].provider);
-        if (vl && vl.isValid && QfProjectUtils.addMapLayer(qgisProject, vl))
+        const vl = LayerUtils.loadVectorLayer(uris[i].uri, uris[i].name, uris[i].provider);
+        if (vl && vl.isValid && ProjectUtils.addMapLayer(qgisProject, vl))
           added++;
       }
       displayToast(added > 0 ? qsTr("Dodano warstw: %1").arg(added) : qsTr("Nie udało się dodać warstw"));
@@ -6026,10 +6026,11 @@ ApplicationWindow {
 
   QfLayerExportDialog {
     id: exportDialog
-    t: QfTheme
+    t: Theme
   }
 
-  Settings {
+
+  QfSettings {
     id: qfieldSettings
     objectName: "qfieldSettings"
 
@@ -6204,14 +6205,14 @@ ApplicationWindow {
 
   // WorkField: wyjscie z geometrii wieloczesciowej (patrz latka 30).
   // Edytor wierzcholkow obsluguje wylacznie obiekty jednoczesciowe
-  // (QfVertexModel::editingAllowed == !mIsMulti), wiec zamiast komunikatu
+  // (VertexModel::editingAllowed == !mIsMulti), wiec zamiast komunikatu
   // bez wyjscia dajemy dwa czasowniki, ktore ten stan zdejmuja.
   QfDialog {
     id: multipartGeometryDialog
     parent: mainWindow.contentItem
     z: 10000
 
-    width: Math.min(mainWindow.width - QfTheme.popupScreenEdgeVerticalMargin * 2, 400)
+    width: Math.min(mainWindow.width - Theme.popupScreenEdgeVerticalMargin * 2, 400)
 
     property var targetLayer: null
     property var targetFid: -1
@@ -6226,7 +6227,7 @@ ApplicationWindow {
       Label {
         width: parent.width
         wrapMode: Text.WordWrap
-        color: QfTheme.mainTextColor
+        color: Theme.mainTextColor
         text: qsTr("Obiekt składa się z %1 części. Edytor wierzchołków obsługuje tylko obiekty jednoczęściowe.").arg(multipartGeometryDialog.partCount)
       }
 
@@ -6253,13 +6254,13 @@ ApplicationWindow {
       Label {
         width: parent.width
         wrapMode: Text.WordWrap
-        font: QfTheme.tipFont
-        color: QfTheme.secondaryTextColor
+        font: Theme.tipFont
+        color: Theme.secondaryTextColor
         text: qsTr("Scalanie działa, gdy części się stykają. Rozdzielenie kopiuje atrybuty; załączniki zostają przy pierwszym obiekcie.")
       }
     }
 
-    standardButtons: QfDialog.Cancel
+    standardButtons: Dialog.Cancel
   }
 
   QfDialog {
@@ -6297,7 +6298,7 @@ ApplicationWindow {
       iface.importUrl(importPermissionDialog.url, "", true);
     }
 
-    standardButtons: QfDialog.Yes | QfDialog.No
+    standardButtons: Dialog.Yes | Dialog.No
   }
 
   QfDialog {
@@ -6337,7 +6338,7 @@ ApplicationWindow {
       pluginManager.denyRequestedPluginPermission(permanent);
       permanent = false;
     }
-    standardButtons: QfDialog.Yes | QfDialog.No
+    standardButtons: Dialog.Yes | Dialog.No
   }
 
   QfDialog {
@@ -6357,7 +6358,7 @@ ApplicationWindow {
       text: qsTr("You are about to dismiss the ongoing algorithm operation, proceed?")
     }
 
-    standardButtons: QfDialog.Ok | QfDialog.Cancel
+    standardButtons: Dialog.Ok | Dialog.Cancel
     onAccepted: {
       featureListForm.state = "Hidden";
       mentMode();

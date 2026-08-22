@@ -42,14 +42,14 @@ void QfTheme::loadFromJson()
   QFile file( QStringLiteral( ":/theme/theme.json" ) );
   if ( !file.open( QIODevice::ReadOnly ) )
   {
-    qWarning( "QfTheme: could not open :/theme/theme.json" );
+    qWarning( "Theme: could not open :/theme/theme.json" );
     return;
   }
 
   const QJsonDocument doc = QJsonDocument::fromJson( file.readAll() );
   if ( doc.isNull() || !doc.isObject() )
   {
-    qWarning( "QfTheme: theme.json is not valid JSON" );
+    qWarning( "Theme: theme.json is not valid JSON" );
     return;
   }
 

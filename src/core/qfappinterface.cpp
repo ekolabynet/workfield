@@ -212,7 +212,7 @@ bool QfAppInterface::hasProjectOnLaunch() const
 
 bool QfAppInterface::loadFile( const QString &path, const QString &name )
 {
-  qInfo() << QStringLiteral( "QfAppInterface loading file: %1" ).arg( path );
+  qInfo() << QStringLiteral( "AppInterface loading file: %1" ).arg( path );
   if ( !mController )
   {
     return false;
@@ -912,7 +912,7 @@ QString QfAppInterface::preferredDataDir() const
 
 void QfAppInterface::setPreferredDataDir( const QString &path )
 {
-  const QString markerPath = QfPlatformUtilities::instance()->appDataDirs().value( 0 ) + QStringLiteral( "/.preferred_data_dir" );
+  const QString markerPath = PlatformUtilities::instance()->appDataDirs().value( 0 ) + QStringLiteral( "/.preferred_data_dir" );
   if ( path.isEmpty() )
   {
     QFile::remove( markerPath );
@@ -945,11 +945,11 @@ double QfAppInterface::storageFreeGb( const QString &path ) const
 QString QfAppInterface::dataRoot() const
 {
   // Audyt storage 2026-08-04 (docs/AUDYT_STORAGE.md, wada W1): baza projektow
-  // musi byc ta sama, z ktorej czyta lista (QfLocalFilesModel przez
+  // musi byc ta sama, z ktorej czyta lista (LocalFilesModel przez
   // applicationDirectory()) i do ktorej pisze import po stronie Javy.
   // Poprzednio uzywalismy appDataDirs[0] — katalogu zasobow .../QField/ —
   // przez co wnoszenie z wymiany i szablony ladowaly poziom za gleboko.
-  QString root = QfPlatformUtilities::instance()->applicationDirectory();
+  QString root = PlatformUtilities::instance()->applicationDirectory();
   if ( !root.isEmpty() && !root.endsWith( QLatin1Char( '/' ) ) )
     root += QLatin1Char( '/' );
   return root;
@@ -959,7 +959,7 @@ void QfAppInterface::migrateLegacyDataLayout()
 {
   // Jednorazowe sprzatanie po wadzie W1: to, co starsze wersje zapisaly
   // w bazie zasobow (.../QField/), przenosimy do bazy kanonicznej.
-  const QString legacyBase = QfPlatformUtilities::instance()->appDataDirs().value( 0 );
+  const QString legacyBase = PlatformUtilities::instance()->appDataDirs().value( 0 );
   const QString canonicalBase = dataRoot();
   if ( legacyBase.isEmpty() || canonicalBase.isEmpty() )
     return;

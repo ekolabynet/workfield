@@ -61,7 +61,7 @@ Item {
     QfOverlayContainer {
       visible: navigationInformationViewEnabled
 
-      title: qsTr("QfNavigation")
+      title: qsTr("Navigation")
 
       header: QfToolButton {
         id: preciseViewSettings
@@ -117,7 +117,7 @@ Item {
     QfOverlayContainer {
       visible: positioningInformationViewEnabled
 
-      title: qsTr("QfPositioning")
+      title: qsTr("Positioning")
 
       header: RowLayout {
         Text {

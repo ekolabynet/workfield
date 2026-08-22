@@ -20,7 +20,6 @@ Popup {
   readonly property bool isPortraitMode: mainWindow.height > mainWindow.width
 
   property string currentPath: ''
-
   // rodzaj ujecia: plat / dol / gora / gatunek
   property string photoShotType: "dol"
 
@@ -63,7 +62,7 @@ Popup {
   }
 
   property int shotCount: 0
-  property var currentPosition: QfPositioningUtils.createEmptyGnssPositionInformation()
+  property var currentPosition: PositioningUtils.createEmptyGnssPositionInformation()
   property var currentProjectedPosition: undefined
 
   property bool captureLoaderActivated: false
@@ -348,10 +347,17 @@ Popup {
                   cameraItem.isCapturing = false;
                   currentPath = path;
                   orientationNormalizer.normalizeImageOrientation(currentPath);
+                  const totalRotation = qfieldSettings.cameraRotationOffset;
+                  if (totalRotation % 360 !== 0) {
+                    if (!orientationNormalizer.setExifOrientation(currentPath, totalRotation)) {
+                      // nietypowa struktura pliku - awaryjnie stara sciezka pikselowa
+                      orientationNormalizer.rotateImageFile(currentPath, totalRotation);
+                    }
+                  }
                   if (qfieldSettings.fastMode) {
                     // tryb szybki: plik gotowy - oddaj sciezke, zostan w podgladzie
                     if (positionSource.active) {
-                      QfFileUtils.addImageMetadata(currentPath, positionSource.positionInformation);
+                      FileUtils.addImageMetadata(currentPath, positionSource.positionInformation);
                       captureAttitude.writePoseMetadata(currentPath, positionSource.positionInformation.orientationValid ? positionSource.positionInformation.orientation : NaN);
                     }
                     cameraItem.shotCount++;
@@ -622,7 +628,7 @@ Popup {
                 width: shotLabel.implicitWidth + 20
                 height: 34
                 radius: 17
-                color: cameraItem.photoShotType === modelData.key ? QfTheme.mainColor : QfTheme.darkGraySemiOpaque
+                color: cameraItem.photoShotType === modelData.key ? Theme.mainColor : Theme.darkGraySemiOpaque
                 border.color: "white"
                 border.width: cameraItem.photoShotType === modelData.key ? 2 : 0
 
@@ -631,7 +637,7 @@ Popup {
                   anchors.centerIn: parent
                   text: modelData.label
                   color: "white"
-                  font.pointSize: QfTheme.tipFont.pointSize
+                  font.pointSize: Theme.tipFont.pointSize
                   font.bold: cameraItem.photoShotType === modelData.key
                 }
 

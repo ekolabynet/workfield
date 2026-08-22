@@ -21,7 +21,7 @@ Rectangle {
   property double cellPadding: 6
   property real contentHeight: grid.numberOfRows * cellHeight
 
-  color: QfTheme.mainBackgroundColor
+  color: Theme.mainBackgroundColor
   anchors.margins: 20
   width: parent.width
   clip: true

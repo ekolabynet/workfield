@@ -196,8 +196,8 @@ ListView {
           enabled: false
           bgcolor: "transparent"
           anchors.verticalCenter: parent.verticalCenter
-          iconSource: QfTheme.getThemeVectorIcon('ic_create_white_24dp')
-          iconColor: QfTheme.mainOverlayColor
+          iconSource: Theme.getThemeVectorIcon('ic_create_white_24dp')
+          iconColor: Theme.mainOverlayColor
         }
 
         // Legend icon
@@ -260,9 +260,9 @@ ListView {
           leftPadding: 0
           text: Name
           horizontalAlignment: Text.AlignLeft
-          font.pointSize: QfTheme.tipFont.pointSize
-          font.bold: Type == QfFlatLayerTreeModel.Group || (Type == QfFlatLayerTreeModel.Layer && VectorLayerPointer && VectorLayerPointer == activeLayer) ? true : false
-          elide: Text.ElideRight
+          font.pointSize: Theme.tipFont.pointSize
+          font.bold: Type == FlatLayerTreeModel.Group || (Type == FlatLayerTreeModel.Layer && VectorLayerPointer && VectorLayerPointer == activeLayer) ? true : false
+          elide: Text.ElideMiddle
           opacity: Visible ? 1 : 0.25
           color: {
             if (isSelectedLayer)

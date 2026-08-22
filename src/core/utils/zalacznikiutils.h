@@ -7,7 +7,7 @@
  QGIS-owy menedzer relacji nie jest wystawiony do QML, a pasek szybkiego
  przechwytu musi wiedziec, ktora tabela jest tabela zalacznikow danej warstwy
  i jakim kluczem sie do niej wchodzi. Ta klasa odpowiada na oba pytania i nic
- wiecej nie robi — sam zapis idzie przez QfFeatureModel, zeby zalacznik
+ wiecej nie robi — sam zapis idzie przez FeatureModel, zeby zalacznik
  przechodzil ta sama droga co kazdy inny obiekt (bufor edycji, flusher GPKG,
  delty chmury, historia).
 
@@ -69,7 +69,7 @@ class ZalacznikiUtils : public QObject
      * \a obiekt z warstwy \a warstwa.
      *
      * Most miedzy naglowkiem formularza a paskiem szybkiego przechwytu.
-     * QfNavigationBar.qml siedzi w innym komponencie QML niz pasek i nie ma
+     * NavigationBar.qml siedzi w innym komponencie QML niz pasek i nie ma
      * jak go zawolac po id; ta klasa jest singletonem, wiec widza ja obie
      * strony. Sama nic nie robi — tylko rozglasza zadanie.
      */

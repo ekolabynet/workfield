@@ -6,7 +6,7 @@ import QtCore
 import org.qfield.core
 import org.qfield.gui
 import Qt.labs.folderlistmodel
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
@@ -37,19 +37,19 @@ Page {
       return;
     }
     platformUtilities.createDir(root, "Imported Projects");
-    const safeName = QfFileUtils.sanitizeFilePathPart(projectName);
+    const safeName = FileUtils.sanitizeFilePathPart(projectName);
     const destination = root + "Imported Projects/" + safeName;
-    if (QfFileUtils.fileExists(destination + "/projekt.qgs") || QfFileUtils.fileExists(destination + "/projekt.qgz")) {
+    if (FileUtils.fileExists(destination + "/projekt.qgs") || FileUtils.fileExists(destination + "/projekt.qgz")) {
       displayToast(qsTr("Projekt o nazwie '%1' już istnieje").arg(safeName));
       return;
     }
-    if (!QfFileUtils.copyRecursively(templatePath, destination)) {
+    if (!FileUtils.copyRecursively(templatePath, destination)) {
       displayToast(qsTr("Nie udało się skopiować szablonu"));
       return;
     }
-    if (QfFileUtils.fileExists(destination + "/projekt.qgs")) {
+    if (FileUtils.fileExists(destination + "/projekt.qgs")) {
       iface.loadFile(destination + "/projekt.qgs", projectName);
-    } else if (QfFileUtils.fileExists(destination + "/projekt.qgz")) {
+    } else if (FileUtils.fileExists(destination + "/projekt.qgz")) {
       iface.loadFile(destination + "/projekt.qgz", projectName);
     } else {
       displayToast(qsTr("Szablon nie zawiera pliku projekt.qgs"));
@@ -68,7 +68,7 @@ Page {
   Rectangle {
     id: welcomeBackground
     anchors.fill: parent
-    color: QfTheme.darkTheme ? "#062e2a" : "#00695c"
+    color: Theme.darkTheme ? "#062e2a" : "#00695c"
   }
 
   ScrollView {
@@ -76,7 +76,7 @@ Page {
     leftPadding: mainWindow.sceneLeftMargin
     rightPadding: mainWindow.sceneRightMargin
     bottomPadding: mainWindow.sceneBottomMargin
-    ScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
     ScrollBar.vertical: QfScrollBar {
       opacity: active
       _maxSize: 4
@@ -151,8 +151,8 @@ Page {
 
           font.pointSize: 24
           font.bold: true
-          color: QfTheme.mainOverlayColor
-          text: Qfield.name
+          color: Theme.mainOverlayColor
+          text: appName
           wrapMode: Text.WordWrap
         }
 
@@ -211,8 +211,8 @@ Page {
               Layout.topMargin: 12
               Layout.maximumWidth: feedbackView.width - 12
               text: qsTr("We're sorry to hear that. Click on the button below to comment or seek support.")
-              font: QfTheme.defaultFont
-              color: QfTheme.mainOverlayColor
+              font: Theme.defaultFont
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -267,9 +267,9 @@ Page {
               Layout.margins: 6
               Layout.topMargin: 12
               Layout.maximumWidth: feedbackView.width - 12
-              text: qsTr("Hey there, how do you like your experience with %1 so far?").arg(Qfield.name)
-              font: QfTheme.defaultFont
-              color: QfTheme.mainOverlayColor
+              text: qsTr("Hey there, how do you like your experience with %1 so far?").arg(appName)
+              font: Theme.defaultFont
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -333,8 +333,8 @@ Page {
               Layout.topMargin: 12
               Layout.maximumWidth: feedbackView.width - 12
               text: qsTr("That's great! We'd love for you to click on the button below and leave a review.")
-              font: QfTheme.defaultFont
-              color: QfTheme.mainOverlayColor
+              font: Theme.defaultFont
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -418,8 +418,8 @@ Page {
               Layout.topMargin: 12
               Layout.maximumWidth: collectionView.width - 12
               text: qsTr("Anonymized metrics collection has been disabled. You can re-enable through the settings panel.")
-              font: QfTheme.defaultFont
-              color: QfTheme.mainOverlayColor
+              font: Theme.defaultFont
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -453,9 +453,9 @@ Page {
               Layout.margins: 6
               Layout.topMargin: 12
               Layout.maximumWidth: collectionView.width - 12
-              text: qsTr("To improve stability for everyone, %1 collects and sends anonymized metrics.").arg(Qfield.name)
-              font: QfTheme.defaultFont
-              color: QfTheme.mainOverlayColor
+              text: qsTr("To improve stability for everyone, %1 collects and sends anonymized metrics.").arg(appName)
+              font: Theme.defaultFont
+              color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
               wrapMode: Text.WordWrap
             }
@@ -508,8 +508,8 @@ Page {
         Layout.fillWidth: true
         Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
         text: ""
-        font: QfTheme.defaultFont
-        color: QfTheme.mainOverlayColor
+        font: Theme.defaultFont
+        color: Theme.mainOverlayColor
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
       }
@@ -535,9 +535,9 @@ Page {
             Layout.fillWidth: true
             visible: templatesListView.count > 0
             text: qsTr("Nowy z szablonu")
-            font.pointSize: QfTheme.tipFont.pointSize
+            font.pointSize: Theme.tipFont.pointSize
             font.bold: true
-            color: QfTheme.mainOverlayColor
+            color: Theme.mainOverlayColor
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
           }
@@ -552,7 +552,7 @@ Page {
             visible: count > 0
 
             ScrollBar.horizontal: QfScrollBar {
-              policy: templatesListView.contentWidth > templatesListView.width ? QfScrollBar.AsNeeded : QfScrollBar.AlwaysOff
+              policy: templatesListView.contentWidth > templatesListView.width ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
             }
 
             model: FolderListModel {
@@ -568,7 +568,7 @@ Page {
               height: 84
               radius: 8
               color: "transparent"
-              border.color: QfTheme.mainOverlayColor
+              border.color: Theme.mainOverlayColor
               border.width: 1
 
               ColumnLayout {
@@ -578,7 +578,7 @@ Page {
 
                 Image {
                   Layout.alignment: Qt.AlignHCenter
-                  source: QfTheme.getThemeVectorIcon("ic_add_white_24dp")
+                  source: Theme.getThemeVectorIcon("ic_add_white_24dp")
                   sourceSize.width: 24
                   sourceSize.height: 24
                 }
@@ -587,8 +587,8 @@ Page {
                   Layout.fillWidth: true
                   Layout.fillHeight: true
                   text: fileName
-                  font: QfTheme.tipFont
-                  color: QfTheme.mainOverlayColor
+                  font: Theme.tipFont
+                  color: Theme.mainOverlayColor
                   horizontalAlignment: Text.AlignHCenter
                   verticalAlignment: Text.AlignVCenter
                   wrapMode: Text.WordWrap
@@ -617,7 +617,7 @@ Page {
             text: qsTr("Recently Opened")
             font.pointSize: QfTheme.tipFont.pointSize
             font.bold: true
-            color: QfTheme.mainOverlayColor
+            color: Theme.mainOverlayColor
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
           }
@@ -627,9 +627,9 @@ Page {
             Layout.topMargin: 14
             Layout.bottomMargin: 4
             text: qsTr("Otwórz lokalne projekty i dane…")
-            font.pointSize: QfTheme.tipFont.pointSize
+            font.pointSize: Theme.tipFont.pointSize
             font.underline: true
-            color: QfTheme.mainOverlayColor
+            color: Theme.mainOverlayColor
             horizontalAlignment: Text.AlignHCenter
 
             MouseArea {
@@ -690,7 +690,7 @@ Page {
                 readonly property bool showPush: changesCount > 0
 
                 objectName: "loadProjectItem_1" // todo, suffix with e.g. ProjectTitle
-                previewImageSource: welcomeScreen.visible ? QfProjectThumbnail !== "" ? QfUrlUtils.fromString(QfProjectThumbnail) : 'image://projects/' + ProjectPath : ''
+                previewImageSource: welcomeScreen.visible ? ProjectThumbnail !== "" ? QfUrlUtils.fromString(ProjectThumbnail) : 'image://projects/' + ProjectPath : ''
                 showType: true
 
                 primaryBadge.badgeText.text: changesCount > 0 ? changesCount : ''
@@ -740,10 +740,10 @@ Page {
                   var item = table.itemAt(mouse.x, mouse.y);
                   if (item) {
                     switch (item.type) {
-                    case QfRecentProjectListModel.QfCloudProject:
+                    case QfRecentProjectListModel.CloudProject:
                     case QfRecentProjectListModel.LocalProject:
                     case QfRecentProjectListModel.LocalDataset:
-                      if (item.type === QfRecentProjectListModel.QfCloudProject && cloudConnection.hasToken && cloudConnection.status !== QfCloudConnection.LoggedIn) {
+                      if (item.type === QfRecentProjectListModel.CloudProject && cloudConnection.hasToken && cloudConnection.status !== QfCloudConnection.LoggedIn) {
                         cloudConnection.login();
                       }
                       iface.loadFile(item.path, item.projectTitle.text);
@@ -863,7 +863,7 @@ Page {
               bottomPadding: 10
               font: QfTheme.tipFont
               wrapMode: Text.WordWrap
-              color: QfTheme.mainOverlayColor
+              color: Theme.mainOverlayColor
 
               text: registry.defaultProject != '' ? qsTr('Load default project on launch') : qsTr('Load last opened project on launch')
 
@@ -1147,15 +1147,15 @@ Page {
       Label {
         Layout.fillWidth: true
         text: qsTr("Nazwa projektu:")
-        font: QfTheme.defaultFont
-        color: QfTheme.mainTextColor
+        font: Theme.defaultFont
+        color: Theme.mainTextColor
         wrapMode: Text.WordWrap
       }
 
       TextField {
         id: templateNameField
         Layout.fillWidth: true
-        font: QfTheme.defaultFont
+        font: Theme.defaultFont
         selectByMouse: true
       }
     }

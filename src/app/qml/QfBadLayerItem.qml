@@ -42,8 +42,8 @@ Page {
       Layout.fillHeight: false
 
       text: qsTr("Poniższych warstw nie udało się wczytać. Pozostałe warstwy projektu działają normalnie — możesz wrócić do pracy albo poprawić źródła w QGIS.")
-      font: QfTheme.defaultFont
-      color: QfTheme.mainTextColor
+      font: Theme.defaultFont
+      color: Theme.mainTextColor
       wrapMode: Text.WordWrap
     }
 
@@ -124,7 +124,7 @@ Page {
       Layout.fillWidth: true
       Layout.topMargin: 5
       text: qsTr("Wróć do projektu")
-      font: QfTheme.defaultFont
+      font: Theme.defaultFont
       onClicked: badLayerPage.visible = false
     }
   }

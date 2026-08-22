@@ -359,7 +359,7 @@ class QfAppInterface : public QObject
 
     /**
      * Returns the main map canvas item.
-     * \see QfMapCanvas
+     * \see MapCanvas
      */
     Q_INVOKABLE QObject *mapCanvas() const;
 

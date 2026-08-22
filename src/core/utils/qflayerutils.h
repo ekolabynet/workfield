@@ -1,5 +1,5 @@
 /***************************************************************************
-  qflayerutils.h - QfLayerUtils
+  layerutils.h - LayerUtils
 
  ---------------------
  begin                : 01.03.2021
@@ -14,8 +14,8 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef QFLAYERUTILS_H
-#define QFLAYERUTILS_H
+#ifndef LAYERUTILS_H
+#define LAYERUTILS_H
 
 #include <QColor>
 #include <QObject>
@@ -510,4 +510,4 @@ class QfLayerUtils : public QObject
     Q_INVOKABLE static QString saveVectorLayerAs( QgsVectorLayer *layer, const QString &filePath, const QString &driverName = QString(), const QString &filterExpression = QString() );
 };
 
-#endif // QFLAYERUTILS_H
+#endif // LAYERUTILS_H

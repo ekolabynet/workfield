@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 import org.qfield.core
 import org.qfield.gui
+import QtQuick.Controls.Material
 
 /**
  * \ingroup qml

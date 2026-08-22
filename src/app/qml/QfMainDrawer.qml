@@ -1555,7 +1555,7 @@ Drawer {
           }
         }
 
-        QfLegend {
+        Legend {
           id: legend
           objectName: "legend"
 

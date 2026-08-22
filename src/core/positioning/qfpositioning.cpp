@@ -72,13 +72,13 @@ void QfPositioning::setupSource()
     }
 
     mPositioningSource = new QfPositioningSource( this );
-    mHost.enableRemoting( mPositioningSource, "QfPositioningSource" );
+    mHost.enableRemoting( mPositioningSource, "PositioningSource" );
     nodeUrl = QStringLiteral( "local:replica" );
   }
 
   mNode.reset( new QRemoteObjectNode( this ) );
   mNode->connectToNode( QUrl( nodeUrl ) );
-  mPositioningSourceReplica.reset( mNode->acquireDynamic( "QfPositioningSource" ) );
+  mPositioningSourceReplica.reset( mNode->acquireDynamic( "PositioningSource" ) );
   mPositioningSourceReplica->waitForSource();
 
   connect( mPositioningSourceReplica.data(), SIGNAL( activeChanged() ), this, SLOT( onActiveChanged() ) );

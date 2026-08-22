@@ -138,7 +138,7 @@ class NarzedziaProjektu : public QObject
      * To jest rusztowanie pod przepis: aplikacja wczytuje ten pusty projekt
      * (iface.loadFile), a po sygnale loadProjectEnded interpreter przepisu
      * dokłada do niego warstwy, relacje i ustawienia. Nie uzywamy
-     * QfProjectUtils::createProject, bo ono narzuca wlasny katalog
+     * ProjectUtils::createProject, bo ono narzuca wlasny katalog
      * ("Created Projects") i EPSG:3857 — obok konwencji magazynu.
      */
     Q_INVOKABLE QString nowyProjekt( const QString &korzen, const QString &nazwa, const QString &crsAuthId = QStringLiteral( "EPSG:2178" ) ) const;
@@ -148,7 +148,7 @@ class NarzedziaProjektu : public QObject
      * nie ma — <korzen>/wymiana (stare drzewa), a gdy i tego nie ma — sam
      * korzen. Ta sama regula co ProcesyStudio::nowyZSzablonu (docs/MAGAZYN.md).
      *
-     * Osobny czasownik, bo QfFileUtils::fileExists() wymaga isFile() i na
+     * Osobny czasownik, bo FileUtils::fileExists() wymaga isFile() i na
      * katalogu zwraca false — zadanie ladowalo przez to w korzeniu magazynu.
      */
     Q_INVOKABLE QString katalogZadan( const QString &korzen ) const;
@@ -290,7 +290,7 @@ class NarzedziaProjektu : public QObject
 
     /**
      * Czyta plik tekstowy jako UTF-8. Osobny czasownik, bo
-     * QfFileUtils::readFileContent zwraca QByteArray, ktore w QML jest
+     * FileUtils::readFileContent zwraca QByteArray, ktore w QML jest
      * ArrayBufferem — a przepisy maja w sobie polskie znaki i ida przez
      * JSON.parse.
      */

@@ -25,7 +25,7 @@ Rectangle {
   property color textColor: QfTheme.mainTextColor
   property real contentHeight: content.height
 
-  color: QfTheme.mainBackgroundColor
+  color: Theme.mainBackgroundColor
 
   Timer {
     id: featureVertexTimer

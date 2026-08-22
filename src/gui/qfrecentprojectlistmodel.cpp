@@ -41,7 +41,7 @@ QHash<int, QByteArray> QfRecentProjectListModel::roleNames() const
   roles[ProjectTypeRole] = "ProjectType";
   roles[ProjectTitleRole] = "ProjectTitle";
   roles[ProjectPathRole] = "ProjectPath";
-  roles[ProjectThumbnailRole] = "QfProjectThumbnail";
+  roles[ProjectThumbnailRole] = "ProjectThumbnail";
 
   return roles;
 }
@@ -67,7 +67,7 @@ void QfRecentProjectListModel::reloadModel()
     }
     mRecentProjects = kept;
 
-    const QString sampleProjectsDirectory = QfPlatformUtilities::instance()->systemLocalDataLocation( QLatin1String( "sample_projects" ) );
+    const QString sampleProjectsDirectory = PlatformUtilities::instance()->systemLocalDataLocation( QLatin1String( "sample_projects" ) );
     const QString sampleProjectsJson = QStringLiteral( "%1/sample_projects.json" ).arg( sampleProjectsDirectory );
     if ( QFileInfo::exists( sampleProjectsJson ) )
     {

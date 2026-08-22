@@ -58,7 +58,7 @@ void QfIdentifyTool::identify( const QPointF &point ) const
 
   if ( !mModel || !mMapSettings )
   {
-    qWarning() << "Unable to use QfIdentifyTool without mapSettings or model property set.";
+    qWarning() << "Unable to use IdentifyTool without mapSettings or model property set.";
     return;
   }
 

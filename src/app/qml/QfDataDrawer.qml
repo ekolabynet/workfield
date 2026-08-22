@@ -192,7 +192,7 @@ Drawer {
       wrapMode: Text.WordWrap
     }
 
-        QfProcessingAlgorithmsList {
+        ProcessingAlgorithmsList {
           id: algorithmsList
 
           Layout.fillWidth: true
