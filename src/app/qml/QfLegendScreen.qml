@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import Theme
+import QfTheme
 
 Page {
   id: legendScreen
@@ -46,7 +46,7 @@ Page {
         color: t.mainTextColor
       }
 
-      ComboBox {
+      QfComboBox {
         id: themeCombo
 
         Layout.fillWidth: true
@@ -72,7 +72,7 @@ Page {
       }
     }
 
-    Legend {
+    QfLegend {
       id: legendView
 
       Layout.fillWidth: true

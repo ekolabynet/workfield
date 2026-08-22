@@ -1,5 +1,5 @@
 /***************************************************************************
-                            androidplatformutilities.cpp  -  utilities for qfield
+                            qfandroidplatformutilities.cpp  -  utilities for qfield
 
                               -------------------
               begin                : February 2016
@@ -16,15 +16,15 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "androidplatformutilities.h"
-#include "androidprojectsource.h"
-#include "androidresourcesource.h"
-#include "androidviewstatus.h"
-#include "appinterface.h"
-#include "fileutils.h"
+#include "qfandroidplatformutilities.h"
+#include "qfandroidprojectsource.h"
+#include "qfandroidresourcesource.h"
+#include "qfandroidviewstatus.h"
+#include "qfappinterface.h"
+#include "qfcloudconnection.h"
+#include "qffileutils.h"
 #include "qfield.h"
 #include "qfield_android.h"
-#include "qfieldcloudconnection.h"
 
 #include <QJniEnvironment>
 #include <QJniObject>
@@ -74,22 +74,22 @@ const char *const applicationName = "QField";
 #define GLUE_HELPER( u, v, w, x, y, z ) u##v##w##x##y##z
 #define JNI_FUNCTION_NAME( package_name, class_name, function_name ) GLUE_HELPER( Java_ch_opengis_, package_name, _, class_name, _, function_name )
 
-AndroidPlatformUtilities::AndroidPlatformUtilities()
+QfAndroidPlatformUtilities::QfAndroidPlatformUtilities()
   : mActivity( qtAndroidContext() )
   , mSystemGenericDataLocation( QStandardPaths::writableLocation( QStandardPaths::AppDataLocation ) + QStringLiteral( "/share" ) )
 {
 }
 
-PlatformUtilities::Capabilities AndroidPlatformUtilities::capabilities() const
+QfPlatformUtilities::Capabilities QfAndroidPlatformUtilities::capabilities() const
 {
-  PlatformUtilities::Capabilities capabilities = Capabilities() | NativeCamera | AdjustBrightness | CustomImport | CustomExport | CustomSend | FilePicker | VolumeKeys | UpdateProjectFromArchive | PositioningService;
+  QfPlatformUtilities::Capabilities capabilities = Capabilities() | NativeCamera | AdjustBrightness | CustomImport | CustomExport | CustomSend | FilePicker | VolumeKeys | UpdateProjectFromArchive | PositioningService;
 #if WITH_SENTRY
   capabilities |= SentryFramework;
 #endif
   return capabilities;
 }
 
-void AndroidPlatformUtilities::afterUpdate()
+void QfAndroidPlatformUtilities::afterUpdate()
 {
   // Copy data away from the virtual path `assets:/` to a path accessible also for non-qt-based libs
 
@@ -105,7 +105,7 @@ void AndroidPlatformUtilities::afterUpdate()
     } );
   }
 
-  FileUtils::copyRecursively( QStringLiteral( "assets:/" ), mSystemGenericDataLocation );
+  QfFileUtils::copyRecursively( QStringLiteral( "assets:/" ), mSystemGenericDataLocation );
 
   if ( mActivity.isValid() )
   {
@@ -119,17 +119,17 @@ void AndroidPlatformUtilities::afterUpdate()
   }
 }
 
-QString AndroidPlatformUtilities::systemSharedDataLocation() const
+QString QfAndroidPlatformUtilities::systemSharedDataLocation() const
 {
   return mSystemGenericDataLocation;
 }
 
-bool AndroidPlatformUtilities::hasQgsProject() const
+bool QfAndroidPlatformUtilities::hasQgsProject() const
 {
   return !getIntentExtra( "QGS_PROJECT" ).isEmpty();
 }
 
-void AndroidPlatformUtilities::loadQgsProject() const
+void QfAndroidPlatformUtilities::loadQgsProject() const
 {
   if ( mActivity.isValid() && hasQgsProject() )
   {
@@ -143,12 +143,12 @@ void AndroidPlatformUtilities::loadQgsProject() const
   }
 }
 
-bool AndroidPlatformUtilities::hasQfAction() const
+bool QfAndroidPlatformUtilities::hasQfAction() const
 {
   return !getIntentExtra( "QF_ACTION" ).isEmpty();
 }
 
-void AndroidPlatformUtilities::executeQfAction() const
+void QfAndroidPlatformUtilities::executeQfAction() const
 {
   if ( mActivity.isValid() && hasQfAction() )
   {
@@ -162,7 +162,7 @@ void AndroidPlatformUtilities::executeQfAction() const
   }
 }
 
-QStringList AndroidPlatformUtilities::appDataDirs() const
+QStringList QfAndroidPlatformUtilities::appDataDirs() const
 {
   const QString dataDirs = getIntentExtra( "QFIELD_APP_DATA_DIRS" );
   if ( dataDirs.isEmpty() )
@@ -181,7 +181,7 @@ QStringList AndroidPlatformUtilities::appDataDirs() const
   return result;
 }
 
-QString AndroidPlatformUtilities::applicationDirectory() const
+QString QfAndroidPlatformUtilities::applicationDirectory() const
 {
   const QSettings settings;
   const QString preferred = settings.value( QStringLiteral( "workfield/preferredDataDir" ) ).toString();
@@ -208,7 +208,7 @@ QString AndroidPlatformUtilities::applicationDirectory() const
   return QString();
 }
 
-QStringList AndroidPlatformUtilities::additionalApplicationDirectories() const
+QStringList QfAndroidPlatformUtilities::additionalApplicationDirectories() const
 {
   if ( mActivity.isValid() )
   {
@@ -222,7 +222,7 @@ QStringList AndroidPlatformUtilities::additionalApplicationDirectories() const
   return QStringList();
 }
 
-QStringList AndroidPlatformUtilities::rootDirectories() const
+QStringList QfAndroidPlatformUtilities::rootDirectories() const
 {
   if ( mActivity.isValid() )
   {
@@ -236,7 +236,7 @@ QStringList AndroidPlatformUtilities::rootDirectories() const
   return QStringList();
 }
 
-void AndroidPlatformUtilities::importProjectFolder() const
+void QfAndroidPlatformUtilities::importProjectFolder() const
 {
   if ( mActivity.isValid() )
   {
@@ -250,7 +250,7 @@ void AndroidPlatformUtilities::importProjectFolder() const
   }
 }
 
-void AndroidPlatformUtilities::importProjectArchive() const
+void QfAndroidPlatformUtilities::importProjectArchive() const
 {
   if ( mActivity.isValid() )
   {
@@ -264,7 +264,7 @@ void AndroidPlatformUtilities::importProjectArchive() const
   }
 }
 
-void AndroidPlatformUtilities::importDatasets() const
+void QfAndroidPlatformUtilities::importDatasets() const
 {
   if ( mActivity.isValid() )
   {
@@ -278,7 +278,7 @@ void AndroidPlatformUtilities::importDatasets() const
   }
 }
 
-void AndroidPlatformUtilities::updateProjectFromArchive( const QString &projectPath ) const
+void QfAndroidPlatformUtilities::updateProjectFromArchive( const QString &projectPath ) const
 {
   if ( mActivity.isValid() )
   {
@@ -293,7 +293,7 @@ void AndroidPlatformUtilities::updateProjectFromArchive( const QString &projectP
   }
 }
 
-void AndroidPlatformUtilities::sendDatasetTo( const QString &path ) const
+void QfAndroidPlatformUtilities::sendDatasetTo( const QString &path ) const
 {
   if ( mActivity.isValid() )
   {
@@ -314,7 +314,7 @@ void AndroidPlatformUtilities::sendDatasetTo( const QString &path ) const
   }
 }
 
-void AndroidPlatformUtilities::exportDatasetTo( const QString &path ) const
+void QfAndroidPlatformUtilities::exportDatasetTo( const QString &path ) const
 {
   if ( path.trimmed().isEmpty() )
   {
@@ -340,7 +340,7 @@ void AndroidPlatformUtilities::exportDatasetTo( const QString &path ) const
   }
 }
 
-void AndroidPlatformUtilities::removeDataset( const QString &path ) const
+void QfAndroidPlatformUtilities::removeDataset( const QString &path ) const
 {
   bool allowed = false;
   const QStringList allowedDirectories = QStringList() << applicationDirectory() << additionalApplicationDirectories();
@@ -368,7 +368,7 @@ void AndroidPlatformUtilities::removeDataset( const QString &path ) const
   }
 }
 
-void AndroidPlatformUtilities::exportFolderTo( const QString &path ) const
+void QfAndroidPlatformUtilities::exportFolderTo( const QString &path ) const
 {
   if ( path.trimmed().isEmpty() )
   {
@@ -388,7 +388,7 @@ void AndroidPlatformUtilities::exportFolderTo( const QString &path ) const
   }
 }
 
-void AndroidPlatformUtilities::sendCompressedFolderTo( const QString &path ) const
+void QfAndroidPlatformUtilities::sendCompressedFolderTo( const QString &path ) const
 {
   if ( mActivity.isValid() )
   {
@@ -403,7 +403,7 @@ void AndroidPlatformUtilities::sendCompressedFolderTo( const QString &path ) con
   }
 }
 
-void AndroidPlatformUtilities::removeFolder( const QString &path ) const
+void QfAndroidPlatformUtilities::removeFolder( const QString &path ) const
 {
   bool allowed = false;
   const QStringList allowedDirectories = QStringList() << applicationDirectory() << additionalApplicationDirectories();
@@ -431,7 +431,7 @@ void AndroidPlatformUtilities::removeFolder( const QString &path ) const
   }
 }
 
-QString AndroidPlatformUtilities::getIntentExtra( const QString &extra, QJniObject extras ) const
+QString QfAndroidPlatformUtilities::getIntentExtra( const QString &extra, QJniObject extras ) const
 {
   if ( extras == nullptr )
   {
@@ -449,7 +449,7 @@ QString AndroidPlatformUtilities::getIntentExtra( const QString &extra, QJniObje
   return QString();
 }
 
-QJniObject AndroidPlatformUtilities::getNativeIntent() const
+QJniObject QfAndroidPlatformUtilities::getNativeIntent() const
 {
   if ( mActivity.isValid() )
   {
@@ -459,7 +459,7 @@ QJniObject AndroidPlatformUtilities::getNativeIntent() const
   return nullptr;
 }
 
-QJniObject AndroidPlatformUtilities::getNativeExtras() const
+QJniObject QfAndroidPlatformUtilities::getNativeExtras() const
 {
   QJniObject intent = getNativeIntent();
   if ( intent.isValid() )
@@ -471,7 +471,7 @@ QJniObject AndroidPlatformUtilities::getNativeExtras() const
   return nullptr;
 }
 
-ResourceSource *AndroidPlatformUtilities::processCameraActivity( const QString &prefix, const QString &filePath, const QString &suffix, bool isVideo, QObject *parent )
+QfResourceSource *QfAndroidPlatformUtilities::processCameraActivity( const QString &prefix, const QString &filePath, const QString &suffix, bool isVideo, QObject *parent )
 {
   if ( !checkCameraPermissions() )
     return nullptr;
@@ -480,10 +480,10 @@ ResourceSource *AndroidPlatformUtilities::processCameraActivity( const QString &
   const QDir prefixDir( prefix );
   prefixDir.mkpath( destinationInfo.absolutePath() );
 
-  AndroidResourceSource *resourceSource = nullptr;
+  QfAndroidResourceSource *resourceSource = nullptr;
   if ( mActivity.isValid() )
   {
-    resourceSource = new AndroidResourceSource( prefix, parent );
+    resourceSource = new QfAndroidResourceSource( prefix, parent );
 
     runOnAndroidMainThread( [prefix, filePath, suffix, isVideo] {
       auto activity = qtAndroidContext();
@@ -505,26 +505,26 @@ ResourceSource *AndroidPlatformUtilities::processCameraActivity( const QString &
   return resourceSource;
 }
 
-ResourceSource *AndroidPlatformUtilities::getCameraPicture( const QString &prefix, const QString &pictureFilePath, const QString &suffix, QObject *parent )
+QfResourceSource *QfAndroidPlatformUtilities::getCameraPicture( const QString &prefix, const QString &pictureFilePath, const QString &suffix, QObject *parent )
 {
   return processCameraActivity( prefix, pictureFilePath, suffix, false, parent );
 }
 
-ResourceSource *AndroidPlatformUtilities::getCameraVideo( const QString &prefix, const QString &videoFilePath, const QString &suffix, QObject *parent )
+QfResourceSource *QfAndroidPlatformUtilities::getCameraVideo( const QString &prefix, const QString &videoFilePath, const QString &suffix, QObject *parent )
 {
   return processCameraActivity( prefix, videoFilePath, suffix, true, parent );
 }
 
-ResourceSource *AndroidPlatformUtilities::processGalleryActivity( const QString &prefix, const QString &filePath, const QString &mimeType, QObject *parent )
+QfResourceSource *QfAndroidPlatformUtilities::processGalleryActivity( const QString &prefix, const QString &filePath, const QString &mimeType, QObject *parent )
 {
   const QFileInfo destinationInfo( prefix + filePath );
   const QDir prefixDir( prefix );
   prefixDir.mkpath( destinationInfo.absolutePath() );
 
-  AndroidResourceSource *resourceSource = nullptr;
+  QfAndroidResourceSource *resourceSource = nullptr;
   if ( mActivity.isValid() )
   {
-    resourceSource = new AndroidResourceSource( prefix, parent );
+    resourceSource = new QfAndroidResourceSource( prefix, parent );
 
     runOnAndroidMainThread( [prefix, filePath, mimeType] {
       auto activity = qtAndroidContext();
@@ -545,26 +545,26 @@ ResourceSource *AndroidPlatformUtilities::processGalleryActivity( const QString 
   return resourceSource;
 }
 
-ResourceSource *AndroidPlatformUtilities::getGalleryPicture( const QString &prefix, const QString &pictureFilePath, QObject *parent )
+QfResourceSource *QfAndroidPlatformUtilities::getGalleryPicture( const QString &prefix, const QString &pictureFilePath, QObject *parent )
 {
   return processGalleryActivity( prefix, pictureFilePath, QStringLiteral( "image/*" ), parent );
 }
 
-ResourceSource *AndroidPlatformUtilities::getGalleryVideo( const QString &prefix, const QString &videoFilePath, QObject *parent )
+QfResourceSource *QfAndroidPlatformUtilities::getGalleryVideo( const QString &prefix, const QString &videoFilePath, QObject *parent )
 {
   return processGalleryActivity( prefix, videoFilePath, QStringLiteral( "video/*" ), parent );
 }
 
-ResourceSource *AndroidPlatformUtilities::getFile( const QString &prefix, const QString &filePath, const QString &mimeType, QObject *parent )
+QfResourceSource *QfAndroidPlatformUtilities::getFile( const QString &prefix, const QString &filePath, const QString &mimeType, QObject *parent )
 {
   const QFileInfo destinationInfo( prefix + filePath );
   const QDir prefixDir( prefix );
   prefixDir.mkpath( destinationInfo.absolutePath() );
 
-  AndroidResourceSource *resourceSource = nullptr;
+  QfAndroidResourceSource *resourceSource = nullptr;
   if ( mActivity.isValid() )
   {
-    resourceSource = new AndroidResourceSource( prefix, parent );
+    resourceSource = new QfAndroidResourceSource( prefix, parent );
 
     runOnAndroidMainThread( [prefix, filePath, mimeType] {
       auto activity = qtAndroidContext();
@@ -584,7 +584,7 @@ ResourceSource *AndroidPlatformUtilities::getFile( const QString &prefix, const 
   return resourceSource;
 }
 
-ViewStatus *AndroidPlatformUtilities::open( const QString &filePath, bool isEditing, QObject *parent )
+QfViewStatus *QfAndroidPlatformUtilities::open( const QString &filePath, bool isEditing, QObject *parent )
 {
   if ( QFileInfo( filePath ).isDir() )
     return nullptr;
@@ -592,12 +592,12 @@ ViewStatus *AndroidPlatformUtilities::open( const QString &filePath, bool isEdit
   QMimeDatabase db;
   const QString mimeType = db.mimeTypeForFile( filePath ).name();
 
-  AndroidViewStatus *viewStatus = nullptr;
+  QfAndroidViewStatus *viewStatus = nullptr;
   if ( mActivity.isValid() )
   {
     if ( parent )
     {
-      viewStatus = new AndroidViewStatus( parent );
+      viewStatus = new QfAndroidViewStatus( parent );
     }
 
     runOnAndroidMainThread( [filePath, mimeType, isEditing] {
@@ -618,7 +618,7 @@ ViewStatus *AndroidPlatformUtilities::open( const QString &filePath, bool isEdit
   return viewStatus;
 }
 
-void AndroidPlatformUtilities::requestStoragePermission() const
+void QfAndroidPlatformUtilities::requestStoragePermission() const
 {
   if ( !QSettings().value( QStringLiteral( "QField/storagePermissionChecked" ), false ).toBool() )
   {
@@ -632,7 +632,7 @@ void AndroidPlatformUtilities::requestStoragePermission() const
   }
 }
 
-bool AndroidPlatformUtilities::checkPositioningPermissions() const
+bool QfAndroidPlatformUtilities::checkPositioningPermissions() const
 {
   // First check for coarse permissions. If the user configured QField to only get coarse permissions
   // it's his wish and we just let it be.
@@ -644,17 +644,17 @@ bool AndroidPlatformUtilities::checkPositioningPermissions() const
   return true;
 }
 
-bool AndroidPlatformUtilities::checkCameraPermissions() const
+bool QfAndroidPlatformUtilities::checkCameraPermissions() const
 {
   return checkAndAcquirePermissions( { QStringLiteral( "android.permission.CAMERA" ) } );
 }
 
-bool AndroidPlatformUtilities::checkMicrophonePermissions() const
+bool QfAndroidPlatformUtilities::checkMicrophonePermissions() const
 {
   return checkAndAcquirePermissions( { QStringLiteral( "android.permission.RECORD_AUDIO" ) } );
 }
 
-bool AndroidPlatformUtilities::checkAndAcquirePermissions( QStringList permissions, bool forceAsk ) const
+bool QfAndroidPlatformUtilities::checkAndAcquirePermissions( QStringList permissions, bool forceAsk ) const
 {
   if ( !forceAsk )
   {
@@ -684,7 +684,7 @@ bool AndroidPlatformUtilities::checkAndAcquirePermissions( QStringList permissio
   return true;
 }
 
-void AndroidPlatformUtilities::setScreenLockPermission( const bool allowLock )
+void QfAndroidPlatformUtilities::setScreenLockPermission( const bool allowLock )
 {
   if ( mActivity.isValid() )
   {
@@ -717,7 +717,7 @@ void AndroidPlatformUtilities::setScreenLockPermission( const bool allowLock )
   }
 }
 
-void AndroidPlatformUtilities::dimBrightness()
+void QfAndroidPlatformUtilities::dimBrightness()
 {
   if ( mActivity.isValid() )
   {
@@ -731,7 +731,7 @@ void AndroidPlatformUtilities::dimBrightness()
   }
 }
 
-void AndroidPlatformUtilities::restoreBrightness()
+void QfAndroidPlatformUtilities::restoreBrightness()
 {
   if ( mActivity.isValid() )
   {
@@ -745,7 +745,7 @@ void AndroidPlatformUtilities::restoreBrightness()
   }
 }
 
-void AndroidPlatformUtilities::setHandleVolumeKeys( const bool handle )
+void QfAndroidPlatformUtilities::setHandleVolumeKeys( const bool handle )
 {
   if ( mActivity.isValid() )
   {
@@ -759,7 +759,7 @@ void AndroidPlatformUtilities::setHandleVolumeKeys( const bool handle )
   }
 }
 
-void AndroidPlatformUtilities::uploadPendingAttachments( QFieldCloudConnection *connection ) const
+void QfAndroidPlatformUtilities::uploadPendingAttachments( QfCloudConnection *connection ) const
 {
   // Request notification permission
   checkAndAcquirePermissions( { QStringLiteral( "android.permission.POST_NOTIFICATIONS" ) } );
@@ -776,7 +776,7 @@ void AndroidPlatformUtilities::uploadPendingAttachments( QFieldCloudConnection *
   } );
 }
 
-bool AndroidPlatformUtilities::isSystemDarkTheme() const
+bool QfAndroidPlatformUtilities::isSystemDarkTheme() const
 {
   if ( mActivity.isValid() )
   {
@@ -786,7 +786,7 @@ bool AndroidPlatformUtilities::isSystemDarkTheme() const
   return false;
 }
 
-void AndroidPlatformUtilities::vibrate( int milliseconds ) const
+void QfAndroidPlatformUtilities::vibrate( int milliseconds ) const
 {
   if ( mActivity.isValid() )
   {
@@ -800,12 +800,12 @@ void AndroidPlatformUtilities::vibrate( int milliseconds ) const
   }
 }
 
-void AndroidPlatformUtilities::requestBackgroundPositioningPermissions()
+void QfAndroidPlatformUtilities::requestBackgroundPositioningPermissions()
 {
   checkAndAcquirePermissions( { QStringLiteral( "android.permission.ACCESS_BACKGROUND_LOCATION" ) } );
 }
 
-QString AndroidPlatformUtilities::startPositioningService() const
+QString QfAndroidPlatformUtilities::startPositioningService() const
 {
   if ( qtAndroidSkdVersion() >= 33 )
   {
@@ -821,7 +821,7 @@ QString AndroidPlatformUtilities::startPositioningService() const
   return QStringLiteral( "localabstract:" APP_PACKAGE_NAME "replica" );
 }
 
-void AndroidPlatformUtilities::stopPositioningService() const
+void QfAndroidPlatformUtilities::stopPositioningService() const
 {
   qInfo() << "Terminating QField positioning service...";
   QJniObject::callStaticMethod<void>( "ch/opengis/" APP_PACKAGE_NAME "/QFieldPositioningService",
@@ -837,10 +837,10 @@ extern "C" {
 // QFieldActivity class functions
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, openProject )( JNIEnv *env, jobject obj, jstring path )
 {
-  if ( AppInterface::instance() )
+  if ( QfAppInterface::instance() )
   {
     const char *pathStr = env->GetStringUTFChars( path, NULL );
-    AppInterface::instance()->loadFile( QString( pathStr ) );
+    QfAppInterface::instance()->loadFile( QString( pathStr ) );
     env->ReleaseStringUTFChars( path, pathStr );
   }
   return;
@@ -848,19 +848,19 @@ JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, 
 
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, clearProject )( JNIEnv *env, jobject obj )
 {
-  if ( AppInterface::instance() )
+  if ( QfAppInterface::instance() )
   {
-    AppInterface::instance()->clearProject();
+    QfAppInterface::instance()->clearProject();
   }
   return;
 }
 
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, executeAction )( JNIEnv *env, jobject obj, jstring action )
 {
-  if ( AppInterface::instance() )
+  if ( QfAppInterface::instance() )
   {
     const char *actionStr = env->GetStringUTFChars( action, NULL );
-    AppInterface::instance()->executeAction( QString( actionStr ) );
+    QfAppInterface::instance()->executeAction( QString( actionStr ) );
     env->ReleaseStringUTFChars( action, actionStr );
   }
   return;
@@ -868,10 +868,10 @@ JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, 
 
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, openPath )( JNIEnv *env, jobject obj, jstring path )
 {
-  if ( AppInterface::instance() )
+  if ( QfAppInterface::instance() )
   {
     const char *pathStr = env->GetStringUTFChars( path, NULL );
-    emit AppInterface::instance()->openPath( QString( pathStr ) );
+    emit QfAppInterface::instance()->openPath( QString( pathStr ) );
     env->ReleaseStringUTFChars( path, pathStr );
   }
   return;
@@ -882,28 +882,28 @@ JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, 
 
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, volumeKeyDown )( JNIEnv *env, jobject obj, int volumeKeyCode )
 {
-  if ( AppInterface::instance() )
+  if ( QfAppInterface::instance() )
   {
-    emit AppInterface::instance()->volumeKeyDown( volumeKeyCode == ANDROID_VOLUME_DOWN ? Qt::Key_VolumeDown : Qt::Key_VolumeUp );
+    emit QfAppInterface::instance()->volumeKeyDown( volumeKeyCode == ANDROID_VOLUME_DOWN ? Qt::Key_VolumeDown : Qt::Key_VolumeUp );
   }
   return;
 }
 
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, volumeKeyUp )( JNIEnv *env, jobject obj, int volumeKeyCode )
 {
-  if ( AppInterface::instance() )
+  if ( QfAppInterface::instance() )
   {
-    emit AppInterface::instance()->volumeKeyUp( volumeKeyCode == ANDROID_VOLUME_DOWN ? Qt::Key_VolumeDown : Qt::Key_VolumeUp );
+    emit QfAppInterface::instance()->volumeKeyUp( volumeKeyCode == ANDROID_VOLUME_DOWN ? Qt::Key_VolumeDown : Qt::Key_VolumeUp );
   }
   return;
 }
 
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, resourceReceived )( JNIEnv *env, jobject obj, jstring path )
 {
-  if ( PlatformUtilities::instance() )
+  if ( QfPlatformUtilities::instance() )
   {
     const char *pathStr = env->GetStringUTFChars( path, NULL );
-    emit PlatformUtilities::instance()->resourceReceived( QString( pathStr ) );
+    emit QfPlatformUtilities::instance()->resourceReceived( QString( pathStr ) );
     env->ReleaseStringUTFChars( path, pathStr );
   }
   return;
@@ -911,10 +911,10 @@ JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, 
 
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, resourceOpened )( JNIEnv *env, jobject obj, jstring path )
 {
-  if ( PlatformUtilities::instance() )
+  if ( QfPlatformUtilities::instance() )
   {
     const char *pathStr = env->GetStringUTFChars( path, NULL );
-    emit PlatformUtilities::instance()->resourceOpened( QString( pathStr ) );
+    emit QfPlatformUtilities::instance()->resourceOpened( QString( pathStr ) );
     env->ReleaseStringUTFChars( path, pathStr );
   }
   return;
@@ -922,10 +922,10 @@ JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, 
 
 JNIEXPORT void JNICALL JNI_FUNCTION_NAME( APP_PACKAGE_JNI_NAME, QFieldActivity, resourceCanceled )( JNIEnv *env, jobject obj, jstring message )
 {
-  if ( PlatformUtilities::instance() )
+  if ( QfPlatformUtilities::instance() )
   {
     const char *messageStr = env->GetStringUTFChars( message, NULL );
-    emit PlatformUtilities::instance()->resourceCanceled( QString( messageStr ) );
+    emit QfPlatformUtilities::instance()->resourceCanceled( QString( messageStr ) );
     env->ReleaseStringUTFChars( message, messageStr );
   }
   return;

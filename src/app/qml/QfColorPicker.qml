@@ -2,9 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import Theme
+import QfTheme
 
-Popup {
+QfPopup {
   id: colorPicker
 
   property var t
@@ -62,7 +62,7 @@ Popup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+  closePolicy: QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside
 
   ColumnLayout {
     anchors.fill: parent
@@ -114,11 +114,11 @@ Popup {
       boundsBehavior: Flickable.StopAtBounds
       flickableDirection: Flickable.HorizontalAndVerticalFlick
 
-      ScrollBar.vertical: ScrollBar {
-        policy: paletteView.contentHeight > paletteView.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+      QfScrollBar.vertical: QfScrollBar {
+        policy: paletteView.contentHeight > paletteView.height ? QfScrollBar.AlwaysOn : QfScrollBar.AlwaysOff
       }
-      ScrollBar.horizontal: ScrollBar {
-        policy: paletteView.contentWidth > paletteView.width ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+      QfScrollBar.horizontal: QfScrollBar {
+        policy: paletteView.contentWidth > paletteView.width ? QfScrollBar.AlwaysOn : QfScrollBar.AlwaysOff
       }
 
       Column {
@@ -171,7 +171,7 @@ Popup {
         color: t.mainTextColor
       }
 
-      Slider {
+      QfSlider {
         Layout.fillWidth: true
         from: 0
         to: 1
@@ -206,7 +206,7 @@ Popup {
         color: t.mainTextColor
       }
 
-      Button {
+      QfButton {
         text: "−"
         implicitWidth: 46
         onClicked: {
@@ -223,7 +223,7 @@ Popup {
         color: t.mainTextColor
       }
 
-      Button {
+      QfButton {
         text: "+"
         implicitWidth: 46
         onClicked: {
@@ -258,7 +258,7 @@ Popup {
           }
         ]
 
-        delegate: Button {
+        delegate: QfButton {
           required property var modelData
 
           text: modelData.n
@@ -279,13 +279,13 @@ Popup {
       Layout.topMargin: 8
       spacing: 8
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: colorPicker.close()
       }
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
         text: qsTr("Wybierz")
         highlighted: true

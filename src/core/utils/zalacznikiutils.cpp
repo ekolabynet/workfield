@@ -61,7 +61,7 @@ QVariantMap ZalacznikiUtils::relacjaZalacznikow( QgsVectorLayer *warstwa ) const
       continue;
 
     // Pole zalacznika = pierwsze pole z widgetem ExternalResource. Ten sam
-    // warunek stosuje ReferencingFeatureListModel::updateAttachmentFieldInfo,
+    // warunek stosuje QfReferencingFeatureListModel::updateAttachmentFieldInfo,
     // wiec galeria w formularzu i pasek widza to samo pole.
     QString poleSciezki;
     const QgsFields pola = dziecko->fields();

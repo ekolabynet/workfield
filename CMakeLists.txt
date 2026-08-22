@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.19)
 
 set(VCPKG_TAG 99e82d9c9f0b281ec11fba48cc8434574a2b6e66)
 
-set(QML_IMPORT_PATH ${CMAKE_SOURCE_DIR}/src/core/qml/imports CACHE PATH "QML import path for Qt Creator to detect custom modules properly")
+set(QML_IMPORT_PATH ${CMAKE_BINARY_DIR}/qml CACHE PATH "QML import path for Qt Creator to detect custom modules properly")
 
 set(CMAKE_COLOR_MAKEFILE ON)
 set(APP_NAME "WorkFieldGIS" CACHE STRING "Application Name")
@@ -21,12 +21,44 @@ string(REGEX REPLACE "v" "" CLEAN_APP_VERSION "${APP_VERSION}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
+# Which layers to build. Turning WITH_APP off leaves only libraries, so QField
+# can be embedded into another application: the app, the Android service, the
+# tests, the launcher icons, the resource `deploy` target and the packaging
+# rules are all skipped. WITH_GUI and WITH_3D follow WITH_APP by default, so an
+# embedder opts into them explicitly and pays for Qt Quick 3D only on request.
+set(WITH_APP ON CACHE BOOL "Build the QField application")
+set(WITH_CORE ON CACHE BOOL "Build the qfield_core library")
+set(WITH_GUI ${WITH_APP} CACHE BOOL "Build the qfield_gui library and the org.qfield.gui QML module")
+set(WITH_3D ${WITH_APP} CACHE BOOL "Build the qfield_3d library and the org.qfield.3d QML module")
+
+if(NOT WITH_CORE AND (WITH_APP OR WITH_GUI OR WITH_3D))
+  message(FATAL_ERROR "WITH_APP, WITH_GUI and WITH_3D all require WITH_CORE.")
+endif()
+if(WITH_APP AND NOT (WITH_GUI AND WITH_3D))
+  message(FATAL_ERROR "WITH_APP requires both WITH_GUI and WITH_3D.")
+endif()
+
+# When ON, the caller supplies the vcpkg toolchain and installed tree (this is
+# the case when QField is built as a vcpkg port), so the bundled vcpkg bootstrap
+# must not run and must not override CMAKE_TOOLCHAIN_FILE.
+set(WITH_EXTERNAL_VCPKG OFF CACHE BOOL "vcpkg is provided by the caller; skip the bundled vcpkg bootstrap")
+
 # Platform specific fixes (android, macos, ...)
 include(Platform)
 # Obtain git revision
 include(GetGitRevisionDescription)
 # The vcpkg toolchain to compile dependencies
-include(VcpkgToolchain)
+if(WITH_EXTERNAL_VCPKG)
+  # Dependencies still come from vcpkg, so WITH_VCPKG must stay on: FindQGIS
+  # keys the qgis-cmake-wrapper include off it, and without that wrapper
+  # QGIS::Core carries none of its static dependencies.
+  set(WITH_VCPKG ON CACHE BOOL "Use the vcpkg submodule for dependency management." FORCE)
+  # VcpkgToolchain is also where find_package(Git) happens, and
+  # GetGitRevisionDescription needs GIT_EXECUTABLE below.
+  find_package(Git REQUIRED)
+else()
+  include(VcpkgToolchain)
+endif()
 # The default installation paths
 include(GNUInstallDirs)
 
@@ -97,7 +129,7 @@ set(WITH_SAMPLE_PROJECTS
     ON
     CACHE BOOL "Enable sample projects")
 
-if (WITH_SAMPLE_PROJECTS)
+if (WITH_SAMPLE_PROJECTS AND WITH_APP)
   install(DIRECTORY ${CMAKE_SOURCE_DIR}/resources/sample_projects DESTINATION ${CMAKE_INSTALL_DATADIR}/qfield)
 endif()
 
@@ -132,6 +164,8 @@ if (ANDROID)
   set(ANDROID_PACKAGE_SOURCE_DIR ${CMAKE_BINARY_DIR}/android-template)
   set(ANDROID_DRAWABLE_DENSITIES mdpi hdpi xhdpi xxhdpi xxxhdpi)
 
+  # Launcher icons only matter for the packaged application.
+  if (WITH_APP)
   foreach(DENSITY ${ANDROID_DRAWABLE_DENSITIES})
     set(DST_DIR "${ANDROID_PACKAGE_SOURCE_DIR}/res/drawable-${DENSITY}")
     file(MAKE_DIRECTORY "${DST_DIR}")
@@ -167,20 +201,31 @@ if (ANDROID)
         "${DST_DRAWABLE_DIR}/${APP_ICON}_vector.xml"
       )
   endif()
+  endif() # WITH_APP
 
 endif()
 
-find_package(Qt6 COMPONENTS Concurrent Core Qml Gui Xml Positioning Widgets Network Quick Svg Sql Sensors WebView Multimedia Bluetooth Nfc RemoteObjects WebSockets Quick3D REQUIRED)
+if(WITH_CORE)
+  find_package(Qt6 COMPONENTS Concurrent Core Qml Gui Xml Positioning Widgets Network Quick Svg Sql Sensors Multimedia RemoteObjects WebSockets REQUIRED)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
-  find_package(Qt6 COMPONENTS PrintSupport REQUIRED)
+  if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    find_package(Qt6 COMPONENTS PrintSupport REQUIRED)
+  endif()
+
+  find_package(QGIS COMPONENTS Core Analysis REQUIRED)
+  find_package(PROJ REQUIRED)
+  find_package(GDAL REQUIRED)
+  find_package(Qca REQUIRED)
+  find_package(LibZip REQUIRED)
 endif()
 
-find_package(QGIS COMPONENTS Core Analysis REQUIRED)
-find_package(PROJ REQUIRED)
-find_package(GDAL REQUIRED)
-find_package(Qca REQUIRED)
-find_package(LibZip REQUIRED)
+if(WITH_GUI)
+  find_package(Qt6 COMPONENTS WebView REQUIRED)
+endif()
+
+if(WITH_3D)
+  find_package(Qt6 COMPONENTS Quick3D REQUIRED)
+endif()
 
 if(ANDROID)
   # Qt by default assumes that cmake files live in `lib/cmake`. Point to `share` instead.
@@ -188,12 +233,14 @@ if(ANDROID)
   get_filename_component(QT_ANDROID_PATH_CMAKE_DIR_${ANDROID_ABI} "${Qt6_DIR}/.." ABSOLUTE)
   message(STATUS "QT_ANDROID_PATH_CMAKE_DIR_${ANDROID_ABI}: ${QT_ANDROID_PATH_CMAKE_DIR_${ANDROID_ABI}}")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
-  set(QT_HOST_PATH "${VCPKG_INSTALLED_DIR}/${VCPKG_HOST_TRIPLET}")
+  # A caller may already know where the host tools are and pass QT_HOST_PATH in.
+  # Deriving it unconditionally would overwrite that with
+  # "${VCPKG_INSTALLED_DIR}/" whenever VCPKG_HOST_TRIPLET is not set, and
+  # Qt6Config would then fail to find the host Qt.
+  if(NOT QT_HOST_PATH)
+    set(QT_HOST_PATH "${VCPKG_INSTALLED_DIR}/${VCPKG_HOST_TRIPLET}")
+  endif()
   set(QT_HOST_PATH_CMAKE_DIR "${QT_HOST_PATH}/share")
-  # The QmlImportScanner is not discovered on the host path, it should probably be caught by
-  # https://github.com/qt/qtbase/blob/8c14b0c/cmake/QtConfig.cmake.in#L104-L122
-  # at least we know where to find it:
-  set(Qt6QmlImportScanner_DIR "${VCPKG_INSTALLED_DIR}/share/Qt6QmlImportScanner")
   message(STATUS "QT_HOST_PATH: ${QT_HOST_PATH}")
 endif()
 
@@ -227,20 +274,94 @@ file(MAKE_DIRECTORY "${SHARE_DIR}")
 
 if(WITH_SENTRY)
   add_subdirectory(src/sentry)
+else()
+  add_library(qfield_sentry INTERFACE)
+  install(TARGETS qfield_sentry EXPORT qfield-targets)
 endif()
 
 if (WITH_SPIX)
   find_package(Spix REQUIRED)
 endif ()
 
-add_subdirectory(src/core)
-add_subdirectory(src/gui)
-if (ANDROID)
-  add_subdirectory(src/service)
-endif()
-add_subdirectory(src/app)
+# Keep the generated QML modules together so tests and Qt Creator find them.
+set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)
 
-if (ENABLE_TESTS)
+if (WITH_CORE)
+  add_subdirectory(src/core)
+endif()
+if (WITH_3D)
+  add_subdirectory(src/3d)
+endif()
+if (WITH_GUI)
+  add_subdirectory(src/gui)
+endif()
+if (WITH_APP)
+  if (ANDROID)
+    add_subdirectory(src/service)
+  endif()
+  add_subdirectory(src/app)
+endif()
+
+#############################################################
+# Export the libraries so QField can be consumed from another
+# CMake project (find_package(QField CONFIG)).
+#
+# Not under Xcode: the export needs the QML resource OBJECT libraries
+# installed, and Xcode cannot install the objects of OBJECT libraries, so the
+# library CMakeLists drop them from the install there and the export would
+# fail at generate time with "Objects of target ... referenced but is not one
+# of the allowed target types".
+
+if(WITH_CORE AND NOT CMAKE_GENERATOR STREQUAL "Xcode")
+  set(QFIELD_EXPORTED_QT_COMPONENTS
+      Core CorePrivate Gui GuiPrivate Xml Positioning Widgets Network Qml Quick
+      Svg Sensors Sql Concurrent Multimedia WebSockets RemoteObjects)
+  if(WITH_BLUETOOTH)
+    list(APPEND QFIELD_EXPORTED_QT_COMPONENTS Bluetooth)
+  endif()
+  if(WITH_SERIALPORT)
+    list(APPEND QFIELD_EXPORTED_QT_COMPONENTS SerialPort)
+  endif()
+  if(WITH_NFC)
+    list(APPEND QFIELD_EXPORTED_QT_COMPONENTS Nfc)
+  endif()
+  if(WITH_GUI)
+    list(APPEND QFIELD_EXPORTED_QT_COMPONENTS WebView)
+  endif()
+  if(WITH_3D)
+    list(APPEND QFIELD_EXPORTED_QT_COMPONENTS Quick3D)
+  endif()
+  if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    list(APPEND QFIELD_EXPORTED_QT_COMPONENTS PrintSupport)
+  endif()
+  string(REPLACE ";" " " QFIELD_EXPORTED_QT_COMPONENTS "${QFIELD_EXPORTED_QT_COMPONENTS}")
+
+  install(
+    EXPORT qfield-targets
+    FILE qfield-targets.cmake
+    NAMESPACE QField::
+    DESTINATION share/qfield)
+
+  include(CMakePackageConfigHelpers)
+  configure_package_config_file(
+    ${CMAKE_SOURCE_DIR}/cmake/qfield-config.cmake.in
+    ${CMAKE_BINARY_DIR}/cmake/qfield-config.cmake
+    INSTALL_DESTINATION share/qfield)
+  install(FILES ${CMAKE_BINARY_DIR}/cmake/qfield-config.cmake
+          DESTINATION share/qfield)
+
+  # The find modules the config file depends on.
+  install(
+    FILES ${CMAKE_SOURCE_DIR}/cmake/FindQGIS.cmake
+          ${CMAKE_SOURCE_DIR}/cmake/qgis-cmake-wrapper.cmake
+          ${CMAKE_SOURCE_DIR}/cmake/FindPROJ.cmake
+          ${CMAKE_SOURCE_DIR}/cmake/FindQca.cmake
+          ${CMAKE_SOURCE_DIR}/cmake/FindSQLite3.cmake
+          ${CMAKE_SOURCE_DIR}/cmake/Findsentry.cmake
+    DESTINATION share/qfield/cmake)
+endif()
+
+if (ENABLE_TESTS AND WITH_APP)
   set (TEST_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/test/testdata")
 
   find_package(Qt6 COMPONENTS Test QuickTest)
@@ -248,7 +369,9 @@ if (ENABLE_TESTS)
   add_subdirectory(test)
 endif()
 
-if(WITH_VCPKG)
+# Runtime resources (proj/gdal/qgis data, CA bundle) are only staged for the
+# application; an embedding host stages them from its own vcpkg tree.
+if(WITH_VCPKG AND WITH_APP)
   # Copy files from the install dir to where it
   # will be bundled
   add_custom_target(deploy)
@@ -316,8 +439,17 @@ if(WITH_VCPKG)
     COMMAND ${CMAKE_COMMAND} -E make_directory "${SHARE_DIR}/qgis/svg"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${VCPKG_BASE_DIR}/share/qgis/resources" "${SHARE_DIR}/qgis/resources"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${VCPKG_BASE_DIR}/share/qgis/svg" "${SHARE_DIR}/qgis/svg"
-    COMMAND ${CMAKE_COMMAND} -E rm -R -- "${SHARE_DIR}/qgis/resources/data"
     COMMAND ${CMAKE_COMMAND} -E rm -R -- "${SHARE_DIR}/qgis/resources/cpt-city-qgis-min"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/contributors.json"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/contributors.qml"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/contributors_map.qml"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/qgis-hackfests.json"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/qgis-hackfests.qml"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/README_world_map.md"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/user_groups.qml"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/user_groups_data.json"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/world_map.gpkg"
+    COMMAND ${CMAKE_COMMAND} -E rm -- "${SHARE_DIR}/qgis/resources/data/world_map_generalize.model3"
   )
 
   set(PROJ_DATA_PATH "${VCPKG_BASE_DIR}/share/proj")
@@ -346,10 +478,12 @@ if(WITH_VCPKG)
   add_dependencies(qfield deploy)
 endif()
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND WITH_APP)
   install(FILES ${CMAKE_SOURCE_DIR}/images/icons/qfield_logo.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/128x128/apps RENAME qfield.svg)
   install(FILES ${CMAKE_SOURCE_DIR}/platform/linux/qfield.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/qfield)
   install(FILES ${CMAKE_SOURCE_DIR}/platform/linux/qfield.metainfo.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
 endif()
 
-include(Package)
+if(WITH_APP)
+  include(Package)
+endif()

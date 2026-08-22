@@ -57,34 +57,31 @@ endif()
 configure_file(${CMAKE_SOURCE_DIR}/images/logo.qrc.in
                ${CMAKE_BINARY_DIR}/images/logo.qrc @ONLY)
 
-find_package(
-  Qt6
-  COMPONENTS Core5Compat
-  REQUIRED)
-
 set(QFIELD_APP_SRCS
-    badlayerhandler.cpp
-    changelogcontents.cpp
-    clipboardmanager.cpp
-    pluginmanager.cpp
-    pluginmodel.cpp
-    qfieldappauthrequesthandler.cpp
-    qfieldurlhandler.cpp
-    qfieldappqmlregistration.cpp
-    qgismobileapp.cpp
-    screendimmer.cpp)
+    qfapp.cpp
+    qfbadlayerhandler.cpp
+    qfchangelogcontents.cpp
+    qfclipboardmanager.cpp
+    qfpluginmanager.cpp
+    qfpluginmodel.cpp
+    qfappauthrequesthandler.cpp
+    qfappcoordinateoperationhandlers.cpp
+    qfurlhandler.cpp
+    qfscreendimmer.cpp
+    qgismobileapp.cpp)
 
 set(QFIELD_APP_HDRS
-    badlayerhandler.h
-    changelogcontents.h
-    clipboardmanager.h
-    pluginmanager.h
-    pluginmodel.h
-    qfieldappauthrequesthandler.h
-    qfieldurlhandler.h
-    qfieldappqmlregistration.h
-    qgismobileapp.h
-    screendimmer.h)
+    qfapp.h
+    qfbadlayerhandler.h
+    qfchangelogcontents.h
+    qfclipboardmanager.h
+    qfpluginmanager.h
+    qfpluginmodel.h
+    qfappauthrequesthandler.h
+    qfappcoordinateoperationhandlers.h
+    qfurlhandler.h
+    qfscreendimmer.h
+    qgismobileapp.h)
 
 add_library(qfield_app STATIC ${QFIELD_APP_SRCS} ${QFIELD_APP_HDRS})
 
@@ -109,85 +106,11 @@ target_compile_features(qfield_app PUBLIC cxx_std_20)
 
 set_target_properties(qfield_app PROPERTIES AUTOMOC TRUE)
 
-target_link_libraries(qfield_app PUBLIC qfield_gui)
+target_link_libraries(qfield_app PUBLIC qfield_3d qfield_gui qfield_core)
 
-# QML owned by this library. The /qml prefix keeps resource paths stable.
-set(QFIELD_APP_QML_FILES
-    qml/About.qml
-    qml/BadLayerItem.qml
-    qml/Changelog.qml
-    qml/DashBoard.qml
-    qml/Dummy.qml
-    qml/Nyuki.qml
-    qml/PluginItem.qml
-    qml/PluginManagerSettings.qml
-    qml/QFieldCloudDangerZone.qml
-    qml/QFieldCloudDeltaHistory.qml
-    qml/QFieldCloudLogin.qml
-    qml/QFieldCloudPackageLayersFeedback.qml
-    qml/QFieldCloudPopup.qml
-    qml/QFieldCloudProjectDetails.qml
-    qml/QFieldCloudProjectFilter.qml
-    qml/QFieldCloudScreen.qml
-    qml/QFieldCloudStatusBanner.qml
-    qml/QFieldGuide.qml
-    qml/QFieldLocalDataPickerScreen.qml
-    qml/QFieldSettings.qml
-    qml/QFieldSketcher.qml
-    qml/ScreenLocker.qml
-    qml/QfBasemapScreen.qml
-    qml/QfCaptureSettings.qml
-    qml/QfTerenSettings.qml
-    qml/QfTextEditor.qml
-    qml/QfColorPicker.qml
-    qml/QfDataDrawer.qml
-    qml/QfLayerExportDialog.qml
-    qml/QfLayerFieldsScreen.qml
-    qml/QfLegendScreen.qml
-    qml/QfMainDrawer.qml
-    qml/QfNewLayerDialog.qml
-    qml/QfNoweZadanie.qml
-    qml/QfNowyProjekt.qml
-    qml/QfPrzepis.qml
-    qml/QfKontrolaProjektu.qml
-    qml/QfNaprawaProjektu.qml
-    qml/QfStudioSection.qml
-    qml/QfAkcje.qml
-    qml/QfPanelAkcji.qml
-    qml/QfDesktopChrome.qml
-    qml/QfCloudSettings.qml
-    qml/QfWymianaLokalna.qml
-    qml/QfPhotoGallery.qml
-    qml/QfQuickCaptureBar.qml
-    qml/QfSettingsAdvanced.qml
-    qml/QfSettingsDigitizing.qml
-    qml/QfSettingsIndex.qml
-    qml/QfSettingsInterface.qml
-    qml/QfSettingsMapCanvas.qml
-    qml/QfSubLayerPicker.qml
-    qml/SettingsNetwork.qml
-    qml/SideMenu.qml
-    qml/qgismobileapp.qml)
+add_subdirectory(qml)
 
-qt_add_resources(
-  qfield_app
-  "app_qml"
-  PREFIX
-  "/qml"
-  BASE
-  "${CMAKE_CURRENT_SOURCE_DIR}/qml"
-  FILES
-  ${QFIELD_APP_QML_FILES})
-
-# The import scanner needs absolute paths (QTBUG-80847).
-set(QFIELD_APP_QML_FILES_ABS "")
-foreach(qml_file ${QFIELD_APP_QML_FILES})
-  list(APPEND QFIELD_APP_QML_FILES_ABS
-       "${CMAKE_CURRENT_SOURCE_DIR}/${qml_file}")
-endforeach()
-set_property(TARGET qfield_app PROPERTY QML_FILES ${QFIELD_APP_QML_FILES_ABS})
-
-qt_import_qml_plugins(qfield_app)
+add_subdirectory(qml_compat)
 
 function(create_executable)
   cmake_parse_arguments(exe "" "TARGET" "EXTRA_ARGS" "" ${ARGN})
@@ -229,7 +152,8 @@ function(create_executable)
     FILES
     ${QM_FILES})
 
-  target_link_libraries(${exe_TARGET} PRIVATE qfield_app qfield_gui qfield_core)
+  target_link_libraries(${exe_TARGET} PRIVATE qfield_app qfield_gui qfield_3d
+                                              qfield_core)
 
   if(ANDROID)
     target_link_libraries(${exe_TARGET} PRIVATE qfield_service)
@@ -246,28 +170,28 @@ function(create_executable)
   if(${QT_TARGET_TYPE} STREQUAL "STATIC_LIBRARY")
     find_package(Qt6 COMPONENTS QmlImportScanner)
 
-    foreach(qml_target qfield_core qfield_gui qfield_app)
+    foreach(qml_target qfield_core qfield_3d qfield_gui qfield_app)
       get_target_property(qfield_qmlfiles ${qml_target} QML_FILES)
       file(COPY ${qfield_qmlfiles}
            DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/qmldrop/app")
     endforeach()
 
     if(NOT WITH_BLUETOOTH)
-      file(REMOVE
-           "${CMAKE_CURRENT_BINARY_DIR}/qmldrop/app/BluetoothDeviceChooser.qml")
+      file(
+        REMOVE
+        "${CMAKE_CURRENT_BINARY_DIR}/qmldrop/app/QfBluetoothDeviceChooser.qml")
     endif()
     if(NOT WITH_SERIALPORT)
-      file(REMOVE
-           "${CMAKE_CURRENT_BINARY_DIR}/qmldrop/app/SerialPortChooser.qml")
+      file(
+        REMOVE
+        "${CMAKE_CURRENT_BINARY_DIR}/qmldrop/app/QfSerialPortDeviceChooser.qml")
     endif()
 
     # Will be no longer needed for Qt6
     qt_import_qml_plugins(${exe_TARGET} PATH_TO_SCAN
                           "${CMAKE_CURRENT_BINARY_DIR}/qmldrop/app")
   endif()
-  target_link_libraries(${exe_TARGET} PUBLIC Qt::Core5Compat)
   qt_import_plugins(${exe_TARGET} INCLUDE Qt::QSvgPlugin)
-  qt_import_plugins(${exe_TARGET} INCLUDE Qt::Core5Compat)
 
   if(IOS OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     target_link_libraries(
@@ -360,6 +284,8 @@ if(IOS)
     VERBOSE)
 
   set_target_properties(
-    qfield PROPERTIES XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS
-                      "${PROJECT_SOURCE_DIR}/platform/ios/qfield.entitlements")
+    qfield
+    PROPERTIES XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS
+               "${PROJECT_SOURCE_DIR}/platform/ios/qfield.entitlements"
+               XCODE_GENERATE_SCHEME TRUE)
 endif()

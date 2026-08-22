@@ -9,6 +9,7 @@ tuned for vegetation inventory and surveying workflows in Poland.**
 > [qfield.org](https://qfield.org/) — professionally maintained, widely
 > tested, regularly updated. Full attribution and details: [NOTICE.md](NOTICE.md).
 
+
 <p align="center">
   <img src="doc/workfield-field.jpg" width="380"
        alt="WorkField in the field: GNSS status bar with FIX quality at 1 cm, quick capture bar with shot presets, vegetation height raster over orthophoto">

@@ -9,7 +9,7 @@ Pane {
   id: paneDrawer
 
   //! WorkField: na komputerze panel rysuje sie jako plywajaca karta
-  //! (odsuniecie od krawedzi robi FeatureListForm przez anchors.margins)
+  //! (odsuniecie od krawedzi robi QfFeatureListForm przez anchors.margins)
   readonly property bool naKomputerze: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
 
   background: Rectangle {

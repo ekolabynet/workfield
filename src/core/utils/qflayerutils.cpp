@@ -1,5 +1,5 @@
 /***************************************************************************
-  layerutils.cpp - LayerUtils
+  qflayerutils.cpp - QfLayerUtils
 
  ---------------------
  begin                : 01.03.2021
@@ -14,7 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "layerutils.h"
+#include "qflayerutils.h"
 #include <QDomDocument>
 #include <QUrlQuery>
 #include <qgsblockingnetworkrequest.h>
@@ -77,12 +77,12 @@
 #include <qgsvectorlayerutils.h>
 #include <qgswkbtypes.h>
 
-LayerUtils::LayerUtils( QObject *parent )
+QfLayerUtils::QfLayerUtils( QObject *parent )
   : QObject( parent )
 {
 }
 
-void LayerUtils::setDefaultRenderer( QgsVectorLayer *layer, QgsProject *project, const QString &attachmentField, const QString &colorField )
+void QfLayerUtils::setDefaultRenderer( QgsVectorLayer *layer, QgsProject *project, const QString &attachmentField, const QString &colorField )
 {
   if ( !layer )
     return;
@@ -115,14 +115,14 @@ void LayerUtils::setDefaultRenderer( QgsVectorLayer *layer, QgsProject *project,
   QgsSymbol *symbol = project ? project->styleSettings()->defaultSymbol( symbolType ) : nullptr;
   if ( !symbol )
   {
-    symbol = LayerUtils::defaultSymbol( layer, attachmentField, colorField );
+    symbol = QfLayerUtils::defaultSymbol( layer, attachmentField, colorField );
   }
 
   QgsSingleSymbolRenderer *renderer = new QgsSingleSymbolRenderer( symbol );
   layer->setRenderer( renderer );
 }
 
-QgsSymbol *LayerUtils::defaultSymbol( QgsVectorLayer *layer, const QString &attachmentField, const QString &colorField )
+QgsSymbol *QfLayerUtils::defaultSymbol( QgsVectorLayer *layer, const QString &attachmentField, const QString &colorField )
 {
   QgsSymbol *symbol = nullptr;
 
@@ -223,7 +223,7 @@ QgsSymbol *LayerUtils::defaultSymbol( QgsVectorLayer *layer, const QString &atta
   return symbol;
 }
 
-void LayerUtils::setDefaultLabeling( QgsVectorLayer *layer, QgsProject *project )
+void QfLayerUtils::setDefaultLabeling( QgsVectorLayer *layer, QgsProject *project )
 {
   QgsTextFormat textFormat = project ? project->styleSettings()->defaultTextFormat() : QgsTextFormat();
   textFormat.setSize( 8 );
@@ -232,7 +232,7 @@ void LayerUtils::setDefaultLabeling( QgsVectorLayer *layer, QgsProject *project 
   textFormat.buffer().setSize( 0.5 );
   textFormat.buffer().setSizeUnit( Qgis::RenderUnit::Millimeters );
   textFormat.buffer().setColor( QColor( 255, 255, 255, 150 ) );
-  QgsAbstractVectorLayerLabeling *labeling = LayerUtils::defaultLabeling( layer, textFormat );
+  QgsAbstractVectorLayerLabeling *labeling = QfLayerUtils::defaultLabeling( layer, textFormat );
   if ( labeling )
   {
     layer->setLabeling( labeling );
@@ -240,7 +240,7 @@ void LayerUtils::setDefaultLabeling( QgsVectorLayer *layer, QgsProject *project 
   }
 }
 
-QgsAbstractVectorLayerLabeling *LayerUtils::defaultLabeling( QgsVectorLayer *layer, QgsTextFormat textFormat )
+QgsAbstractVectorLayerLabeling *QfLayerUtils::defaultLabeling( QgsVectorLayer *layer, QgsTextFormat textFormat )
 {
   QgsAbstractVectorLayerLabeling *labeling = nullptr;
 
@@ -306,7 +306,7 @@ QgsAbstractVectorLayerLabeling *LayerUtils::defaultLabeling( QgsVectorLayer *lay
   return labeling;
 }
 
-QgsRasterLayer *LayerUtils::createOnlineElevationLayer()
+QgsRasterLayer *QfLayerUtils::createOnlineElevationLayer()
 {
   QgsRasterLayer *layer = new QgsRasterLayer( QStringLiteral( "interpretation=terrariumterrain&type=xyz&url=https://s3.amazonaws.com/elevation-tiles-prod/terrarium/%7Bz%7D/%7Bx%7D/%7By%7D.png&zmax=15&zmin=0" ),
                                               QStringLiteral( "elevation" ), QStringLiteral( "wms" ) );
@@ -317,7 +317,7 @@ QgsRasterLayer *LayerUtils::createOnlineElevationLayer()
   return layer;
 }
 
-QgsMapLayer *LayerUtils::createBasemap( const QString &style )
+QgsMapLayer *QfLayerUtils::createBasemap( const QString &style )
 {
   QgsRasterLayer *layer = nullptr;
   if ( style.compare( QStringLiteral( "lightgray" ) ) == 0 )
@@ -338,7 +338,7 @@ QgsMapLayer *LayerUtils::createBasemap( const QString &style )
   return layer;
 }
 
-bool LayerUtils::isAtlasCoverageLayer( QgsVectorLayer *layer )
+bool QfLayerUtils::isAtlasCoverageLayer( QgsVectorLayer *layer )
 {
   if ( !layer || !QgsProject::instance()->layoutManager() )
     return false;
@@ -356,12 +356,12 @@ bool LayerUtils::isAtlasCoverageLayer( QgsVectorLayer *layer )
   return false;
 }
 
-bool LayerUtils::isFeatureAdditionLocked( QgsMapLayer *layer )
+bool QfLayerUtils::isFeatureAdditionLocked( QgsMapLayer *layer )
 {
   return layer ? ( ( layer->customProperty( QStringLiteral( "QFieldSync/is_geometry_locked" ), false ).toBool() && !layer->customProperty( QStringLiteral( "QFieldSync/is_geometry_locked" ), false ).toBool() ) || ( layer->customProperty( QStringLiteral( "QFieldSync/is_feature_addition_locked" ), false ).toBool() && !layer->customProperty( QStringLiteral( "QFieldSync/is_feature_addition_locked" ), false ).toBool() ) ) : false;
 }
 
-void LayerUtils::selectFeaturesInLayer( QgsVectorLayer *layer, const QList<int> &fids, Qgis::SelectBehavior behavior )
+void QfLayerUtils::selectFeaturesInLayer( QgsVectorLayer *layer, const QList<int> &fids, Qgis::SelectBehavior behavior )
 {
   if ( !layer )
     return;
@@ -372,12 +372,12 @@ void LayerUtils::selectFeaturesInLayer( QgsVectorLayer *layer, const QList<int> 
   layer->selectByIds( qgsFids, behavior );
 }
 
-QString LayerUtils::fieldType( const QgsField &field )
+QString QfLayerUtils::fieldType( const QgsField &field )
 {
   return QVariant( QMetaType( field.type() ) ).typeName();
 }
 
-bool LayerUtils::addFeature( QgsVectorLayer *layer, QgsFeature feature )
+bool QfLayerUtils::addFeature( QgsVectorLayer *layer, QgsFeature feature )
 {
   if ( layer )
   {
@@ -386,7 +386,7 @@ bool LayerUtils::addFeature( QgsVectorLayer *layer, QgsFeature feature )
   return false;
 }
 
-bool LayerUtils::deleteFeature( QgsProject *project, QgsVectorLayer *layer, const QgsFeatureId fid, bool flushBuffer )
+bool QfLayerUtils::deleteFeature( QgsProject *project, QgsVectorLayer *layer, const QgsFeatureId fid, bool flushBuffer )
 {
   if ( !project )
   {
@@ -475,7 +475,7 @@ bool LayerUtils::deleteFeature( QgsProject *project, QgsVectorLayer *layer, cons
   return isSuccess;
 }
 
-QgsFeature LayerUtils::duplicateFeature( QgsVectorLayer *layer, QgsFeature feature )
+QgsFeature QfLayerUtils::duplicateFeature( QgsVectorLayer *layer, QgsFeature feature )
 {
   if ( !layer )
   {
@@ -572,7 +572,7 @@ QgsFeature LayerUtils::duplicateFeature( QgsVectorLayer *layer, QgsFeature featu
   return duplicatedFeature;
 }
 
-bool LayerUtils::hasMValue( QgsVectorLayer *layer )
+bool QfLayerUtils::hasMValue( QgsVectorLayer *layer )
 {
   if ( !layer )
     return false;
@@ -580,7 +580,7 @@ bool LayerUtils::hasMValue( QgsVectorLayer *layer )
   return QgsWkbTypes::hasM( layer->wkbType() );
 }
 
-QString LayerUtils::guessFriendlyHeightField( QgsVectorLayer *layer )
+QString QfLayerUtils::guessFriendlyHeightField( QgsVectorLayer *layer )
 {
   if ( !layer )
   {
@@ -620,7 +620,7 @@ QString LayerUtils::guessFriendlyHeightField( QgsVectorLayer *layer )
   return QString();
 }
 
-QSet<QVariant> LayerUtils::uniqueValuesForVectorLayerFieldIndex( QgsVectorLayer *layer, int fieldIndex )
+QSet<QVariant> QfLayerUtils::uniqueValuesForVectorLayerFieldIndex( QgsVectorLayer *layer, int fieldIndex )
 {
   if ( !layer )
   {
@@ -630,21 +630,21 @@ QSet<QVariant> LayerUtils::uniqueValuesForVectorLayerFieldIndex( QgsVectorLayer 
   return layer->uniqueValues( fieldIndex );
 }
 
-QgsVectorLayer *LayerUtils::loadVectorLayer( const QString &uri, const QString &name, const QString &provider )
+QgsVectorLayer *QfLayerUtils::loadVectorLayer( const QString &uri, const QString &name, const QString &provider )
 {
   QgsVectorLayer *layer = new QgsVectorLayer( uri, name, provider );
   QQmlEngine::setObjectOwnership( layer, QQmlEngine::CppOwnership );
   return layer;
 }
 
-QgsRasterLayer *LayerUtils::loadRasterLayer( const QString &uri, const QString &name, const QString &provider )
+QgsRasterLayer *QfLayerUtils::loadRasterLayer( const QString &uri, const QString &name, const QString &provider )
 {
   QgsRasterLayer *layer = new QgsRasterLayer( uri, name, provider );
   QQmlEngine::setObjectOwnership( layer, QQmlEngine::CppOwnership );
   return layer;
 }
 
-QgsVectorLayer *LayerUtils::memoryLayerFromJsonString( const QString &name, const QString &string, const QgsCoordinateReferenceSystem &crs )
+QgsVectorLayer *QfLayerUtils::memoryLayerFromJsonString( const QString &name, const QString &string, const QgsCoordinateReferenceSystem &crs )
 {
   const QgsFields fields = QgsJsonUtils::stringToFields( string );
   QgsFeatureList features = QgsJsonUtils::stringToFeatureList( string, fields );
@@ -653,7 +653,7 @@ QgsVectorLayer *LayerUtils::memoryLayerFromJsonString( const QString &name, cons
     return nullptr;
   }
 
-  QgsVectorLayer *layer = LayerUtils::createMemoryLayer( name, fields, features[0].geometry().wkbType(), crs );
+  QgsVectorLayer *layer = QfLayerUtils::createMemoryLayer( name, fields, features[0].geometry().wkbType(), crs );
   if ( QgsVectorDataProvider *dataProvider = layer->dataProvider() )
   {
     dataProvider->addFeatures( features );
@@ -661,36 +661,36 @@ QgsVectorLayer *LayerUtils::memoryLayerFromJsonString( const QString &name, cons
   return layer;
 }
 
-QgsVectorLayer *LayerUtils::createMemoryLayer( const QString &name, const QgsFields &fields, Qgis::WkbType geometryType, const QgsCoordinateReferenceSystem &crs )
+QgsVectorLayer *QfLayerUtils::createMemoryLayer( const QString &name, const QgsFields &fields, Qgis::WkbType geometryType, const QgsCoordinateReferenceSystem &crs )
 {
   QgsVectorLayer *layer = QgsMemoryProviderUtils::createMemoryLayer( name, fields, geometryType, crs );
   QQmlEngine::setObjectOwnership( layer, QQmlEngine::CppOwnership );
-  LayerUtils::setDefaultRenderer( layer );
+  QfLayerUtils::setDefaultRenderer( layer );
   return layer;
 }
 
-FeatureIterator LayerUtils::createFeatureIterator( QgsVectorLayer *layer )
+QfFeatureIterator QfLayerUtils::createFeatureIterator( QgsVectorLayer *layer )
 {
-  return FeatureIterator( layer );
+  return QfFeatureIterator( layer );
 }
 
-FeatureIterator LayerUtils::createFeatureIteratorFromExpression( QgsVectorLayer *layer, const QString &expression )
+QfFeatureIterator QfLayerUtils::createFeatureIteratorFromExpression( QgsVectorLayer *layer, const QString &expression )
 {
   QgsFeatureRequest request = QgsFeatureRequest( QgsExpression( expression ) );
   if ( layer )
   {
     request.setExpressionContext( layer->createExpressionContext() );
   }
-  return FeatureIterator( layer, request );
+  return QfFeatureIterator( layer, request );
 }
 
-FeatureIterator LayerUtils::createFeatureIteratorFromRectangle( QgsVectorLayer *layer, const QgsRectangle &rectangle )
+QfFeatureIterator QfLayerUtils::createFeatureIteratorFromRectangle( QgsVectorLayer *layer, const QgsRectangle &rectangle )
 {
   const QgsFeatureRequest request = QgsFeatureRequest( rectangle );
-  return FeatureIterator( layer, request );
+  return QfFeatureIterator( layer, request );
 }
 
-QString LayerUtils::saveVectorLayerAs( QgsVectorLayer *layer, const QString &filePath, const QString &driverName, const QString &filterExpression )
+QString QfLayerUtils::saveVectorLayerAs( QgsVectorLayer *layer, const QString &filePath, const QString &driverName, const QString &filterExpression )
 {
   if ( !layer || filePath.isEmpty() )
   {
@@ -759,18 +759,18 @@ static QgsSymbol *singleSymbolOf( QgsVectorLayer *layer )
   return renderer ? renderer->symbol() : nullptr;
 }
 
-bool LayerUtils::hasSimpleSymbology( QgsVectorLayer *layer )
+bool QfLayerUtils::hasSimpleSymbology( QgsVectorLayer *layer )
 {
   return singleSymbolOf( layer ) != nullptr;
 }
 
-QColor LayerUtils::symbolColor( QgsVectorLayer *layer )
+QColor QfLayerUtils::symbolColor( QgsVectorLayer *layer )
 {
   QgsSymbol *symbol = singleSymbolOf( layer );
   return symbol ? symbol->color() : QColor();
 }
 
-void LayerUtils::setSymbolColor( QgsVectorLayer *layer, const QColor &color )
+void QfLayerUtils::setSymbolColor( QgsVectorLayer *layer, const QColor &color )
 {
   QgsSymbol *symbol = singleSymbolOf( layer );
   if ( !symbol || !color.isValid() )
@@ -781,7 +781,7 @@ void LayerUtils::setSymbolColor( QgsVectorLayer *layer, const QColor &color )
   emit layer->styleChanged();
 }
 
-double LayerUtils::symbolSize( QgsVectorLayer *layer )
+double QfLayerUtils::symbolSize( QgsVectorLayer *layer )
 {
   QgsSymbol *symbol = singleSymbolOf( layer );
   if ( !symbol )
@@ -798,7 +798,7 @@ double LayerUtils::symbolSize( QgsVectorLayer *layer )
   }
 }
 
-void LayerUtils::setSymbolSize( QgsVectorLayer *layer, double size )
+void QfLayerUtils::setSymbolSize( QgsVectorLayer *layer, double size )
 {
   QgsSymbol *symbol = singleSymbolOf( layer );
   if ( !symbol || size <= 0 )
@@ -832,7 +832,7 @@ static void refreshLayer( QgsVectorLayer *layer )
   emit layer->styleChanged();
 }
 
-int LayerUtils::symbolType( QgsVectorLayer *layer )
+int QfLayerUtils::symbolType( QgsVectorLayer *layer )
 {
   QgsSymbol *symbol = singleSymbolOf( layer );
   if ( !symbol )
@@ -851,13 +851,13 @@ int LayerUtils::symbolType( QgsVectorLayer *layer )
   }
 }
 
-QColor LayerUtils::fillColor( QgsVectorLayer *layer )
+QColor QfLayerUtils::fillColor( QgsVectorLayer *layer )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   return sl ? sl->fillColor() : QColor();
 }
 
-void LayerUtils::setFillColor( QgsVectorLayer *layer, const QColor &color )
+void QfLayerUtils::setFillColor( QgsVectorLayer *layer, const QColor &color )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   if ( !sl || !color.isValid() )
@@ -867,13 +867,13 @@ void LayerUtils::setFillColor( QgsVectorLayer *layer, const QColor &color )
   refreshLayer( layer );
 }
 
-QColor LayerUtils::strokeColor( QgsVectorLayer *layer )
+QColor QfLayerUtils::strokeColor( QgsVectorLayer *layer )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   return sl ? sl->strokeColor() : QColor();
 }
 
-void LayerUtils::setStrokeColor( QgsVectorLayer *layer, const QColor &color )
+void QfLayerUtils::setStrokeColor( QgsVectorLayer *layer, const QColor &color )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   if ( !sl || !color.isValid() )
@@ -883,7 +883,7 @@ void LayerUtils::setStrokeColor( QgsVectorLayer *layer, const QColor &color )
   refreshLayer( layer );
 }
 
-double LayerUtils::strokeWidth( QgsVectorLayer *layer )
+double QfLayerUtils::strokeWidth( QgsVectorLayer *layer )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   if ( !sl )
@@ -899,7 +899,7 @@ double LayerUtils::strokeWidth( QgsVectorLayer *layer )
   return -1;
 }
 
-void LayerUtils::setStrokeWidth( QgsVectorLayer *layer, double width )
+void QfLayerUtils::setStrokeWidth( QgsVectorLayer *layer, double width )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   if ( !sl || width < 0 )
@@ -917,7 +917,7 @@ void LayerUtils::setStrokeWidth( QgsVectorLayer *layer, double width )
   refreshLayer( layer );
 }
 
-int LayerUtils::strokeStyle( QgsVectorLayer *layer )
+int QfLayerUtils::strokeStyle( QgsVectorLayer *layer )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   if ( !sl )
@@ -933,7 +933,7 @@ int LayerUtils::strokeStyle( QgsVectorLayer *layer )
   return -1;
 }
 
-void LayerUtils::setStrokeStyle( QgsVectorLayer *layer, int style )
+void QfLayerUtils::setStrokeStyle( QgsVectorLayer *layer, int style )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   if ( !sl )
@@ -953,13 +953,13 @@ void LayerUtils::setStrokeStyle( QgsVectorLayer *layer, int style )
   refreshLayer( layer );
 }
 
-int LayerUtils::markerShape( QgsVectorLayer *layer )
+int QfLayerUtils::markerShape( QgsVectorLayer *layer )
 {
   QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( firstSymbolLayerOf( layer ) );
   return marker ? static_cast<int>( marker->shape() ) : -1;
 }
 
-void LayerUtils::setMarkerShape( QgsVectorLayer *layer, int shape )
+void QfLayerUtils::setMarkerShape( QgsVectorLayer *layer, int shape )
 {
   QgsSimpleMarkerSymbolLayer *marker = dynamic_cast<QgsSimpleMarkerSymbolLayer *>( firstSymbolLayerOf( layer ) );
   if ( !marker )
@@ -969,7 +969,7 @@ void LayerUtils::setMarkerShape( QgsVectorLayer *layer, int shape )
   refreshLayer( layer );
 }
 
-QString LayerUtils::exportVectorLayer( QgsVectorLayer *layer, const QString &filePath, const QString &destinationCrsAuthId, const QString &fileEncoding )
+QString QfLayerUtils::exportVectorLayer( QgsVectorLayer *layer, const QString &filePath, const QString &destinationCrsAuthId, const QString &fileEncoding )
 {
   if ( !layer || !layer->isValid() )
     return QString();
@@ -1032,7 +1032,7 @@ QString LayerUtils::exportVectorLayer( QgsVectorLayer *layer, const QString &fil
   return finalFileName;
 }
 
-QVariantList LayerUtils::vectorSubLayers( const QString &filePath )
+QVariantList QfLayerUtils::vectorSubLayers( const QString &filePath )
 {
   QVariantList result;
 
@@ -1059,7 +1059,7 @@ QVariantList LayerUtils::vectorSubLayers( const QString &filePath )
   return result;
 }
 
-bool LayerUtils::hasCategorizedSymbology( QgsVectorLayer *layer )
+bool QfLayerUtils::hasCategorizedSymbology( QgsVectorLayer *layer )
 {
   if ( !layer )
     return false;
@@ -1068,7 +1068,7 @@ bool LayerUtils::hasCategorizedSymbology( QgsVectorLayer *layer )
          || dynamic_cast<QgsGraduatedSymbolRenderer *>( layer->renderer() ) != nullptr;
 }
 
-QVariantList LayerUtils::rendererCategories( QgsVectorLayer *layer )
+QVariantList QfLayerUtils::rendererCategories( QgsVectorLayer *layer )
 {
   QVariantList result;
   if ( !layer )
@@ -1110,7 +1110,7 @@ QVariantList LayerUtils::rendererCategories( QgsVectorLayer *layer )
   return result;
 }
 
-void LayerUtils::setCategoryColor( QgsVectorLayer *layer, int categoryIndex, const QColor &color )
+void QfLayerUtils::setCategoryColor( QgsVectorLayer *layer, int categoryIndex, const QColor &color )
 {
   if ( !layer || !color.isValid() || categoryIndex < 0 )
     return;
@@ -1142,7 +1142,7 @@ void LayerUtils::setCategoryColor( QgsVectorLayer *layer, int categoryIndex, con
   emit layer->styleChanged();
 }
 
-void LayerUtils::setCategoryVisible( QgsVectorLayer *layer, int categoryIndex, bool visible )
+void QfLayerUtils::setCategoryVisible( QgsVectorLayer *layer, int categoryIndex, bool visible )
 {
   if ( !layer || categoryIndex < 0 )
     return;
@@ -1180,7 +1180,7 @@ static QgsColorRamp *rampByName( const QString &rampName )
   return nullptr;
 }
 
-QVariantList LayerUtils::layerFields( QgsVectorLayer *layer )
+QVariantList QfLayerUtils::layerFields( QgsVectorLayer *layer )
 {
   QVariantList result;
   if ( !layer )
@@ -1199,7 +1199,7 @@ QVariantList LayerUtils::layerFields( QgsVectorLayer *layer )
   return result;
 }
 
-void LayerUtils::setSingleSymbolRenderer( QgsVectorLayer *layer )
+void QfLayerUtils::setSingleSymbolRenderer( QgsVectorLayer *layer )
 {
   if ( !layer )
     return;
@@ -1362,7 +1362,7 @@ namespace
   }
 }
 
-bool LayerUtils::addStatusMarker( QgsVectorLayer *layer, const QString &fieldName )
+bool QfLayerUtils::addStatusMarker( QgsVectorLayer *layer, const QString &fieldName )
 {
   if ( !layer || fieldName.isEmpty() )
     return false;
@@ -1418,7 +1418,7 @@ bool LayerUtils::addStatusMarker( QgsVectorLayer *layer, const QString &fieldNam
   return true;
 }
 
-bool LayerUtils::addVertexMarkers( QgsVectorLayer *layer, const QColor &color, double size )
+bool QfLayerUtils::addVertexMarkers( QgsVectorLayer *layer, const QColor &color, double size )
 {
   if ( !layer )
     return false;
@@ -1512,7 +1512,7 @@ namespace
   }
 }
 
-QVariantMap LayerUtils::vertexMarkerConfig( QgsVectorLayer *layer )
+QVariantMap QfLayerUtils::vertexMarkerConfig( QgsVectorLayer *layer )
 {
   QVariantMap result;
   result.insert( QStringLiteral( "present" ), false );
@@ -1536,7 +1536,7 @@ QVariantMap LayerUtils::vertexMarkerConfig( QgsVectorLayer *layer )
   return result;
 }
 
-bool LayerUtils::setVertexMarker( QgsVectorLayer *layer, const QColor &color, double size, const QString &shape )
+bool QfLayerUtils::setVertexMarker( QgsVectorLayer *layer, const QColor &color, double size, const QString &shape )
 {
   const QgsSymbolList symbols = symbolsOf( layer );
   if ( symbols.isEmpty() )
@@ -1570,7 +1570,7 @@ bool LayerUtils::setVertexMarker( QgsVectorLayer *layer, const QColor &color, do
   return zmienione;
 }
 
-bool LayerUtils::removeExtraSymbolLayers( QgsVectorLayer *layer )
+bool QfLayerUtils::removeExtraSymbolLayers( QgsVectorLayer *layer )
 {
   const QgsSymbolList symbols = symbolsOf( layer );
   if ( symbols.isEmpty() )
@@ -1593,7 +1593,7 @@ bool LayerUtils::removeExtraSymbolLayers( QgsVectorLayer *layer )
   return zdjete;
 }
 
-QVariantList LayerUtils::colorRampNames()
+QVariantList QfLayerUtils::colorRampNames()
 {
   QVariantList result;
 
@@ -1614,7 +1614,7 @@ QVariantList LayerUtils::colorRampNames()
   return result;
 }
 
-QVariantList LayerUtils::colorRampPreview( const QString &rampName, int count )
+QVariantList QfLayerUtils::colorRampPreview( const QString &rampName, int count )
 {
   QVariantList result;
 
@@ -1635,7 +1635,7 @@ QVariantList LayerUtils::colorRampPreview( const QString &rampName, int count )
   return result;
 }
 
-bool LayerUtils::applyColorRamp( QgsVectorLayer *layer, const QString &rampName )
+bool QfLayerUtils::applyColorRamp( QgsVectorLayer *layer, const QString &rampName )
 {
   if ( !layer )
     return false;
@@ -1671,7 +1671,7 @@ bool LayerUtils::applyColorRamp( QgsVectorLayer *layer, const QString &rampName 
   return true;
 }
 
-bool LayerUtils::setCategorizedRenderer( QgsVectorLayer *layer, const QString &fieldName, const QString &rampName )
+bool QfLayerUtils::setCategorizedRenderer( QgsVectorLayer *layer, const QString &fieldName, const QString &rampName )
 {
   if ( !layer || fieldName.isEmpty() )
     return false;
@@ -1716,7 +1716,7 @@ bool LayerUtils::setCategorizedRenderer( QgsVectorLayer *layer, const QString &f
   return true;
 }
 
-bool LayerUtils::setGraduatedRenderer( QgsVectorLayer *layer, const QString &fieldName, int classCount, const QString &rampName )
+bool QfLayerUtils::setGraduatedRenderer( QgsVectorLayer *layer, const QString &fieldName, int classCount, const QString &rampName )
 {
   if ( !layer || fieldName.isEmpty() || classCount < 2 )
     return false;
@@ -1767,7 +1767,7 @@ static QMetaType::Type metaTypeForFieldType( const QString &type )
   return QMetaType::QString;
 }
 
-QgsVectorLayer *LayerUtils::createEmptyLayer( const QString &filePath, const QString &layerName, const QString &geometryType, const QString &crsAuthId, const QVariantList &fields )
+QgsVectorLayer *QfLayerUtils::createEmptyLayer( const QString &filePath, const QString &layerName, const QString &geometryType, const QString &crsAuthId, const QVariantList &fields )
 {
   if ( filePath.isEmpty() || layerName.isEmpty() )
     return nullptr;
@@ -1856,7 +1856,7 @@ QgsVectorLayer *LayerUtils::createEmptyLayer( const QString &filePath, const QSt
   return layer;
 }
 
-bool LayerUtils::setAttachmentField( QgsVectorLayer *layer, const QString &fieldName, const QString &uuidFieldName )
+bool QfLayerUtils::setAttachmentField( QgsVectorLayer *layer, const QString &fieldName, const QString &uuidFieldName )
 {
   if ( !layer )
     return false;
@@ -1931,7 +1931,7 @@ static bool applyLabelSettings( QgsVectorLayer *layer, const QgsPalLayerSettings
   return true;
 }
 
-QVariantMap LayerUtils::labelSettings( QgsVectorLayer *layer )
+QVariantMap QfLayerUtils::labelSettings( QgsVectorLayer *layer )
 {
   QVariantMap result;
   if ( !layer )
@@ -1952,7 +1952,7 @@ QVariantMap LayerUtils::labelSettings( QgsVectorLayer *layer )
   return result;
 }
 
-bool LayerUtils::setLabelsEnabled( QgsVectorLayer *layer, bool enabled, const QString &fieldName )
+bool QfLayerUtils::setLabelsEnabled( QgsVectorLayer *layer, bool enabled, const QString &fieldName )
 {
   if ( !layer )
     return false;
@@ -1986,7 +1986,7 @@ bool LayerUtils::setLabelsEnabled( QgsVectorLayer *layer, bool enabled, const QS
   return true;
 }
 
-bool LayerUtils::setLabelField( QgsVectorLayer *layer, const QString &fieldName )
+bool QfLayerUtils::setLabelField( QgsVectorLayer *layer, const QString &fieldName )
 {
   if ( !layer || fieldName.isEmpty() )
     return false;
@@ -1996,7 +1996,7 @@ bool LayerUtils::setLabelField( QgsVectorLayer *layer, const QString &fieldName 
   return applyLabelSettings( layer, settings );
 }
 
-bool LayerUtils::setLabelSize( QgsVectorLayer *layer, double size )
+bool QfLayerUtils::setLabelSize( QgsVectorLayer *layer, double size )
 {
   if ( !layer || size <= 0 )
     return false;
@@ -2009,7 +2009,7 @@ bool LayerUtils::setLabelSize( QgsVectorLayer *layer, double size )
   return applyLabelSettings( layer, settings );
 }
 
-bool LayerUtils::setLabelColor( QgsVectorLayer *layer, const QColor &color )
+bool QfLayerUtils::setLabelColor( QgsVectorLayer *layer, const QColor &color )
 {
   if ( !layer || !color.isValid() )
     return false;
@@ -2021,7 +2021,7 @@ bool LayerUtils::setLabelColor( QgsVectorLayer *layer, const QColor &color )
   return applyLabelSettings( layer, settings );
 }
 
-bool LayerUtils::setLabelBuffer( QgsVectorLayer *layer, bool enabled, const QColor &color )
+bool QfLayerUtils::setLabelBuffer( QgsVectorLayer *layer, bool enabled, const QColor &color )
 {
   if ( !layer )
     return false;
@@ -2041,7 +2041,7 @@ bool LayerUtils::setLabelBuffer( QgsVectorLayer *layer, bool enabled, const QCol
   return applyLabelSettings( layer, settings );
 }
 
-QString LayerUtils::loadStyleFromFile( QgsMapLayer *layer, const QString &filePath )
+QString QfLayerUtils::loadStyleFromFile( QgsMapLayer *layer, const QString &filePath )
 {
   if ( !layer )
     return QObject::tr( "No layer" );
@@ -2060,7 +2060,7 @@ QString LayerUtils::loadStyleFromFile( QgsMapLayer *layer, const QString &filePa
   return QString();
 }
 
-QString LayerUtils::saveStyleToFile( QgsMapLayer *layer, const QString &filePath )
+QString QfLayerUtils::saveStyleToFile( QgsMapLayer *layer, const QString &filePath )
 {
   if ( !layer )
     return QObject::tr( "No layer" );
@@ -2074,7 +2074,7 @@ QString LayerUtils::saveStyleToFile( QgsMapLayer *layer, const QString &filePath
   return QString();
 }
 
-QVariantList LayerUtils::availableStyleFiles( QgsMapLayer *layer )
+QVariantList QfLayerUtils::availableStyleFiles( QgsMapLayer *layer )
 {
   QVariantList result;
   if ( !layer )
@@ -2118,7 +2118,7 @@ QVariantList LayerUtils::availableStyleFiles( QgsMapLayer *layer )
   return result;
 }
 
-bool LayerUtils::canEditFields( QgsVectorLayer *layer )
+bool QfLayerUtils::canEditFields( QgsVectorLayer *layer )
 {
   if ( !layer || !layer->dataProvider() )
     return false;
@@ -2128,7 +2128,7 @@ bool LayerUtils::canEditFields( QgsVectorLayer *layer )
          && caps.testFlag( Qgis::VectorProviderCapability::DeleteAttributes );
 }
 
-QString LayerUtils::addLayerField( QgsVectorLayer *layer, const QString &name, const QString &type )
+QString QfLayerUtils::addLayerField( QgsVectorLayer *layer, const QString &name, const QString &type )
 {
   if ( !layer )
     return QObject::tr( "No layer" );
@@ -2166,7 +2166,7 @@ QString LayerUtils::addLayerField( QgsVectorLayer *layer, const QString &name, c
   return QString();
 }
 
-QString LayerUtils::removeLayerField( QgsVectorLayer *layer, const QString &fieldName )
+QString QfLayerUtils::removeLayerField( QgsVectorLayer *layer, const QString &fieldName )
 {
   if ( !layer )
     return QObject::tr( "No layer" );
@@ -2186,7 +2186,7 @@ QString LayerUtils::removeLayerField( QgsVectorLayer *layer, const QString &fiel
   return QString();
 }
 
-QgsRasterLayer *LayerUtils::createXyzLayer( const QString &url, const QString &name, int maxZoom )
+QgsRasterLayer *QfLayerUtils::createXyzLayer( const QString &url, const QString &name, int maxZoom )
 {
   if ( url.isEmpty() )
     return nullptr;
@@ -2207,7 +2207,7 @@ QgsRasterLayer *LayerUtils::createXyzLayer( const QString &url, const QString &n
   return layer;
 }
 
-QgsRasterLayer *LayerUtils::createWmsLayer( const QString &url, const QString &name, const QString &layers, const QString &crs, const QString &format )
+QgsRasterLayer *QfLayerUtils::createWmsLayer( const QString &url, const QString &name, const QString &layers, const QString &crs, const QString &format )
 {
   if ( url.isEmpty() || layers.isEmpty() )
     return nullptr;
@@ -2234,7 +2234,7 @@ QgsRasterLayer *LayerUtils::createWmsLayer( const QString &url, const QString &n
   return layer;
 }
 
-QgsRasterLayer *LayerUtils::createWmtsLayer( const QString &url, const QString &name, const QString &layer, const QString &tileMatrixSet, const QString &crs, const QString &format )
+QgsRasterLayer *QfLayerUtils::createWmtsLayer( const QString &url, const QString &name, const QString &layer, const QString &tileMatrixSet, const QString &crs, const QString &format )
 {
   if ( url.isEmpty() || layer.isEmpty() )
     return nullptr;
@@ -2258,7 +2258,7 @@ QgsRasterLayer *LayerUtils::createWmtsLayer( const QString &url, const QString &
   return result;
 }
 
-QVariantList LayerUtils::wmsLayerNames( const QString &url )
+QVariantList QfLayerUtils::wmsLayerNames( const QString &url )
 {
   QVariantList result;
   if ( url.isEmpty() )
@@ -2329,7 +2329,7 @@ QVariantList LayerUtils::wmsLayerNames( const QString &url )
   return result;
 }
 
-QgsVectorLayer *LayerUtils::createWfsLayer( const QString &url, const QString &name, const QString &typeName, const QString &crs, bool onlyVisibleExtent )
+QgsVectorLayer *QfLayerUtils::createWfsLayer( const QString &url, const QString &name, const QString &typeName, const QString &crs, bool onlyVisibleExtent )
 {
   if ( url.isEmpty() || typeName.isEmpty() )
     return nullptr;
@@ -2355,7 +2355,7 @@ QgsVectorLayer *LayerUtils::createWfsLayer( const QString &url, const QString &n
   return layer;
 }
 
-QVariantList LayerUtils::wfsTypeNames( const QString &url )
+QVariantList QfLayerUtils::wfsTypeNames( const QString &url )
 {
   QVariantList result;
   if ( url.isEmpty() )
@@ -2377,7 +2377,7 @@ QVariantList LayerUtils::wfsTypeNames( const QString &url )
 }
 
 
-QgsVectorLayer *LayerUtils::vectorLayerByName( QgsProject *project, const QString &name )
+QgsVectorLayer *QfLayerUtils::vectorLayerByName( QgsProject *project, const QString &name )
 {
   if ( !project )
     return nullptr;

@@ -1,5 +1,5 @@
 /***************************************************************************
-                            MapCanvas.qml
+                            QfMapCanvas.qml
                               -------------------
               begin                : 10.12.2014
               copyright            : (C) 2014 by Matthias Kuhn
@@ -18,6 +18,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQml
 import org.qgis
+import org.qfield.core
 
 /**
  * \ingroup qml
@@ -49,6 +50,8 @@ Item {
   property alias forceDeferredLayersRepaint: mapCanvasWrapper.forceDeferredLayersRepaint
 
   property bool interactive: true
+  //! Treat mouse and touchpad input as touch screen input
+  property bool mouseAsTouchScreen: false
   property bool hovered: false
   property bool freehandDigitizing: false
   property bool isMapRotationEnabled: false
@@ -227,7 +230,7 @@ Item {
     }
   }
 
-  KineticHandler {
+  QfKineticHandler {
     id: kineticHandler
     mapCanvas: mapArea
     mapCanvasWrapper: mapCanvasWrapper
@@ -270,7 +273,7 @@ Item {
     id: stylusTapHandler
     enabled: interactive
     grabPermissions: PointerHandler.CanTakeOverFromHandlersOfDifferentType | PointerHandler.ApprovesTakeOverByAnything | PointerHandler.ApprovesCancellation
-    acceptedDevices: !qfieldSettings.mouseAsTouchScreen ? PointerDevice.Stylus | PointerDevice.Mouse | PointerDevice.TouchPad : PointerDevice.Stylus
+    acceptedDevices: !mouseAsTouchScreen ? PointerDevice.Stylus | PointerDevice.Mouse | PointerDevice.TouchPad : PointerDevice.Stylus
     acceptedButtons: Qt.LeftButton | Qt.RightButton
 
     property bool longPressActive: false
@@ -335,7 +338,7 @@ Item {
     grabPermissions: PointerHandler.CanTakeOverFromHandlersOfDifferentType | PointerHandler.ApprovesTakeOverByHandlersOfDifferentType
     // WorkField: na komputerze mapę przesuwa wyłącznie środkowy przycisk
     // (nawyk QGIS/AutoCAD); lewy zostaje do rysowania i zaznaczania
-    acceptedDevices: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? PointerDevice.Stylus : (!qfieldSettings.mouseAsTouchScreen ? PointerDevice.Stylus | PointerDevice.Mouse | PointerDevice.TouchPad : PointerDevice.Stylus | PointerDevice.TouchPad)
+    acceptedDevices: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? PointerDevice.Stylus : (!mouseAsTouchScreen ? PointerDevice.Stylus | PointerDevice.Mouse | PointerDevice.TouchPad : PointerDevice.Stylus | PointerDevice.TouchPad)
     acceptedButtons: Qt.NoButton | Qt.LeftButton
     dragThreshold: 5
 
@@ -412,7 +415,7 @@ Item {
     enabled: interactive && !hovered
     acceptedButtons: Qt.NoButton | Qt.LeftButton | Qt.RightButton
     grabPermissions: PointerHandler.CanTakeOverFromHandlersOfDifferentType | PointerHandler.ApprovesTakeOverByHandlersOfDifferentType
-    acceptedDevices: !qfieldSettings.mouseAsTouchScreen ? PointerDevice.TouchScreen : PointerDevice.TouchScreen | PointerDevice.Mouse | PointerDevice.TouchPad
+    acceptedDevices: !mouseAsTouchScreen ? PointerDevice.TouchScreen : PointerDevice.TouchScreen | PointerDevice.Mouse | PointerDevice.TouchPad
 
     property bool longPressActive: false
     property bool doublePressed: false
@@ -463,7 +466,7 @@ Item {
     target: null
     acceptedButtons: Qt.NoButton | Qt.LeftButton
     grabPermissions: PointerHandler.CanTakeOverFromHandlersOfDifferentType | PointerHandler.ApprovesTakeOverByHandlersOfDifferentType
-    acceptedDevices: !qfieldSettings.mouseAsTouchScreen ? PointerDevice.TouchScreen : PointerDevice.TouchScreen | PointerDevice.Mouse | PointerDevice.TouchPad
+    acceptedDevices: !mouseAsTouchScreen ? PointerDevice.TouchScreen : PointerDevice.TouchScreen | PointerDevice.Mouse | PointerDevice.TouchPad
     dragThreshold: 5
 
     property var oldPos

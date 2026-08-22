@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import Theme
+import QfTheme
 
 ColumnLayout {
   property var settingsPage
@@ -23,8 +23,8 @@ ColumnLayout {
 
     Label {
       text: qsTr('Digitizing & Editing')
-      font: Theme.strongFont
-      color: Theme.mainTextColor
+      font: QfTheme.strongFont
+      color: QfTheme.mainTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
       Layout.topMargin: 10

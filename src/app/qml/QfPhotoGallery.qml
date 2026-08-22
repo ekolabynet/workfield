@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import QtQuick.Dialogs
 import org.qfield
-import Theme
+import QfTheme
 
 /**
  * \ingroup qml
@@ -14,7 +14,7 @@ import Theme
  * Zrodlo zdjec: <projekt>/DCIM, nazwy wg schematu quick capture bara:
  * <warstwa>_<yyyyMMdd_hhmmss>.jpg - z nazwy odtwarzamy warstwe do filtrowania.
  */
-Popup {
+QfPopup {
   id: photoGallery
 
   property var t
@@ -179,13 +179,13 @@ Popup {
         return;
       }
       const katalog = photoGallery.katalogSzablonow();
-      if (FileUtils.unzipTo(sciezka, katalog)) {
+      if (QfFileUtils.unzipTo(sciezka, katalog)) {
         // Brama chmurowa: paczka z projekt.qgs/qgz to PROJEKT - kierujemy go
         // do Imported Projects, zeby byl widoczny w "Otworz projekt".
         // Szablony (bez pliku projektu o tej nazwie) zostaja w Szablonach.
-        const nazwa = FileUtils.fileName(sciezka, false);
+        const nazwa = QfFileUtils.fileName(sciezka, false);
         const rozpakowane = katalog + "/" + nazwa;
-        const jestProjektem = FileUtils.fileExists(rozpakowane + "/projekt.qgs") || FileUtils.fileExists(rozpakowane + "/projekt.qgz");
+        const jestProjektem = QfFileUtils.fileExists(rozpakowane + "/projekt.qgs") || QfFileUtils.fileExists(rozpakowane + "/projekt.qgz");
         if (jestProjektem) {
           const celProjektu = iface.dataRoot() + "Imported Projects/" + nazwa;
           if (iface.movePath(rozpakowane, celProjektu)) {
@@ -351,7 +351,7 @@ Popup {
   }
 
   // ---- WorkField: panel METATAGOW — pelna karta metadanych gatunku ----
-  Popup {
+  QfPopup {
     id: metaPanelOkno
     parent: Overlay.overlay
     modal: true
@@ -492,14 +492,14 @@ Popup {
         Row {
           spacing: 8
 
-          Button {
+          QfButton {
             visible: metaPanelOkno.m.GATUNEK !== undefined
             text: qsTr("🌐 atlas-roslin.pl")
             onClicked: Qt.openUrlExternally("https://atlas-roslin.pl/gatunki/"
                 + String(metaPanelOkno.m.GATUNEK).trim().replace(/ /g, "_") + ".htm")
           }
 
-          Button {
+          QfButton {
             text: qsTr("Zamknij")
             onClicked: metaPanelOkno.close()
           }
@@ -573,7 +573,7 @@ Popup {
         visible: galleryTabs.currentIndex === 0
       }
 
-      ToolButton {
+      QfToolButton {
         // 48 px to minimalny wygodny cel dotyku — w rękawicach mniejszy nie działa
         implicitWidth: 96
         implicitHeight: 48
@@ -601,7 +601,7 @@ Popup {
       }
     }
 
-    TabBar {
+    QfTabBar {
       id: galleryTabs
 
       // WorkField: zakładki zbite do lewej — miejsce na kolejne
@@ -636,7 +636,7 @@ Popup {
       visible: galleryTabs.currentIndex === 0
       spacing: 8
 
-      Button {
+      QfButton {
         checkable: true
         checked: photoGallery.trybMasowy
         text: checked ? qsTr("Wskazywanie na miniaturach — klikaj w zdjęcia") : qsTr("Wskazuj na miniaturach")
@@ -655,7 +655,7 @@ Popup {
         border.width: 1
       }
 
-      TextField {
+      QfTextField {
         Layout.fillWidth: true
         visible: photoGallery.trybMasowy
         placeholderText: qsTr("Gatunek pędzla…")
@@ -681,7 +681,7 @@ Popup {
           tagPanel.updateSuggestions();
       }
 
-      ScrollBar.vertical: ScrollBar {
+      QfScrollBar.vertical: QfScrollBar {
       }
 
       delegate: ItemDelegate {
@@ -803,7 +803,7 @@ Popup {
             }
           }
 
-          ScrollBar.vertical: ScrollBar {
+          QfScrollBar.vertical: QfScrollBar {
           }
 
           delegate: Item {
@@ -973,7 +973,7 @@ Popup {
         RowLayout {
           Layout.fillWidth: true
 
-          ToolButton {
+          QfToolButton {
             text: "↑"
             enabled: filesPage.browsePath.length > filesPage.korzen.length
             onClicked: filesPage.browsePath = filesPage.browsePath.substring(0, filesPage.browsePath.lastIndexOf("/"))
@@ -994,7 +994,7 @@ Popup {
           Layout.fillHeight: true
           clip: true
 
-          ScrollBar.vertical: ScrollBar {
+          QfScrollBar.vertical: QfScrollBar {
           }
 
           model: FolderListModel {
@@ -1055,7 +1055,7 @@ Popup {
               }
 
               Text {
-                text: fileIsDir ? "" : FileUtils.representFileSize(fileSize)
+                text: fileIsDir ? "" : QfFileUtils.representFileSize(fileSize)
                 font: photoGallery.t.tinyFont
                 color: photoGallery.t.secondaryTextColor
               }
@@ -1080,10 +1080,10 @@ Popup {
               } else if (photoGallery.wzorProjektu.test(fileName)) {
                 // projekt: zamykamy galerię, bo za chwilę zmieni się cały kontekst
                 photoGallery.close();
-                iface.loadFile(filePath, FileUtils.fileName(filePath, false));
+                iface.loadFile(filePath, QfFileUtils.fileName(filePath, false));
               } else if (photoGallery.wzorDanych.test(fileName)) {
                 // dane: warstwa dokłada się do bieżącego projektu, galeria zostaje
-                iface.loadFile(filePath, FileUtils.fileName(filePath, false));
+                iface.loadFile(filePath, QfFileUtils.fileName(filePath, false));
                 displayToast(qsTr("Dodano warstwę: %1").arg(fileName));
               } else {
                 displayToast(qsTr("Nie wiem, jak otworzyć ten plik"));
@@ -1126,7 +1126,7 @@ Popup {
             bazaLokalna = photoGallery.projectDir;
             const teraz = new Date();
             const znacznik = Qt.formatDateTime(teraz, "yyyy-MM-dd_HHmm");
-            const nazwa = FileUtils.fileName(bazaLokalna) + "_" + znacznik + "_zwrot";
+            const nazwa = QfFileUtils.fileName(bazaLokalna) + "_" + znacznik + "_zwrot";
             bazaZdalna = photoGallery.chmuraSerwer + "/remote.php/dav/files/" + photoGallery.chmuraLogin + "/WorkField/Kopie/" + photoGallery.chmuraLogin + "/" + nazwa;
             katalogi = iface.listDirsRecursively(bazaLokalna);
             pliki = iface.listFilesRecursively(bazaLokalna);
@@ -1225,7 +1225,7 @@ Popup {
         RowLayout {
           Layout.fillWidth: true
 
-          ToolButton {
+          QfToolButton {
             text: "↑"
             enabled: photoGallery.chmuraSciezka !== ""
             onClicked: photoGallery.chmuraWyzej()
@@ -1245,7 +1245,7 @@ Popup {
             elide: Text.ElideRight
           }
 
-          ToolButton {
+          QfToolButton {
             text: qsTr("Odśwież")
             font: photoGallery.t.tipFont
             onClicked: photoGallery.chmuraOdswiez()
@@ -1259,7 +1259,7 @@ Popup {
           spacing: 2
           model: photoGallery.chmuraLista
 
-          ScrollBar.vertical: ScrollBar {
+          QfScrollBar.vertical: QfScrollBar {
           }
 
           delegate: Rectangle {
@@ -1304,13 +1304,13 @@ Popup {
 
                 Text {
                   visible: !modelData.katalog
-                  text: FileUtils.representFileSize(modelData.rozmiar) + "   " + modelData.data
+                  text: QfFileUtils.representFileSize(modelData.rozmiar) + "   " + modelData.data
                   font: photoGallery.t.tinyFont
                   color: photoGallery.t.secondaryTextColor
                 }
               }
 
-              Button {
+              QfButton {
                 visible: !modelData.katalog
                 text: photoGallery.chmuraPobierany === modelData.nazwa
                       ? qsTr("pobieram…") : qsTr("Pobierz")
@@ -1372,7 +1372,7 @@ Popup {
               color: photoGallery.t.mainTextColor
             }
 
-            ToolButton {
+            QfToolButton {
               text: qsTr("Wycinki")
               font: photoGallery.t.tinyFont
               ToolTip.visible: hovered
@@ -1389,7 +1389,7 @@ Popup {
             Layout.fillHeight: true
             clip: true
             model: widokTagow.statystyki
-            ScrollBar.vertical: QfScrollBar {
+            QfScrollBar.vertical: QfScrollBar {
             }
 
             delegate: ItemDelegate {
@@ -1464,7 +1464,7 @@ Popup {
                 }
               }
             }
-            ScrollBar.vertical: QfScrollBar {
+            QfScrollBar.vertical: QfScrollBar {
             }
 
             delegate: ItemDelegate {
@@ -1581,11 +1581,11 @@ Popup {
           Layout.fillWidth: true
           spacing: 6
 
-          Button {
+          QfButton {
             text: qsTr("Plik…")
             onClicked: dialogTabel.open()
           }
-          ComboBox {
+          QfComboBox {
             id: wyborTabeli
             Layout.preferredWidth: 250
             model: zakladkaTabele.listaTabel
@@ -1595,7 +1595,7 @@ Popup {
               modelTabeli.wczytaj(zakladkaTabele.plik, currentText);
             }
           }
-          TextField {
+          QfTextField {
             id: poleFiltra
             Layout.fillWidth: true
             placeholderText: qsTr("Filtr — szuka we wszystkich kolumnach")
@@ -1609,7 +1609,7 @@ Popup {
                   ? qsTr("%1 wierszy").arg(modelTabeli.liczbaWszystkich)
                   : qsTr("%1 / %2").arg(modelTabeli.liczbaWierszy).arg(modelTabeli.liczbaWszystkich)
             font: photoGallery.t.tipFont
-            color: Theme.secondaryTextColor
+            color: QfTheme.secondaryTextColor
           }
         }
 
@@ -1619,7 +1619,7 @@ Popup {
               : (zakladkaTabele.plik !== "" ? zakladkaTabele.plik
                  : qsTr("Wybierz plik GPKG lub CSV — np. dane.gpkg projektu albo tabele z szablony/wskazniki"))
           font: photoGallery.t.tinyFont
-          color: Theme.secondaryTextColor
+          color: QfTheme.secondaryTextColor
           elide: Text.ElideMiddle
         }
 
@@ -1640,8 +1640,8 @@ Popup {
                 // zależność od liczbaWszystkich wymusza przeliczenie po wczytaniu
                 width: (modelTabeli.liczbaWszystkich, zakladkaTabele.szer(index))
                 height: 32
-                color: Theme.mainColor
-                border.color: Qt.darker(Theme.mainColor, 1.15)
+                color: QfTheme.mainColor
+                border.color: Qt.darker(QfTheme.mainColor, 1.15)
 
                 Text {
                   anchors.fill: parent
@@ -1683,9 +1683,9 @@ Popup {
           rowHeightProvider: function (r) {
             return 30;
           }
-          ScrollBar.vertical: ScrollBar {
+          QfScrollBar.vertical: QfScrollBar {
           }
-          ScrollBar.horizontal: ScrollBar {
+          QfScrollBar.horizontal: QfScrollBar {
           }
 
           delegate: Rectangle {
@@ -1694,8 +1694,8 @@ Popup {
             required property var display
 
             implicitHeight: 30
-            color: row === zakladkaTabele.aktywnyWiersz ? Qt.alpha(Theme.mainColor, 0.25)
-                 : (row % 2 === 1 ? Qt.alpha(Theme.mainColor, 0.05) : "transparent")
+            color: row === zakladkaTabele.aktywnyWiersz ? Qt.alpha(QfTheme.mainColor, 0.25)
+                 : (row % 2 === 1 ? Qt.alpha(QfTheme.mainColor, 0.05) : "transparent")
 
             Text {
               anchors.fill: parent
@@ -1704,7 +1704,7 @@ Popup {
               verticalAlignment: Text.AlignVCenter
               text: parent.display !== undefined && parent.display !== null ? parent.display : ""
               font: photoGallery.t.tipFont
-              color: Theme.mainTextColor
+              color: QfTheme.mainTextColor
               elide: Text.ElideRight
             }
             TapHandler {
@@ -1723,7 +1723,7 @@ Popup {
   }
 
   // ── pelnoekranowy podglad z zoomem ───────────────────────
-  Popup {
+  QfPopup {
     id: viewer
     parent: Overlay.overlay
     width: parent ? parent.width : 100
@@ -2436,12 +2436,12 @@ Popup {
       title: qsTr("Usunąć zdjęcie?")
       parent: mainWindow.contentItem
       focus: visible
-      standardButtons: Dialog.Yes | Dialog.No
+      standardButtons: QfDialog.Yes | QfDialog.No
 
       Label {
         width: parent.width
         wrapMode: Text.WordWrap
-        text: viewer.cur ? qsTr("%1\n\nZdjęcie trafi do kosza projektu (DCIM/.kosz) razem z tagami. Można je stamtąd odzyskać.").arg(FileUtils.fileName(viewer.cur.path)) : ""
+        text: viewer.cur ? qsTr("%1\n\nZdjęcie trafi do kosza projektu (DCIM/.kosz) razem z tagami. Można je stamtąd odzyskać.").arg(QfFileUtils.fileName(viewer.cur.path)) : ""
       }
 
       onAccepted: {
@@ -2449,7 +2449,7 @@ Popup {
           return;
         }
         const sciezka = viewer.cur.path;
-        const nazwa = FileUtils.fileName(sciezka);
+        const nazwa = QfFileUtils.fileName(sciezka);
         const wKoszu = tagStore.moveToTrash(sciezka);
         if (wKoszu === "") {
           displayToast(qsTr("Nie udało się usunąć %1").arg(nazwa), "error");
@@ -2536,7 +2536,7 @@ Popup {
         pnBusy = true;
         pnResults = [];
         pnStatus = qsTr("Czytam zdjęcie…");
-        const zawartosc = FileUtils.readFileContent(sciezkaFoto);
+        const zawartosc = QfFileUtils.readFileContent(sciezkaFoto);
         const dlugosc = (zawartosc && zawartosc.byteLength !== undefined) ? zawartosc.byteLength : -1;
         if (dlugosc <= 0) {
           pnBusy = false;
@@ -2546,7 +2546,7 @@ Popup {
         const organ = String(settings.value("WorkFieldPlantNet/organ", "leaf"));
         const boundary = "----WorkFieldPlantNetGaleria" + Date.now();
         const czesci = [];
-        czesci.push(pnStr2bytes("--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="organs"\r\n\r\n' + organ + "\r\n" + "--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="images"; filename="' + FileUtils.fileName(sciezkaFoto) + '"\r\n' + "Content-Type: image/jpeg\r\n\r\n"));
+        czesci.push(pnStr2bytes("--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="organs"\r\n\r\n' + organ + "\r\n" + "--" + boundary + "\r\n" + 'Content-Disposition: form-data; name="images"; filename="' + QfFileUtils.fileName(sciezkaFoto) + '"\r\n' + "Content-Type: image/jpeg\r\n\r\n"));
         czesci.push(new Uint8Array(zawartosc));
         czesci.push(pnStr2bytes("\r\n--" + boundary + "--\r\n"));
         let suma = 0;
@@ -2792,14 +2792,14 @@ Popup {
             elide: Text.ElideLeft
           }
 
-          ToolButton {
+          QfToolButton {
             text: tagPanel.sortAZ ? "A–Z" : "№↓"
             font.pointSize: photoGallery.t.tinyFont.pointSize
             onClicked: tagPanel.sortAZ = !tagPanel.sortAZ
           }
         }
 
-        TextField {
+        QfTextField {
           id: tagInput
           Layout.fillWidth: true
           placeholderText: qsTr("Główny gatunek…")
@@ -2871,7 +2871,7 @@ Popup {
           Layout.fillWidth: true
           spacing: 6
 
-          TextField {
+          QfTextField {
             id: pokInput
             Layout.preferredWidth: 64
             placeholderText: "%"
@@ -2885,7 +2885,7 @@ Popup {
             }
           }
 
-          Button {
+          QfButton {
             id: addTagButton
             Layout.fillWidth: true
             text: viewer.editFid >= 0 ? qsTr("Zapisz") : qsTr("Dodaj")
@@ -2915,7 +2915,7 @@ Popup {
           visible: viewer.cur !== null && viewer.cur !== undefined
           spacing: 6
 
-          Button {
+          QfButton {
             Layout.fillWidth: true
             text: tagPanel.pnBusy ? qsTr("Pl@ntNet…") : qsTr("Sprawdź w Pl@ntNet")
             font: photoGallery.t.tipFont
@@ -2923,7 +2923,7 @@ Popup {
             onClicked: tagPanel.pnIdentify()
           }
 
-          Button {
+          QfButton {
             text: qsTr("Kadr")
             font: photoGallery.t.tipFont
             enabled: !tagPanel.pnBusy
@@ -2946,7 +2946,7 @@ Popup {
             }
           }
 
-          ToolButton {
+          QfToolButton {
             text: tagPanel.pnOrganPL[String(settings.value("WorkFieldPlantNet/organ", "leaf"))] || qsTr("liść")
             font: photoGallery.t.tipFont
             onClicked: {
@@ -2958,7 +2958,7 @@ Popup {
           }
         }
 
-        TextField {
+        QfTextField {
           Layout.fillWidth: true
           visible: viewer.cur !== null && viewer.cur !== undefined && tagPanel.pnKlucz() === ""
           placeholderText: qsTr("Klucz API Pl@ntNet…")
@@ -3080,7 +3080,7 @@ Popup {
           }
         }
 
-        Button {
+        QfButton {
           id: wyczyscTagiButton
 
           Layout.fillWidth: true
@@ -3089,14 +3089,14 @@ Popup {
           Material.background: "#7f3b30"
           onClicked: potwierdzenieCzyszczenia.open()
 
-          Dialog {
+          QfDialog {
             id: potwierdzenieCzyszczenia
 
             parent: Overlay.overlay
             anchors.centerIn: parent
             modal: true
             title: qsTr("Usunąć wszystkie tagi tego zdjęcia?")
-            standardButtons: Dialog.Yes | Dialog.No
+            standardButtons: QfDialog.Yes | QfDialog.No
             onAccepted: {
               const kopie = viewer.curTags.slice();
               for (let i = 0; i < kopie.length; i++) {
@@ -3108,7 +3108,7 @@ Popup {
           }
         }
 
-        Button {
+        QfButton {
           id: trybWskazButton
 
           Layout.fillWidth: true
@@ -3124,7 +3124,7 @@ Popup {
           }
         }
 
-        Button {
+        QfButton {
           id: trybSiatkiButton
 
           Layout.fillWidth: true
@@ -3155,7 +3155,7 @@ Popup {
           Repeater {
             model: [5, 7, 10]
 
-            delegate: Button {
+            delegate: QfButton {
               required property int modelData
 
               Layout.fillWidth: true
@@ -3178,7 +3178,7 @@ Popup {
           visible: viewer.trybSiatki
           spacing: 6
 
-          Button {
+          QfButton {
             checkable: true
             checked: viewer.pedzelPusty
             text: qsTr("∅ Pusta")
@@ -3195,7 +3195,7 @@ Popup {
             color: photoGallery.t.secondaryTextColor
           }
 
-          Slider {
+          QfSlider {
             id: suwakZbiegu
 
             Layout.fillWidth: true
@@ -3217,7 +3217,7 @@ Popup {
             color: photoGallery.t.secondaryTextColor
           }
 
-          Slider {
+          QfSlider {
             Layout.fillWidth: true
             from: -30
             to: 30
@@ -3337,7 +3337,7 @@ Popup {
           clip: true
           model: tagPanel.suggestions
 
-          ScrollBar.vertical: ScrollBar {
+          QfScrollBar.vertical: QfScrollBar {
           }
 
           delegate: ItemDelegate {
@@ -3461,7 +3461,7 @@ Popup {
           elide: Text.ElideMiddle
         }
 
-        ToolButton {
+        QfToolButton {
           id: edytujButton
 
           ToolTip.visible: hovered

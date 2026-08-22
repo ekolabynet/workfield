@@ -114,12 +114,12 @@ Item {
         continue;
       }
 
-      const warstwa = LayerUtils.createEmptyLayer(gpkg, opis.nazwa, opis.geometria || "NoGeometry", uklad, opis.pola || []);
+      const warstwa = QfLayerUtils.createEmptyLayer(gpkg, opis.nazwa, opis.geometria || "NoGeometry", uklad, opis.pola || []);
       if (!warstwa) {
         potknieto(qsTr("Nie udało się założyć warstwy %1").arg(opis.nazwa));
         return false;
       }
-      if (!ProjectUtils.addMapLayer(qgisProject, warstwa)) {
+      if (!QfProjectUtils.addMapLayer(qgisProject, warstwa)) {
         potknieto(qsTr("Warstwa %1 powstała, ale nie weszła do projektu").arg(opis.nazwa));
         return false;
       }

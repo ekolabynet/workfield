@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qgis
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -14,12 +14,12 @@ QfPopup {
 
   signal apply
 
-  width: mainWindow.width - Theme.popupScreenEdgeHorizontalMargin * 2
-  height: mainWindow.height - Math.max(Theme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4)
+  width: mainWindow.width - QfTheme.popupScreenEdgeHorizontalMargin * 2
+  height: mainWindow.height - Math.max(QfTheme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4)
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   focus: visible
-  closePolicy: Popup.CloseOnEscape
+  closePolicy: QfPopup.CloseOnEscape
 
   property alias name: positioningDeviceName.text
   property alias type: positioningDeviceType.currentValue
@@ -49,7 +49,7 @@ QfPopup {
     if (positioningSettings.egenioussEnabled) {
       positioningDeviceTypeModel.insert(0, {
         "name": qsTr('Egeniouss'),
-        "value": PositioningDeviceModel.EgenioussDevice
+        "value": QfPositioningDeviceModel.EgenioussDevice
       });
     } else {
       positioningDeviceTypeModel.remove(0, 1);
@@ -62,28 +62,28 @@ QfPopup {
   }
 
   Component.onCompleted: {
-    if (withBluetooth) {
+    if (Qfield.hasBluetooth) {
       positioningDeviceTypeModel.insert(0, {
         "name": qsTr('Bluetooth BT + BLE (NMEA)'),
-        "value": PositioningDeviceModel.BluetoothDevice
+        "value": QfPositioningDeviceModel.BluetoothDevice
       });
     }
-    if (withSerialPort) {
+    if (Qfield.hasSerialPort) {
       positioningDeviceTypeModel.insert(positioningDeviceTypeModel.count, {
         "name": qsTr('Serial port (NMEA)'),
-        "value": PositioningDeviceModel.SerialPortDevice
+        "value": QfPositioningDeviceModel.SerialPortDevice
       });
     }
     if (Qt.platform.os !== "android" && Qt.platform.os !== "ios") {
       positioningDeviceTypeModel.insert(positioningDeviceTypeModel.count, {
         "name": qsTr('Logs file (NMEA)'),
-        "value": PositioningDeviceModel.FileDevice
+        "value": QfPositioningDeviceModel.FileDevice
       });
     }
     if (positioningSettings.egenioussEnabled) {
       positioningDeviceTypeModel.insert(0, {
         "name": qsTr('Egeniouss'),
-        "value": PositioningDeviceModel.EgenioussDevice
+        "value": QfPositioningDeviceModel.EgenioussDevice
       });
     }
     positioningDeviceType.model = positioningDeviceTypeModel;
@@ -103,7 +103,7 @@ QfPopup {
     padding: 5
     header: QfPageHeader {
       id: pageHeader
-      title: qsTr("Positioning Device Settings")
+      title: qsTr("QfPositioning Device QfSettings")
 
       showBackButton: false
       showApplyButton: true
@@ -129,8 +129,8 @@ QfPopup {
       leftPadding: 5
       rightPadding: 5
       bottomPadding: 0
-      ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-      ScrollBar.vertical: QfScrollBar {}
+      QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+      QfScrollBar.vertical: QfScrollBar {}
       contentWidth: settingsLayout.childrenRect.width
       contentHeight: settingsLayout.childrenRect.height + positioningDeviceItem.item.childrenRect.height
       width: parent.width
@@ -144,8 +144,8 @@ QfPopup {
 
         Label {
           text: qsTr("Connection type")
-          font: Theme.strongFont
-          color: Theme.mainTextColor
+          font: QfTheme.strongFont
+          color: QfTheme.mainTextColor
           wrapMode: Text.WordWrap
           Layout.fillWidth: true
           Layout.topMargin: 5
@@ -155,9 +155,9 @@ QfPopup {
         QfComboBox {
           id: positioningDeviceType
           Layout.fillWidth: true
-          font: Theme.defaultFont
+          font: QfTheme.defaultFont
 
-          popup.font: Theme.defaultFont
+          popup.font: QfTheme.defaultFont
           popup.topMargin: mainWindow.sceneTopMargin
           popup.bottomMargin: mainWindow.sceneTopMargin
 
@@ -169,25 +169,25 @@ QfPopup {
             height: 36
             icon.source: {
               switch (value) {
-              case PositioningDeviceModel.FileDevice:
-                return Theme.getThemeVectorIcon("ic_file_black_24dp");
-              case PositioningDeviceModel.BluetoothDevice:
-                return Theme.getThemeVectorIcon('ic_bluetooth_receiver_black_24dp');
-              case PositioningDeviceModel.TcpDevice:
-                return Theme.getThemeVectorIcon('ic_tcp_receiver_black_24dp');
-              case PositioningDeviceModel.UdpDevice:
-                return Theme.getThemeVectorIcon('ic_udp_receiver_black_24dp');
-              case PositioningDeviceModel.SerialPortDevice:
-                return Theme.getThemeVectorIcon('ic_serial_port_receiver_black_24dp');
-              case PositioningDeviceModel.EgenioussDevice:
-                return Theme.getThemeVectorIcon('ic_egeniouss_receiver_black_24dp');
+              case QfPositioningDeviceModel.FileDevice:
+                return QfTheme.getThemeVectorIcon("ic_file_black_24dp");
+              case QfPositioningDeviceModel.BluetoothDevice:
+                return QfTheme.getThemeVectorIcon('ic_bluetooth_receiver_black_24dp');
+              case QfPositioningDeviceModel.TcpDevice:
+                return QfTheme.getThemeVectorIcon('ic_tcp_receiver_black_24dp');
+              case QfPositioningDeviceModel.UdpDevice:
+                return QfTheme.getThemeVectorIcon('ic_udp_receiver_black_24dp');
+              case QfPositioningDeviceModel.SerialPortDevice:
+                return QfTheme.getThemeVectorIcon('ic_serial_port_receiver_black_24dp');
+              case QfPositioningDeviceModel.EgenioussDevice:
+                return QfTheme.getThemeVectorIcon('ic_egeniouss_receiver_black_24dp');
               }
               return '';
             }
             icon.width: 24
             icon.height: 24
             text: name
-            font: Theme.defaultFont
+            font: QfTheme.defaultFont
             highlighted: positioningDeviceType.highlightedIndex === index
           }
 
@@ -197,18 +197,18 @@ QfPopup {
 
             icon.source: {
               switch (positioningDeviceType.currentValue) {
-              case PositioningDeviceModel.FileDevice:
-                return Theme.getThemeVectorIcon("ic_file_black_24dp");
-              case PositioningDeviceModel.BluetoothDevice:
-                return Theme.getThemeVectorIcon('ic_bluetooth_receiver_black_24dp');
-              case PositioningDeviceModel.TcpDevice:
-                return Theme.getThemeVectorIcon('ic_tcp_receiver_black_24dp');
-              case PositioningDeviceModel.UdpDevice:
-                return Theme.getThemeVectorIcon('ic_udp_receiver_black_24dp');
-              case PositioningDeviceModel.SerialPortDevice:
-                return Theme.getThemeVectorIcon('ic_serial_port_receiver_black_24dp');
-              case PositioningDeviceModel.EgenioussDevice:
-                return Theme.getThemeVectorIcon('ic_egeniouss_receiver_black_24dp');
+              case QfPositioningDeviceModel.FileDevice:
+                return QfTheme.getThemeVectorIcon("ic_file_black_24dp");
+              case QfPositioningDeviceModel.BluetoothDevice:
+                return QfTheme.getThemeVectorIcon('ic_bluetooth_receiver_black_24dp');
+              case QfPositioningDeviceModel.TcpDevice:
+                return QfTheme.getThemeVectorIcon('ic_tcp_receiver_black_24dp');
+              case QfPositioningDeviceModel.UdpDevice:
+                return QfTheme.getThemeVectorIcon('ic_udp_receiver_black_24dp');
+              case QfPositioningDeviceModel.SerialPortDevice:
+                return QfTheme.getThemeVectorIcon('ic_serial_port_receiver_black_24dp');
+              case QfPositioningDeviceModel.EgenioussDevice:
+                return QfTheme.getThemeVectorIcon('ic_egeniouss_receiver_black_24dp');
               }
               return '';
             }
@@ -216,23 +216,23 @@ QfPopup {
             icon.height: 24
 
             text: positioningDeviceType.currentText
-            font: Theme.defaultFont
+            font: QfTheme.defaultFont
 
             onClicked: positioningDeviceType.popup.open()
           }
         }
 
-        TextField {
+        QfTextField {
           id: positioningDeviceName
           Layout.fillWidth: true
-          font: Theme.defaultFont
+          font: QfTheme.defaultFont
           placeholderText: qsTr("Name") + (displayText === '' ? qsTr(' (leave empty to auto-fill)') : '')
         }
 
         Label {
           text: qsTr("Connection details")
-          font: Theme.strongFont
-          color: Theme.mainTextColor
+          font: QfTheme.strongFont
+          color: QfTheme.mainTextColor
           wrapMode: Text.WordWrap
           Layout.fillWidth: true
           Layout.topMargin: 5
@@ -243,11 +243,11 @@ QfPopup {
           id: positioningDeviceTypeModel
           ListElement {
             name: qsTr('TCP (NMEA)')
-            value: PositioningDeviceModel.TcpDevice
+            value: QfPositioningDeviceModel.TcpDevice
           }
           ListElement {
             name: qsTr('UDP (NMEA)')
-            value: PositioningDeviceModel.UdpDevice
+            value: QfPositioningDeviceModel.UdpDevice
           }
         }
 
@@ -258,18 +258,18 @@ QfPopup {
           Layout.fillHeight: true
           source: {
             switch (positioningDeviceType.currentValue) {
-            case PositioningDeviceModel.FileDevice:
-              return "qrc:/qml/FileDeviceChooser.qml";
-            case PositioningDeviceModel.BluetoothDevice:
-              return "qrc:/qml/BluetoothDeviceChooser.qml";
-            case PositioningDeviceModel.TcpDevice:
-              return "qrc:/qml/TcpDeviceChooser.qml";
-            case PositioningDeviceModel.UdpDevice:
-              return "qrc:/qml/UdpDeviceChooser.qml";
-            case PositioningDeviceModel.SerialPortDevice:
-              return "qrc:/qml/SerialPortDeviceChooser.qml";
-            case PositioningDeviceModel.EgenioussDevice:
-              return "qrc:/qml/EgenioussDeviceChooser.qml";
+            case QfPositioningDeviceModel.FileDevice:
+              return "QfFileDeviceChooser.qml";
+            case QfPositioningDeviceModel.BluetoothDevice:
+              return "QfBluetoothDeviceChooser.qml";
+            case QfPositioningDeviceModel.TcpDevice:
+              return "QfTcpDeviceChooser.qml";
+            case QfPositioningDeviceModel.UdpDevice:
+              return "QfUdpDeviceChooser.qml";
+            case QfPositioningDeviceModel.SerialPortDevice:
+              return "QfSerialPortDeviceChooser.qml";
+            case QfPositioningDeviceModel.EgenioussDevice:
+              return "QfEgenioussDeviceChooser.qml";
             }
             return '';
           }

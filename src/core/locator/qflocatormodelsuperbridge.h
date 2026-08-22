@@ -1,5 +1,5 @@
 /***************************************************************************
-  locatormodelsuperbridge.h
+  qflocatormodelsuperbridge.h
 
  ---------------------
  begin                : 01.12.2018
@@ -14,31 +14,31 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef LOCATORMODELSUPERBRIDGE_H
-#define LOCATORMODELSUPERBRIDGE_H
+#ifndef QFLOCATORMODELSUPERBRIDGE_H
+#define QFLOCATORMODELSUPERBRIDGE_H
 
-#include "bookmarkmodel.h"
-#include "navigation.h"
+#include "qfbookmarkmodel.h"
+#include "qfnavigation.h"
 
 #include <QStandardItemModel>
 #include <qgslocatorfilter.h>
 #include <qgslocatormodelbridge.h>
 
 class QgsQuickMapSettings;
-class FeatureListExtentController;
-class PeliasGeocoder;
+class QfFeatureListExtentController;
+class QfPeliasGeocoder;
 class QgsNominatimGeocoder;
-class GnssPositionInformation;
-class QFieldLocatorFilter;
+class QfGnssPositionInformation;
+class QfLocatorFilter;
 class QgsLocator;
 
 /**
- * LocatorActionsModel is a model used to dislay
+ * QfLocatorActionsModel is a model used to dislay
  * additional actions from the result of a filter.
  * These are displayed as contextual menu in QGIS
  * while they are shown in a row of buttons in QField.
  */
-class LocatorActionsModel : public QStandardItemModel
+class QfLocatorActionsModel : public QStandardItemModel
 {
     Q_OBJECT
   public:
@@ -47,72 +47,75 @@ class LocatorActionsModel : public QStandardItemModel
       IdRole = Qt::UserRole + 1,
       IconPathRole
     };
-    explicit LocatorActionsModel( QObject *parent = nullptr );
-    LocatorActionsModel( int rows, int columns, QObject *parent = nullptr );
+    explicit QfLocatorActionsModel( QObject *parent = nullptr );
+    QfLocatorActionsModel( int rows, int columns, QObject *parent = nullptr );
     QHash<int, QByteArray> roleNames() const override;
 };
 
 
 /**
- * LocatorModelSuperBridge reimplements QgsLocatorModelBridge
+ * QfLocatorModelSuperBridge reimplements QgsLocatorModelBridge
  * for specific needs of QField / QML implementation.
  */
-class LocatorModelSuperBridge : public QgsLocatorModelBridge
+class QfLocatorModelSuperBridge : public QgsLocatorModelBridge
 {
     Q_OBJECT
+
+    // moc needs the full definition to build the metaobject.
+    Q_MOC_INCLUDE( "qffeaturelistextentcontroller.h" )
 
     //! The current project's map settings
     Q_PROPERTY( QgsQuickMapSettings *mapSettings READ mapSettings WRITE setMapSettings NOTIFY mapSettingsChanged )
     //! The locator highlight geometry object through which locator actions can highhlight features
     Q_PROPERTY( QObject *geometryHighlighter READ geometryHighlighter WRITE setGeometryHighlighter NOTIFY geometryHighlighterChanged )
     //! The feature list extent controller
-    Q_PROPERTY( FeatureListExtentController *featureListController READ featureListController WRITE setFeatureListController NOTIFY featureListControllerChanged )
+    Q_PROPERTY( QfFeatureListExtentController *featureListController READ featureListController WRITE setFeatureListController NOTIFY featureListControllerChanged )
     //! The current project's active layer
     Q_PROPERTY( QgsMapLayer *activeLayer READ activeLayer WRITE setActiveLayer NOTIFY activeLayerChanged )
     //! The bookmark manager containing user and current project bookmarks
-    Q_PROPERTY( BookmarkModel *bookmarks READ bookmarks WRITE setBookmarks NOTIFY bookmarksChanged )
+    Q_PROPERTY( QfBookmarkModel *bookmarks READ bookmarks WRITE setBookmarks NOTIFY bookmarksChanged )
     //! The navigation object from which destination can be set or modified
-    Q_PROPERTY( Navigation *navigation READ navigation WRITE setNavigation NOTIFY navigationChanged )
+    Q_PROPERTY( QfNavigation *navigation READ navigation WRITE setNavigation NOTIFY navigationChanged )
     //! The keep scale flag. When turned on, locator actions should not result in changed scale
     Q_PROPERTY( bool keepScale READ keepScale WRITE setKeepScale NOTIFY keepScaleChanged )
 
   public:
-    explicit LocatorModelSuperBridge( QObject *parent = nullptr );
-    ~LocatorModelSuperBridge() = default;
+    explicit QfLocatorModelSuperBridge( QObject *parent = nullptr );
+    ~QfLocatorModelSuperBridge() = default;
 
-    //! \copydoc LocatorModelSuperBridge::mapSettings
+    //! \copydoc QfLocatorModelSuperBridge::mapSettings
     QgsQuickMapSettings *mapSettings() const;
-    //! \copydoc LocatorModelSuperBridge::mapSettings
+    //! \copydoc QfLocatorModelSuperBridge::mapSettings
     void setMapSettings( QgsQuickMapSettings *mapSettings );
 
-    //! \copydoc LocatorModelSuperBridge::bookmarks
-    BookmarkModel *bookmarks() const;
-    //! \copydoc LocatorModelSuperBridge::bookmarks
-    void setBookmarks( BookmarkModel *bookmarks );
+    //! \copydoc QfLocatorModelSuperBridge::bookmarks
+    QfBookmarkModel *bookmarks() const;
+    //! \copydoc QfLocatorModelSuperBridge::bookmarks
+    void setBookmarks( QfBookmarkModel *bookmarks );
 
-    //! \copydoc LocatorModelSuperBridge::navigation
-    Navigation *navigation() const;
-    //! \copydoc LocatorModelSuperBridge::navigation
-    void setNavigation( Navigation *navigation );
+    //! \copydoc QfLocatorModelSuperBridge::navigation
+    QfNavigation *navigation() const;
+    //! \copydoc QfLocatorModelSuperBridge::navigation
+    void setNavigation( QfNavigation *navigation );
 
-    //! \copydoc LocatorModelSuperBridge::geometryHighlighter
+    //! \copydoc QfLocatorModelSuperBridge::geometryHighlighter
     QObject *geometryHighlighter() const;
-    //! \copydoc LocatorModelSuperBridge::geometryHighlighter
+    //! \copydoc QfLocatorModelSuperBridge::geometryHighlighter
     void setGeometryHighlighter( QObject *geometryHighlighter );
 
-    //! \copydoc LocatorModelSuperBridge::featureListController
-    FeatureListExtentController *featureListController() const;
-    //! \copydoc LocatorModelSuperBridge::featureListController
-    void setFeatureListController( FeatureListExtentController *featureListController );
+    //! \copydoc QfLocatorModelSuperBridge::featureListController
+    QfFeatureListExtentController *featureListController() const;
+    //! \copydoc QfLocatorModelSuperBridge::featureListController
+    void setFeatureListController( QfFeatureListExtentController *featureListController );
 
-    //! \copydoc LocatorModelSuperBridge::activeLayer
+    //! \copydoc QfLocatorModelSuperBridge::activeLayer
     QgsMapLayer *activeLayer() const;
-    //! \copydoc LocatorModelSuperBridge::activeLayer
+    //! \copydoc QfLocatorModelSuperBridge::activeLayer
     void setActiveLayer( QgsMapLayer *layer );
 
-    //! \copydoc LocatorModelSuperBridge::keepScale
+    //! \copydoc QfLocatorModelSuperBridge::keepScale
     bool keepScale() const;
-    //! \copydoc LocatorModelSuperBridge::keepScale
+    //! \copydoc QfLocatorModelSuperBridge::keepScale
     void setKeepScale( bool keepScale );
 
     /**
@@ -129,7 +132,7 @@ class LocatorModelSuperBridge : public QgsLocatorModelBridge
     /**
      * Returns the actions model for a given locator search result list item.
      */
-    Q_INVOKABLE LocatorActionsModel *contextMenuActionsModel( const int row );
+    Q_INVOKABLE QfLocatorActionsModel *contextMenuActionsModel( const int row );
 
     /**
      * Returns the description for a given locator search result list item.
@@ -146,12 +149,12 @@ class LocatorModelSuperBridge : public QgsLocatorModelBridge
     /**
      * Registers a given \a filter with the locator.
      */
-    Q_INVOKABLE void registerQFieldLocatorFilter( QFieldLocatorFilter *filter );
+    Q_INVOKABLE void registerQFieldLocatorFilter( QfLocatorFilter *filter );
 
     /**
      * Deregisters a given \a filter with the locator.
      */
-    Q_INVOKABLE void deregisterQFieldLocatorFilter( QFieldLocatorFilter *filter );
+    Q_INVOKABLE void deregisterQFieldLocatorFilter( QfLocatorFilter *filter );
 
     void emitMessage( const QString &text );
 
@@ -175,22 +178,22 @@ class LocatorModelSuperBridge : public QgsLocatorModelBridge
   private:
     QgsQuickMapSettings *mMapSettings = nullptr;
     QObject *mGeometryHighlighter = nullptr;
-    FeatureListExtentController *mFeatureListController = nullptr;
+    QfFeatureListExtentController *mFeatureListController = nullptr;
     QPointer<QgsMapLayer> mActiveLayer;
     bool mKeepScale = false;
 
-    PeliasGeocoder *mFinlandGeocoder = nullptr;
+    QfPeliasGeocoder *mFinlandGeocoder = nullptr;
     // WorkField 18.08.2026: geokoder Nominatim zyje tak dlugo jak most —
     // filtr go tylko wspoldzieli, nie przejmuje wlasnosci.
     QgsNominatimGeocoder *mNominatimGeocoder = nullptr;
-    BookmarkModel *mBookmarks = nullptr;
-    Navigation *mNavigation = nullptr;
+    QfBookmarkModel *mBookmarks = nullptr;
+    QfNavigation *mNavigation = nullptr;
 };
 
-class LocatorFiltersModel : public QAbstractListModel
+class QfLocatorFiltersModel : public QAbstractListModel
 {
     Q_OBJECT
-    Q_PROPERTY( LocatorModelSuperBridge *locatorModelSuperBridge READ locatorModelSuperBridge WRITE setLocatorModelSuperBridge NOTIFY locatorModelSuperBridgeChanged )
+    Q_PROPERTY( QfLocatorModelSuperBridge *locatorModelSuperBridge READ locatorModelSuperBridge WRITE setLocatorModelSuperBridge NOTIFY locatorModelSuperBridgeChanged )
 
   public:
     //! Custom model roles
@@ -207,7 +210,7 @@ class LocatorFiltersModel : public QAbstractListModel
     /**
      * Constructor for QgsLocatorFiltersModel.
      */
-    LocatorFiltersModel();
+    QfLocatorFiltersModel();
 
     int rowCount( const QModelIndex &parent = QModelIndex() ) const override;
     QHash<int, QByteArray> roleNames() const override;
@@ -216,10 +219,10 @@ class LocatorFiltersModel : public QAbstractListModel
 
     QgsLocatorFilter *filterForIndex( const QModelIndex &index ) const;
 
-    LocatorModelSuperBridge *locatorModelSuperBridge() const;
-    void setLocatorModelSuperBridge( LocatorModelSuperBridge *locatorModelSuperBridge );
+    QfLocatorModelSuperBridge *locatorModelSuperBridge() const;
+    void setLocatorModelSuperBridge( QfLocatorModelSuperBridge *locatorModelSuperBridge );
 
-    Q_INVOKABLE void setGeocoderLocatorFiltersDefaulByPosition( const GnssPositionInformation &position );
+    Q_INVOKABLE void setGeocoderLocatorFiltersDefaulByPosition( const QfGnssPositionInformation &position );
 
   signals:
     void locatorModelSuperBridgeChanged();
@@ -228,6 +231,6 @@ class LocatorFiltersModel : public QAbstractListModel
     void locatorFiltersChanged();
 
   private:
-    LocatorModelSuperBridge *mLocatorModelSuperBridge = nullptr;
+    QfLocatorModelSuperBridge *mLocatorModelSuperBridge = nullptr;
 };
-#endif // LOCATORMODELSUPERBRIDGE_H
+#endif // QFLOCATORMODELSUPERBRIDGE_H

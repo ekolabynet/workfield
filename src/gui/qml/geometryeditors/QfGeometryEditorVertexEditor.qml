@@ -1,11 +1,9 @@
 import QtQuick
 import org.qgis
-import org.qfield
-import Theme
-import "."
-import ".."
+import org.qfield.core
+import org.qfield.gui
 
-GeometryEditorBase {
+QfGeometryEditorBase {
   id: vertexEditorToolbar
 
   property bool screenHovering: false //<! if the stylus pen is used, one should not use the add button
@@ -33,7 +31,7 @@ GeometryEditorBase {
   }
 
   function cancel() {
-    featureModel.vertexModel.editingMode = VertexModel.NoEditing;
+    featureModel.vertexModel.editingMode = QfVertexModel.NoEditing;
     featureModel.vertexModel.reset();
   }
 
@@ -66,11 +64,11 @@ GeometryEditorBase {
 
   QfToolButton {
     id: undoButton
-    iconSource: Theme.getThemeVectorIcon("ic_undo_black_24dp")
-    iconColor: Theme.toolButtonColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_undo_black_24dp")
+    iconColor: QfTheme.toolButtonColor
     round: true
     visible: featureModel && featureModel.vertexModel.canUndo
-    bgcolor: Theme.toolButtonBackgroundColor
+    bgcolor: QfTheme.toolButtonBackgroundColor
     onClicked: {
       // WorkField: średni impuls — cofnięcie
       haptyka(30);
@@ -82,10 +80,10 @@ GeometryEditorBase {
   QfToolButton {
     id: cancelButton
     objectName: "vertexEditorCancelButton"
-    iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
+    iconSource: QfTheme.getThemeVectorIcon("ic_clear_white_24dp")
     round: true
     visible: featureModel && featureModel.vertexModel.dirty && !qfieldSettings.autoSave
-    bgcolor: Theme.darkRed
+    bgcolor: QfTheme.darkRed
     onClicked: {
       // WorkField: średni impuls — anulowanie zmian
       haptyka(30);
@@ -98,11 +96,11 @@ GeometryEditorBase {
   QfToolButton {
     id: applyButton
     objectName: "vertexEditorApplyButton"
-    iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
-    iconColor: Theme.toolButtonColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_check_white_24dp")
+    iconColor: QfTheme.toolButtonColor
     round: true
     visible: featureModel && featureModel.vertexModel.dirty
-    bgcolor: !qfieldSettings.autoSave ? Theme.mainColor : Theme.toolButtonBackgroundColor
+    bgcolor: !qfieldSettings.autoSave ? QfTheme.mainColor : QfTheme.toolButtonBackgroundColor
 
     onClicked: {
       // WorkField: długi impuls — zmiany zapisane
@@ -119,11 +117,11 @@ GeometryEditorBase {
   QfToolButton {
     id: removeVertexButton
     objectName: "vertexEditorRemoveVertexButton"
-    iconSource: Theme.getThemeVectorIcon("ic_remove_white_24dp")
-    iconColor: Theme.toolButtonColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_remove_white_24dp")
+    iconColor: QfTheme.toolButtonColor
     round: true
     visible: featureModel && featureModel.vertexModel.canRemoveVertex
-    bgcolor: Theme.toolButtonBackgroundColor
+    bgcolor: QfTheme.toolButtonBackgroundColor
 
     onClicked: {
       // WorkField: dłuższy impuls — usunięcie wierzchołka
@@ -141,20 +139,20 @@ GeometryEditorBase {
   QfToolButton {
     id: addVertexButton
     round: true
-    enabled: !screenHovering && featureModel && featureModel.vertexModel.canAddVertex && featureModel.vertexModel.editingMode !== VertexModel.AddVertex
-    bgcolor: enabled ? Theme.darkGray : Theme.darkGraySemiOpaque
-    iconSource: Theme.getThemeVectorIcon("ic_add_white_24dp")
-    iconColor: enabled ? Theme.toolButtonColor : Theme.toolButtonBackgroundSemiOpaqueColor
+    enabled: !screenHovering && featureModel && featureModel.vertexModel.canAddVertex && featureModel.vertexModel.editingMode !== QfVertexModel.AddVertex
+    bgcolor: enabled ? QfTheme.darkGray : QfTheme.darkGraySemiOpaque
+    iconSource: QfTheme.getThemeVectorIcon("ic_add_white_24dp")
+    iconColor: enabled ? QfTheme.toolButtonColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
 
     onClicked: {
       // WorkField: krótki impuls — dodawanie wierzchołka
       haptyka(15);
       applyChanges(qfieldSettings.autoSave);
       if (featureModel.vertexModel.currentVertexIndex != -1) {
-        if (featureModel.vertexModel.editingMode === VertexModel.AddVertex) {
-          featureModel.vertexModel.editingMode = VertexModel.EditVertex;
+        if (featureModel.vertexModel.editingMode === QfVertexModel.AddVertex) {
+          featureModel.vertexModel.editingMode = QfVertexModel.EditVertex;
         } else {
-          featureModel.vertexModel.editingMode = VertexModel.AddVertex;
+          featureModel.vertexModel.editingMode = QfVertexModel.AddVertex;
         }
       } else {
         featureModel.vertexModel.addVertexNearestToPosition(coordinateLocator.currentCoordinate);
@@ -167,10 +165,10 @@ GeometryEditorBase {
     id: previousVertexButton
     round: true
     enabled: !screenHovering
-    visible: featureModel && (featureModel.vertexModel.canAddVertex || featureModel.vertexModel.editingMode === VertexModel.AddVertex)
-    bgcolor: enabled && featureModel && featureModel.vertexModel.canPreviousVertex ? Theme.toolButtonBackgroundColor : Theme.toolButtonBackgroundSemiOpaqueColor
-    iconSource: Theme.getThemeVectorIcon("ic_chevron_left_white_24dp")
-    iconColor: enabled && featureModel && featureModel.vertexModel.canPreviousVertex ? Theme.toolButtonColor : Theme.toolButtonBackgroundSemiOpaqueColor
+    visible: featureModel && (featureModel.vertexModel.canAddVertex || featureModel.vertexModel.editingMode === QfVertexModel.AddVertex)
+    bgcolor: enabled && featureModel && featureModel.vertexModel.canPreviousVertex ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_chevron_left_white_24dp")
+    iconColor: enabled && featureModel && featureModel.vertexModel.canPreviousVertex ? QfTheme.toolButtonColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
 
     onClicked: {
       if (vertexEditorToolbar.currentVertexModified) {
@@ -187,10 +185,10 @@ GeometryEditorBase {
     id: nextVertexButton
     round: true
     enabled: !screenHovering
-    visible: featureModel && (featureModel.vertexModel.canAddVertex || featureModel.vertexModel.editingMode === VertexModel.AddVertex)
-    bgcolor: enabled && featureModel && featureModel.vertexModel.canNextVertex ? Theme.darkGray : Theme.darkGraySemiOpaque
-    iconSource: Theme.getThemeVectorIcon("ic_chevron_right_white_24dp")
-    iconColor: enabled && featureModel && featureModel.vertexModel.canNextVertex ? Theme.toolButtonColor : Theme.toolButtonBackgroundSemiOpaqueColor
+    visible: featureModel && (featureModel.vertexModel.canAddVertex || featureModel.vertexModel.editingMode === QfVertexModel.AddVertex)
+    bgcolor: enabled && featureModel && featureModel.vertexModel.canNextVertex ? QfTheme.darkGray : QfTheme.darkGraySemiOpaque
+    iconSource: QfTheme.getThemeVectorIcon("ic_chevron_right_white_24dp")
+    iconColor: enabled && featureModel && featureModel.vertexModel.canNextVertex ? QfTheme.toolButtonColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
 
     onClicked: {
       if (vertexEditorToolbar.currentVertexModified) {
@@ -203,7 +201,7 @@ GeometryEditorBase {
     }
   }
 
-  DigitizingLogger {
+  QfDigitizingLogger {
     id: digitizingLogger
     type: 'edit_vertex'
 
@@ -220,7 +218,7 @@ GeometryEditorBase {
     target: geometryEditingVertexModel
 
     function onCurrentVertexIndexChanged() {
-      if (featureModel.vertexModel.currentVertexIndex != -1 && vertexEditorToolbar.currentVertexId !== featureModel.vertexModel.currentVertexIndex && !screenHovering && featureModel.vertexModel.editingMode !== VertexModel.NoEditing) {
+      if (featureModel.vertexModel.currentVertexIndex != -1 && vertexEditorToolbar.currentVertexId !== featureModel.vertexModel.currentVertexIndex && !screenHovering && featureModel.vertexModel.editingMode !== QfVertexModel.NoEditing) {
         mapSettings.setCenter(featureModel.vertexModel.currentPoint, true);
         vertexEditorToolbar.currentVertexId = featureModel.vertexModel.currentVertexIndex;
         vertexEditorToolbar.currentVertexModified = false;

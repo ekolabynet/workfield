@@ -8,7 +8,7 @@
  DLACZEGO WŁASNY. Standardowy QField nie rejestruje żadnego geokodera —
  jedyny (fiński Digitransit) jest zakomentowany. QgsNominatimGeocoder siedzi
  w rdzeniu QGIS w czystym C++, więc nasze -DWITH_PYTHON=OFF go nie blokuje.
- Ten filtr to cienka nakładka na wzór FinlandLocatorFilter.
+ Ten filtr to cienka nakładka na wzór QfFinlandLocatorFilter.
 
  GRANICE UŻYCIA NOMINATIM. Publiczny serwer Nominatim wymaga:
    • najwyżej 1 zapytanie na sekundę — pilnuje tego sam QgsNominatimGeocoder,
@@ -24,7 +24,7 @@
 #include <QObject>
 #include <qgsabstractgeocoderlocatorfilter.h>
 
-class LocatorModelSuperBridge;
+class QfLocatorModelSuperBridge;
 
 /**
  * WfNominatimLocatorFilter — wyszukiwanie miejsc przez OSM Nominatim.
@@ -36,13 +36,13 @@ class WfNominatimLocatorFilter : public QgsAbstractGeocoderLocatorFilter
     Q_OBJECT
 
   public:
-    explicit WfNominatimLocatorFilter( QgsGeocoderInterface *geocoder, LocatorModelSuperBridge *locatorBridge );
+    explicit WfNominatimLocatorFilter( QgsGeocoderInterface *geocoder, QfLocatorModelSuperBridge *locatorBridge );
     WfNominatimLocatorFilter *clone() const override;
 
   private:
     void handleGeocodeResult( const QgsGeocoderResult &result ) override;
 
-    LocatorModelSuperBridge *mLocatorBridge = nullptr;
+    QfLocatorModelSuperBridge *mLocatorBridge = nullptr;
 };
 
 #endif // WFNOMINATIMLOCATORFILTER_H

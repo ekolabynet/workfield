@@ -1,5 +1,5 @@
 /***************************************************************************
-  recentprojectlistmodel.h
+  qfrecentprojectlistmodel.h
 
  ---------------------
  begin                : 02.1.2020
@@ -14,10 +14,10 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "platformutilities.h"
+#include "qfcloudutils.h"
 #include "qfield.h"
-#include "qfieldcloudutils.h"
-#include "recentprojectlistmodel.h"
+#include "qfplatformutilities.h"
+#include "qfrecentprojectlistmodel.h"
 
 #include <QDir>
 #include <QFile>
@@ -29,24 +29,24 @@ static constexpr int WORKFIELD_SAMPLE_PROJECTS_VERSION = 2;
 // WorkField: 3 szablony + miejsce na projekty terenowe
 static constexpr int WORKFIELD_RECENT_PROJECTS_LIMIT = 10;
 
-RecentProjectListModel::RecentProjectListModel( QObject *parent )
+QfRecentProjectListModel::QfRecentProjectListModel( QObject *parent )
   : QAbstractListModel( parent )
 {
   reloadModel();
 }
 
-QHash<int, QByteArray> RecentProjectListModel::roleNames() const
+QHash<int, QByteArray> QfRecentProjectListModel::roleNames() const
 {
   QHash<int, QByteArray> roles = QAbstractListModel::roleNames();
   roles[ProjectTypeRole] = "ProjectType";
   roles[ProjectTitleRole] = "ProjectTitle";
   roles[ProjectPathRole] = "ProjectPath";
-  roles[ProjectThumbnailRole] = "ProjectThumbnail";
+  roles[ProjectThumbnailRole] = "QfProjectThumbnail";
 
   return roles;
 }
 
-void RecentProjectListModel::reloadModel()
+void QfRecentProjectListModel::reloadModel()
 {
   beginResetModel();
   mRecentProjects.clear();
@@ -67,7 +67,7 @@ void RecentProjectListModel::reloadModel()
     }
     mRecentProjects = kept;
 
-    const QString sampleProjectsDirectory = PlatformUtilities::instance()->systemLocalDataLocation( QLatin1String( "sample_projects" ) );
+    const QString sampleProjectsDirectory = QfPlatformUtilities::instance()->systemLocalDataLocation( QLatin1String( "sample_projects" ) );
     const QString sampleProjectsJson = QStringLiteral( "%1/sample_projects.json" ).arg( sampleProjectsDirectory );
     if ( QFileInfo::exists( sampleProjectsJson ) )
     {
@@ -114,12 +114,12 @@ void RecentProjectListModel::reloadModel()
   endResetModel();
 }
 
-int RecentProjectListModel::rowCount( const QModelIndex &parent ) const
+int QfRecentProjectListModel::rowCount( const QModelIndex &parent ) const
 {
   return !parent.isValid() ? static_cast<int>( mRecentProjects.size() ) : 0;
 }
 
-QVariant RecentProjectListModel::data( const QModelIndex &index, int role ) const
+QVariant QfRecentProjectListModel::data( const QModelIndex &index, int role ) const
 {
   if ( index.row() >= mRecentProjects.size() || index.row() < 0 )
     return QVariant();
@@ -139,7 +139,7 @@ QVariant RecentProjectListModel::data( const QModelIndex &index, int role ) cons
   return QVariant();
 }
 
-void RecentProjectListModel::removeRecentProject( const QString &path )
+void QfRecentProjectListModel::removeRecentProject( const QString &path )
 {
   QList<RecentProject> projects = recentProjects();
   bool removed = false;
@@ -158,13 +158,13 @@ void RecentProjectListModel::removeRecentProject( const QString &path )
   }
 }
 
-QList<RecentProjectListModel::RecentProject> RecentProjectListModel::recentProjects( bool skipNonAvailable )
+QList<QfRecentProjectListModel::RecentProject> QfRecentProjectListModel::recentProjects( bool skipNonAvailable )
 {
   QList<RecentProject> projects;
 
   QSettings settings;
   const QString qfieldCloudUsername = QSettings().value( QStringLiteral( "/QFieldCloud/username" ) ).toString();
-  const QString qdieldCloudLocalDirectory = QFieldCloudUtils::localCloudDirectory();
+  const QString qdieldCloudLocalDirectory = QfCloudUtils::localCloudDirectory();
 
   settings.beginGroup( "/qgis/recentProjects" );
 
@@ -191,7 +191,7 @@ QList<RecentProjectListModel::RecentProject> RecentProjectListModel::recentProje
         skip = true;
       }
 
-      type = CloudProject;
+      type = QfCloudProject;
     }
     else if ( path.startsWith( "http://", Qt::CaseInsensitive ) || path.startsWith( "https://", Qt::CaseInsensitive ) )
     {
@@ -231,7 +231,7 @@ QList<RecentProjectListModel::RecentProject> RecentProjectListModel::recentProje
   return projects;
 }
 
-void RecentProjectListModel::saveRecentProjects( const QList<RecentProject> &projects )
+void QfRecentProjectListModel::saveRecentProjects( const QList<RecentProject> &projects )
 {
   QSettings settings;
   settings.remove( QStringLiteral( "/qgis/recentProjects" ) );

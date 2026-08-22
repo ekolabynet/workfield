@@ -3,7 +3,7 @@ import Qt5Compat.GraphicalEffects
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
-import Theme
+import QfTheme
 
 /**
  * \ingroup qml
@@ -11,7 +11,7 @@ import Theme
  * WorkField Studio — CHROM DESKTOPOWY (nagłówek okna na komputerze).
  *
  * Belka: nazwy grup menu po lewej, stan pracy po prawej (nazwa projektu,
- * aktywna warstwa, RTCM). Menu rysuje QtQuick.Controls — natywne menu
+ * aktywna warstwa, RTCM). QfMenu rysuje QtQuick.Controls — natywne menu
  * systemowe wymaga demona globalnego menu, którego w Plasmie zwykle nie ma.
  *
  * Pionowego paska ikon już nie ma: jego rolę przejął poziomy przełącznik
@@ -45,7 +45,7 @@ ToolBar {
   padding: 0
 
   background: Rectangle {
-    color: Theme.mainColor
+    color: QfTheme.mainColor
   }
 
   RowLayout {
@@ -87,7 +87,7 @@ ToolBar {
             fillMode: Image.PreserveAspectFit
             sourceSize.width: 15
             sourceSize.height: 15
-            source: Theme.getThemeVectorIcon(zakladkaBelki.modelData.ikona)
+            source: QfTheme.getThemeVectorIcon(zakladkaBelki.modelData.ikona)
             visible: false
           }
           ColorOverlay {
@@ -101,7 +101,7 @@ ToolBar {
           }
           Text {
             text: zakladkaBelki.modelData.nazwa
-            font: Theme.tipFont
+            font: QfTheme.tipFont
             color: "white"
           }
         }
@@ -132,7 +132,7 @@ ToolBar {
       Text {
         anchors.centerIn: parent
         text: "\u22ef"
-        font: Theme.strongTipFont
+        font: QfTheme.strongTipFont
         color: "white"
       }
 
@@ -143,7 +143,7 @@ ToolBar {
         onClicked: menuWiecej.opened ? menuWiecej.close() : menuWiecej.open()
       }
 
-      Menu {
+      QfMenu {
         id: menuWiecej
         y: parent.height
 
@@ -156,7 +156,7 @@ ToolBar {
             text: modelData.naglowek ? "— " + modelData.nazwa + " —" : modelData.akcja.nazwa
             enabled: modelData.naglowek ? false
                                         : (chrom.akcje ? chrom.akcje.dostepna(modelData.akcja) : false)
-            icon.source: modelData.naglowek ? "" : Theme.getThemeVectorIcon(modelData.akcja.ikona)
+            icon.source: modelData.naglowek ? "" : QfTheme.getThemeVectorIcon(modelData.akcja.ikona)
             icon.width: 18
             icon.height: 18
             onTriggered: {
@@ -183,7 +183,7 @@ ToolBar {
           czesci.push(qsTr("brak aktywnej warstwy"));
         return czesci.join("  ·  ");
       }
-      font: Theme.tinyFont
+      font: QfTheme.tinyFont
       color: "white"
       opacity: 0.8
       elide: Text.ElideMiddle
@@ -194,7 +194,7 @@ ToolBar {
       Layout.leftMargin: 12
       visible: positionSource.active && positionSource.enableNtrip
       text: "RTCM"
-      font: Theme.tinyFont
+      font: QfTheme.tinyFont
       color: "white"
       opacity: 0.8
     }

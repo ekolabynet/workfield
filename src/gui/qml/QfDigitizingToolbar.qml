@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import org.qgis
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -10,7 +10,7 @@ import Theme
 QfVisibilityFadingRow {
   id: digitizingToolbar
 
-  property RubberbandModel rubberbandModel
+  property QfRubberbandModel rubberbandModel
   property MapSettings mapSettings
 
   property bool cogoEnabled: false
@@ -58,7 +58,7 @@ QfVisibilityFadingRow {
     }
   }
 
-  DigitizingLogger {
+  QfDigitizingLogger {
     id: digitizingLogger
 
     project: qgisProject
@@ -76,10 +76,10 @@ QfVisibilityFadingRow {
 
     width: Math.round(44 * skalaPrzyciskow)
     height: width
-    iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
+    iconSource: QfTheme.getThemeVectorIcon("ic_clear_white_24dp")
     visible: rubberbandModel && rubberbandModel.vertexCount > 1
     round: true
-    bgcolor: Theme.darkRed
+    bgcolor: QfTheme.darkRed
 
     onClicked: {
       // WorkField: średni impuls — anulowanie
@@ -100,7 +100,7 @@ QfVisibilityFadingRow {
 
     width: Math.round(56 * skalaPrzyciskow)
     height: width
-    iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
+    iconSource: QfTheme.getThemeVectorIcon("ic_check_white_24dp")
     visible: {
       if (!showConfirmButton) {
         false;
@@ -109,7 +109,7 @@ QfVisibilityFadingRow {
       }
     }
     round: true
-    bgcolor: !enabled ? Theme.toolButtonBackgroundSemiOpaqueColor : Theme.mainColor
+    bgcolor: !enabled ? QfTheme.toolButtonBackgroundSemiOpaqueColor : QfTheme.mainColor
 
     onClicked: {
       dashBoard.shouldReturnHome = false;
@@ -117,7 +117,7 @@ QfVisibilityFadingRow {
     }
   }
 
-  CogoOperations {
+  QfCogoOperations {
     id: cogoOperations
     enabled: digitizingToolbar.cogoEnabled
 
@@ -137,7 +137,7 @@ QfVisibilityFadingRow {
       digitizingToolbar.requestPosition(item, fromCoordinateLocator);
     }
 
-    CogoExecutor {
+    QfCogoExecutor {
       id: cogoExecutor
 
       name: digitizingToolbar.cogoOperationSettings ? digitizingToolbar.cogoOperationSettings.name : ""
@@ -173,11 +173,11 @@ QfVisibilityFadingRow {
 
     width: Math.round(48 * skalaPrzyciskow)
     height: width
-    iconSource: Theme.getThemeVectorIcon("ic_remove_white_24dp")
-    iconColor: Theme.toolButtonColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_remove_white_24dp")
+    iconColor: QfTheme.toolButtonColor
     visible: rubberbandModel && rubberbandModel.vertexCount > 1
     round: true
-    bgcolor: Theme.toolButtonBackgroundColor
+    bgcolor: QfTheme.toolButtonBackgroundColor
 
     onPressed: {
       removeVertex();
@@ -199,10 +199,10 @@ QfVisibilityFadingRow {
     height: width
     enabled: (cogoEnabled && cogoExecutor.isReady) || (!cogoEnabled && !screenHovering)
     // WorkField: sygnałowa czerwień dla widoczności w terenie (rękawice, słońce);
-    // celowo jaśniejsza niż Theme.darkRed przycisku anulowania
-    bgcolor: enabled ? "#d32f2f" : Theme.toolButtonBackgroundSemiOpaqueColor
-    iconSource: Theme.getThemeVectorIcon("ic_add_white_24dp")
-    iconColor: enabled ? Theme.toolButtonColor : Theme.toolButtonBackgroundSemiOpaqueColor
+    // celowo jaśniejsza niż QfTheme.darkRed przycisku anulowania
+    bgcolor: enabled ? "#d32f2f" : QfTheme.toolButtonBackgroundSemiOpaqueColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_add_white_24dp")
+    iconColor: enabled ? QfTheme.toolButtonColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
 
     property bool lastAdditionAveraged: false
     property bool averagedPositionPressAndHeld: false

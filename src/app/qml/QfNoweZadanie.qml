@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import org.qfield
-import Theme
+import QfTheme
 
 /**
  * Nowe zadanie z szablonu.
@@ -17,7 +17,7 @@ import Theme
  * Świadomie NIE pytamy o nazwę katalogu wprost: nazwa jest wnioskiem
  * z wypełnionych pól, a nie kolejnym polem do wymyślenia w deszczu.
  */
-Popup {
+QfPopup {
   id: kreator
 
   property var t
@@ -40,7 +40,7 @@ Popup {
   // iface.dataRoot() na desktopie wskazuje "Dokumenty/QField Documents" —
   // zadania ladowaly tam zamiast w wydania/ (18.08.2026). Ta sama nastawa
   // co w Studiu, wiec "Zmien..." w magazynie zmienia oba naraz.
-  Settings {
+  QfSettings {
     id: ustawieniaMagazynu
     category: "WFGStudio"
     property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
@@ -56,7 +56,7 @@ Popup {
   y: Math.round((mainWindow.height - height) / 2)
   modal: true
   focus: true
-  closePolicy: Popup.CloseOnEscape
+  closePolicy: QfPopup.CloseOnEscape
 
   background: Rectangle {
     color: t.mainBackgroundColor
@@ -161,7 +161,7 @@ Popup {
       onCountChanged: kreator.przebudujListe()
     }
 
-    ComboBox {
+    QfComboBox {
       id: wyborSzablonu
       Layout.fillWidth: true
       model: kreator.listaSzablonow
@@ -174,7 +174,7 @@ Popup {
       font: t.tinyFont
       color: t.secondaryTextColor
     }
-    TextField {
+    QfTextField {
       id: poleKlient
       Layout.fillWidth: true
       placeholderText: qsTr("np. ZZW")
@@ -185,7 +185,7 @@ Popup {
       font: t.tinyFont
       color: t.secondaryTextColor
     }
-    TextField {
+    QfTextField {
       id: poleTeren
       Layout.fillWidth: true
       placeholderText: qsTr("np. Park Żerański")
@@ -202,7 +202,7 @@ Popup {
           font: t.tinyFont
           color: t.secondaryTextColor
         }
-        TextField {
+        QfTextField {
           id: poleData
           Layout.fillWidth: true
           inputMask: "9999-99-99"
@@ -216,7 +216,7 @@ Popup {
           font: t.tinyFont
           color: t.secondaryTextColor
         }
-        TextField {
+        QfTextField {
           id: poleTagi
           Layout.fillWidth: true
           placeholderText: qsTr("np. rekonesans, etap 1")
@@ -259,14 +259,14 @@ Popup {
       Layout.fillWidth: true
       spacing: 8
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
         flat: true
         text: qsTr("Anuluj")
         onClicked: kreator.close()
       }
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
         text: qsTr("Utwórz")
         enabled: kreator.nazwaZadania() !== ""
@@ -281,7 +281,7 @@ Popup {
     const zrodlo = katalogSzablonow + "/" + szablonWybrany;
     const cel = katalogProjektow + "/" + nazwa;
 
-    if (FileUtils.fileExists(cel)) {
+    if (QfFileUtils.fileExists(cel)) {
       komunikat.text = qsTr("Katalog %1 już istnieje — zmień teren albo datę.").arg(nazwa);
       return;
     }
@@ -289,7 +289,7 @@ Popup {
     // WorkField: szablon z przepisem budujemy od zera z aktualnego
     // wyposazenia. Interpreter sam wczytuje gotowy projekt, wiec NIE
     // emitujemy utworzono() — inaczej wczytalby sie dwa razy.
-    if (szablonWybrany !== "" && FileUtils.fileExists(zrodlo + "/przepis.json")) {
+    if (szablonWybrany !== "" && QfFileUtils.fileExists(zrodlo + "/przepis.json")) {
       if (!mainWindow.przepisy.noweZadanie(zrodlo + "/przepis.json", katalogProjektow, nazwa)) {
         komunikat.text = qsTr("Nie udało się zbudować zadania z przepisu.");
         return;
@@ -306,7 +306,7 @@ Popup {
         komunikat.text = qsTr("Nie udało się utworzyć pustego projektu.");
         return;
       }
-    } else if (!FileUtils.copyRecursively(zrodlo, cel, null, false)) {
+    } else if (!QfFileUtils.copyRecursively(zrodlo, cel, null, false)) {
       komunikat.text = qsTr("Nie udało się skopiować szablonu.");
       return;
     }
@@ -332,7 +332,7 @@ Popup {
       "zrodlo_szablonu": szablonWybrany !== "" ? szablonWybrany : "brak",
       "utworzono": new Date().toISOString().substring(0, 19).replace("T", " ")
     };
-    FileUtils.writeFileContent(cel + "/ZADANIE.json",
+    QfFileUtils.writeFileContent(cel + "/ZADANIE.json",
                                JSON.stringify(zadanie, null, 2));
   }
 }

@@ -1,12 +1,12 @@
 import QtQuick
 import QtTest
-import org.qfield
+import org.qfield.gui
 
 TestCase {
   name: "ParameterizedImage"
   when: windowShown
 
-  ParameterizedImage {
+  QfParameterizedImage {
     id: img
     width: 100
     height: 100

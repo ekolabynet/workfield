@@ -3,9 +3,9 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import Theme
+import QfTheme
 
-Popup {
+QfPopup {
   id: exportDialog
 
   property var t
@@ -49,7 +49,7 @@ Popup {
   }
   readonly property string targetDir: qgisProject ? qgisProject.homePath + "/" + subfolder : ""
   readonly property string targetPath: targetDir + "/" + baseName + "." + formats[formatIndex].ext
-  readonly property bool willOverwrite: baseName !== "" && FileUtils.fileExists(targetPath)
+  readonly property bool willOverwrite: baseName !== "" && QfFileUtils.fileExists(targetPath)
 
   parent: mainWindow.contentItem
   width: Math.min(420, mainWindow.width - 32)
@@ -57,11 +57,11 @@ Popup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+  closePolicy: QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside
 
   function openFor(vectorLayer) {
     layer = vectorLayer;
-    baseName = vectorLayer ? FileUtils.sanitizeFilePathPart(vectorLayer.name) : "";
+    baseName = vectorLayer ? QfFileUtils.sanitizeFilePathPart(vectorLayer.name) : "";
     crsChoice = "layer";
     open();
   }
@@ -93,7 +93,7 @@ Popup {
       color: t.mainTextColor
     }
 
-    ComboBox {
+    QfComboBox {
       Layout.fillWidth: true
       model: exportDialog.formats.map(f => f.label + " (." + f.ext + ")")
       currentIndex: exportDialog.formatIndex
@@ -131,7 +131,7 @@ Popup {
           { key: "custom", label: qsTr("Inny") }
         ]
 
-        delegate: Button {
+        delegate: QfButton {
           required property var modelData
           text: modelData.label
           font.pointSize: t.tinyFont.pointSize
@@ -142,7 +142,7 @@ Popup {
       }
     }
 
-    TextField {
+    QfTextField {
       Layout.fillWidth: true
       visible: exportDialog.crsChoice === "custom"
       placeholderText: "EPSG:2177"
@@ -173,7 +173,7 @@ Popup {
       Repeater {
         model: ["UTF-8", "CP1250", "ISO-8859-2"]
 
-        delegate: Button {
+        delegate: QfButton {
           required property string modelData
           text: modelData
           font.pointSize: t.tinyFont.pointSize
@@ -199,7 +199,7 @@ Popup {
       Repeater {
         model: ["export", "OUT", "."]
 
-        delegate: Button {
+        delegate: QfButton {
           required property string modelData
           text: modelData === "." ? qsTr("Folder projektu") : modelData + "/"
           font.pointSize: t.tinyFont.pointSize
@@ -210,7 +210,7 @@ Popup {
       }
     }
 
-    TextField {
+    QfTextField {
       Layout.fillWidth: true
       text: exportDialog.baseName
       font: t.defaultFont
@@ -240,13 +240,13 @@ Popup {
       Layout.topMargin: 8
       spacing: 8
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: exportDialog.close()
       }
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
         text: exportDialog.willOverwrite ? qsTr("Nadpisz") : qsTr("Eksportuj")
         highlighted: true
@@ -255,7 +255,7 @@ Popup {
         onClicked: {
           if (exportDialog.subfolder !== ".")
             platformUtilities.createDir(qgisProject.homePath, exportDialog.subfolder);
-          const written = LayerUtils.exportVectorLayer(exportDialog.layer, exportDialog.targetPath, exportDialog.targetCrs, exportDialog.encoding);
+          const written = QfLayerUtils.exportVectorLayer(exportDialog.layer, exportDialog.targetPath, exportDialog.targetCrs, exportDialog.encoding);
           if (written !== "")
             displayToast(qsTr("Wyeksportowano: %1").arg(written));
           else

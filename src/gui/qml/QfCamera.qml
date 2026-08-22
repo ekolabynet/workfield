@@ -4,20 +4,24 @@ import QtQuick.Shapes
 import QtQuick.Window
 import QtMultimedia
 import QtCore
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
  */
-Popup {
+QfPopup {
   id: cameraItem
   z: 10000 // 1000s are embedded feature forms, use a higher value to insure feature form popups always show above embedded feature forms
 
-  property bool isCapturing: state == "PhotoCapture" || state == "VideoCapture"
-  property bool isPortraitMode: mainWindow.height > mainWindow.width
+  property bool isCapturing: false
+
+  readonly property bool isReady: !isCapturing && (state == "PhotoCapture" || state == "VideoCapture")
+  readonly property bool isPortraitMode: mainWindow.height > mainWindow.width
 
   property string currentPath: ''
+  property var currentPosition: QfPositioningUtils.createEmptyGnssPositionInformation()
+
   // rodzaj ujecia: plat / dol / gora / gatunek
   property string photoShotType: "dol"
 
@@ -60,7 +64,7 @@ Popup {
   }
 
   property int shotCount: 0
-  property var currentPosition: PositioningUtils.createEmptyGnssPositionInformation()
+  property var currentPosition: QfPositioningUtils.createEmptyGnssPositionInformation()
   property var currentProjectedPosition: undefined
 
   property bool captureLoaderActivated: false
@@ -69,6 +73,11 @@ Popup {
 
   readonly property int panelExtraSpace: allowCaptureModeToggle ? 70 : 0
   readonly property int captureOffset: allowCaptureModeToggle ? -25 : 0
+  property int userRotation: 0
+  property bool userMirror: false
+
+  property alias currentLayer: stampExpressionEvaluator.layer
+  property alias currentFeature: stampExpressionEvaluator.feature
 
   function requiredPermissionsGranted() {
     if (cameraPermission.status !== Qt.PermissionStatus.Granted) {
@@ -98,6 +107,7 @@ Popup {
   parent: mainWindow.contentItem
   modal: true
   focus: true
+  closePolicy: QfPopup.NoAutoClose
 
   property string state: "PhotoCapture"
   onStateChanged: {
@@ -115,6 +125,8 @@ Popup {
     photoPreview.source = "";
     videoPreview.stop();
     videoPreview.source = "";
+    userRotation = 0;
+    userMirror = false;
 
     captureLoaderActivated = false;
 
@@ -156,7 +168,7 @@ Popup {
     id: captureAttitude
   }
 
-  Settings {
+  QfSettings {
     id: cameraSettings
     property bool stamping: false
     property bool geoTagging: true
@@ -166,16 +178,16 @@ Popup {
     property int pixelFormat: 0
   }
 
-  ExpressionEvaluator {
+  QfExpressionEvaluator {
     id: stampExpressionEvaluator
 
     property string defaultTextTemplate: "[% format_date(now(), 'yyyy-MM-dd @ HH:mm') || if(@gnss_coordinate is not null, format('\n" + qsTr("Latitude") + " %1 | " + qsTr("Longitude") + " %2 | " + qsTr("Altitude") + " %3\n" + qsTr("Speed") + " %4 | " + qsTr("Orientation") + " %5', coalesce(format_number(y(@gnss_coordinate), 7), 'N/A'), coalesce(format_number(x(@gnss_coordinate), 7), 'N/A'), coalesce(format_number(@corrected_elevation, 3) || ' ' || @corrected_elevation_unit, 'N/A'), if(@gnss_ground_speed != 'nan', format_number(@gnss_ground_speed, 3) || ' m/s', 'N/A'), if(@gnss_orientation != 'nan', format_number(@gnss_orientation, 1) || ' °', 'N/A')), '') %]"
 
-    mode: ExpressionEvaluator.ExpressionTemplateMode
+    mode: QfExpressionEvaluator.ExpressionTemplateMode
     expressionText: ""
 
     project: qgisProject
-    appExpressionContextScopesGenerator: AppExpressionContextScopesGenerator {
+    appExpressionContextScopesGenerator: QfAppExpressionContextScopesGenerator {
       positionInformation: currentPosition
       cloudUserInformation: appScopesGenerator.cloudUserInformation
     }
@@ -190,10 +202,25 @@ Popup {
     width: parent.width
     height: parent.height
     padding: 0
+    focus: true
 
     background: Rectangle {
       anchors.fill: parent
       color: "#000000"
+    }
+
+    Timer {
+      id: captureFocusTimer
+      interval: 2000
+      repeat: false
+
+      onTriggered: {
+        // Auto-focus fix failing, fail back video frame capture
+        captureLoader.item.videoSinkCapture.saveToFile(qgisProject.homePath + '/DCIM/');
+        // Reset camera to avoid random capture completition
+        captureLoader.item.camera.restarting = true;
+        captureLoader.item.camera.restarting = false;
+      }
     }
 
     MediaDevices {
@@ -216,10 +243,38 @@ Popup {
           property alias imageCapture: imageCapture
           property alias recorder: recorder
           property alias videoOutput: videoOutput
+          property alias videoSinkCapture: videoSinkCapture
           property alias orientationNormalizer: orientationNormalizer
 
-          CameraOrientationNormalizer {
+          QfCameraOrientationNormalizer {
             id: orientationNormalizer
+            cameraPosition: {
+              const device = camera.cameraDevice;
+              if (device.position === CameraDevice.FrontFace) {
+                return QfCameraOrientationNormalizer.FrontFace;
+              }
+              if (device.position === CameraDevice.BackFace) {
+                return QfCameraOrientationNormalizer.BackFace;
+              }
+              return device.description.toLowerCase().includes("front") ? QfCameraOrientationNormalizer.FrontFace : QfCameraOrientationNormalizer.BackFace;
+            }
+          }
+
+          QfVideoSinkCapture {
+            id: videoSinkCapture
+            videoSink: videoOutput.videoSink
+
+            onImageSaved: path => {
+              captureButtonAnimation.stop();
+              cameraItem.isCapturing = false;
+              if (path !== "") {
+                currentPath = path;
+                photoPreview.source = "file://" + currentPath;
+                cameraItem.state = "PhotoPreview";
+              } else {
+                cameraItem.state = "PhotoCapture";
+              }
+            }
           }
 
           VideoOutput {
@@ -232,10 +287,15 @@ Popup {
           CaptureSession {
             id: captureSession
 
-            camera: Camera {
+            camera: QfCamera {
               id: camera
+
               property bool restarting: false
               active: cameraItem.visible && cameraPermission.status === Qt.PermissionStatus.Granted && !restarting
+
+              onErrorOccurred: (error, errorString) => {
+                console.log('QField QfCamera error ' + error + ': ' + errorString);
+              }
 
               function applyCameraFormat() {
                 if (cameraSettings.pixelFormat != 0) {
@@ -285,25 +345,21 @@ Popup {
               quality: ImageCapture.VeryHighQuality
 
               onImageSaved: (requestId, path) => {
-                currentPath = path;
-                orientationNormalizer.normalizeImageOrientation(currentPath);
-                const totalRotation = qfieldSettings.cameraRotationOffset;
-                if (totalRotation % 360 !== 0) {
-                  if (!orientationNormalizer.setExifOrientation(currentPath, totalRotation)) {
-                    // nietypowa struktura pliku - awaryjnie stara sciezka pikselowa
-                    orientationNormalizer.rotateImageFile(currentPath, totalRotation);
+                if (cameraItem.isCapturing) {
+                  cameraItem.isCapturing = false;
+                  currentPath = path;
+                  orientationNormalizer.normalizeImageOrientation(currentPath);
+                  if (qfieldSettings.fastMode) {
+                    // tryb szybki: plik gotowy - oddaj sciezke, zostan w podgladzie
+                    if (positionSource.active) {
+                      QfFileUtils.addImageMetadata(currentPath, positionSource.positionInformation);
+                      captureAttitude.writePoseMetadata(currentPath, positionSource.positionInformation.orientationValid ? positionSource.positionInformation.orientation : NaN);
+                    }
+                    cameraItem.shotCount++;
+                    cameraItem.finished(currentPath);
                   }
+                  photoPreview.source = "file://" + currentPath;
                 }
-                if (qfieldSettings.fastMode) {
-                  // tryb szybki: plik gotowy - oddaj sciezke, zostan w podgladzie
-                  if (positionSource.active) {
-                    FileUtils.addImageMetadata(currentPath, positionSource.positionInformation);
-                    captureAttitude.writePoseMetadata(currentPath, positionSource.positionInformation.orientationValid ? positionSource.positionInformation.orientation : NaN);
-                  }
-                  cameraItem.shotCount++;
-                  cameraItem.finished(currentPath);
-                }
-                photoPreview.source = "file://" + currentPath;
               }
 
               onPreviewChanged: {
@@ -311,7 +367,15 @@ Popup {
                   // seria ciagla: zostajemy w podgladzie kamery
                   return;
                 }
-                cameraItem.state = "PhotoPreview";
+                if (cameraItem.state == "PhotoCapture") {
+                  captureFocusTimer.stop();
+                  captureButtonAnimation.stop();
+                  cameraItem.state = "PhotoPreview";
+                }
+              }
+
+              onErrorOccurred: (id, error, errorString) => {
+                console.log('QField ImageCapture error ' + error + ': ' + errorString);
               }
             }
 
@@ -454,12 +518,18 @@ Popup {
       cache: false
       fillMode: Image.PreserveAspectFit
       smooth: true
-      focus: visible
+
+      rotation: cameraItem.userRotation
+      transform: Scale {
+        origin.x: photoPreview.width / 2
+        origin.y: photoPreview.height / 2
+        xScale: cameraItem.userMirror ? -1 : 1
+      }
     }
 
     PinchArea {
       id: pinchArea
-      enabled: cameraItem.visible && cameraItem.isCapturing && captureLoader.item
+      enabled: cameraItem.visible && cameraItem.isReady && captureLoader.item
       anchors.fill: parent
 
       onPinchUpdated: pinch => {
@@ -472,7 +542,7 @@ Popup {
     }
 
     WheelHandler {
-      enabled: cameraItem.visible && cameraItem.isCapturing && captureLoader.item
+      enabled: cameraItem.visible && cameraItem.isReady && captureLoader.item
       target: null
       grabPermissions: PointerHandler.CanTakeOverFromHandlersOfDifferentType | PointerHandler.ApprovesTakeOverByItems
 
@@ -489,8 +559,8 @@ Popup {
       id: captureFlash
       anchors.fill: parent
       anchors.margins: 6
-
       color: "transparent"
+
       SequentialAnimation {
         id: captureFlashAnimation
         PropertyAnimation {
@@ -514,7 +584,7 @@ Popup {
       x: cameraItem.isPortraitMode ? 0 : parent.width - width
       y: cameraItem.isPortraitMode ? parent.height - height : 0
 
-      color: Theme.darkGraySemiOpaque
+      color: QfTheme.darkGraySemiOpaque
 
       Rectangle {
         width: cameraItem.isPortraitMode ? parent.width : 100 + mainWindow.sceneBottomMargin + cameraItem.panelExtraSpace
@@ -522,7 +592,7 @@ Popup {
         x: cameraItem.isPortraitMode ? 0 : parent.width - width
         y: cameraItem.isPortraitMode ? parent.height - height : 0
 
-        color: Theme.darkGraySemiOpaque
+        color: QfTheme.darkGraySemiOpaque
 
         Rectangle {
           anchors.top: parent.top
@@ -553,7 +623,7 @@ Popup {
                 width: shotLabel.implicitWidth + 20
                 height: 34
                 radius: 17
-                color: cameraItem.photoShotType === modelData.key ? Theme.mainColor : Theme.darkGraySemiOpaque
+                color: cameraItem.photoShotType === modelData.key ? QfTheme.mainColor : QfTheme.darkGraySemiOpaque
                 border.color: "white"
                 border.width: cameraItem.photoShotType === modelData.key ? 2 : 0
 
@@ -562,7 +632,7 @@ Popup {
                   anchors.centerIn: parent
                   text: modelData.label
                   color: "white"
-                  font.pointSize: Theme.tipFont.pointSize
+                  font.pointSize: QfTheme.tipFont.pointSize
                   font.bold: cameraItem.photoShotType === modelData.key
                 }
 
@@ -582,7 +652,7 @@ Popup {
             width: 64
             height: 64
             radius: 32
-            color: Theme.darkGraySemiOpaque
+            color: QfTheme.darkGraySemiOpaque
             border.color: cameraItem.state == "VideoCapture" && captureLoader.item && captureLoader.item.recorder.recorderState !== MediaRecorder.StoppedState ? "red" : "white"
             border.width: 2
 
@@ -591,19 +661,60 @@ Popup {
 
               anchors.centerIn: parent
               visible: captureLoader.status == Loader.Ready && captureLoader.item
+              enabled: !cameraItem.isCapturing
+              opacity: enabled ? 1 : 0.5
 
               round: true
               roundborder: true
-              iconSource: cameraItem.state == "PhotoPreview" || cameraItem.state == "VideoPreview" ? Theme.getThemeVectorIcon("ic_check_white_24dp") : ''
-              iconColor: Theme.toolButtonColor
-              bgcolor: cameraItem.state == "PhotoPreview" || cameraItem.state == "VideoPreview" ? Theme.mainColor : cameraItem.state == "VideoCapture" ? "red" : "white"
+              iconSource: cameraItem.state == "PhotoPreview" || cameraItem.state == "VideoPreview" ? QfTheme.getThemeVectorIcon("ic_check_white_24dp") : ''
+              iconColor: QfTheme.toolButtonColor
+              bgcolor: cameraItem.state == "PhotoPreview" || cameraItem.state == "VideoPreview" ? QfTheme.mainColor : cameraItem.state == "VideoCapture" ? "red" : "white"
+
+              width: 48
+              height: width
+
+              SequentialAnimation {
+                id: captureButtonAnimation
+                loops: Animation.Infinite
+                PropertyAnimation {
+                  target: captureButton
+                  property: "width"
+                  to: 0
+                  duration: 0
+                }
+                PropertyAnimation {
+                  target: captureButton
+                  property: "width"
+                  to: 48
+                  duration: 2500
+                  easing.type: Easing.OutQuad
+                }
+                PropertyAnimation {
+                  target: captureButton
+                  property: "width"
+                  to: 0
+                  duration: 2500
+                  easing.type: Easing.OutQuad
+                }
+
+                onStopped: {
+                  if (captureButton.width !== 48) {
+                    captureButton.width = 48;
+                  }
+                }
+              }
 
               onClicked: {
-                if (!captureLoader.item)
+                if (!captureLoader.item) {
                   return;
+                }
                 if (cameraItem.state == "PhotoCapture") {
                   platformUtilities.createDir(qgisProject.homePath, 'DCIM');
+                  captureLoader.item.camera.focusMode = QfCamera.FocusModeAuto;
                   captureLoader.item.imageCapture.captureToFile(qgisProject.homePath + '/DCIM/');
+                  cameraItem.isCapturing = true;
+                  captureFocusTimer.restart();
+                  captureButtonAnimation.start();
                   captureFlashAnimation.start();
                   platformUtilities.vibrate(30);
                   captureLoader.item.orientationNormalizer.recordCaptureOrientation();
@@ -612,7 +723,7 @@ Popup {
                     currentPosition = positionSource.positionInformation;
                     currentProjectedPosition = positionSource.projectedPosition;
                   } else {
-                    currentPosition = PositioningUtils.createEmptyGnssPositionInformation();
+                    currentPosition = QfPositioningUtils.createEmptyGnssPositionInformation();
                     currentProjectedPosition = undefined;
                   }
                 } else if (cameraItem.state == "VideoCapture") {
@@ -622,14 +733,14 @@ Popup {
                     cameraItem.state = "VideoPreview";
                     captureLoader.item.recorder.stop();
                     const path = captureLoader.item.recorder.actualLocation.toString();
-                    currentPath = UrlUtils.toLocalFile(path);
+                    currentPath = QfUrlUtils.toLocalFile(path);
                   }
                 } else if (cameraItem.state == "PhotoPreview" || cameraItem.state == "VideoPreview") {
                   if (!currentPath || currentPath === "")
                     return;
                   if (cameraItem.state == "PhotoPreview") {
                     if (cameraSettings.geoTagging && positionSource.active) {
-                      FileUtils.addImageMetadata(currentPath, currentPosition);
+                      QfFileUtils.addImageMetadata(currentPath, currentPosition);
                     }
                     captureAttitude.writePoseMetadata(currentPath, currentPosition.orientationValid ? currentPosition.orientation : NaN);
                     // pozycja z naszego odbiornika, gdy plik jej nie ma: bez tego
@@ -643,10 +754,92 @@ Popup {
                       if (stampExpressionEvaluator.expressionText === "") {
                         stampExpressionEvaluator.expressionText = stampExpressionEvaluator.defaultTextTemplate;
                       }
-                      FileUtils.addImageStamp(currentPath, stampExpressionEvaluator.evaluate(), iface.readProjectEntry("qfieldsync", "stampingFontStyle"), iface.readProjectNumEntry("qfieldsync", "stampingHorizontalAlignment", 0), iface.readProjectEntry("qfieldsync", "stampingImageDecoration"));
+                      QfFileUtils.addImageStamp(currentPath, stampExpressionEvaluator.evaluate(), iface.readProjectEntry("qfieldsync", "stampingFontStyle"), iface.readProjectNumEntry("qfieldsync", "stampingHorizontalAlignment", 0), iface.readProjectEntry("qfieldsync", "stampingImageDecoration"));
                     }
                   }
+                  if (cameraItem.userRotation !== 0 || cameraItem.userMirror) {
+                    captureLoader.item.orientationNormalizer.applyEditsToImage(currentPath, cameraItem.userRotation, cameraItem.userMirror);
+                  }
                   cameraItem.finished(currentPath);
+                }
+              }
+            }
+          }
+
+          Rectangle {
+            id: photoEditButtons
+            visible: cameraItem.state == "PhotoPreview"
+
+            width: photoEditButtonsRow.width + 8
+            height: photoEditButtonsRow.height + 8
+            radius: height / 2
+            color: Qt.hsla(QfTheme.toolButtonBackgroundSemiOpaqueColor.hslHue, QfTheme.toolButtonBackgroundSemiOpaqueColor.hslSaturation, QfTheme.toolButtonBackgroundSemiOpaqueColor.hslLightness, 0.3)
+
+            rotation: cameraItem.isPortraitMode ? 0 : -90
+
+            x: cameraItem.isPortraitMode ? captureRing.x + captureRing.width / 2 - width / 2 : captureRing.x + captureRing.width / 2 - width / 2 - (20 + mainWindow.sceneBottomMargin + cameraItem.panelExtraSpace)
+            y: cameraItem.isPortraitMode ? captureRing.y - height - 20 : captureRing.y + captureRing.height / 2 - height / 2
+
+            Row {
+              id: photoEditButtonsRow
+              anchors.centerIn: parent
+              spacing: 4
+
+              QfToolButton {
+                id: rotateLeftButton
+                width: 40
+                height: 40
+                padding: 2
+                round: true
+                iconColor: QfTheme.toolButtonColor
+                bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
+                onClicked: cameraItem.userRotation = (cameraItem.userRotation + 270) % 360
+
+                Image {
+                  anchors.centerIn: parent
+                  width: 24
+                  height: 24
+                  source: QfTheme.getThemeVectorIcon("ic_rotate_grey_24dp")
+                  rotation: cameraItem.isPortraitMode ? 0 : 90
+                }
+              }
+
+              QfToolButton {
+                id: reflectButton
+                width: 40
+                height: 40
+                padding: 2
+                round: true
+                iconColor: QfTheme.toolButtonColor
+                bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
+                onClicked: cameraItem.userMirror = !cameraItem.userMirror
+
+                Image {
+                  anchors.centerIn: parent
+                  width: 24
+                  height: 24
+                  source: QfTheme.getThemeVectorIcon("ic_reflect_grey_24dp")
+                  rotation: cameraItem.isPortraitMode ? 0 : 90
+                }
+              }
+
+              QfToolButton {
+                id: rotateRightButton
+                width: 40
+                height: 40
+                padding: 2
+                round: true
+                iconColor: QfTheme.toolButtonColor
+                bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
+                onClicked: cameraItem.userRotation = (cameraItem.userRotation + 90) % 360
+
+                Image {
+                  anchors.centerIn: parent
+                  width: 24
+                  height: 24
+                  source: QfTheme.getThemeVectorIcon("ic_rotate_grey_24dp")
+                  mirror: true
+                  rotation: cameraItem.isPortraitMode ? 0 : 90
                 }
               }
             }
@@ -658,7 +851,7 @@ Popup {
             readonly property int slotSize: 36
             readonly property int highlightInset: 1
 
-            visible: cameraItem.allowCaptureModeToggle && cameraItem.isCapturing && captureLoader.item && captureLoader.item.recorder.recorderState === MediaRecorder.StoppedState
+            visible: cameraItem.allowCaptureModeToggle && cameraItem.isReady && captureLoader.item && captureLoader.item.recorder.recorderState === MediaRecorder.StoppedState
 
             width: slotSize * 2 + 4
             height: 40
@@ -685,7 +878,7 @@ Popup {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 round: false
-                iconSource: Theme.getThemeVectorIcon('ic_camera_photo_black_24dp')
+                iconSource: QfTheme.getThemeVectorIcon('ic_camera_photo_black_24dp')
                 iconColor: "white"
                 bgcolor: 'transparent'
                 enabled: false
@@ -699,7 +892,7 @@ Popup {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 round: false
-                iconSource: Theme.getThemeVectorIcon('ic_camera_video_black_24dp')
+                iconSource: QfTheme.getThemeVectorIcon('ic_camera_video_black_24dp')
                 iconColor: "white"
                 bgcolor: 'transparent'
                 enabled: false
@@ -714,7 +907,7 @@ Popup {
                 width: modeSwitch.slotSize - inset * 2
                 height: modeSwitch.slotSize - inset * 2
                 radius: 3
-                color: Theme.darkGraySemiOpaque
+                color: QfTheme.darkGraySemiOpaque
                 border.color: "#66FFFFFF"
                 border.width: 1
                 clip: true
@@ -725,7 +918,7 @@ Popup {
                   anchors.centerIn: parent
                   round: false
                   hoverEnabled: false
-                  iconSource: modeSwitch.checked ? Theme.getThemeVectorIcon('ic_camera_video_black_24dp') : Theme.getThemeVectorIcon('ic_camera_photo_black_24dp')
+                  iconSource: modeSwitch.checked ? QfTheme.getThemeVectorIcon('ic_camera_video_black_24dp') : QfTheme.getThemeVectorIcon('ic_camera_photo_black_24dp')
                   iconColor: "white"
                   bgcolor: 'transparent'
                   enabled: false
@@ -748,17 +941,17 @@ Popup {
 
           QfToolButton {
             id: zoomButton
-            visible: true//cameraItem.isCapturing && captureLoader.item && (captureLoader.item.camera.maximumZoomFactor !== 1.0 || captureLoader.item.camera.minimumZoomFactor !== 1.0)
+            visible: captureLoader.item && captureLoader.item.camera.maximumZoomFactor !== 1.0
 
             x: cameraItem.isPortraitMode ? (parent.width / 4) - (width / 2) : (parent.width - width) / 2 + cameraItem.captureOffset
             y: cameraItem.isPortraitMode ? (parent.height - height) / 2 + cameraItem.captureOffset : (parent.height / 4) * 3 - (height / 2)
 
-            iconColor: Theme.toolButtonColor
-            bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+            iconColor: QfTheme.toolButtonColor
+            bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
             round: true
 
             text: captureLoader.item ? captureLoader.item.camera.zoomFactor.toFixed(1) + 'X' : '1.0X'
-            font: Theme.tinyFont
+            font: QfTheme.tinyFont
 
             onClicked: {
               if (captureLoader.item) {
@@ -769,36 +962,38 @@ Popup {
 
           QfToolButton {
             id: flashButton
-            visible: true//cameraItem.isCapturing && captureLoader.item && captureLoader.item.camera.isFlashModeSupported(Camera.FlashOn)
+            visible: captureLoader.item && captureLoader.item.camera.isFlashModeSupported(QfCamera.FlashOn)
 
             x: cameraItem.isPortraitMode ? (parent.width / 4) * 3 - (width / 2) : (parent.width - width) / 2 + cameraItem.captureOffset
             y: cameraItem.isPortraitMode ? (parent.height - height) / 2 + cameraItem.captureOffset : (parent.height / 4) - (height / 2)
 
             iconSource: {
-              if (!captureLoader.item)
+              if (!captureLoader.item) {
                 return '';
+              }
               switch (captureLoader.item.camera.flashMode) {
-              case Camera.FlashAuto:
-                return Theme.getThemeVectorIcon('ic_flash_auto_black_24dp');
-              case Camera.FlashOn:
-                return Theme.getThemeVectorIcon('ic_flash_on_black_24dp');
-              case Camera.FlashOff:
-                return Theme.getThemeVectorIcon('ic_flash_off_black_24dp');
+              case QfCamera.FlashAuto:
+                return QfTheme.getThemeVectorIcon('ic_flash_auto_black_24dp');
+              case QfCamera.FlashOn:
+                return QfTheme.getThemeVectorIcon('ic_flash_on_black_24dp');
+              case QfCamera.FlashOff:
+                return QfTheme.getThemeVectorIcon('ic_flash_off_black_24dp');
               default:
                 return '';
               }
             }
-            iconColor: Theme.toolButtonColor
-            bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+            iconColor: QfTheme.toolButtonColor
+            bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
             round: true
 
             onClicked: {
-              if (!captureLoader.item)
+              if (!captureLoader.item) {
                 return;
-              if (captureLoader.item.camera.flashMode === Camera.FlashOff) {
-                captureLoader.item.camera.flashMode = Camera.FlashOn;
+              }
+              if (captureLoader.item.camera.flashMode === QfCamera.FlashOff) {
+                captureLoader.item.camera.flashMode = QfCamera.FlashOn;
               } else {
-                captureLoader.item.camera.flashMode = Camera.FlashOff;
+                captureLoader.item.camera.flashMode = QfCamera.FlashOff;
               }
             }
           }
@@ -851,13 +1046,15 @@ Popup {
       anchors.top: parent.top
       anchors.topMargin: mainWindow.sceneTopMargin + 4
 
-      iconSource: Theme.getThemeVectorIcon("ic_chevron_left_white_24dp")
-      iconColor: Theme.toolButtonColor
-      bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+      iconSource: QfTheme.getThemeVectorIcon("ic_chevron_left_white_24dp")
+      iconColor: QfTheme.toolButtonColor
+      bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
       round: true
 
       onClicked: {
         if (cameraItem.state == "PhotoPreview") {
+          cameraItem.userRotation = 0;
+          cameraItem.userMirror = false;
           cameraItem.state = "PhotoCapture";
         } else if (cameraItem.state == "VideoPreview") {
           videoPreview.stop();
@@ -873,15 +1070,15 @@ Popup {
 
     QfToolButtonDrawer {
       name: "cameraSettingsDrawer"
-
+      visible: cameraItem.isReady
       anchors.left: parent.left
       anchors.leftMargin: mainWindow.sceneLeftMargin + 4
       anchors.top: backButton.bottom
       anchors.topMargin: 4
 
-      iconSource: Theme.getThemeVectorIcon("ic_camera_settings_black_24dp")
-      iconColor: Theme.toolButtonColor
-      bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+      iconSource: QfTheme.getThemeVectorIcon("ic_camera_settings_black_24dp")
+      iconColor: QfTheme.toolButtonColor
+      bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
       spacing: 4
       collapsed: false
 
@@ -894,9 +1091,9 @@ Popup {
         padding: 2
         enabled: captureLoader.item
 
-        iconSource: Theme.getThemeVectorIcon("ic_camera_switch_black_24dp")
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_camera_switch_black_24dp")
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
         round: true
 
         onClicked: {
@@ -913,9 +1110,9 @@ Popup {
         padding: 2
         enabled: captureLoader.item
 
-        iconSource: Theme.getThemeVectorIcon("ic_camera_resolution_black_24dp")
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_camera_resolution_black_24dp")
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
         round: true
 
         onClicked: {
@@ -930,9 +1127,9 @@ Popup {
         height: 40
         padding: 2
 
-        iconSource: Theme.getThemeVectorIcon("ic_text_black_24dp")
-        iconColor: cameraSettings.stamping ? Theme.mainColor : Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_text_black_24dp")
+        iconColor: cameraSettings.stamping ? QfTheme.mainColor : QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
         round: true
 
         onClicked: {
@@ -948,9 +1145,9 @@ Popup {
         height: 40
         padding: 2
 
-        iconSource: positionSource.active ? Theme.getThemeVectorIcon("ic_geotag_white_24dp") : Theme.getThemeVectorIcon("ic_geotag_missing_white_24dp")
-        iconColor: cameraSettings.geoTagging ? Theme.mainColor : Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+        iconSource: positionSource.active ? QfTheme.getThemeVectorIcon("ic_geotag_white_24dp") : QfTheme.getThemeVectorIcon("ic_geotag_missing_white_24dp")
+        iconColor: cameraSettings.geoTagging ? QfTheme.mainColor : QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
         round: true
 
         onClicked: {
@@ -966,9 +1163,9 @@ Popup {
         height: 40
         padding: 2
 
-        iconSource: Theme.getThemeVectorIcon("ic_3x3_grid_white_24dp")
-        iconColor: cameraSettings.showGrid ? Theme.mainColor : Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundSemiOpaqueColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_3x3_grid_white_24dp")
+        iconColor: cameraSettings.showGrid ? QfTheme.mainColor : QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
         round: true
 
         onClicked: {
@@ -994,8 +1191,8 @@ Popup {
 
           text: modelData.description + (modelData.position !== CameraDevice.UnspecifiedPosition ? ' (' + (modelData.position === CameraDevice.FrontFace ? qsTr('front') : qsTr('back')) + ')' : '')
           height: 48
-          leftPadding: Theme.menuItemCheckLeftPadding
-          font: Theme.defaultFont
+          leftPadding: QfTheme.menuItemCheckLeftPadding
+          font: QfTheme.defaultFont
           enabled: !checked && captureLoader.item
           checkable: true
           checked: deviceId == cameraSettings.deviceId || (isDefault && cameraSettings.deviceId == '')
@@ -1069,8 +1266,8 @@ Popup {
             return resolution.width + ' × ' + resolution.height + (details.length > 0 ? ' — ' + details.join(' / ') : '');
           }
           height: 48
-          leftPadding: Theme.menuItemCheckLeftPadding
-          font: Theme.defaultFont
+          leftPadding: QfTheme.menuItemCheckLeftPadding
+          font: QfTheme.defaultFont
           enabled: !checked && captureLoader.item
           checkable: true
           checked: cameraSettings.resolution == resolution && cameraSettings.pixelFormat == pixelFormat
@@ -1089,6 +1286,13 @@ Popup {
             }
           }
         }
+      }
+    }
+
+    Keys.onReleased: event => {
+      if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+        event.accepted = true;
+        backButton.clicked();
       }
     }
   }

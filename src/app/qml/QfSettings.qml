@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtCore
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
+import QfTheme
 
 /**
  * \ingroup qml
@@ -152,7 +153,7 @@ Page {
     iface.setupNetworkProxy();
   }
 
-  Settings {
+  QfSettings {
     id: registry
     property bool enableNavigation: false
     property bool showScaleBar: true
@@ -164,7 +165,7 @@ Page {
     property bool numericalDigitizingInformation: false
     property bool showBookmarks: true
     property bool nativeCamera2: true  // WorkField: wymagane dla OpenCamera
-    property bool digitizingVolumeKeys: platformUtilities.capabilities & PlatformUtilities.VolumeKeys
+    property bool digitizingVolumeKeys: platformUtilities.capabilities & QfPlatformUtilities.VolumeKeys
     property bool autoSave: false
     property bool fingerTapDigitizing: false
     property bool mouseAsTouchScreen: false
@@ -256,7 +257,7 @@ Page {
     Component.onCompleted: {
       for (var i = 0; i < count; i++) {
         if (get(i).settingAlias === 'digitizingVolumeKeys') {
-          setProperty(i, 'isVisible', platformUtilities.capabilities & PlatformUtilities.VolumeKeys ? true : false);
+          setProperty(i, 'isVisible', platformUtilities.capabilities & QfPlatformUtilities.VolumeKeys ? true : false);
         } else {
           setProperty(i, 'isVisible', true);
         }
@@ -328,9 +329,9 @@ Page {
     Component.onCompleted: {
       for (var i = 0; i < count; i++) {
         if (get(i).settingAlias === 'nativeCamera2') {
-          setProperty(i, 'isVisible', platformUtilities.capabilities & PlatformUtilities.NativeCamera ? true : false);
+          setProperty(i, 'isVisible', platformUtilities.capabilities & QfPlatformUtilities.NativeCamera ? true : false);
         } else if (get(i).settingAlias === 'enableInfoCollection') {
-          setProperty(i, 'isVisible', platformUtilities.capabilities & PlatformUtilities.SentryFramework ? true : false);
+          setProperty(i, 'isVisible', platformUtilities.capabilities & QfPlatformUtilities.SentryFramework ? true : false);
         } else {
           setProperty(i, 'isVisible', true);
         }
@@ -339,7 +340,7 @@ Page {
   }
 
   Rectangle {
-    color: Theme.mainBackgroundColor
+    color: QfTheme.mainBackgroundColor
     anchors.fill: parent
   }
 
@@ -351,6 +352,7 @@ Page {
       right: parent.right
       bottom: parent.bottom
     }
+
 
     Component {
       id: listItem
@@ -373,8 +375,8 @@ Page {
               padding: 8
               leftPadding: 20
               text: title
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               MouseArea {
                 anchors.fill: parent
@@ -389,8 +391,8 @@ Page {
               topPadding: 0
               leftPadding: 20
               text: description
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
               wrapMode: Text.WordWrap
             }
           }
@@ -413,13 +415,13 @@ Page {
       clip: true
 
       initialItem: QfSettingsIndex {
-        t: Theme
+        t: QfTheme
         onCategorySelected: categoryId => page.openCategory(categoryId)
       }
     }
   }
 
-  PositioningDeviceSettings {
+  QfPositioningDeviceSettings {
     id: positioningDeviceSettings
 
     property string originalName: ''
@@ -442,7 +444,7 @@ Page {
     }
   }
 
-  PositioningNtripSettings {
+  QfPositioningNtripSettings {
     id: positioningNtripSettings
 
     onApply: {
@@ -457,8 +459,8 @@ Page {
         topPadding: 5
         leftPadding: 20
         rightPadding: 20
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical: QfScrollBar {}
+        QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+        QfScrollBar.vertical: QfScrollBar {}
         contentWidth: positioningGrid.width
         contentHeight: positioningGrid.height
         anchors.fill: parent
@@ -477,9 +479,9 @@ Page {
             rowSpacing: 5
 
             Label {
-              text: qsTr('Positioning Device')
-              font: Theme.strongFont
-              color: Theme.mainTextColor
+              text: qsTr('QfPositioning Device')
+              font: QfTheme.strongFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
               Layout.topMargin: 5
@@ -490,9 +492,9 @@ Page {
             Label {
               Layout.fillWidth: true
               Layout.columnSpan: 2
-              text: qsTr("Positioning device in use:")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              text: qsTr("QfPositioning device in use:")
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
 
               wrapMode: Text.WordWrap
             }
@@ -505,15 +507,15 @@ Page {
                 id: positioningDeviceComboBox
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
-                font: Theme.defaultFont
+                font: QfTheme.defaultFont
 
-                popup.font: Theme.defaultFont
+                popup.font: QfTheme.defaultFont
                 popup.topMargin: mainWindow.sceneTopMargin
                 popup.bottomMargin: mainWindow.sceneTopMargin
 
                 textRole: 'DeviceName'
                 valueRole: 'DeviceType'
-                model: PositioningDeviceModel {
+                model: QfPositioningDeviceModel {
                   id: positioningDeviceModel
                   Component.onCompleted: page.positioningModelItem = positioningDeviceModel
                 }
@@ -523,27 +525,27 @@ Page {
                   height: 36
                   icon.source: {
                     switch (DeviceType) {
-                    case PositioningDeviceModel.InternalDevice:
-                      return Theme.getThemeVectorIcon('ic_internal_receiver_black_24dp');
-                    case PositioningDeviceModel.FileDevice:
-                      return Theme.getThemeVectorIcon("ic_file_black_24dp");
-                    case PositioningDeviceModel.BluetoothDevice:
-                      return Theme.getThemeVectorIcon('ic_bluetooth_receiver_black_24dp');
-                    case PositioningDeviceModel.TcpDevice:
-                      return Theme.getThemeVectorIcon('ic_tcp_receiver_black_24dp');
-                    case PositioningDeviceModel.UdpDevice:
-                      return Theme.getThemeVectorIcon('ic_udp_receiver_black_24dp');
-                    case PositioningDeviceModel.SerialPortDevice:
-                      return Theme.getThemeVectorIcon('ic_serial_port_receiver_black_24dp');
-                    case PositioningDeviceModel.EgenioussDevice:
-                      return Theme.getThemeVectorIcon('ic_egeniouss_receiver_black_24dp');
+                    case QfPositioningDeviceModel.InternalDevice:
+                      return QfTheme.getThemeVectorIcon('ic_internal_receiver_black_24dp');
+                    case QfPositioningDeviceModel.FileDevice:
+                      return QfTheme.getThemeVectorIcon("ic_file_black_24dp");
+                    case QfPositioningDeviceModel.BluetoothDevice:
+                      return QfTheme.getThemeVectorIcon('ic_bluetooth_receiver_black_24dp');
+                    case QfPositioningDeviceModel.TcpDevice:
+                      return QfTheme.getThemeVectorIcon('ic_tcp_receiver_black_24dp');
+                    case QfPositioningDeviceModel.UdpDevice:
+                      return QfTheme.getThemeVectorIcon('ic_udp_receiver_black_24dp');
+                    case QfPositioningDeviceModel.SerialPortDevice:
+                      return QfTheme.getThemeVectorIcon('ic_serial_port_receiver_black_24dp');
+                    case QfPositioningDeviceModel.EgenioussDevice:
+                      return QfTheme.getThemeVectorIcon('ic_egeniouss_receiver_black_24dp');
                     }
                     return '';
                   }
                   icon.width: 24
                   icon.height: 24
                   text: DeviceName
-                  font: Theme.defaultFont
+                  font: QfTheme.defaultFont
                   highlighted: positioningDeviceComboBox.highlightedIndex === index
                 }
 
@@ -553,20 +555,20 @@ Page {
 
                   icon.source: {
                     switch (positioningDeviceComboBox.currentValue) {
-                    case PositioningDeviceModel.InternalDevice:
-                      return Theme.getThemeVectorIcon('ic_internal_receiver_black_24dp');
-                    case PositioningDeviceModel.FileDevice:
-                      return Theme.getThemeVectorIcon("ic_file_black_24dp");
-                    case PositioningDeviceModel.BluetoothDevice:
-                      return Theme.getThemeVectorIcon('ic_bluetooth_receiver_black_24dp');
-                    case PositioningDeviceModel.TcpDevice:
-                      return Theme.getThemeVectorIcon('ic_tcp_receiver_black_24dp');
-                    case PositioningDeviceModel.UdpDevice:
-                      return Theme.getThemeVectorIcon('ic_udp_receiver_black_24dp');
-                    case PositioningDeviceModel.SerialPortDevice:
-                      return Theme.getThemeVectorIcon('ic_serial_port_receiver_black_24dp');
-                    case PositioningDeviceModel.EgenioussDevice:
-                      return Theme.getThemeVectorIcon('ic_egeniouss_receiver_black_24dp');
+                    case QfPositioningDeviceModel.InternalDevice:
+                      return QfTheme.getThemeVectorIcon('ic_internal_receiver_black_24dp');
+                    case QfPositioningDeviceModel.FileDevice:
+                      return QfTheme.getThemeVectorIcon("ic_file_black_24dp");
+                    case QfPositioningDeviceModel.BluetoothDevice:
+                      return QfTheme.getThemeVectorIcon('ic_bluetooth_receiver_black_24dp');
+                    case QfPositioningDeviceModel.TcpDevice:
+                      return QfTheme.getThemeVectorIcon('ic_tcp_receiver_black_24dp');
+                    case QfPositioningDeviceModel.UdpDevice:
+                      return QfTheme.getThemeVectorIcon('ic_udp_receiver_black_24dp');
+                    case QfPositioningDeviceModel.SerialPortDevice:
+                      return QfTheme.getThemeVectorIcon('ic_serial_port_receiver_black_24dp');
+                    case QfPositioningDeviceModel.EgenioussDevice:
+                      return QfTheme.getThemeVectorIcon('ic_egeniouss_receiver_black_24dp');
                     }
                     return '';
                   }
@@ -574,7 +576,7 @@ Page {
                   icon.height: 24
 
                   text: positioningDeviceComboBox.currentText
-                  font: Theme.defaultFont
+                  font: QfTheme.defaultFont
 
                   onClicked: positioningDeviceComboBox.popup.open()
                 }
@@ -592,8 +594,8 @@ Page {
                 onCurrentIndexChanged: {
                   if (loaded && currentIndex !== -1) {
                     const modelIndex = positioningDeviceModel.index(currentIndex, 0);
-                    positioningSettings.positioningDevice = positioningDeviceModel.data(modelIndex, PositioningDeviceModel.DeviceId);
-                    positioningSettings.positioningDeviceName = positioningDeviceModel.data(modelIndex, PositioningDeviceModel.DeviceName);
+                    positioningSettings.positioningDevice = positioningDeviceModel.data(modelIndex, QfPositioningDeviceModel.DeviceId);
+                    positioningSettings.positioningDeviceName = positioningDeviceModel.data(modelIndex, QfPositioningDeviceModel.DeviceName);
                   }
                 }
 
@@ -634,11 +636,11 @@ Page {
 
                 onClicked: {
                   var modelIndex = positioningDeviceModel.index(positioningDeviceComboBox.currentIndex, 0);
-                  var name = positioningDeviceModel.data(modelIndex, PositioningDeviceModel.DeviceName);
+                  var name = positioningDeviceModel.data(modelIndex, QfPositioningDeviceModel.DeviceName);
                   positioningDeviceSettings.originalName = name;
                   positioningDeviceSettings.name = name;
-                  positioningDeviceSettings.setType(positioningDeviceModel.data(modelIndex, PositioningDeviceModel.DeviceType));
-                  positioningDeviceSettings.setSettings(positioningDeviceModel.data(modelIndex, PositioningDeviceModel.DeviceSettings));
+                  positioningDeviceSettings.setType(positioningDeviceModel.data(modelIndex, QfPositioningDeviceModel.DeviceType));
+                  positioningDeviceSettings.setSettings(positioningDeviceModel.data(modelIndex, QfPositioningDeviceModel.DeviceSettings));
                   positioningDeviceSettings.open();
                 }
               }
@@ -652,7 +654,7 @@ Page {
                 onClicked: {
                   var modelIndex = positioningDeviceModel.index(positioningDeviceComboBox.currentIndex, 0);
                   positioningDeviceComboBox.currentIndex = 0;
-                  positioningDeviceModel.removeDevice(positioningDeviceModel.data(modelIndex, PositioningDeviceModel.DeviceName));
+                  positioningDeviceModel.removeDevice(positioningDeviceModel.data(modelIndex, QfPositioningDeviceModel.DeviceName));
                 }
               }
             }
@@ -689,12 +691,12 @@ Page {
             RowLayout {
               Layout.fillWidth: true
               Layout.columnSpan: 2
-              visible: positionSource.deviceCapabilities & AbstractGnssReceiver.NtripCorrection
+              visible: positionSource.deviceCapabilities & QfAbstractGnssReceiver.NtripCorrection
 
               Label {
                 text: qsTr("Enable NTRIP corrections")
-                font: Theme.defaultFont
-                color: Theme.mainTextColor
+                font: QfTheme.defaultFont
+                color: QfTheme.mainTextColor
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
 
@@ -706,17 +708,17 @@ Page {
 
               QfToolButton {
                 id: showNtripSettings
-                Layout.preferredWidth: Theme.toolButtonSize
-                Layout.preferredHeight: Theme.toolButtonSize
+                Layout.preferredWidth: QfTheme.toolButtonSize
+                Layout.preferredHeight: QfTheme.toolButtonSize
                 Layout.alignment: Qt.AlignVCenter
 
-                iconSource: Theme.getThemeVectorIcon("ic_tune_white_24dp")
-                iconColor: Theme.mainTextColor
+                iconSource: QfTheme.getThemeVectorIcon("ic_tune_white_24dp")
+                iconColor: QfTheme.mainTextColor
                 bgcolor: "transparent"
                 clip: true
 
                 onClicked: {
-                  positioningNtripSettings.updateFromNtripSettings(PositioningUtils.createNtripSettings(positioningSettings.ntripSettings));
+                  positioningNtripSettings.updateFromNtripSettings(QfPositioningUtils.createNtripSettings(positioningSettings.ntripSettings));
                   positioningNtripSettings.open();
                 }
               }
@@ -725,12 +727,12 @@ Page {
                 id: enableNtripClient
                 Layout.preferredWidth: implicitContentWidth
                 Layout.alignment: Qt.AlignVCenter
-                checked: positioningSettings.enableNtrip && positionSource.ntripState !== Positioning.NtripState.Disconnected
+                checked: positioningSettings.enableNtrip && positionSource.ntripState !== QfPositioning.NtripState.Disconnected
                 visible: enabled
 
                 onClicked: {
                   if (positioningSettings.enableNtrip) {
-                    if (positionSource.ntripSettings.isValid && positionSource.ntripState === Positioning.NtripState.Disconnected) {
+                    if (positionSource.ntripSettings.isValid && positionSource.ntripState === QfPositioning.NtripState.Disconnected) {
                       // The server has disconnected, tapping on the toggle must indicate an intent to reconnect
                       positioningSettings.enableNtrip = false;
                       positioningSettings.enableNtrip = true;
@@ -752,21 +754,21 @@ Page {
               columns: 2
               columnSpacing: 2
               rowSpacing: 2
-              visible: positioningSettings.enableNtrip && positionSource.deviceCapabilities & AbstractGnssReceiver.NtripCorrection
+              visible: positioningSettings.enableNtrip && positionSource.deviceCapabilities & QfAbstractGnssReceiver.NtripCorrection
 
               Label {
                 Layout.fillWidth: true
-                font: Theme.tipFont
-                color: Theme.secondaryTextColor
+                font: QfTheme.tipFont
+                color: QfTheme.secondaryTextColor
                 wrapMode: Text.WordWrap
                 text: {
                   if (positionSource.ntripSettings.isValid) {
                     switch (positionSource.ntripState) {
-                    case Positioning.NtripState.Disconnected:
+                    case QfPositioning.NtripState.Disconnected:
                       return qsTr("NTRIP client disconnected");
-                    case Positioning.NtripState.Connecting:
+                    case QfPositioning.NtripState.Connecting:
                       return qsTr("NTRIP client connecting");
-                    case Positioning.NtripState.Connected:
+                    case QfPositioning.NtripState.Connected:
                       return qsTr("NTRIP client connected");
                     }
                   } else {
@@ -779,12 +781,12 @@ Page {
                 Layout.alignment: Qt.AlignRight
 
                 Label {
-                  visible: positionSource.ntripState === Positioning.NtripState.Connected
-                  font: Theme.tipFont
-                  color: Theme.secondaryTextColor
+                  visible: positionSource.ntripState === QfPositioning.NtripState.Connected
+                  font: QfTheme.tipFont
+                  color: QfTheme.secondaryTextColor
                   wrapMode: Text.WordWrap
                   text: {
-                    if (page.visible && positionSource.ntripState === Positioning.NtripState.Connected) {
+                    if (page.visible && positionSource.ntripState === QfPositioning.NtripState.Connected) {
                       return "↑" + positionSource.ntripBytesSent + " ↓" + positionSource.ntripBytesReceived;
                     }
                     return '';
@@ -800,14 +802,14 @@ Page {
                   radius: height / 2
                   opacity: 1
                   color: {
-                    if (positionSource.ntripState === Positioning.NtripState.Connected) {
-                      return positionSource.ntripCurrentness ? Theme.positionColor : Theme.warningColor;
+                    if (positionSource.ntripState === QfPositioning.NtripState.Connected) {
+                      return positionSource.ntripCurrentness ? QfTheme.positionColor : QfTheme.warningColor;
                     }
-                    return Theme.secondaryTextColor;
+                    return QfTheme.secondaryTextColor;
                   }
 
                   SequentialAnimation {
-                    running: page.visible && positionSource.ntripState === Positioning.NtripState.Connected && !positionSource.ntripCurrentness
+                    running: page.visible && positionSource.ntripState === QfPositioning.NtripState.Connected && !positionSource.ntripCurrentness
                     loops: Animation.Infinite
 
                     onStopped: ntripIndicator.opacity = 1.0
@@ -834,9 +836,9 @@ Page {
               Label {
                 Layout.fillWidth: true
                 Layout.columnSpan: 2
-                visible: positionSource.ntripState === Positioning.NtripState.Connected
-                font: Theme.tipFont
-                color: Theme.secondaryTextColor
+                visible: positionSource.ntripState === QfPositioning.NtripState.Connected
+                font: QfTheme.tipFont
+                color: QfTheme.secondaryTextColor
                 wrapMode: Text.WordWrap
                 text: positionSource.ntripSettings.mountPoint
               }
@@ -852,8 +854,8 @@ Page {
 
             Label {
               text: qsTr('Map Canvas')
-              font: Theme.strongFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
               Layout.topMargin: 5
@@ -863,8 +865,8 @@ Page {
 
             Label {
               text: qsTr("Show position information")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
 
@@ -889,8 +891,8 @@ Page {
               Layout.fillWidth: true
               Layout.columnSpan: 2
               text: qsTr("Behavior when locked to position:")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
 
               wrapMode: Text.WordWrap
             }
@@ -900,10 +902,10 @@ Page {
               Layout.fillWidth: true
               Layout.columnSpan: 2
               Layout.alignment: Qt.AlignVCenter
-              font: Theme.defaultFont
+              font: QfTheme.defaultFont
               model: [qsTr("Follow position only"), qsTr("Follow position and compass orientation"), qsTr("Follow position and movement direction")]
 
-              popup.font: Theme.defaultFont
+              popup.font: QfTheme.defaultFont
               popup.topMargin: mainWindow.sceneTopMargin
               popup.bottomMargin: mainWindow.sceneTopMargin
 
@@ -925,16 +927,16 @@ Page {
               id: positionFollowModeTipLabel
               Layout.fillWidth: true
               text: qsTr("When the map canvas is following or locked to position, it can also rotate to match compass orientation or movement direction.")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
 
               wrapMode: Text.WordWrap
             }
 
             Label {
               text: qsTr('Digitizing & Editing')
-              font: Theme.strongFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
               Layout.topMargin: 10
@@ -947,8 +949,8 @@ Page {
               Layout.fillWidth: true
               Layout.columnSpan: 2
               text: qsTr("Measure (M) value attached to vertices:")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
 
               wrapMode: Text.WordWrap
             }
@@ -958,15 +960,15 @@ Page {
               Layout.fillWidth: true
               Layout.columnSpan: 2
               Layout.alignment: Qt.AlignVCenter
-              font: Theme.defaultFont
+              font: QfTheme.defaultFont
 
-              popup.font: Theme.defaultFont
+              popup.font: QfTheme.defaultFont
               popup.topMargin: mainWindow.sceneTopMargin
               popup.bottomMargin: mainWindow.sceneTopMargin
 
               property bool loaded: false
               Component.onCompleted: {
-                // This list matches the Tracker::MeasureType enum, with SecondsSinceStart removed
+                // This list matches the QfTracker::MeasureType enum, with SecondsSinceStart removed
                 var measurements = [qsTr("Timestamp (seconds since epoch)"), qsTr("Ground speed"), qsTr("Bearing"), qsTr("Horizontal accuracy"), qsTr("Vertical accuracy"), qsTr("PDOP"), qsTr("HDOP"), qsTr("VDOP")];
                 measureComboBox.model = measurements;
                 measureComboBox.currentIndex = positioningSettings.digitizingMeasureType - 1;
@@ -984,8 +986,8 @@ Page {
               id: measureTipLabel
               Layout.fillWidth: true
               text: qsTr("When digitizing features with the coordinate cursor locked to the current position, the measurement type selected above will be added to the geometry provided it has an M dimension.")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
 
               wrapMode: Text.WordWrap
             }
@@ -998,8 +1000,8 @@ Page {
 
             Label {
               text: qsTr("Activate accuracy indicator")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
 
@@ -1027,15 +1029,15 @@ Page {
 
               Label {
                 text: qsTr("Bad accuracy threshold")
-                font: Theme.defaultFont
-                color: Theme.mainTextColor
+                font: QfTheme.defaultFont
+                color: QfTheme.mainTextColor
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
               }
 
               QfTextField {
                 id: accuracyBadInput
-                font: Theme.defaultFont
+                font: QfTheme.defaultFont
                 horizontalAlignment: TextInput.AlignRight
                 suffixText: qsTr("m")
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
@@ -1065,15 +1067,15 @@ Page {
 
               Label {
                 text: qsTr("Excellent accuracy threshold")
-                font: Theme.defaultFont
-                color: Theme.mainTextColor
+                font: QfTheme.defaultFont
+                color: QfTheme.mainTextColor
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
               }
 
               QfTextField {
                 id: accuracyExcellentInput
-                font: Theme.defaultFont
+                font: QfTheme.defaultFont
                 horizontalAlignment: TextInput.AlignRight
                 suffixText: qsTr("m")
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
@@ -1097,8 +1099,8 @@ Page {
 
             Label {
               text: qsTr("Enforce accuracy requirement")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               enabled: accuracyIndicator.checked
               visible: accuracyIndicator.checked
               wrapMode: Text.WordWrap
@@ -1124,15 +1126,15 @@ Page {
             }
 
             Label {
-              text: qsTr("When the accuracy indicator is enabled, a badge is attached to the location button and colored <span %1>red</span> if the accuracy value is worse than <i>bad</i>, <span %2>yellow</span> if it falls short of <i>excellent</i>, or <span %3>green</span>.<br><br>In addition, an accuracy restriction mode can be toggled on, which restricts vertex addition when locked to coordinate cursor to positions with an accuracy value worse than the bad threshold.").arg("style='%1'".arg(Theme.toInlineStyles({
-                "color": Theme.accuracyBad
-              }))).arg("style='%1'".arg(Theme.toInlineStyles({
-                "color": Theme.accuracyTolerated
-              }))).arg("style='%1'".arg(Theme.toInlineStyles({
-                "color": Theme.accuracyExcellent
+              text: qsTr("When the accuracy indicator is enabled, a badge is attached to the location button and colored <span %1>red</span> if the accuracy value is worse than <i>bad</i>, <span %2>yellow</span> if it falls short of <i>excellent</i>, or <span %3>green</span>.<br><br>In addition, an accuracy restriction mode can be toggled on, which restricts vertex addition when locked to coordinate cursor to positions with an accuracy value worse than the bad threshold.").arg("style='%1'".arg(QfTheme.toInlineStyles({
+                "color": QfTheme.accuracyBad
+              }))).arg("style='%1'".arg(QfTheme.toInlineStyles({
+                "color": QfTheme.accuracyTolerated
+              }))).arg("style='%1'".arg(QfTheme.toInlineStyles({
+                "color": QfTheme.accuracyExcellent
               })))
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
               textFormat: Qt.RichText
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1145,8 +1147,8 @@ Page {
 
             Label {
               text: qsTr("Enable averaged positioning requirement")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
 
@@ -1174,14 +1176,14 @@ Page {
 
               Label {
                 text: qsTr("Minimum positions count")
-                font: Theme.defaultFont
-                color: Theme.mainTextColor
+                font: QfTheme.defaultFont
+                color: QfTheme.mainTextColor
                 Layout.fillWidth: true
               }
 
               QfTextField {
                 id: averagedPositioningMinimumCount
-                font: Theme.defaultFont
+                font: QfTheme.defaultFont
                 horizontalAlignment: TextInput.AlignRight
                 inputMethodHints: Qt.ImhDigitsOnly
                 validator: IntValidator {
@@ -1204,8 +1206,8 @@ Page {
 
             Label {
               text: qsTr("Automatically end collection when minimum number is met")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
               enabled: averagedPositioning.checked
@@ -1232,8 +1234,8 @@ Page {
 
             Label {
               text: qsTr("When enabled, digitizing vertices with a cursor locked to position will only accepted an averaged position from a minimum number of collected positions. Digitizing using averaged positions is done by pressing and holding the add vertex button, which will collect positions until the press is released. Accuracy requirement settings are respected when enabled.")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
               textFormat: Qt.RichText
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1246,8 +1248,8 @@ Page {
 
             Label {
               text: qsTr('Elevation Adjustment')
-              font: Theme.strongFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
               Layout.topMargin: 10
@@ -1257,8 +1259,8 @@ Page {
 
             Label {
               text: qsTr("Antenna height compensation")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
 
@@ -1286,15 +1288,15 @@ Page {
 
               Label {
                 text: qsTr("Antenna height")
-                font: Theme.defaultFont
-                color: Theme.mainTextColor
+                font: QfTheme.defaultFont
+                color: QfTheme.mainTextColor
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
               }
 
               QfTextField {
                 id: antennaHeightInput
-                font: Theme.defaultFont
+                font: QfTheme.defaultFont
                 horizontalAlignment: TextInput.AlignRight
                 suffixText: qsTr("m")
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
@@ -1318,8 +1320,8 @@ Page {
 
             Label {
               text: qsTr("This value will correct the Z values recorded from the positioning device. If a value of 1.6 is entered, the system will automatically subtract 1.6 from each recorded value. Make sure to insert the effective antenna height, i.e. pole length + antenna phase center offset.")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
 
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1332,8 +1334,8 @@ Page {
 
             Label {
               text: qsTr("Skip altitude correction")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
 
@@ -1356,8 +1358,8 @@ Page {
             Label {
               topPadding: 0
               text: qsTr("Use the altitude as reported by the positioning device. Skip any altitude correction that may be implied by the coordinate system transformation.")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
 
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1370,8 +1372,8 @@ Page {
 
             Label {
               text: qsTr("Vertical grid shift in use:")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
 
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1382,9 +1384,9 @@ Page {
               id: verticalGridShiftComboBox
               Layout.fillWidth: true
               Layout.columnSpan: 2
-              font: Theme.defaultFont
+              font: QfTheme.defaultFont
 
-              popup.font: Theme.defaultFont
+              popup.font: QfTheme.defaultFont
               popup.topMargin: mainWindow.sceneTopMargin
               popup.bottomMargin: mainWindow.sceneTopMargin
 
@@ -1400,7 +1402,7 @@ Page {
                   return;
                 }
                 positioningSettings.elevationCorrectionMode = currentValue;
-                if (positioningSettings.elevationCorrectionMode === Positioning.ElevationCorrectionMode.OrthometricFromGeoidFile) {
+                if (positioningSettings.elevationCorrectionMode === QfPositioning.ElevationCorrectionMode.OrthometricFromGeoidFile) {
                   positioningSettings.verticalGrid = currentText;
                 } else {
                   positioningSettings.verticalGrid = "";
@@ -1415,12 +1417,12 @@ Page {
                 verticalGridShiftComboBox.model.clear();
                 verticalGridShiftComboBox.model.append({
                   "text": qsTr("None"),
-                  "value": Positioning.ElevationCorrectionMode.None
+                  "value": QfPositioning.ElevationCorrectionMode.None
                 });
-                if ((positionSource.deviceCapabilities & AbstractGnssReceiver.OrthometricAltitude) != 0) {
+                if ((positionSource.deviceCapabilities & QfAbstractGnssReceiver.OrthometricAltitude) != 0) {
                   verticalGridShiftComboBox.model.append({
                     "text": qsTr("Orthometric from device"),
-                    "value": Positioning.ElevationCorrectionMode.OrthometricFromDevice
+                    "value": QfPositioning.ElevationCorrectionMode.OrthometricFromDevice
                   });
                 }
 
@@ -1429,30 +1431,30 @@ Page {
                 for (var i = 0; i < geoidFiles.length; i++)
                   verticalGridShiftComboBox.model.append({
                     "text": geoidFiles[i],
-                    "value": Positioning.ElevationCorrectionMode.OrthometricFromGeoidFile
+                    "value": QfPositioning.ElevationCorrectionMode.OrthometricFromGeoidFile
                   });
-                if (positioningSettings.elevationCorrectionMode === Positioning.ElevationCorrectionMode.None) {
+                if (positioningSettings.elevationCorrectionMode === QfPositioning.ElevationCorrectionMode.None) {
                   verticalGridShiftComboBox.currentIndex = indexOfValue(positioningSettings.elevationCorrectionMode);
                   positioningSettings.verticalGrid = "";
-                } else if (positioningSettings.elevationCorrectionMode === Positioning.ElevationCorrectionMode.OrthometricFromDevice) {
-                  if ((positionSource.deviceCapabilities & AbstractGnssReceiver.OrthometricAltitude) != 0)
+                } else if (positioningSettings.elevationCorrectionMode === QfPositioning.ElevationCorrectionMode.OrthometricFromDevice) {
+                  if ((positionSource.deviceCapabilities & QfAbstractGnssReceiver.OrthometricAltitude) != 0)
                     verticalGridShiftComboBox.currentIndex = verticalGridShiftComboBox.indexOfValue(positioningSettings.elevationCorrectionMode);
                   else
                     // Orthometric not available -> fallback to None
-                    verticalGridShiftComboBox.currentIndex = verticalGridShiftComboBox.indexOfValue(Positioning.ElevationCorrectionMode.None);
+                    verticalGridShiftComboBox.currentIndex = verticalGridShiftComboBox.indexOfValue(QfPositioning.ElevationCorrectionMode.None);
                   positioningSettings.verticalGrid = "";
-                } else if (positioningSettings.elevationCorrectionMode === Positioning.ElevationCorrectionMode.OrthometricFromGeoidFile) {
+                } else if (positioningSettings.elevationCorrectionMode === QfPositioning.ElevationCorrectionMode.OrthometricFromGeoidFile) {
                   var currentVerticalGridFileIndex = verticalGridShiftComboBox.find(positioningSettings.verticalGrid);
                   if (currentVerticalGridFileIndex < 1)
                     // Vertical index file not found -> fallback to None
-                    verticalGridShiftComboBox.currentIndex = verticalGridShiftComboBox.indexOfValue(Positioning.ElevationCorrectionMode.None);
+                    verticalGridShiftComboBox.currentIndex = verticalGridShiftComboBox.indexOfValue(QfPositioning.ElevationCorrectionMode.None);
                   else
                     verticalGridShiftComboBox.currentIndex = currentVerticalGridFileIndex;
                 } else {
                   console.log("Warning unknown elevationCorrectionMode: '%1'".arg(positioningSettings.elevationCorrectionMode));
 
                   // Unknown mode -> fallback to None
-                  verticalGridShiftComboBox.currentIndex = verticalGridShiftComboBox.indexOfValue(Positioning.ElevationCorrectionMode.None);
+                  verticalGridShiftComboBox.currentIndex = verticalGridShiftComboBox.indexOfValue(QfPositioning.ElevationCorrectionMode.None);
                 }
                 reloading = false;
               }
@@ -1462,8 +1464,8 @@ Page {
               topPadding: 0
               rightPadding: antennaHeightActivated.width
               text: qsTr("Vertical grid shift is used to increase the altitude accuracy.")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
 
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1472,23 +1474,23 @@ Page {
 
             Label {
               text: qsTr('Advanced')
-              font: Theme.strongFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
               Layout.topMargin: 10
               Layout.bottomMargin: 5
               Layout.columnSpan: 2
-              visible: positionSource.deviceCapabilities & AbstractGnssReceiver.Logging
+              visible: positionSource.deviceCapabilities & QfAbstractGnssReceiver.Logging
             }
 
             Label {
               text: qsTr("Log NMEA sentences from device to file")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
-              visible: positionSource.deviceCapabilities & AbstractGnssReceiver.Logging
+              visible: positionSource.deviceCapabilities & QfAbstractGnssReceiver.Logging
 
               MouseArea {
                 anchors.fill: parent
@@ -1500,7 +1502,7 @@ Page {
               id: positionLogging
               Layout.preferredWidth: implicitContentWidth
               Layout.alignment: Qt.AlignTop
-              visible: positionSource.deviceCapabilities & AbstractGnssReceiver.Logging
+              visible: positionSource.deviceCapabilities & QfAbstractGnssReceiver.Logging
               checked: positioningSettings.logging
               onCheckedChanged: {
                 positioningSettings.logging = checked;
@@ -1521,7 +1523,7 @@ Page {
   Component {
     id: variablesPage
     Item {
-      VariableEditor {
+      QfVariableEditor {
         id: variableEditor
         anchors.fill: parent
         anchors.margins: 4
@@ -1543,8 +1545,8 @@ Page {
       ScrollView {
         anchors.fill: parent
         topPadding: 5
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical: QfScrollBar {}
+        QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+        QfScrollBar.vertical: QfScrollBar {}
         contentWidth: availableWidth
         clip: true
 
@@ -1618,7 +1620,7 @@ Page {
   }
 
   header: QfPageHeader {
-    title: settingsStack.depth > 1 && settingsStack.currentItem && settingsStack.currentItem.categoryId ? page.categoryTitles[settingsStack.currentItem.categoryId] : qsTr("%1 Settings").arg(appName)
+    title: settingsStack.depth > 1 && settingsStack.currentItem && settingsStack.currentItem.categoryId ? page.categoryTitles[settingsStack.currentItem.categoryId] : qsTr("%1 QfSettings").arg(Qfield.name)
 
     showBackButton: true
     showApplyButton: false

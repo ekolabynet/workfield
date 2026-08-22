@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import Theme
+import QfTheme
 
 ColumnLayout {
   property var settingsPage
@@ -26,8 +26,8 @@ ColumnLayout {
 
     Label {
       text: qsTr('User Interface')
-      font: Theme.strongFont
-      color: Theme.mainTextColor
+      font: QfTheme.strongFont
+      color: QfTheme.mainTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
       Layout.topMargin: 5
@@ -36,8 +36,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("Customize search bar")
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
       Layout.topMargin: 5
@@ -50,13 +50,13 @@ ColumnLayout {
 
     QfToolButton {
       id: showSearchBarSettings
-      Layout.preferredWidth: Theme.toolButtonSize
-      Layout.preferredHeight: Theme.toolButtonSize
+      Layout.preferredWidth: QfTheme.toolButtonSize
+      Layout.preferredHeight: QfTheme.toolButtonSize
       Layout.alignment: Qt.AlignVCenter
       clip: true
 
-      iconSource: Theme.getThemeVectorIcon("ic_ellipsis_black_24dp")
-      iconColor: Theme.mainColor
+      iconSource: QfTheme.getThemeVectorIcon("ic_ellipsis_black_24dp")
+      iconColor: QfTheme.mainColor
       bgcolor: "transparent"
 
       onClicked: {
@@ -66,8 +66,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("Manage plugins")
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
 
@@ -79,13 +79,13 @@ ColumnLayout {
 
     QfToolButton {
       id: showPluginManagerSettings
-      Layout.preferredWidth: Theme.toolButtonSize
-      Layout.preferredHeight: Theme.toolButtonSize
+      Layout.preferredWidth: QfTheme.toolButtonSize
+      Layout.preferredHeight: QfTheme.toolButtonSize
       Layout.alignment: Qt.AlignVCenter
       clip: true
 
-      iconSource: Theme.getThemeVectorIcon("ic_ellipsis_black_24dp")
-      iconColor: Theme.mainColor
+      iconSource: QfTheme.getThemeVectorIcon("ic_ellipsis_black_24dp")
+      iconColor: QfTheme.mainColor
       bgcolor: "transparent"
 
       onClicked: {
@@ -115,14 +115,14 @@ ColumnLayout {
     columnSpacing: 0
     rowSpacing: 5
 
-    visible: platformUtilities.capabilities & PlatformUtilities.AdjustBrightness
+    visible: platformUtilities.capabilities & QfPlatformUtilities.AdjustBrightness
 
     Label {
       Layout.fillWidth: true
 
       text: qsTr('Dim screen when idling')
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
       wrapMode: Text.WordWrap
     }
 
@@ -146,8 +146,8 @@ ColumnLayout {
       Layout.fillWidth: true
       text: qsTr('Time of inactivity in seconds before the screen brightness get be dimmed to preserve battery.')
 
-      font: Theme.tipFont
-      color: Theme.secondaryTextColor
+      font: QfTheme.tipFont
+      color: QfTheme.secondaryTextColor
       wrapMode: Text.WordWrap
     }
   }
@@ -166,8 +166,8 @@ ColumnLayout {
     Label {
       Layout.fillWidth: true
       text: qsTr("Appearance:")
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
 
       wrapMode: Text.WordWrap
     }
@@ -177,9 +177,9 @@ ColumnLayout {
       enabled: true
       Layout.fillWidth: true
       Layout.alignment: Qt.AlignVCenter
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
 
-      popup.font: Theme.defaultFont
+      popup.font: QfTheme.defaultFont
       popup.topMargin: mainWindow.sceneTopMargin
       popup.bottomMargin: mainWindow.sceneTopMargin
 
@@ -204,12 +204,12 @@ ColumnLayout {
 
       onCurrentValueChanged: {
         if (initialized) {
-          Theme.appearance = currentValue;
+          QfTheme.appearance = currentValue;
         }
       }
 
       Component.onCompleted: {
-        currentIndex = indexOfValue(Theme.appearance);
+        currentIndex = indexOfValue(QfTheme.appearance);
         initialized = true;
       }
     }
@@ -217,8 +217,8 @@ ColumnLayout {
     Label {
       Layout.fillWidth: true
       text: qsTr("Font size:")
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
 
       wrapMode: Text.WordWrap
     }
@@ -228,9 +228,9 @@ ColumnLayout {
       enabled: true
       Layout.fillWidth: true
       Layout.alignment: Qt.AlignVCenter
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
 
-      popup.font: Theme.defaultFont
+      popup.font: QfTheme.defaultFont
       popup.topMargin: mainWindow.sceneTopMargin
       popup.bottomMargin: mainWindow.sceneTopMargin
 
@@ -259,12 +259,12 @@ ColumnLayout {
 
       onCurrentValueChanged: {
         if (initialized) {
-          Theme.fontScale = currentValue;
+          QfTheme.fontScale = currentValue;
         }
       }
 
       Component.onCompleted: {
-        currentIndex = indexOfValue(Theme.fontScale);
+        currentIndex = indexOfValue(QfTheme.fontScale);
         initialized = true;
       }
     }
@@ -272,8 +272,8 @@ ColumnLayout {
     Label {
       Layout.fillWidth: true
       text: qsTr("Language:")
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
 
       wrapMode: Text.WordWrap
     }
@@ -283,9 +283,9 @@ ColumnLayout {
       enabled: true
       Layout.fillWidth: true
       Layout.alignment: Qt.AlignVCenter
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
 
-      popup.font: Theme.defaultFont
+      popup.font: QfTheme.defaultFont
       popup.topMargin: mainWindow.sceneTopMargin
       popup.bottomMargin: mainWindow.sceneBottomMargin
 
@@ -317,8 +317,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("Found a missing or incomplete language? %1Join the translator community.%2").arg('<a href="https://explore.transifex.com/opengisch/qfield-for-qgis/">').arg('</a>')
-      font: Theme.tipFont
-      color: Theme.secondaryTextColor
+      font: QfTheme.tipFont
+      color: QfTheme.secondaryTextColor
       textFormat: Qt.RichText
       wrapMode: Text.WordWrap
       Layout.fillWidth: true

@@ -1,5 +1,5 @@
 /***************************************************************************
-                            appinterface.cpp
+                            qfappinterface.cpp
                               -------------------
               begin                : 10.12.2014
               copyright            : (C) 2014 by Matthias Kuhn
@@ -15,13 +15,13 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "appcontroller.h"
-#include "appinterface.h"
-#include "fileutils.h"
-#include "platformutilities.h"
+#include "qfappcontroller.h"
+#include "qfappinterface.h"
+#include "qffileutils.h"
 #include "qfield.h"
-#include "qfieldxmlhttprequest.h"
-#include "translatormanager.h"
+#include "qfplatformutilities.h"
+#include "qftranslatormanager.h"
+#include "qfxmlhttprequest.h"
 #if WITH_SENTRY
 #include "sentry_wrapper.h"
 #endif
@@ -45,16 +45,16 @@
 #include <qgsruntimeprofiler.h>
 #include <qgsziputils.h>
 
-AppInterface *AppInterface::sAppInterface = nullptr;
+QfAppInterface *QfAppInterface::sAppInterface = nullptr;
 
-AppInterface::AppInterface( QQmlEngine *engine, AppController *controller )
+QfAppInterface::QfAppInterface( QQmlEngine *engine, QfAppController *controller )
   : mEngine( engine )
   , mController( controller )
 {
   migrateLegacyDataLayout();
 }
 
-QObject *AppInterface::rootObject() const
+QObject *QfAppInterface::rootObject() const
 {
   QQmlApplicationEngine *appEngine = qobject_cast<QQmlApplicationEngine *>( mEngine );
   if ( appEngine )
@@ -81,9 +81,9 @@ QObject *AppInterface::rootObject() const
   return mEngine;
 }
 
-QObject *AppInterface::createHttpRequest() const
+QObject *QfAppInterface::createHttpRequest() const
 {
-  QFieldXmlHttpRequest *request = new QFieldXmlHttpRequest();
+  QfXmlHttpRequest *request = new QfXmlHttpRequest();
 
   QObject *root = rootObject();
   if ( root && qmlEngine( root ) )
@@ -94,13 +94,13 @@ QObject *AppInterface::createHttpRequest() const
   return request;
 }
 
-QObject *AppInterface::findItemByObjectName( const QString &name ) const
+QObject *QfAppInterface::findItemByObjectName( const QString &name ) const
 {
   QObject *root = rootObject();
   return root ? root->findChild<QObject *>( name ) : nullptr;
 }
 
-void AppInterface::addItemToPluginsToolbar( QQuickItem *item ) const
+void QfAppInterface::addItemToPluginsToolbar( QQuickItem *item ) const
 {
   QObject *root = rootObject();
   if ( !root )
@@ -115,7 +115,7 @@ void AppInterface::addItemToPluginsToolbar( QQuickItem *item ) const
   }
 }
 
-void AppInterface::addItemToMapCanvas3D( QQuickItem *item ) const
+void QfAppInterface::addItemToMapCanvas3D( QQuickItem *item ) const
 {
   QObject *root = rootObject();
   if ( !root )
@@ -128,7 +128,7 @@ void AppInterface::addItemToMapCanvas3D( QQuickItem *item ) const
   }
 }
 
-void AppInterface::addItemToCanvasActionsToolbar( QQuickItem *item ) const
+void QfAppInterface::addItemToCanvasActionsToolbar( QQuickItem *item ) const
 {
   QObject *root = rootObject();
   if ( !root )
@@ -143,7 +143,7 @@ void AppInterface::addItemToCanvasActionsToolbar( QQuickItem *item ) const
   }
 }
 
-void AppInterface::addItemToDashboardActionsToolbar( QQuickItem *item ) const
+void QfAppInterface::addItemToDashboardActionsToolbar( QQuickItem *item ) const
 {
   QObject *root = rootObject();
   if ( !root )
@@ -158,17 +158,17 @@ void AppInterface::addItemToDashboardActionsToolbar( QQuickItem *item ) const
   }
 }
 
-void AppInterface::addItemToMainMenuActionsToolbar( QQuickItem *item ) const
+void QfAppInterface::addItemToMainMenuActionsToolbar( QQuickItem *item ) const
 {
   addItemToDashboardActionsToolbar( item );
 }
 
-QObject *AppInterface::mainWindow() const
+QObject *QfAppInterface::mainWindow() const
 {
   return rootObject();
 }
 
-QObject *AppInterface::mapCanvas() const
+QObject *QfAppInterface::mapCanvas() const
 {
   QObject *root = rootObject();
   if ( !root )
@@ -179,7 +179,7 @@ QObject *AppInterface::mapCanvas() const
   return root->findChild<QObject *>( QStringLiteral( "mapCanvas" ) );
 }
 
-QObject *AppInterface::positioning() const
+QObject *QfAppInterface::positioning() const
 {
   QObject *root = rootObject();
   if ( !root )
@@ -190,9 +190,9 @@ QObject *AppInterface::positioning() const
   return root->findChild<QObject *>( QStringLiteral( "positionSource" ) );
 }
 
-bool AppInterface::hasProjectOnLaunch() const
+bool QfAppInterface::hasProjectOnLaunch() const
 {
-  if ( PlatformUtilities::instance()->hasQgsProject() )
+  if ( QfPlatformUtilities::instance()->hasQgsProject() )
   {
     return true;
   }
@@ -210,9 +210,9 @@ bool AppInterface::hasProjectOnLaunch() const
   return false;
 }
 
-bool AppInterface::loadFile( const QString &path, const QString &name )
+bool QfAppInterface::loadFile( const QString &path, const QString &name )
 {
-  qInfo() << QStringLiteral( "AppInterface loading file: %1" ).arg( path );
+  qInfo() << QStringLiteral( "QfAppInterface loading file: %1" ).arg( path );
   if ( !mController )
   {
     return false;
@@ -226,7 +226,7 @@ bool AppInterface::loadFile( const QString &path, const QString &name )
   return mController->loadProjectFile( url.isLocalFile() ? url.toLocalFile() : url.path(), name );
 }
 
-void AppInterface::reloadProject()
+void QfAppInterface::reloadProject()
 {
   if ( mController )
   {
@@ -234,7 +234,7 @@ void AppInterface::reloadProject()
   }
 }
 
-void AppInterface::readProject()
+void QfAppInterface::readProject()
 {
   if ( mController )
   {
@@ -242,37 +242,37 @@ void AppInterface::readProject()
   }
 }
 
-QString AppInterface::readProjectEntry( const QString &scope, const QString &key, const QString &def ) const
+QString QfAppInterface::readProjectEntry( const QString &scope, const QString &key, const QString &def ) const
 {
   return mController ? mController->readProjectEntry( scope, key, def ) : def;
 }
 
-int AppInterface::readProjectNumEntry( const QString &scope, const QString &key, int def ) const
+int QfAppInterface::readProjectNumEntry( const QString &scope, const QString &key, int def ) const
 {
   return mController ? mController->readProjectNumEntry( scope, key, def ) : def;
 }
 
-double AppInterface::readProjectDoubleEntry( const QString &scope, const QString &key, double def ) const
+double QfAppInterface::readProjectDoubleEntry( const QString &scope, const QString &key, double def ) const
 {
   return mController ? mController->readProjectDoubleEntry( scope, key, def ) : def;
 }
 
-bool AppInterface::readProjectBoolEntry( const QString &scope, const QString &key, bool def ) const
+bool QfAppInterface::readProjectBoolEntry( const QString &scope, const QString &key, bool def ) const
 {
   return mController ? mController->readProjectBoolEntry( scope, key, def ) : def;
 }
 
-bool AppInterface::print( const QString &layoutName )
+bool QfAppInterface::print( const QString &layoutName )
 {
   return mController ? mController->print( layoutName ) : false;
 }
 
-bool AppInterface::printAtlasFeatures( const QString &layoutName, const QList<long long> &featureIds )
+bool QfAppInterface::printAtlasFeatures( const QString &layoutName, const QList<long long> &featureIds )
 {
   return mController ? mController->printAtlasFeatures( layoutName, featureIds ) : false;
 }
 
-void AppInterface::setScreenDimmerTimeout( int timeoutSeconds )
+void QfAppInterface::setScreenDimmerTimeout( int timeoutSeconds )
 {
   if ( mController )
   {
@@ -280,12 +280,12 @@ void AppInterface::setScreenDimmerTimeout( int timeoutSeconds )
   }
 }
 
-void AppInterface::setupNetworkProxy() const
+void QfAppInterface::setupNetworkProxy() const
 {
   QgsNetworkAccessManager::instance()->setupDefaultProxyAndCache();
 }
 
-QVariantMap AppInterface::availableLanguages() const
+QVariantMap QfAppInterface::availableLanguages() const
 {
   QVariantMap languages;
   QDirIterator it( QStringLiteral( ":/i18n/" ), { QStringLiteral( "*.qm" ) }, QDir::Files );
@@ -319,7 +319,7 @@ QVariantMap AppInterface::availableLanguages() const
   return languages;
 }
 
-void AppInterface::changeLanguage( const QString &languageCode )
+void QfAppInterface::changeLanguage( const QString &languageCode )
 {
   if ( !languageCode.isEmpty() && !availableLanguages().contains( languageCode ) )
   {
@@ -327,8 +327,8 @@ void AppInterface::changeLanguage( const QString &languageCode )
     return;
   }
 
-  QTranslator *qfieldTranslator = TranslatorManager::instance()->qfieldTranslator();
-  QTranslator *qtTranslator = TranslatorManager::instance()->qtTranslator();
+  QTranslator *qfieldTranslator = QfTranslatorManager::instance()->qfieldTranslator();
+  QTranslator *qtTranslator = QfTranslatorManager::instance()->qtTranslator();
 
   QCoreApplication::removeTranslator( qtTranslator );
   QCoreApplication::removeTranslator( qfieldTranslator );
@@ -369,45 +369,45 @@ void AppInterface::changeLanguage( const QString &languageCode )
   }
 }
 
-bool AppInterface::isFileExtensionSupported( const QString &filename ) const
+bool QfAppInterface::isFileExtensionSupported( const QString &filename ) const
 {
   const QFileInfo fi( filename );
   const QString suffix = fi.suffix().toLower();
   return SUPPORTED_PROJECT_EXTENSIONS.contains( suffix ) || SUPPORTED_VECTOR_EXTENSIONS.contains( suffix ) || SUPPORTED_RASTER_EXTENSIONS.contains( suffix );
 }
 
-void AppInterface::logMessage( const QString &message )
+void QfAppInterface::logMessage( const QString &message )
 {
   QgsMessageLog::logMessage( message, QStringLiteral( "QField" ) );
 }
 
-void AppInterface::logRuntimeProfiler()
+void QfAppInterface::logRuntimeProfiler()
 {
   QgsMessageLog::logMessage( QgsApplication::profiler()->asText(), QStringLiteral( "QField" ) );
 }
 
-void AppInterface::sendLog( const QString &message, const QString &cloudUser )
+void QfAppInterface::sendLog( const QString &message, const QString &cloudUser )
 {
 #if WITH_SENTRY
   sentry_wrapper::capture_event( message.toUtf8().constData(), cloudUser.toUtf8().constData() );
 #endif
 }
 
-void AppInterface::initiateSentry() const
+void QfAppInterface::initiateSentry() const
 {
 #if WITH_SENTRY
   sentry_wrapper::init();
 #endif
 }
 
-void AppInterface::closeSentry() const
+void QfAppInterface::closeSentry() const
 {
 #if WITH_SENTRY
   sentry_wrapper::close();
 #endif
 }
 
-void AppInterface::clearProject() const
+void QfAppInterface::clearProject() const
 {
   if ( mController )
   {
@@ -415,7 +415,7 @@ void AppInterface::clearProject() const
   }
 }
 
-void AppInterface::importUrl( const QString &url, const QString &title, bool loadOnImport )
+void QfAppInterface::importUrl( const QString &url, const QString &title, bool loadOnImport )
 {
   QString sanitizedUrl = url.trimmed();
   if ( sanitizedUrl.isEmpty() )
@@ -429,7 +429,7 @@ void AppInterface::importUrl( const QString &url, const QString &title, bool loa
     sanitizedUrl = QStringLiteral( "https://%1" ).arg( sanitizedUrl );
   }
 
-  const QString applicationDirectory = PlatformUtilities::instance()->applicationDirectory();
+  const QString applicationDirectory = QfPlatformUtilities::instance()->applicationDirectory();
   if ( applicationDirectory.isEmpty() )
   {
     return;
@@ -515,7 +515,7 @@ void AppInterface::importUrl( const QString &url, const QString &title, bool loa
             }
             QDir( zipDirectory ).mkpath( "." );
 
-            if ( FileUtils::unzip( filePath, zipDirectory, zipFiles, false ) )
+            if ( QfFileUtils::unzip( filePath, zipDirectory, zipFiles, false ) )
             {
               // we need to close the project to safely flush the gpkg files and avoid file lock on Windows
               QDirIterator it( zipDirectory, { QStringLiteral( "*.qgs" ), QStringLiteral( "*.qgz" ) }, QDir::Filter::Files, QDirIterator::Subdirectories );
@@ -555,23 +555,23 @@ void AppInterface::importUrl( const QString &url, const QString &title, bool loa
   } );
 }
 
-bool AppInterface::saveProject()
+bool QfAppInterface::saveProject()
 {
   return QgsProject::instance()->write();
 }
 
-bool AppInterface::saveProjectAs( const QString &path )
+bool QfAppInterface::saveProjectAs( const QString &path )
 {
   return QgsProject::instance()->write( path );
 }
 
-bool AppInterface::createBlankProject( const QString &path )
+bool QfAppInterface::createBlankProject( const QString &path )
 {
   QgsProject::instance()->clear();
   return QgsProject::instance()->write( path );
 }
 
-bool AppInterface::removeProjectFolder( const QString &path )
+bool QfAppInterface::removeProjectFolder( const QString &path )
 {
   if ( path.contains( QStringLiteral( "/templates/" ) ) )
     return false;
@@ -583,27 +583,27 @@ bool AppInterface::removeProjectFolder( const QString &path )
   return dir.removeRecursively();
 }
 
-QString AppInterface::projectTitle() const
+QString QfAppInterface::projectTitle() const
 {
   return QgsProject::instance()->title();
 }
 
-void AppInterface::setProjectTitle( const QString &title )
+void QfAppInterface::setProjectTitle( const QString &title )
 {
   QgsProject::instance()->setTitle( title );
 }
 
-QString AppInterface::projectCrsAuthid() const
+QString QfAppInterface::projectCrsAuthid() const
 {
   return QgsProject::instance()->crs().authid();
 }
 
-QString AppInterface::projectCrsDescription() const
+QString QfAppInterface::projectCrsDescription() const
 {
   return QgsProject::instance()->crs().description();
 }
 
-bool AppInterface::setProjectCrs( const QString &authid )
+bool QfAppInterface::setProjectCrs( const QString &authid )
 {
   const QgsCoordinateReferenceSystem crs( authid );
   if ( !crs.isValid() )
@@ -630,7 +630,7 @@ bool AppInterface::setProjectCrs( const QString &authid )
 #include <qgsrasterbandstats.h>
 #include "qgsquickmapsettings.h"
 
-void AppInterface::uploadFileAuth( const QString &url, const QString &filePath, const QString &user, const QString &password )
+void QfAppInterface::uploadFileAuth( const QString &url, const QString &filePath, const QString &user, const QString &password )
 {
   static QNetworkAccessManager sManagerUpload;
   sManagerUpload.setRedirectPolicy( QNetworkRequest::NoLessSafeRedirectPolicy );
@@ -685,21 +685,21 @@ static void wfZbierz( const QString &baza, const QString &podkatalog, QStringLis
   }
 }
 
-QStringList AppInterface::listDirsRecursively( const QString &dir )
+QStringList QfAppInterface::listDirsRecursively( const QString &dir )
 {
   QStringList katalogi, pliki;
   wfZbierz( dir, QString(), katalogi, pliki );
   return katalogi;
 }
 
-QStringList AppInterface::listFilesRecursively( const QString &dir )
+QStringList QfAppInterface::listFilesRecursively( const QString &dir )
 {
   QStringList katalogi, pliki;
   wfZbierz( dir, QString(), katalogi, pliki );
   return pliki;
 }
 
-void AppInterface::webdavMkcolAuth( const QString &url, const QString &user, const QString &password )
+void QfAppInterface::webdavMkcolAuth( const QString &url, const QString &user, const QString &password )
 {
   static QNetworkAccessManager sManagerMkcol;
   sManagerMkcol.setRedirectPolicy( QNetworkRequest::NoLessSafeRedirectPolicy );
@@ -724,7 +724,7 @@ void AppInterface::webdavMkcolAuth( const QString &url, const QString &user, con
   } );
 }
 
-bool AppInterface::movePath( const QString &sourcePath, const QString &destinationPath )
+bool QfAppInterface::movePath( const QString &sourcePath, const QString &destinationPath )
 {
   if ( QFileInfo::exists( destinationPath ) )
   {
@@ -734,7 +734,7 @@ bool AppInterface::movePath( const QString &sourcePath, const QString &destinati
   return QDir().rename( sourcePath, destinationPath );
 }
 
-void AppInterface::downloadFileAuth( const QString &url, const QString &destinationPath, const QString &user, const QString &password )
+void QfAppInterface::downloadFileAuth( const QString &url, const QString &destinationPath, const QString &user, const QString &password )
 {
   static QNetworkAccessManager sManagerAuth;
   sManagerAuth.setRedirectPolicy( QNetworkRequest::NoLessSafeRedirectPolicy );
@@ -769,7 +769,7 @@ void AppInterface::downloadFileAuth( const QString &url, const QString &destinat
   } );
 }
 
-void AppInterface::downloadFile( const QString &url, const QString &destinationPath )
+void QfAppInterface::downloadFile( const QString &url, const QString &destinationPath )
 {
   static QNetworkAccessManager sManager;
   sManager.setRedirectPolicy( QNetworkRequest::NoLessSafeRedirectPolicy );
@@ -798,7 +798,7 @@ void AppInterface::downloadFile( const QString &url, const QString &destinationP
   } );
 }
 
-bool AppInterface::addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style, const QString &groupName )
+bool QfAppInterface::addRasterLayerToProject( const QString &path, const QString &name, const QString &crsAuthid, const QString &style, const QString &groupName )
 {
   QgsRasterLayer *layer = new QgsRasterLayer( path, name );
   if ( !layer->isValid() )
@@ -859,7 +859,7 @@ bool AppInterface::addRasterLayerToProject( const QString &path, const QString &
   return true;
 }
 
-QVariantList AppInterface::visibleExtentPointsIn2180( QgsQuickMapSettings *mapSettings, int grid )
+QVariantList QfAppInterface::visibleExtentPointsIn2180( QgsQuickMapSettings *mapSettings, int grid )
 {
   QVariantList points;
   if ( !mapSettings || grid < 1 )
@@ -890,7 +890,7 @@ QVariantList AppInterface::visibleExtentPointsIn2180( QgsQuickMapSettings *mapSe
   return points;
 }
 
-bool AppInterface::writeTextFile( const QString &path, const QString &content )
+bool QfAppInterface::writeTextFile( const QString &path, const QString &content )
 {
   QDir().mkpath( QFileInfo( path ).absolutePath() );
   QFile file( path );
@@ -901,7 +901,7 @@ bool AppInterface::writeTextFile( const QString &path, const QString &content )
   return true;
 }
 
-QString AppInterface::preferredDataDir() const
+QString QfAppInterface::preferredDataDir() const
 {
   QSettings settings;
   const QString path = settings.value( QStringLiteral( "workfield/preferredDataDir" ) ).toString();
@@ -910,9 +910,9 @@ QString AppInterface::preferredDataDir() const
   return path;
 }
 
-void AppInterface::setPreferredDataDir( const QString &path )
+void QfAppInterface::setPreferredDataDir( const QString &path )
 {
-  const QString markerPath = PlatformUtilities::instance()->appDataDirs().value( 0 ) + QStringLiteral( "/.preferred_data_dir" );
+  const QString markerPath = QfPlatformUtilities::instance()->appDataDirs().value( 0 ) + QStringLiteral( "/.preferred_data_dir" );
   if ( path.isEmpty() )
   {
     QFile::remove( markerPath );
@@ -936,30 +936,30 @@ void AppInterface::setPreferredDataDir( const QString &path )
 #include <QStorageInfo>
 #include "platforms/platformutilities.h"
 
-double AppInterface::storageFreeGb( const QString &path ) const
+double QfAppInterface::storageFreeGb( const QString &path ) const
 {
   const QStorageInfo info( path );
   return info.isValid() ? info.bytesAvailable() / 1073741824.0 : 0.0;
 }
 
-QString AppInterface::dataRoot() const
+QString QfAppInterface::dataRoot() const
 {
   // Audyt storage 2026-08-04 (docs/AUDYT_STORAGE.md, wada W1): baza projektow
-  // musi byc ta sama, z ktorej czyta lista (LocalFilesModel przez
+  // musi byc ta sama, z ktorej czyta lista (QfLocalFilesModel przez
   // applicationDirectory()) i do ktorej pisze import po stronie Javy.
   // Poprzednio uzywalismy appDataDirs[0] — katalogu zasobow .../QField/ —
   // przez co wnoszenie z wymiany i szablony ladowaly poziom za gleboko.
-  QString root = PlatformUtilities::instance()->applicationDirectory();
+  QString root = QfPlatformUtilities::instance()->applicationDirectory();
   if ( !root.isEmpty() && !root.endsWith( QLatin1Char( '/' ) ) )
     root += QLatin1Char( '/' );
   return root;
 }
 
-void AppInterface::migrateLegacyDataLayout()
+void QfAppInterface::migrateLegacyDataLayout()
 {
   // Jednorazowe sprzatanie po wadzie W1: to, co starsze wersje zapisaly
   // w bazie zasobow (.../QField/), przenosimy do bazy kanonicznej.
-  const QString legacyBase = PlatformUtilities::instance()->appDataDirs().value( 0 );
+  const QString legacyBase = QfPlatformUtilities::instance()->appDataDirs().value( 0 );
   const QString canonicalBase = dataRoot();
   if ( legacyBase.isEmpty() || canonicalBase.isEmpty() )
     return;
@@ -1021,7 +1021,7 @@ static bool wfCopyRecursively( const QString &source, const QString &destination
   return true;
 }
 
-bool AppInterface::migrateDataDir( const QString &source, const QString &destination, bool removeSource )
+bool QfAppInterface::migrateDataDir( const QString &source, const QString &destination, bool removeSource )
 {
   if ( source.isEmpty() || destination.isEmpty() || source == destination )
     return false;
@@ -1045,7 +1045,7 @@ bool AppInterface::migrateDataDir( const QString &source, const QString &destina
 #include <gdal_utils.h>
 #include <qgsrastercalculator.h>
 
-bool AppInterface::demProcessing( const QString &tool, const QString &inputPath, const QString &outputPath )
+bool QfAppInterface::demProcessing( const QString &tool, const QString &inputPath, const QString &outputPath )
 {
   GDALAllRegister();
   GDALDatasetH input = GDALOpen( inputPath.toUtf8().constData(), GA_ReadOnly );
@@ -1063,7 +1063,7 @@ bool AppInterface::demProcessing( const QString &tool, const QString &inputPath,
   return true;
 }
 
-bool AppInterface::rasterDifference( const QString &pathA, const QString &pathB, const QString &outputPath )
+bool QfAppInterface::rasterDifference( const QString &pathA, const QString &pathB, const QString &outputPath )
 {
   QDir().mkpath( QFileInfo( outputPath ).absolutePath() );
   std::unique_ptr<QgsRasterLayer> layerA = std::make_unique<QgsRasterLayer>( pathA, QStringLiteral( "A" ) );
@@ -1084,13 +1084,13 @@ bool AppInterface::rasterDifference( const QString &pathA, const QString &pathB,
   return calculator.processCalculation() == QgsRasterCalculator::Result::Success;
 }
 
-QStringList AppInterface::listFiles( const QString &dirPath, const QString &nameFilter ) const
+QStringList QfAppInterface::listFiles( const QString &dirPath, const QString &nameFilter ) const
 {
   QDir dir( dirPath );
   return dir.entryList( QStringList() << nameFilter, QDir::Files, QDir::Name );
 }
 
-bool AppInterface::clipMergeRasters( const QStringList &inputPaths, double xmin, double ymin, double xmax, double ymax, const QString &outputPath )
+bool QfAppInterface::clipMergeRasters( const QStringList &inputPaths, double xmin, double ymin, double xmax, double ymax, const QString &outputPath )
 {
   if ( inputPaths.isEmpty() )
     return false;
@@ -1135,7 +1135,7 @@ bool AppInterface::clipMergeRasters( const QStringList &inputPaths, double xmin,
   return true;
 }
 
-bool AppInterface::addXyzBasemap( const QString &name, const QString &url, int zmax )
+bool QfAppInterface::addXyzBasemap( const QString &name, const QString &url, int zmax )
 {
   const QString uri = QStringLiteral( "type=xyz&url=%1&zmin=0&zmax=%2" ).arg( QString( QUrl::toPercentEncoding( url ) ), QString::number( zmax ) );
   QgsRasterLayer *layer = new QgsRasterLayer( uri, name, QStringLiteral( "wms" ) );
@@ -1150,7 +1150,7 @@ bool AppInterface::addXyzBasemap( const QString &name, const QString &url, int z
   return true;
 }
 
-QVariantMap AppInterface::transformPointToProjectCrs( double x, double y, const QString &fromAuthid ) const
+QVariantMap QfAppInterface::transformPointToProjectCrs( double x, double y, const QString &fromAuthid ) const
 {
   QVariantMap result;
   const QgsCoordinateReferenceSystem fromCrs( fromAuthid );
@@ -1167,7 +1167,7 @@ QVariantMap AppInterface::transformPointToProjectCrs( double x, double y, const 
   return result;
 }
 
-bool AppInterface::zoomToProjectData( QgsQuickMapSettings *mapSettings )
+bool QfAppInterface::zoomToProjectData( QgsQuickMapSettings *mapSettings )
 {
   if ( !mapSettings )
     return false;
@@ -1198,7 +1198,7 @@ bool AppInterface::zoomToProjectData( QgsQuickMapSettings *mapSettings )
   return true;
 }
 
-QString AppInterface::layerInfoLabel( QgsVectorLayer *layer ) const
+QString QfAppInterface::layerInfoLabel( QgsVectorLayer *layer ) const
 {
   if ( !layer )
     return QString();
@@ -1221,14 +1221,14 @@ QString AppInterface::layerInfoLabel( QgsVectorLayer *layer ) const
   return QStringLiteral( "%1 \u00b7 %2" ).arg( geometry ).arg( layer->featureCount() );
 }
 
-bool AppInterface::layerSelectable( QgsMapLayer *layer ) const
+bool QfAppInterface::layerSelectable( QgsMapLayer *layer ) const
 {
   if ( !layer )
     return false;
   return layer->customProperty( QStringLiteral( "workfield/selectable" ), true ).toBool();
 }
 
-void AppInterface::setLayerSelectable( QgsMapLayer *layer, bool selectable )
+void QfAppInterface::setLayerSelectable( QgsMapLayer *layer, bool selectable )
 {
   if ( !layer )
     return;
@@ -1236,19 +1236,19 @@ void AppInterface::setLayerSelectable( QgsMapLayer *layer, bool selectable )
   QgsProject::instance()->setDirty( true );
 }
 
-QString AppInterface::projectVariable( const QString &name ) const
+QString QfAppInterface::projectVariable( const QString &name ) const
 {
   std::unique_ptr<QgsExpressionContextScope> scope( QgsExpressionContextUtils::projectScope( QgsProject::instance() ) );
   return scope ? scope->variable( name ).toString() : QString();
 }
 
-void AppInterface::setProjectVariable( const QString &name, const QString &value )
+void QfAppInterface::setProjectVariable( const QString &name, const QString &value )
 {
   QgsExpressionContextUtils::setProjectVariable( QgsProject::instance(), name, value );
   QgsProject::instance()->setDirty( true );
 }
 
-double AppInterface::sampleRasterAt( QgsMapLayer *layer, double x, double y ) const
+double QfAppInterface::sampleRasterAt( QgsMapLayer *layer, double x, double y ) const
 {
   QgsRasterLayer *rl = qobject_cast<QgsRasterLayer *>( layer );
   if ( !rl || !rl->dataProvider() )
@@ -1273,7 +1273,7 @@ double AppInterface::sampleRasterAt( QgsMapLayer *layer, double x, double y ) co
   return ok ? value : std::numeric_limits<double>::quiet_NaN();
 }
 
-double AppInterface::sampleRasterByName( const QString &nameFragment, double x, double y ) const
+double QfAppInterface::sampleRasterByName( const QString &nameFragment, double x, double y ) const
 {
   const QMap<QString, QgsMapLayer *> layers = QgsProject::instance()->mapLayers();
   for ( QgsMapLayer *layer : layers )
@@ -1284,7 +1284,7 @@ double AppInterface::sampleRasterByName( const QString &nameFragment, double x, 
   return std::numeric_limits<double>::quiet_NaN();
 }
 
-double AppInterface::sampleRasterBuffered( const QString &nameFragment, double x, double y, double radiusMeters, const QString &statistic ) const
+double QfAppInterface::sampleRasterBuffered( const QString &nameFragment, double x, double y, double radiusMeters, const QString &statistic ) const
 {
   QgsRasterLayer *target = nullptr;
   const QMap<QString, QgsMapLayer *> layers = QgsProject::instance()->mapLayers();
@@ -1336,7 +1336,7 @@ double AppInterface::sampleRasterBuffered( const QString &nameFragment, double x
   return sum / values.size();
 }
 
-QVariantMap AppInterface::rasterContextFor( QgsVectorLayer *layer, double x, double y ) const
+QVariantMap QfAppInterface::rasterContextFor( QgsVectorLayer *layer, double x, double y ) const
 {
   QVariantMap result;
   if ( !layer )
@@ -1369,7 +1369,7 @@ QVariantMap AppInterface::rasterContextFor( QgsVectorLayer *layer, double x, dou
   return result;
 }
 
-QString AppInterface::layerKind( QgsMapLayer *layer ) const
+QString QfAppInterface::layerKind( QgsMapLayer *layer ) const
 {
   if ( !layer )
     return QString();
@@ -1386,7 +1386,7 @@ QString AppInterface::layerKind( QgsMapLayer *layer ) const
   return QStringLiteral( "wektor" );
 }
 
-bool AppInterface::removeLayer( QgsMapLayer *layer )
+bool QfAppInterface::removeLayer( QgsMapLayer *layer )
 {
   if ( !layer )
     return false;

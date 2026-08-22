@@ -34,9 +34,9 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import org.qfield
-import Theme
+import QfTheme
 
-Popup {
+QfPopup {
   id: kreator
 
   property var t
@@ -44,7 +44,7 @@ Popup {
   signal utworzono(string sciezka)
 
   // ── korzeń: ten sam co Studio i QfNoweZadanie ──────────────────────────
-  Settings {
+  QfSettings {
     id: ustawieniaMagazynu
     category: "WFGStudio"
     property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
@@ -78,7 +78,7 @@ Popup {
   y: Math.round((mainWindow.height - height) / 2)
   modal: true
   focus: true
-  closePolicy: Popup.CloseOnEscape
+  closePolicy: QfPopup.CloseOnEscape
 
   background: Rectangle {
     color: t.mainBackgroundColor
@@ -226,7 +226,7 @@ Popup {
       return;
     }
     const cel = katalogProjektow + "/" + nazwa;
-    if (FileUtils.fileExists(cel)) {
+    if (QfFileUtils.fileExists(cel)) {
       komunikat.text = qsTr("Projekt %1 już istnieje w tym zleceniu — zmień rodzaj.").arg(nazwa);
       return;
     }
@@ -236,7 +236,7 @@ Popup {
     // szablon z przepisem: interpreter sam wczytuje gotowy projekt, więc NIE
     // emitujemy utworzono() (inaczej wczytałby się dwa razy) — tak jak w
     // QfNoweZadanie.
-    if (szablonWybrany !== "" && FileUtils.fileExists(zrodlo + "/przepis.json")) {
+    if (szablonWybrany !== "" && QfFileUtils.fileExists(zrodlo + "/przepis.json")) {
       if (!mainWindow.przepisy.noweZadanie(zrodlo + "/przepis.json", katalogProjektow, nazwa)) {
         komunikat.text = qsTr("Nie udało się zbudować projektu z przepisu.");
         return;
@@ -252,7 +252,7 @@ Popup {
         komunikat.text = qsTr("Nie udało się utworzyć pustego projektu.");
         return;
       }
-    } else if (!FileUtils.copyRecursively(zrodlo, cel, null, false)) {
+    } else if (!QfFileUtils.copyRecursively(zrodlo, cel, null, false)) {
       komunikat.text = qsTr("Nie udało się skopiować szablonu.");
       return;
     }
@@ -278,7 +278,7 @@ Popup {
       "zrodlo_szablonu": szablonWybrany !== "" ? szablonWybrany : "brak",
       "utworzono": new Date().toISOString().substring(0, 19).replace("T", " ")
     };
-    FileUtils.writeFileContent(cel + "/ZADANIE.json", JSON.stringify(zadanie, null, 2));
+    QfFileUtils.writeFileContent(cel + "/ZADANIE.json", JSON.stringify(zadanie, null, 2));
   }
 
   function ludzkiZleceniodawca() {
@@ -322,7 +322,7 @@ Popup {
       font: t.tinyFont
       color: t.secondaryTextColor
     }
-    ComboBox {
+    QfComboBox {
       id: poleZleceniodawca
       Layout.fillWidth: true
       enabled: kreator.projekty.length > 0
@@ -342,7 +342,7 @@ Popup {
       font: t.tinyFont
       color: t.secondaryTextColor
     }
-    ComboBox {
+    QfComboBox {
       id: poleTeren
       Layout.fillWidth: true
       enabled: kreator.wybZleceniodawca !== ""
@@ -361,7 +361,7 @@ Popup {
       font: t.tinyFont
       color: t.secondaryTextColor
     }
-    ComboBox {
+    QfComboBox {
       id: poleZlecenie
       Layout.fillWidth: true
       enabled: kreator.wybTeren !== ""
@@ -383,7 +383,7 @@ Popup {
       font: t.tinyFont
       color: t.secondaryTextColor
     }
-    ComboBox {
+    QfComboBox {
       id: poleRodzaj
       Layout.fillWidth: true
       editable: true
@@ -405,7 +405,7 @@ Popup {
       font: t.tinyFont
       color: t.secondaryTextColor
     }
-    ComboBox {
+    QfComboBox {
       id: wyborSzablonu
       Layout.fillWidth: true
       model: kreator.listaSzablonow
@@ -443,12 +443,12 @@ Popup {
     RowLayout {
       Layout.fillWidth: true
       Item { Layout.fillWidth: true }
-      Button {
+      QfButton {
         text: qsTr("Anuluj")
         flat: true
         onClicked: kreator.close()
       }
-      Button {
+      QfButton {
         text: qsTr("Utwórz projekt")
         enabled: kreator.nazwaProjektu() !== ""
         onClicked: kreator.utworz()

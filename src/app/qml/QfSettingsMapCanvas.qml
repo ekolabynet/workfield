@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import Theme
+import QfTheme
 
 ColumnLayout {
   property var settingsPage
@@ -22,8 +22,8 @@ ColumnLayout {
 
     Label {
       text: qsTr('Map Canvas')
-      font: Theme.strongFont
-      color: Theme.mainTextColor
+      font: QfTheme.strongFont
+      color: QfTheme.mainTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
       Layout.topMargin: 5
@@ -54,8 +54,8 @@ ColumnLayout {
       Layout.fillWidth: true
       Layout.columnSpan: 2
       text: qsTr("Map canvas rendering quality:")
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
 
       wrapMode: Text.WordWrap
     }
@@ -66,9 +66,9 @@ ColumnLayout {
       Layout.fillWidth: true
       Layout.columnSpan: 2
       Layout.alignment: Qt.AlignVCenter
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
 
-      popup.font: Theme.defaultFont
+      popup.font: QfTheme.defaultFont
       popup.topMargin: mainWindow.sceneTopMargin
       popup.bottomMargin: mainWindow.sceneTopMargin
 
@@ -105,8 +105,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("A lower quality trades rendering precision in favor of lower memory usage and rendering time.")
-      font: Theme.tipFont
-      color: Theme.secondaryTextColor
+      font: QfTheme.tipFont
+      color: QfTheme.secondaryTextColor
       textFormat: Qt.RichText
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
@@ -122,8 +122,8 @@ ColumnLayout {
       Layout.columnSpan: 2
       Layout.topMargin: 10
       text: qsTr("Digitizing cursor shape:")
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
 
       wrapMode: Text.WordWrap
     }
@@ -141,7 +141,7 @@ ColumnLayout {
           height: 48
           radius: 4
           color: "transparent"
-          border.color: coordinateCursorShape === modelData ? Theme.mainColor : Theme.secondaryTextColor
+          border.color: coordinateCursorShape === modelData ? QfTheme.mainColor : QfTheme.secondaryTextColor
           border.width: coordinateCursorShape === modelData ? 2 : 1
 
           Canvas {
@@ -153,7 +153,7 @@ ColumnLayout {
               const w = width;
               const c = w / 2;
               ctx.clearRect(0, 0, w, w);
-              const passes = [["#FFFFFF", 4], [Theme.mainTextColor, 2]];
+              const passes = [["#FFFFFF", 4], [QfTheme.mainTextColor, 2]];
               for (const [strokeStyle, lineWidth] of passes) {
                 ctx.strokeStyle = strokeStyle;
                 ctx.fillStyle = strokeStyle;
@@ -225,8 +225,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("From a plain dot to a full reticle — pick the digitizing cursor that suits your work.")
-      font: Theme.tipFont
-      color: Theme.secondaryTextColor
+      font: QfTheme.tipFont
+      color: QfTheme.secondaryTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
       Layout.columnSpan: 2

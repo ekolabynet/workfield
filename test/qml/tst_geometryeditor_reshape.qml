@@ -1,10 +1,9 @@
 import QtQuick
 import QtTest
-import org.qfield
+import org.qfield.core
 import org.qgis
-import Theme
 import "Utils.js" as Utils
-import "qrc:/qml/geometryeditors" as GeometryEditors
+import org.qfield.gui as GeometryEditors
 
 TestCase {
   id: testCase
@@ -16,7 +15,7 @@ TestCase {
 
   function init() {
     lastToastType = "";
-    testLayer = LayerUtils.memoryLayerFromJsonString("reshape_test", squareJson, CoordinateReferenceSystemUtils.fromDescription("EPSG:3857"));
+    testLayer = QfLayerUtils.memoryLayerFromJsonString("reshape_test", squareJson, QfCoordinateReferenceSystemUtils.fromDescription("EPSG:3857"));
   }
 
   function cleanup() {
@@ -35,7 +34,7 @@ TestCase {
   }
 
   function addToolVertex(toolbar, x, y) {
-    rubberband.currentCoordinate = GeometryUtils.point(x, y);
+    rubberband.currentCoordinate = QfGeometryUtils.point(x, y);
     toolbar.addVertex();
   }
 
@@ -45,24 +44,24 @@ TestCase {
 
   MapSettings {
     id: mapSettingsItem
-    destinationCrs: CoordinateReferenceSystemUtils.fromDescription("EPSG:3857")
+    destinationCrs: QfCoordinateReferenceSystemUtils.fromDescription("EPSG:3857")
   }
 
-  RubberbandModel {
+  QfRubberbandModel {
     id: rubberband
-    crs: CoordinateReferenceSystemUtils.fromDescription("EPSG:3857")
+    crs: QfCoordinateReferenceSystemUtils.fromDescription("EPSG:3857")
   }
 
-  FeatureModel {
+  QfFeatureModel {
     id: featureModel
     project: qgisProject
 
-    vertexModel: VertexModel {
+    vertexModel: QfVertexModel {
       id: geometryEditingVertexModel
     }
   }
 
-  GeometryEditors.Reshape {
+  GeometryEditors.QfGeometryEditorReshape {
     id: reshapeTool
     featureModel: featureModel
     mapSettings: mapSettingsItem
@@ -144,7 +143,7 @@ TestCase {
     compare(rubberband.vertexCount, 1);
   }
 
-  // scope objects the tool and DigitizingToolbar expect from the app
+  // scope objects the tool and QfDigitizingToolbar expect from the app
   Item {
     id: mainWindow
     property var contentItem: mainWindow
@@ -171,7 +170,7 @@ TestCase {
 
   Item {
     id: coordinateLocator
-    property var currentCoordinate: GeometryUtils.point(0, 0)
+    property var currentCoordinate: QfGeometryUtils.point(0, 0)
     property string positionInformation: ""
     property string topSnappingResult: ""
     property bool positionLocked: false

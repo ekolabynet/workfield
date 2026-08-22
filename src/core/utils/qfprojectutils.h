@@ -1,5 +1,5 @@
 /***************************************************************************
-  projectutils.h - ProjectUtils
+  qfprojectutils.h - QfProjectUtils
 
  ---------------------
  begin                : 19.04.2024
@@ -14,10 +14,10 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef PROJECTUTILS_H
-#define PROJECTUTILS_H
+#ifndef QFPROJECTUTILS_H
+#define QFPROJECTUTILS_H
 
-#include "gnsspositioninformation.h"
+#include "qfgnsspositioninformation.h"
 
 #include <QObject>
 #include <qgsproject.h>
@@ -25,12 +25,12 @@
 /**
  * \ingroup core
  */
-class ProjectUtils : public QObject
+class QfProjectUtils : public QObject
 {
     Q_OBJECT
 
   public:
-    explicit ProjectUtils( QObject *parent = nullptr );
+    explicit QfProjectUtils( QObject *parent = nullptr );
 
     /**
      * Returns a map of all registered layers by layer ID.
@@ -100,7 +100,7 @@ class ProjectUtils : public QObject
      */
     static Q_INVOKABLE bool isProjectDirty( QgsProject *project = nullptr );
 
-    Q_INVOKABLE static QString createProject( const QVariantMap &options, const GnssPositionInformation &positionInformation = GnssPositionInformation() );
+    Q_INVOKABLE static QString createProject( const QVariantMap &options, const QfGnssPositionInformation &positionInformation = QfGnssPositionInformation() );
 };
 
-#endif // PROJECTUTILS_H
+#endif // QFPROJECTUTILS_H

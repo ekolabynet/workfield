@@ -1,5 +1,5 @@
 /***************************************************************************
-                            FeatureListForm.qml
+                            QfFeatureListForm.qml
                               -------------------
               begin                : 10.12.2014
               copyright            : (C) 2014 by Matthias Kuhn
@@ -20,8 +20,8 @@ import QtQuick.Layouts
 import QtQuick.Controls.Material
 import QtQuick.Controls.Material.impl
 import org.qgis
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -29,20 +29,20 @@ import Theme
 QfPaneDrawer {
   id: featureFormList
 
-  property ProcessingAlgorithm algorithm: processingAlgorithm
+  property QfProcessingAlgorithm algorithm: processingAlgorithm
 
-  property FeatureListModelSelection selection
+  property QfFeatureListModelSelection selection
   /// type:QgsQuickMapSettings
   property MapSettings mapSettings
-  property DigitizingToolbar digitizingToolbar
-  property ConfirmationToolbar moveFeaturesToolbar
-  property ConfirmationToolbar rotateFeaturesToolbar
-  property CodeReader codeReader
+  property QfDigitizingToolbar digitizingToolbar
+  property QfConfirmationToolbar moveFeaturesToolbar
+  property QfConfirmationToolbar rotateFeaturesToolbar
+  property QfCodeReader codeReader
 
   property color selectionColor
-  /// type:MultiFeatureListModel
+  /// type:QfMultiFeatureListModel
   property alias model: globalFeaturesList.model
-  /// type:FeaturelistExtentController
+  /// type:QfFeatureListExtentController
   property alias extentController: featureListToolBar.extentController
 
   property bool allowEdit
@@ -132,7 +132,7 @@ QfPaneDrawer {
     },
     /* Shows the form for the currently selected feature */
     State {
-      name: "FeatureForm"
+      name: "QfFeatureForm"
       PropertyChanges {
         target: globalFeaturesList
         visible: false
@@ -143,7 +143,7 @@ QfPaneDrawer {
       }
       PropertyChanges {
         target: featureListToolBar
-        state: "Navigation"
+        state: "QfNavigation"
       }
       PropertyChanges {
         target: featureForm
@@ -172,7 +172,7 @@ QfPaneDrawer {
     },
     /* Show a list of processing algorithms compatible with the selected feature(s) */
     State {
-      name: "ProcessingAlgorithmsList"
+      name: "QfProcessingAlgorithmsList"
       PropertyChanges {
         target: processingAlgorithmsList
         visible: true
@@ -196,7 +196,7 @@ QfPaneDrawer {
       }
     },
     State {
-      name: "ProcessingAlgorithmForm"
+      name: "QfProcessingAlgorithmForm"
       PropertyChanges {
         target: processingAlgorithmsList
         visible: false
@@ -238,7 +238,7 @@ QfPaneDrawer {
     anchors.bottomMargin: mainWindow.sceneBottomMargin
     height: parent.height - featureListToolBar.height
     visible: false
-    ScrollBar.vertical: QfScrollBar {}
+    QfScrollBar.vertical: QfScrollBar {}
 
     section.property: "layerName"
     section.labelPositioning: ViewSection.CurrentLabelAtStart | ViewSection.InlineLabels
@@ -247,15 +247,15 @@ QfPaneDrawer {
       Rectangle {
         width: parent.width
         height: 30
-        color: Theme.controlBorderColor
+        color: QfTheme.controlBorderColor
 
         Text {
           anchors {
             horizontalCenter: parent.horizontalCenter
             verticalCenter: parent.verticalCenter
           }
-          font: Theme.strongResultFont
-          color: Theme.mainTextColor
+          font: QfTheme.strongResultFont
+          color: QfTheme.mainTextColor
           text: section
         }
       }
@@ -299,12 +299,12 @@ QfPaneDrawer {
           right: parent.right
           verticalCenter: parent.verticalCenter
         }
-        font.pointSize: Theme.resultFont.pointSize
+        font.pointSize: QfTheme.resultFont.pointSize
         font.bold: conditionalFontBold
         font.italic: conditionalFontItalic
         font.underline: conditionalFontUnderline
         font.strikeout: conditionalFontStrikeOut
-        color: conditionalTextColor !== undefined ? conditionalTextColor : Theme.mainTextColor
+        color: conditionalTextColor !== undefined ? conditionalTextColor : QfTheme.mainTextColor
         text: display
         wrapMode: Text.WordWrap
       }
@@ -330,13 +330,13 @@ QfPaneDrawer {
           if (featureFormList.multiSelection) {
             featureFormList.selection.toggleSelectedItem(index);
             if (featureFormList.selection.model.selectedCount == 0) {
-              featureForm.model.featureModel.modelMode = FeatureModel.SingleFeatureModel;
+              featureForm.model.featureModel.modelMode = QfFeatureModel.SingleFeatureModel;
               featureFormList.multiSelection = false;
             }
             featureFormList.selection.focusedItem = featureFormList.selection.model.selectedCount > 0 ? index : -1;
           } else {
-            featureForm.model.featureModel.modelMode = FeatureModel.SingleFeatureModel;
-            featureFormList.state = "FeatureForm";
+            featureForm.model.featureModel.modelMode = QfFeatureModel.SingleFeatureModel;
+            featureFormList.state = "QfFeatureForm";
             featureFormList.selection.focusedItem = index;
             featureFormList.multiSelection = false;
           }
@@ -344,7 +344,7 @@ QfPaneDrawer {
         }
 
         onPressAndHold: {
-          featureForm.model.featureModel.modelMode = FeatureModel.MultiFeatureModel;
+          featureForm.model.featureModel.modelMode = QfFeatureModel.MultiFeatureModel;
           featureFormList.selection.focusedItem = index;
           featureFormList.selection.toggleSelectedItem(index);
           featureFormList.multiSelection = true;
@@ -355,7 +355,7 @@ QfPaneDrawer {
       Rectangle {
         anchors.bottom: parent.bottom
         height: 1
-        color: Theme.controlBorderColor
+        color: QfTheme.controlBorderColor
         width: parent.width
       }
     }
@@ -364,7 +364,7 @@ QfPaneDrawer {
       let sections = {};
       for (let i = 0; i < globalFeaturesList.model.count; ++i) {
         const idx = globalFeaturesList.model.index(i, 0);
-        let sectionVal = globalFeaturesList.model.data(idx, MultiFeatureListModel.LayerNameRole);
+        let sectionVal = globalFeaturesList.model.data(idx, QfMultiFeatureListModel.LayerNameRole);
         sections[sectionVal] = true;
       }
       return Object.keys(sections).length;
@@ -374,7 +374,7 @@ QfPaneDrawer {
     Rectangle {
       anchors.bottom: parent.bottom
       height: 1
-      color: Theme.controlBorderColor
+      color: QfTheme.controlBorderColor
       width: parent.width
     }
 
@@ -385,7 +385,7 @@ QfPaneDrawer {
     }
   }
 
-  FeatureForm {
+  QfFeatureForm {
     id: featureForm
 
     anchors.top: featureListToolBar.bottom
@@ -402,8 +402,8 @@ QfPaneDrawer {
     digitizingToolbar: featureFormList.digitizingToolbar
     codeReader: featureFormList.codeReader
 
-    model: AttributeFormModel {
-      featureModel: FeatureModel {
+    model: QfAttributeFormModel {
+      featureModel: QfFeatureModel {
         project: qgisProject
         currentLayer: featureFormList.selection.focusedLayer
         feature: featureFormList.selection.focusedFeature
@@ -417,21 +417,21 @@ QfPaneDrawer {
     }
 
     onConfirmed: {
-      featureFormList.state = featureFormList.selection.model.selectedCount > 0 ? "FeatureList" : "FeatureForm";
+      featureFormList.state = featureFormList.selection.model.selectedCount > 0 ? "FeatureList" : "QfFeatureForm";
       displayToast(qsTr("Changes saved"));
     }
 
     onCancelled: {
       featureFormList.selection.focusedItemChanged();
       featureForm.model.featureModel.reset();
-      featureFormList.state = featureFormList.selection.model.selectedCount > 0 ? "FeatureList" : "FeatureForm";
+      featureFormList.state = featureFormList.selection.model.selectedCount > 0 ? "FeatureList" : "QfFeatureForm";
       if (!qfieldSettings.autoSave) {
         displayToast(qsTr("Changes discarded"), 'warning');
       }
     }
   }
 
-  ProcessingAlgorithmsList {
+  QfProcessingAlgorithmsList {
     id: processingAlgorithmsList
 
     inPlaceLayer: featureFormList.selection.model.selectedLayer
@@ -445,11 +445,11 @@ QfPaneDrawer {
 
     onAlgorithmSelected: id => {
       processingAlgorithm.id = id;
-      featureFormList.state = "ProcessingAlgorithmForm";
+      featureFormList.state = "QfProcessingAlgorithmForm";
     }
   }
 
-  ProcessingAlgorithmForm {
+  QfProcessingAlgorithmForm {
     id: processingAlgorithmForm
 
     inPlaceLayer: processingAlgorithm.inPlaceLayer
@@ -463,7 +463,7 @@ QfPaneDrawer {
     visible: false
   }
 
-  ProcessingAlgorithm {
+  QfProcessingAlgorithm {
     id: processingAlgorithm
 
     parameters: processingAlgorithmForm.algorithmParametersModel.parameters
@@ -471,10 +471,10 @@ QfPaneDrawer {
     inPlaceLayer: featureFormList.selection.model.selectedLayer
     inPlaceFeatures: featureFormList.selection.model.selectedFeatures
 
-    preview: featureFormList.state == "ProcessingAlgorithmForm"
+    preview: featureFormList.state == "QfProcessingAlgorithmForm"
   }
 
-  NavigationBar {
+  QfNavigationBar {
     id: featureListToolBar
 
     topMargin: featureFormList.y == 0 ? mainWindow.sceneTopMargin : 0.0
@@ -486,14 +486,14 @@ QfPaneDrawer {
     selection: featureFormList.selection
     multiSelection: featureFormList.multiSelection
     isVertical: featureListForm.isVertical
-    extentController: FeaturelistExtentController {
+    extentController: QfFeatureListExtentController {
       model: globalFeaturesList.model
       selection: featureFormList.selection
       mapSettings: featureFormList.mapSettings
       autoZoom: qfieldSettings.autoZoomToIdentifiedFeature
 
       onFeatureFormStateRequested: {
-        featureFormList.state = "FeatureForm";
+        featureFormList.state = "QfFeatureForm";
       }
 
       onRequestJumpToPoint: function (center, scale, handleMargins) {
@@ -601,14 +601,14 @@ QfPaneDrawer {
     onToggleMultiSelection: {
       featureFormList.selection.focusedItem = -1;
       if (featureFormList.multiSelection) {
-        if (featureFormList.state == "ProcessingAlgorithmsList" || featureFormList.state == "ProcessingAlgorithmForm") {
+        if (featureFormList.state == "QfProcessingAlgorithmsList" || featureFormList.state == "QfProcessingAlgorithmForm") {
           featureFormList.state = "FeatureList";
         }
-        featureForm.model.featureModel.modelMode = FeatureModel.SingleFeatureModel;
+        featureForm.model.featureModel.modelMode = QfFeatureModel.SingleFeatureModel;
         featureForm.model.applyFeatureModel();
         featureFormList.selection.model.clearSelection();
       } else {
-        featureForm.model.featureModel.modelMode = FeatureModel.MultiFeatureModel;
+        featureForm.model.featureModel.modelMode = QfFeatureModel.MultiFeatureModel;
       }
       featureFormList.multiSelection = !featureFormList.multiSelection;
       featureFormList.focus = true;
@@ -635,7 +635,7 @@ QfPaneDrawer {
     }
 
     onMultiProcessingClicked: {
-      featureFormList.state = "ProcessingAlgorithmsList";
+      featureFormList.state = "QfProcessingAlgorithmsList";
     }
 
     onProcessingRunClicked: {
@@ -652,7 +652,7 @@ QfPaneDrawer {
         featureFormList.state = "FeatureList";
         featureFormList.multiSelection = true;
         featureFormList.selection.model.toggleSelectedItem(featureFormList.selection.focusedItem);
-        featureFormList.state = "ProcessingAlgorithmsList";
+        featureFormList.state = "QfProcessingAlgorithmsList";
       }
     }
 
@@ -797,7 +797,7 @@ QfPaneDrawer {
     isFullscreen = qfieldSettings.fullScreenIdentifyView;
     if (!featureFormList.canvasOperationRequested) {
       featureFormList.multiSelection = false;
-      featureForm.model.featureModel.modelMode = FeatureModel.SingleFeatureModel;
+      featureForm.model.featureModel.modelMode = QfFeatureModel.SingleFeatureModel;
       featureFormList.selection.clear();
       if (featureFormList.selection.model) {
         featureFormList.selection.model.clearSelection();
@@ -842,7 +842,7 @@ QfPaneDrawer {
     function show() {
       this.isMerged = false;
       this.selectedCount = featureFormList.model.selectedCount;
-      this.featureDisplayName = FeatureUtils.displayName(featureFormList.selection.focusedLayer, featureFormList.model.selectedFeatures[0]);
+      this.featureDisplayName = QfFeatureUtils.displayName(featureFormList.selection.focusedLayer, featureFormList.model.selectedFeatures[0]);
       this.open();
     }
   }
@@ -868,15 +868,15 @@ QfPaneDrawer {
         width: mainWindow.width - 60 < transferLabelMetrics.width ? mainWindow.width - 60 : transferLabelMetrics.width
         text: qsTr("Select a feature below from which attributes will be transfered onto the currently opened feature.")
         wrapMode: Text.WordWrap
-        font: Theme.defaultFont
-        color: Theme.mainTextColor
+        font: QfTheme.defaultFont
+        color: QfTheme.mainTextColor
       }
 
       QfComboBox {
         id: transferComboBox
         width: transferLabel.width
 
-        model: FeatureListModel {
+        model: QfFeatureListModel {
           id: transferFeatureListModel
         }
 
@@ -963,7 +963,7 @@ QfPaneDrawer {
     function onLayersWillBeRemoved(layerIds) {
       if (state != "FeatureList") {
         if (featureListToolBar.state === "Edit") {
-          featureFormList.state = "FeatureForm";
+          featureFormList.state = "QfFeatureForm";
           displayToast(qsTr("Changes discarded"), 'warning');
         }
         state = "FeatureList";

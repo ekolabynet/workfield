@@ -2,9 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import org.qfield
+import org.qfield.core
+import org.qfield.gui
 import org.qgis
-import Theme
 
 /**
  * \ingroup qml
@@ -12,7 +12,7 @@ import Theme
 Item {
   id: relationCombobox
 
-  property FeatureCheckListModel featureListModel
+  property QfFeatureCheckListModel featureListModel
 
   property bool useCompleter: false
   property bool useSearch: false
@@ -21,9 +21,9 @@ Item {
   property var layerResolver: undefined
   property var currentKeyValue: value
   readonly property alias count: comboBox.count
-  property EmbeddedFeatureForm embeddedFeatureForm: embeddedPopupLoader.item
+  property QfEmbeddedFeatureForm embeddedFeatureForm: embeddedPopupLoader.item
   readonly property alias searchPopup: searchFeaturePopup
-  property color displayedTextColor: FeatureUtils.attributeIsNull(value) || value === "" || (!isEditable && isEditing) ? Theme.mainTextDisabledColor : Theme.mainTextColor
+  property color displayedTextColor: QfFeatureUtils.attributeIsNull(value) || value === "" || (!isEditable && isEditing) ? QfTheme.mainTextDisabledColor : QfTheme.mainTextColor
 
   signal requestJumpToPoint(var center, real scale, bool handleMargins)
 
@@ -46,15 +46,15 @@ Item {
   QfPopup {
     id: searchFeaturePopup
 
-    readonly property int minimumHeight: mainWindow.height - Math.max(Theme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4)
+    readonly property int minimumHeight: mainWindow.height - Math.max(QfTheme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4)
 
     parent: mainWindow.contentItem
-    width: mainWindow.width - Theme.popupScreenEdgeHorizontalMargin * 2
+    width: mainWindow.width - QfTheme.popupScreenEdgeHorizontalMargin * 2
     height: minimumHeight > 0 ? minimumHeight : 200
-    x: Theme.popupScreenEdgeHorizontalMargin
+    x: QfTheme.popupScreenEdgeHorizontalMargin
     y: (mainWindow.height - height) / 2
     z: 10000 // 1000s are embedded feature forms, use a higher value to insure feature form popups always show above embedded feature formes
-    closePolicy: Popup.CloseOnEscape
+    closePolicy: QfPopup.CloseOnEscape
     focus: visible
 
     onOpened: {
@@ -115,22 +115,22 @@ Item {
         width: parent.width
         height: searchFeaturePopup.height - searchBar.height - 60
         clip: true
-        ScrollBar.vertical: QfScrollBar {}
+        QfScrollBar.vertical: QfScrollBar {}
         section.property: featureListModel ? featureListModel.groupField != "" ? "groupFieldValue" : "" : ""
         section.labelPositioning: ViewSection.CurrentLabelAtStart | ViewSection.InlineLabels
         section.delegate: Component {
           Rectangle {
             width: parent.width
             height: featureListModel.displayGroupName ? 30 : 5
-            color: Theme.controlBackgroundAlternateColor
+            color: QfTheme.controlBackgroundAlternateColor
 
             Text {
               anchors {
                 horizontalCenter: parent.horizontalCenter
                 verticalCenter: parent.verticalCenter
               }
-              font: Theme.strongResultFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongResultFont
+              color: QfTheme.mainTextColor
               text: section
               visible: featureListModel.displayGroupName
             }
@@ -141,12 +141,12 @@ Item {
           id: rectangle
 
           property int idx: index
-          property string itemText: StringUtils.highlightText(displayString, featureListModel.searchTerm, Theme.mainTextColor)
+          property string itemText: QfStringUtils.highlightText(displayString, featureListModel.searchTerm, QfTheme.mainTextColor)
 
           anchors.margins: 10
           width: parent ? parent.width : undefined
           height: line.height + 20
-          color: model.checked ? Theme.mainColor : searchFeaturePopup.Material ? searchFeaturePopup.Material.dialogColor : Theme.mainBackgroundColor
+          color: model.checked ? QfTheme.mainColor : searchFeaturePopup.Material ? searchFeaturePopup.Material.dialogColor : QfTheme.mainBackgroundColor
 
           Row {
             id: line
@@ -162,7 +162,7 @@ Item {
               height: 48
               padding: 12
 
-              font.pointSize: Theme.defaultFont.pointSize
+              font.pointSize: QfTheme.defaultFont.pointSize
               font.weight: model.checked ? Font.DemiBold : Font.Normal
 
               checked: model.checked
@@ -176,7 +176,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               padding: 12
 
-              font.pointSize: Theme.defaultFont.pointSize
+              font.pointSize: QfTheme.defaultFont.pointSize
               font.weight: model.checked ? Font.DemiBold : Font.Normal
             }
 
@@ -185,11 +185,11 @@ Item {
               width: rectangle.width - (checkBoxButton.visible ? checkBoxButton.width : radioButton.width) - 10
               anchors.verticalCenter: parent.verticalCenter
               leftPadding: 5
-              font.pointSize: Theme.defaultFont.pointSize
+              font.pointSize: QfTheme.defaultFont.pointSize
               font.weight: model.checked ? Font.DemiBold : Font.Normal
               elide: Text.ElideRight
               wrapMode: Text.WordWrap
-              color: featureListModel.searchTerm != '' ? Theme.secondaryTextColor : Theme.mainTextColor
+              color: featureListModel.searchTerm != '' ? QfTheme.secondaryTextColor : QfTheme.mainTextColor
               textFormat: Text.RichText
               text: itemText
             }
@@ -199,7 +199,7 @@ Item {
           Rectangle {
             anchors.bottom: parent.bottom
             height: 1
-            color: Theme.controlBorderColor
+            color: QfTheme.controlBorderColor
             width: parent.width
           }
 
@@ -251,7 +251,7 @@ Item {
       onCurrentIndexChanged: {
         if (searchFeaturePopup.opened)
           return;
-        const newValue = featureListModel.dataFromRowIndex(currentIndex, FeatureListModel.KeyFieldRole);
+        const newValue = featureListModel.dataFromRowIndex(currentIndex, QfFeatureListModel.KeyFieldRole);
         if (newValue !== currentKeyValue) {
           valueChangeRequested(newValue, false);
         }
@@ -295,7 +295,7 @@ Item {
         comboBox.popup.z = 10000; // 1000s are embedded feature forms, use a higher value to insure popups always show above embedded feature formes
       }
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       delegate: ItemDelegate {
         width: ListView.view.width
         height: Math.max(delegateLabel.implicitHeight + 16, 48)
@@ -304,8 +304,8 @@ Item {
         contentItem: Text {
           id: delegateLabel
           text: model[comboBox.textRole] ?? ""
-          font: Theme.defaultFont
-          color: comboBox.currentIndex === index ? Theme.mainColor : Theme.mainTextColor
+          font: QfTheme.defaultFont
+          color: comboBox.currentIndex === index ? QfTheme.mainColor : QfTheme.mainTextColor
           wrapMode: Text.WordWrap
           verticalAlignment: Text.AlignVCenter
         }
@@ -314,7 +314,7 @@ Item {
       displayText: {
         if (!isEditing && value === "") {
           return qsTr("Empty");
-        } else if (!isEditing && FeatureUtils.attributeIsNull(value)) {
+        } else if (!isEditing && QfFeatureUtils.attributeIsNull(value)) {
           return qsTr("NULL");
         }
         return comboBox.currentIndex === -1 && value !== undefined ? '(' + value + ')' : comboBox.currentText;
@@ -325,18 +325,18 @@ Item {
         topPadding: comboBox.Material.textFieldVerticalPadding
         bottomPadding: comboBox.Material.textFieldVerticalPadding
         text: comboBox.displayText
-        font: Theme.defaultFont
+        font: QfTheme.defaultFont
         color: displayedTextColor
         verticalAlignment: Text.AlignVCenter
         wrapMode: Text.WordWrap
       }
 
-      popup: Popup {
+      popup: QfPopup {
         y: comboBox.height - 1
         width: comboBox.width
         implicitHeight: contentItem.implicitHeight
         padding: 1
-        font: Theme.defaultFont
+        font: QfTheme.defaultFont
         topMargin: mainWindow.sceneTopMargin
         bottomMargin: mainWindow.sceneTopMargin
 
@@ -359,15 +359,15 @@ Item {
             Rectangle {
               width: parent.width
               height: featureListModel.displayGroupName ? 30 : 5
-              color: Theme.mainBackgroundColor
+              color: QfTheme.mainBackgroundColor
 
               Text {
                 anchors {
                   horizontalCenter: parent.horizontalCenter
                   verticalCenter: parent.verticalCenter
                 }
-                font: Theme.strongResultFont
-                color: Theme.mainTextColor
+                font: QfTheme.strongResultFont
+                color: QfTheme.mainTextColor
                 text: section
                 visible: featureListModel.displayGroupName
               }
@@ -409,10 +409,10 @@ Item {
         clip: true
         elide: Text.ElideRight
 
-        color: value === undefined || !enabled ? Theme.mainTextDisabledColor : searchableText.text === '' ? Theme.mainTextColor : Theme.mainTextDisabledColor
+        color: value === undefined || !enabled ? QfTheme.mainTextDisabledColor : searchableText.text === '' ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
       }
 
-      TextField {
+      QfTextField {
         id: searchableText
 
         property string typedFilter: ''
@@ -424,7 +424,7 @@ Item {
         horizontalAlignment: TextInput.AlignLeft
         verticalAlignment: TextInput.AlignVCenter
 
-        color: Theme.mainTextColor
+        color: QfTheme.mainTextColor
         background: Rectangle {
           color: "transparent"
           border.color: "transparent"
@@ -442,10 +442,10 @@ Item {
               if (matches.length > 0) {
                 const remainder = featureListModel.dataFromRowIndex(matches[0], featureListModel.DisplayStringRole).substring(trimmedText.length);
                 searchableLabel.completer = '<span style="color:rgba(0,0,0,0);">' + trimmedText + '</span><span style="font-weight:' + (matches.length === 1 ? 'bold' : 'normal') + ';">' + remainder + '</span>';
-                color = Theme.mainTextColor;
+                color = QfTheme.mainTextColor;
               } else {
                 searchableLabel.completer = '';
-                color = Theme.warningColor;
+                color = QfTheme.warningColor;
               }
             } else {
               searchableLabel.completer = '';
@@ -459,7 +459,7 @@ Item {
             if (text === '') {
               if (!featureListModel.addNull || comboBox.currentIndex !== 0) {
                 text = comboBox.displayText;
-                color = Theme.mainTextColor;
+                color = QfTheme.mainTextColor;
               }
               searchableLabel.completer = '';
             }
@@ -537,14 +537,14 @@ Item {
           context.lineTo(20, 5);
           context.lineTo(15, 10);
           context.closePath();
-          context.fillStyle = !enabled ? Theme.mainTextDisabledColor : Theme.mainTextColor;
+          context.fillStyle = !enabled ? QfTheme.mainTextDisabledColor : QfTheme.mainTextColor;
           context.fill();
         }
 
         onEnabledChanged: requestPaint()
       }
 
-      border.color: searchableText.activeFocus ? Theme.mainColor : searchableText.hovered ? searchableText.Material.primaryTextColor : searchableText.Material.hintTextColor
+      border.color: searchableText.activeFocus ? QfTheme.mainColor : searchableText.hovered ? searchableText.Material.primaryTextColor : searchableText.Material.hintTextColor
       border.width: searchableText.activeFocus ? 2 : 1
       color: "transparent"
       radius: 2
@@ -564,13 +564,13 @@ Item {
       id: searchButton
       objectName: "openSearchFeaturePopupButton"
 
-      Layout.preferredWidth: enabled ? Theme.toolButtonSize : 0
-      Layout.preferredHeight: Theme.toolButtonSize
+      Layout.preferredWidth: enabled ? QfTheme.toolButtonSize : 0
+      Layout.preferredHeight: QfTheme.toolButtonSize
       Layout.alignment: Qt.AlignTop
 
       bgcolor: "transparent"
-      iconSource: Theme.getThemeVectorIcon("ic_baseline_search_white")
-      iconColor: Theme.mainTextColor
+      iconSource: QfTheme.getThemeVectorIcon("ic_baseline_search_white")
+      iconColor: QfTheme.mainTextColor
 
       visible: enabled
 
@@ -583,14 +583,14 @@ Item {
       id: addFeatureButton
       objectName: "addFeatureButton"
 
-      Layout.preferredWidth: comboBox.enabled ? Theme.toolButtonSize : 0
-      Layout.preferredHeight: Theme.toolButtonSize
+      Layout.preferredWidth: comboBox.enabled ? QfTheme.toolButtonSize : 0
+      Layout.preferredHeight: QfTheme.toolButtonSize
       Layout.alignment: Qt.AlignTop
 
       bgcolor: "transparent"
       opacity: enabled ? 1 : 0.3
-      iconSource: Theme.getThemeVectorIcon("ic_add_white_24dp")
-      iconColor: Theme.mainTextColor
+      iconSource: QfTheme.getThemeVectorIcon("ic_add_white_24dp")
+      iconColor: QfTheme.mainTextColor
 
       visible: enabled && allowAddFeature && (layerResolver !== undefined || (relation !== undefined && relation.isValid))
 
@@ -610,7 +610,7 @@ Item {
       id: invalidWarning
       visible: false
       text: qsTr("Invalid relation")
-      color: Theme.errorColor
+      color: QfTheme.errorColor
     }
   }
 
@@ -623,7 +623,7 @@ Item {
     id: embeddedPopupLoader
     active: false
 
-    sourceComponent: EmbeddedFeatureForm {
+    sourceComponent: QfEmbeddedFeatureForm {
       id: embeddedPopup
 
       embeddedLevel: form.embeddedLevel + 1

@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Shapes
 import QtQuick.Window
 import org.qgis
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -20,8 +20,8 @@ Item {
 
   property bool bubbleVisible: false
   property string bubbleText: ""
-  property color bubbleTextColor: Theme.mainTextColor
-  property color bubbleColor: Theme.mainBackgroundColorSemiOpaque
+  property color bubbleTextColor: QfTheme.mainTextColor
+  property color bubbleColor: QfTheme.mainBackgroundColorSemiOpaque
   property var bubbleAction: undefined
 
   property real accuracy: 0
@@ -31,7 +31,7 @@ Item {
 
   property real sizeScale: 1.0
   property color strokeColor: "white"
-  property color color: Qt.darker(Theme.positionColor, 1.25)
+  property color color: Qt.darker(QfTheme.positionColor, 1.25)
   property color semiOpaqueColor: Qt.hsla(color.hslHue, color.hslSaturation, color.hslLightness, 0.1)
 
   /// type:QgsQuickMapSettings
@@ -199,7 +199,7 @@ Item {
 
       Text {
         id: bubbleMessage
-        font: Theme.tipFont
+        font: QfTheme.tipFont
         wrapMode: Text.WordWrap
         color: locationMarker.bubbleTextColor
         text: locationMarker.bubbleText

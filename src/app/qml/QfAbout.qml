@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -30,8 +30,8 @@ Item {
     ScrollView {
       Layout.fillWidth: true
       Layout.fillHeight: true
-      ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-      ScrollBar.vertical: QfScrollBar {}
+      QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+      QfScrollBar.vertical: QfScrollBar {}
       contentItem: information
       contentWidth: information.width
       contentHeight: information.height
@@ -73,26 +73,26 @@ Item {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignCenter
             horizontalAlignment: Text.AlignHCenter
-            font: Theme.strongFont
-            color: Theme.light
+            font: QfTheme.strongFont
+            color: QfTheme.light
             textFormat: Text.RichText
             wrapMode: Text.WordWrap
 
             text: {
-              let links = '<a href="https://github.com/opengisch/QField/commit/' + gitRev + '">' + gitRev.substr(0, 7) + '</a>';
-              if (appVersion && appVersion !== '1.0.0' && appVersion !== '0') {
-                links += ' <a href="https://github.com/opengisch/QField/releases/tag/' + appVersion + '">' + appVersion + '</a>';
+              let links = '<a href="https://github.com/opengisch/QField/commit/' + Qfield.gitRevision + '">' + Qfield.gitRevision.substr(0, 7) + '</a>';
+              if (Qfield.version && Qfield.version !== '1.0.0' && Qfield.version !== '0') {
+                links += ' <a href="https://github.com/opengisch/QField/releases/tag/' + Qfield.version + '">' + Qfield.version + '</a>';
               }
 
-              let title = appName;
-              if (appName === "QField") {
-                title += "<br>" + appVersionStr + " (" + links + ")";
+              let title = Qfield.name;
+              if (Qfield.name === "QField") {
+                title += "<br>" + Qfield.versionString + " (" + links + ")";
               } else {
                 title += "<br>" + qsTr("Powered by QField") + " (" + links + ")";
               }
 
-              // the `qgisVersion` has the format `<int>.<int>.<int>-<any text>`, so we get everything before the first `-`
-              const dependencies = [["QGIS", qgisVersion.split("-", 1)[0]], ["GDAL/OGR", gdalVersion], ["Qt", qVersion]];
+              // the QGIS version has the format `<int>.<int>.<int>-<any text>`, so we get everything before the first `-`
+              const dependencies = [["QGIS", Qfield.qgisVersion.split("-", 1)[0]], ["GDAL/OGR", Qfield.gdalVersion], ["Qt", Qfield.qtVersion]];
               return title + "<br>" + dependencies.map(pair => pair.join(" ")).join(" | ");
             }
 
@@ -125,8 +125,8 @@ Item {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignCenter
             horizontalAlignment: Text.AlignHCenter
-            font: Theme.strongFont
-            color: Theme.light
+            font: QfTheme.strongFont
+            color: QfTheme.light
             textFormat: Text.RichText
             text: qsTr("Developed by") + '<br><a href="https://ekolaby.net/info2">Ekolaby.net</a><br><a href="mailto:kontakt@ekolaby.net">kontakt@ekolaby.net</a>'
             onLinkActivated: link => Qt.openUrlExternally(link)
@@ -142,8 +142,8 @@ Item {
       Layout.alignment: Qt.AlignCenter
       Layout.bottomMargin: 10
       horizontalAlignment: Text.AlignHCenter
-      font: Theme.tinyFont
-      color: Theme.secondaryTextColor
+      font: QfTheme.tinyFont
+      color: QfTheme.secondaryTextColor
       textFormat: Text.RichText
       wrapMode: Text.WordWrap
 
@@ -152,10 +152,10 @@ Item {
         let isDesktopPlatform = Qt.platform.os !== "ios" && Qt.platform.os !== "android";
         let dataDirs = platformUtilities.appDataDirs();
         if (dataDirs.length > 0) {
-          label = dataDirs.length > 1 ? qsTr('%1 app directories').arg(appName) : qsTr('%1 app directory').arg(appName);
+          label = dataDirs.length > 1 ? qsTr('%1 app directories').arg(Qfield.name) : qsTr('%1 app directory').arg(Qfield.name);
           for (let dataDir of dataDirs) {
             if (isDesktopPlatform) {
-              label += '<br><a href="' + UrlUtils.fromString(dataDir) + '">' + dataDir + '</a>';
+              label += '<br><a href="' + QfUrlUtils.fromString(dataDir) + '">' + dataDir + '</a>';
             } else {
               label += '<br>' + dataDir;
             }
@@ -170,8 +170,8 @@ Item {
     QfButton {
       id: sponsorshipButton
       Layout.fillWidth: true
-      icon.source: Theme.getThemeVectorIcon('ic_sponsor_white_24dp')
-      enabled: appName === "QField"
+      icon.source: QfTheme.getThemeVectorIcon('ic_sponsor_white_24dp')
+      enabled: Qfield.name === "QField"
       visible: enabled
 
       text: qsTr('Support QField')
@@ -180,9 +180,9 @@ Item {
 
     QfButton {
       id: linksButton
-      dropdown: appName === "QField"
+      dropdown: Qfield.name === "QField"
       Layout.fillWidth: true
-      icon.source: Theme.getThemeVectorIcon('ic_book_white_24dp')
+      icon.source: QfTheme.getThemeVectorIcon('ic_book_white_24dp')
 
       text: qsTr('QField Ecosystem Documentation')
 
@@ -198,15 +198,15 @@ Item {
 
   QfMenu {
     id: linksMenu
-    title: qsTr("Links Menu")
+    title: qsTr("Links QfMenu")
 
     MenuItem {
-      text: qsTr('Changelog')
+      text: qsTr('QfChangelog')
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: 48
-      leftPadding: Theme.menuItemLeftPadding
-      icon.source: Theme.getThemeVectorIcon('ic_speaker_white_24dp')
+      leftPadding: QfTheme.menuItemLeftPadding
+      icon.source: QfTheme.getThemeVectorIcon('ic_speaker_white_24dp')
 
       onTriggered: {
         changelogPopup.open();

@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material.impl
 import QtQuick.Layouts
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -27,23 +27,23 @@ Item {
   // COGO
   property alias cogoOperationSettings: cogoOperationSettings
 
-  // SensorInformationView
+  // QfSensorInformationView
   property bool sensorInformationViewEnabled: sensorInformationView.activeSensors > 0
 
-  // NavigationInformationView
-  property bool navigationInformationViewEnabled: navigation.isActive && qfieldSettings.enableNavigation && !elevationProfile.visible
+  // QfNavigationInformationView
+  property bool navigationInformationViewEnabled: navigation.isActive \&\& qfieldSettings.enableNavigation \&\& !elevationProfile.visible
 
-  // PositioningInformationView
-  property Navigation navigation
+  // QfPositioningInformationView
+  property QfNavigation navigation
   property bool positioningInformationViewEnabled: positioningSettings.showPositionInformation && !elevationProfile.visible
 
-  // PositioningPreciseView
+  // QfPositioningPreciseView
   property alias positioningPreciseView: positioningPreciseView
-  property PositioningSettings positioningSettings
-  property Positioning positionSource
+  property QtObject positioningSettings
+  property QfPositioning positionSource
   property bool positioningPreciseEnabled: !elevationProfile.visible && !isNaN(navigation.distance) && navigation.isActive && (positioningSettings.alwaysShowPreciseView || (positioningPreciseView.hasAcceptableAccuracy && positioningPreciseView.projectDistance < positioningPreciseView.precision))
 
-  // ElevationProfile
+  // QfElevationProfile
   property alias elevationProfile: elevationProfile
 
   Column {
@@ -53,7 +53,7 @@ Item {
     rightPadding: 5
     spacing: 8
 
-    CogoOperationSettings {
+    QfCogoOperationSettings {
       id: cogoOperationSettings
       visible: false
     }
@@ -61,7 +61,7 @@ Item {
     QfOverlayContainer {
       visible: navigationInformationViewEnabled
 
-      title: qsTr("Navigation")
+      title: qsTr("QfNavigation")
 
       header: QfToolButton {
         id: preciseViewSettings
@@ -69,8 +69,8 @@ Item {
         width: 24
         height: 24
         padding: 2
-        iconSource: Theme.getThemeVectorIcon('ic_tune_white_24dp')
-        iconColor: Theme.mainTextColor
+        iconSource: QfTheme.getThemeVectorIcon('ic_tune_white_24dp')
+        iconColor: QfTheme.mainTextColor
         onClicked: {
           const globalPoint = preciseViewSettings.mapToGlobal(preciseViewSettings.width - positioningPreciseView.menu.width, preciseViewSettings.height);
           const localPoint = positioningPreciseView.menu.parent.mapFromGlobal(globalPoint.x, globalPoint.y);
@@ -82,14 +82,14 @@ Item {
         width: parent.width
         spacing: 0
 
-        NavigationInformationView {
+        QfNavigationInformationView {
           id: navigationInformationView
           width: parent.width
           height: contentHeight
           navigation: controller.navigation
         }
 
-        PositioningPreciseView {
+        QfPositioningPreciseView {
           id: positioningPreciseView
           visible: positioningPreciseEnabled
           width: parent.width
@@ -117,14 +117,14 @@ Item {
     QfOverlayContainer {
       visible: positioningInformationViewEnabled
 
-      title: qsTr("Positioning")
+      title: qsTr("QfPositioning")
 
       header: RowLayout {
         Text {
-          visible: positioningSettings.enableNtrip && positionSource.deviceCapabilities & AbstractGnssReceiver.NtripCorrection
+          visible: positioningSettings.enableNtrip && positionSource.deviceCapabilities & QfAbstractGnssReceiver.NtripCorrection
           text: qsTr("NTRIP")
-          font: Theme.tipFont
-          color: positionSource.ntripState === Positioning.NtripState.Connected ? Theme.mainTextColor : Theme.secondaryTextColor
+          font: QfTheme.tipFont
+          color: positionSource.ntripState === QfPositioning.NtripState.Connected ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
         }
 
         Rectangle {
@@ -133,18 +133,18 @@ Item {
           Layout.preferredWidth: 12
           Layout.preferredHeight: 12
           Layout.bottomMargin: 1
-          visible: positioningSettings.enableNtrip && positionSource.deviceCapabilities & AbstractGnssReceiver.NtripCorrection
+          visible: positioningSettings.enableNtrip && positionSource.deviceCapabilities & QfAbstractGnssReceiver.NtripCorrection
           radius: height / 2
           opacity: 1
           color: {
-            if (positionSource.ntripState === Positioning.NtripState.Connected) {
-              return positionSource.ntripCurrentness ? Theme.positionColor : Theme.warningColor;
+            if (positionSource.ntripState === QfPositioning.NtripState.Connected) {
+              return positionSource.ntripCurrentness ? QfTheme.positionColor : QfTheme.warningColor;
             }
-            return Theme.secondaryTextColor;
+            return QfTheme.secondaryTextColor;
           }
 
           SequentialAnimation {
-            running: positioningInformationViewEnabled && positionSource.ntripState === Positioning.NtripState.Connected && !positionSource.ntripCurrentness
+            running: positioningInformationViewEnabled && positionSource.ntripState === QfPositioning.NtripState.Connected && !positionSource.ntripCurrentness
             loops: Animation.Infinite
 
             onStopped: ntripIndicator.opacity = 1.0
@@ -177,7 +177,7 @@ Item {
 
           color: "transparent"
           border.width: 2
-          border.color: Theme.mainTextColor
+          border.color: QfTheme.mainTextColor
           radius: 2
 
           Rectangle {
@@ -187,12 +187,12 @@ Item {
             anchors.leftMargin: 3
             height: parent.height - 6
             width: (parent.width - 6) * positionSource.deviceBatteryLevel
-            color: positionSource.deviceBatteryLevel > 0.20 ? Theme.goodColor : positionSource.deviceBatteryLevel > 0.05 ? Theme.warningColor : Theme.errorColor
+            color: positionSource.deviceBatteryLevel > 0.20 ? QfTheme.goodColor : positionSource.deviceBatteryLevel > 0.05 ? QfTheme.warningColor : QfTheme.errorColor
           }
         }
       }
 
-      PositioningInformationView {
+      QfPositioningInformationView {
         id: positioningInformationView
         width: parent.width
         height: Math.min(contentHeight, mainWindow.height / 3)
@@ -207,7 +207,7 @@ Item {
 
       title: qsTr("Sensors")
 
-      SensorInformationView {
+      QfSensorInformationView {
         id: sensorInformationView
         height: contentHeight
       }
@@ -218,7 +218,7 @@ Item {
 
       title: qsTr("Elevation profile")
 
-      ElevationProfile {
+      QfElevationProfile {
         id: elevationProfile
 
         width: parent.width

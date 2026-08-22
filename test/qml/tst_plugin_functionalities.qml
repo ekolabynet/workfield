@@ -4,8 +4,10 @@ import QtQuick.Layouts
 import QtTest
 import org.qfield
 import org.qgis
-import Theme
-import "qrc:/qml/" as QFieldControls
+import org.qfield.gui
+import org.qfield.app as QFieldControls
+import org.qfield.core as QFieldControls
+import org.qfield.gui as QFieldControls
 
 TestCase {
   id: testCase
@@ -44,19 +46,19 @@ TestCase {
     objectName: "canvasMenuActionsToolbar"
   }
 
-  QFieldControls.DashBoard {
+  QFieldControls.QfDashBoard {
     id: dashBoardItem
     objectName: "dashBoard"
   }
 
-  QFieldControls.FeatureListForm {
+  QFieldControls.QfFeatureListForm {
     id: featureListForm
     objectName: "featureForm"
 
-    model: MultiFeatureListModel {}
+    model: QfMultiFeatureListModel {}
   }
 
-  QFieldControls.MapCanvas {
+  QFieldControls.QfMapCanvas {
     id: mapCanvas
     objectName: "mapCanvas"
   }
@@ -65,10 +67,10 @@ TestCase {
     id: canvasMenu
     objectName: "canvasMenu"
 
-    property var point: GeometryUtils.point(0, 0)
+    property var point: QfGeometryUtils.point(0, 0)
   }
 
-  QFieldControls.MapCanvasPointHandler {
+  QFieldControls.QfMapCanvasPointHandler {
     id: pointHandlerItem
     objectName: "pointHandler"
   }
@@ -89,14 +91,14 @@ TestCase {
     // don't see leftovers from prior runs.
     const staleData = qgisProject.mapLayersByName("data");
     for (const layer of staleData) {
-      ProjectUtils.removeMapLayer(qgisProject, layer);
+      QfProjectUtils.removeMapLayer(qgisProject, layer);
     }
 
     // Remove the "PluginLoadedLayer" between tests so add/remove tests
     // don't see leftovers from prior runs.
     const stalePluginLayers = qgisProject.mapLayersByName("PluginLoadedLayer");
     for (const layer of stalePluginLayers) {
-      ProjectUtils.removeMapLayer(qgisProject, layer);
+      QfProjectUtils.removeMapLayer(qgisProject, layer);
     }
   }
 
@@ -105,9 +107,9 @@ TestCase {
     if (existing.length > 0) {
       return existing[0];
     }
-    const fields = FeatureUtils.createFields([FeatureUtils.createField("id", FeatureUtils.Int)]);
-    const layer = LayerUtils.createMemoryLayer(name, fields, Qgis.WkbType.Point, CoordinateReferenceSystemUtils.wgs84Crs());
-    ProjectUtils.addMapLayer(qgisProject, layer);
+    const fields = QfFeatureUtils.createFields([QfFeatureUtils.createField("id", QfFeatureUtils.Int)]);
+    const layer = QfLayerUtils.createMemoryLayer(name, fields, Qgis.WkbType.Point, QfCoordinateReferenceSystemUtils.wgs84Crs());
+    QfProjectUtils.addMapLayer(qgisProject, layer);
     return layer;
   }
 
@@ -116,19 +118,19 @@ TestCase {
     if (existing.length > 0) {
       return existing[0];
     }
-    const fields = FeatureUtils.createFields([FeatureUtils.createField("id", FeatureUtils.Int), FeatureUtils.createField("name", FeatureUtils.String), FeatureUtils.createField("check", FeatureUtils.Bool)]);
-    const layer = LayerUtils.createMemoryLayer(name, fields, Qgis.WkbType.Point, CoordinateReferenceSystemUtils.wgs84Crs());
-    ProjectUtils.addMapLayer(qgisProject, layer);
+    const fields = QfFeatureUtils.createFields([QfFeatureUtils.createField("id", QfFeatureUtils.Int), QfFeatureUtils.createField("name", QfFeatureUtils.String), QfFeatureUtils.createField("check", QfFeatureUtils.Bool)]);
+    const layer = QfLayerUtils.createMemoryLayer(name, fields, Qgis.WkbType.Point, QfCoordinateReferenceSystemUtils.wgs84Crs());
+    QfProjectUtils.addMapLayer(qgisProject, layer);
     return layer;
   }
 
   function addCheckableFeature(layer, idValue, nameValue, checkValue) {
     layer.startEditing();
-    const feature = FeatureUtils.createBlankFeature(layer.fields);
+    const feature = QfFeatureUtils.createBlankFeature(layer.fields);
     feature.setAttribute(layer.fields.indexOf("id"), idValue);
     feature.setAttribute(layer.fields.indexOf("name"), nameValue);
     feature.setAttribute(layer.fields.indexOf("check"), checkValue);
-    LayerUtils.addFeature(layer, feature);
+    QfLayerUtils.addFeature(layer, feature);
     layer.commitChanges();
   }
 
@@ -164,7 +166,7 @@ TestCase {
       property var dashBoard: iface.findItemByObjectName("dashBoard")
 
       function activateLayerByName(name) {
-        const layers = ProjectUtils.mapLayers(qgisProject);
+        const layers = QfProjectUtils.mapLayers(qgisProject);
         for (const layerId in layers) {
           if (layers[layerId].name === name) {
             dashBoard.activeLayer = layers[layerId];
@@ -181,8 +183,8 @@ TestCase {
       QfToolButton {
         id: apiaryButton
         text: "A"
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundColor
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundColor
         round: true
         onClicked: plugin.activateLayerByName("ApiaryLayer")
       }
@@ -190,8 +192,8 @@ TestCase {
       QfToolButton {
         id: tracksButton
         text: "T"
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundColor
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundColor
         round: true
         onClicked: plugin.activateLayerByName("TracksLayer")
       }
@@ -225,8 +227,8 @@ TestCase {
     createTemporaryObject(activeLayerSwitcherPlugin, testCase);
     const apiary = findToolbarButtonByText("A");
     compare(apiary.round, true);
-    compare(apiary.iconColor, Theme.toolButtonColor);
-    compare(apiary.bgcolor, Theme.toolButtonBackgroundColor);
+    compare(apiary.iconColor, QfTheme.toolButtonColor);
+    compare(apiary.bgcolor, QfTheme.toolButtonBackgroundColor);
   }
 
   function test_dashBoardActiveLayerSwitchesAcrossLayers() {
@@ -255,7 +257,7 @@ TestCase {
     compare(dashBoardItem.activeLayer.name, "ApiaryLayer");
   }
 
-  // Layer combobox dialog backed by MapLayerModel
+  // Layer combobox dialog backed by QfMapLayerModel
 
   Component {
     id: layerComboBoxDialogPlugin
@@ -276,8 +278,8 @@ TestCase {
       QfToolButton {
         id: layersButton
         text: "?"
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundColor
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundColor
         round: true
         onClicked: layersDialog.open()
       }
@@ -303,7 +305,7 @@ TestCase {
           QfComboBox {
             id: layersComboBox
             Layout.fillWidth: true
-            model: MapLayerModel {
+            model: QfMapLayerModel {
               id: layersModel
               project: qgisProject
             }
@@ -384,13 +386,13 @@ TestCase {
       QfToolButton {
         id: iterateButton
         text: "!"
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundColor
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundColor
         round: true
         onClicked: {
           let layer = qgisProject.mapLayersByName("data")[0];
           layer.startEditing();
-          let it = LayerUtils.createFeatureIteratorFromExpression(layer, "\"check\" = true");
+          let it = QfLayerUtils.createFeatureIteratorFromExpression(layer, "\"check\" = true");
           if (it.hasNext()) {
             const feature = it.next();
             layer.changeAttributeValue(feature.id, layer.fields.indexOf("name"), "modified!");
@@ -403,8 +405,8 @@ TestCase {
       QfToolButton {
         id: listButton
         text: "..."
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundColor
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundColor
         round: true
         onClicked: {
           let layer = qgisProject.mapLayersByName("data")[0];
@@ -433,7 +435,7 @@ TestCase {
     addCheckableFeature(layer, 2, "FeatureB", false);
     addCheckableFeature(layer, 3, "FeatureC", true);
 
-    const it = LayerUtils.createFeatureIteratorFromExpression(layer, "\"check\" = true");
+    const it = QfLayerUtils.createFeatureIteratorFromExpression(layer, "\"check\" = true");
     const collected = [];
     while (it.hasNext()) {
       collected.push(it.next().attribute("name"));
@@ -451,7 +453,7 @@ TestCase {
     createTemporaryObject(featureIterationPlugin, testCase);
     findToolbarButtonByText("!").clicked();
 
-    const it = LayerUtils.createFeatureIteratorFromExpression(layer, "\"id\" = 1");
+    const it = QfLayerUtils.createFeatureIteratorFromExpression(layer, "\"id\" = 1");
     verify(it.hasNext());
     compare(it.next().attribute("name"), "modified!");
   }
@@ -487,14 +489,14 @@ TestCase {
       QfToolButton {
         id: insertOtherButton
         text: "O"
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundColor
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundColor
         round: true
         onClicked: {
           dashBoard.activeLayer = qgisProject.mapLayersByName("OtherLayer")[0];
-          const point = GeometryUtils.reprojectPoint(canvasMenu.point, mapCanvas.mapSettings.destinationCrs, dashBoard.activeLayer.crs);
+          const point = QfGeometryUtils.reprojectPoint(canvasMenu.point, mapCanvas.mapSettings.destinationCrs, dashBoard.activeLayer.crs);
           const wkt = "POINT(" + point.x + " " + point.y + ")";
-          const geom = GeometryUtils.createGeometryFromWkt(wkt);
+          const geom = QfGeometryUtils.createGeometryFromWkt(wkt);
           featureModel.currentLayer = dashBoard.activeLayer;
           featureModel.resetFeature();
           featureModel.resetAttributes();
@@ -503,7 +505,7 @@ TestCase {
         }
       }
 
-      FeatureModel {
+      QfFeatureModel {
         id: featureModel
       }
     }
@@ -523,11 +525,11 @@ TestCase {
 
   function test_insertButtonClickPersistsFeatureAtReprojectedPoint() {
     makeMemoryLayer("OtherLayer");
-    canvasMenu.point = GeometryUtils.point(10, 20);
+    canvasMenu.point = QfGeometryUtils.point(10, 20);
     createTemporaryObject(featureInsertionPlugin, testCase);
     findCanvasActionButtonByText("O").clicked();
     const layer = qgisProject.mapLayersByName("OtherLayer")[0];
-    const it = LayerUtils.createFeatureIterator(layer);
+    const it = QfLayerUtils.createFeatureIterator(layer);
     verify(it.hasNext());
     const feature = it.next();
     const geom = feature.geometry;
@@ -553,14 +555,14 @@ TestCase {
       QfToolButton {
         id: addButton
         text: "+"
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundColor
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundColor
         round: true
         onClicked: {
           if (plugin.myLayer === undefined) {
-            const fields = FeatureUtils.createFields([FeatureUtils.createField("id", FeatureUtils.Int)]);
-            plugin.myLayer = LayerUtils.createMemoryLayer("PluginLoadedLayer", fields, Qgis.WkbType.Point, CoordinateReferenceSystemUtils.wgs84Crs());
-            ProjectUtils.addMapLayer(qgisProject, plugin.myLayer);
+            const fields = QfFeatureUtils.createFields([QfFeatureUtils.createField("id", QfFeatureUtils.Int)]);
+            plugin.myLayer = QfLayerUtils.createMemoryLayer("PluginLoadedLayer", fields, Qgis.WkbType.Point, QfCoordinateReferenceSystemUtils.wgs84Crs());
+            QfProjectUtils.addMapLayer(qgisProject, plugin.myLayer);
           }
         }
       }
@@ -568,12 +570,12 @@ TestCase {
       QfToolButton {
         id: removeButton
         text: "-"
-        iconColor: Theme.toolButtonColor
-        bgcolor: Theme.toolButtonBackgroundColor
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: QfTheme.toolButtonBackgroundColor
         round: true
         onClicked: {
           if (plugin.myLayer !== undefined) {
-            ProjectUtils.removeMapLayer(qgisProject, plugin.myLayer.id);
+            QfProjectUtils.removeMapLayer(qgisProject, plugin.myLayer.id);
             plugin.myLayer = undefined;
           }
         }
@@ -602,7 +604,7 @@ TestCase {
     compare(qgisProject.mapLayersByName("PluginLoadedLayer").length, 0);
   }
 
-  // Feature lookup at canvas click via MapCanvasPointHandler
+  // Feature lookup at canvas click via QfMapCanvasPointHandler
 
   Component {
     id: canvasClickFeatureLookupPlugin
@@ -657,16 +659,16 @@ TestCase {
 
     layer.startEditing();
     for (let i = 1; i <= 2; ++i) {
-      const feature = FeatureUtils.createBlankFeature(layer.fields, GeometryUtils.createGeometryFromWkt("POINT(" + i + " " + i + ")"));
+      const feature = QfFeatureUtils.createBlankFeature(layer.fields, QfGeometryUtils.createGeometryFromWkt("POINT(" + i + " " + i + ")"));
       feature.setAttribute(layer.fields.indexOf("id"), i);
       feature.setAttribute(layer.fields.indexOf("name"), "Feature" + String.fromCharCode(64 + i));
       feature.setAttribute(layer.fields.indexOf("check"), true);
-      verify(LayerUtils.addFeature(layer, feature));
+      verify(QfLayerUtils.addFeature(layer, feature));
     }
     layer.commitChanges();
 
-    const rectangle = GeometryUtils.createRectangleFromPoints(GeometryUtils.point(0.5, 0.5), GeometryUtils.point(1.5, 1.5));
-    const matches = LayerUtils.createFeatureIteratorFromRectangle(layer, rectangle);
+    const rectangle = QfGeometryUtils.createRectangleFromPoints(QfGeometryUtils.point(0.5, 0.5), QfGeometryUtils.point(1.5, 1.5));
+    const matches = QfLayerUtils.createFeatureIteratorFromRectangle(layer, rectangle);
     const collected = [];
     while (matches.hasNext()) {
       collected.push(matches.next().attribute("name"));

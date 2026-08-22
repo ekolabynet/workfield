@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qgis
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
+import QfTheme
 
 /**
  * \ingroup qml
@@ -88,11 +89,11 @@ QfPopup {
     })
 
   parent: mainWindow.contentItem
-  width: Math.min(childrenRect.width, mainWindow.width - Theme.popupScreenEdgeHorizontalMargin)
-  height: Math.min(popupLayout.childrenRect.height + headerLayout.childrenRect.height + 20, mainWindow.height - Math.max(Theme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4))
+  width: Math.min(childrenRect.width, mainWindow.width - QfTheme.popupScreenEdgeHorizontalMargin)
+  height: Math.min(popupLayout.childrenRect.height + headerLayout.childrenRect.height + 20, mainWindow.height - Math.max(QfTheme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4))
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+  closePolicy: QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside
   focus: visible
 
   onClosed: {
@@ -104,46 +105,19 @@ QfPopup {
       return;
     updateTitle();
     updateCredits();
-    itemVisibleCheckBox.checked = layerTree.data(index, FlatLayerTreeModel.Visible);
-    itemLabelsVisibleCheckBox.checked = layerTree.data(index, FlatLayerTreeModel.LabelsVisible);
-    expandCheckBox.text = layerTree.data(index, FlatLayerTreeModel.Type) === FlatLayerTreeModel.Group ? qsTr('Expand group') : qsTr('Expand legend item');
-    expandCheckBox.checked = !layerTree.data(index, FlatLayerTreeModel.IsCollapsed);
-    reloadDataButtonVisible = layerTree.data(index, FlatLayerTreeModel.CanReloadData);
-    zoomToButtonVisible = layerTree.data(index, FlatLayerTreeModel.HasSpatialExtent);
+    itemVisibleCheckBox.checked = layerTree.data(index, QfFlatLayerTreeModel.Visible);
+    itemLabelsVisibleCheckBox.checked = layerTree.data(index, QfFlatLayerTreeModel.LabelsVisible);
+    expandCheckBox.text = layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.Group ? qsTr('Expand group') : qsTr('Expand legend item');
+    expandCheckBox.checked = !layerTree.data(index, QfFlatLayerTreeModel.IsCollapsed);
+    reloadDataButtonVisible = layerTree.data(index, QfFlatLayerTreeModel.CanReloadData);
+    zoomToButtonVisible = layerTree.data(index, QfFlatLayerTreeModel.HasSpatialExtent);
     showFeaturesListButtonVisible = isShowFeaturesListButtonVisible();
     showVisibleFeaturesListDropdownVisible = isShowVisibleFeaturesListDropdownVisible();
     trackingButtonVisible = isTrackingButtonVisible();
-    trackingButtonText = trackingModel.layerInActiveTracking(layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer)) ? qsTr('Stop tracking') : qsTr('Setup tracking');
+    trackingButtonText = trackingModel.layerInActiveTracking(layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer)) ? qsTr('Stop tracking') : qsTr('Setup tracking');
 
     // the layer tree model returns -1 for items that do not support the opacity setting
-    opacitySliderVisible = layerTree.data(index, FlatLayerTreeModel.Opacity) > -1 && !LayerUtils.hasSimpleSymbology(layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer));
-    const styleLayer = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-    symbologyVisible = styleLayer ? LayerUtils.hasSimpleSymbology(styleLayer) : false;
-    categoriesVisible = styleLayer ? LayerUtils.hasCategorizedSymbology(styleLayer) : false;
-    categoryEntries = categoriesVisible ? LayerUtils.rendererCategories(styleLayer) : [];
-    styleTargetLayer = styleLayer;
-    styleTargetMapLayer = layerTree.data(index, FlatLayerTreeModel.MapLayerPointer);
-    availableFields = styleLayer ? LayerUtils.layerFields(styleLayer) : [];
-
-    if (styleLayer) {
-      const ls = LayerUtils.labelSettings(styleLayer);
-      labelsOn = ls.enabled === true;
-      labelField = ls.field !== undefined ? ls.field : "";
-      labelSize = ls.size > 0 ? ls.size : 10;
-      labelColor = ls.color !== undefined ? ls.color : "black";
-      labelBufferOn = ls.bufferEnabled === true;
-      labelBufferColor = ls.bufferColor !== undefined ? ls.bufferColor : "white";
-    }
-    pendingField = "";
-    if (symbologyVisible) {
-      symbolKind = LayerUtils.symbolType(styleLayer);
-      symbolSizeSlider.value = Math.max(0, LayerUtils.symbolSize(styleLayer));
-      strokeWidthValue = Math.max(0, LayerUtils.strokeWidth(styleLayer));
-      fillPalette.currentColor = LayerUtils.fillColor(styleLayer);
-      strokePalette.currentColor = LayerUtils.strokeColor(styleLayer);
-      currentStrokeStyle = LayerUtils.strokeStyle(styleLayer);
-      currentMarkerShape = LayerUtils.markerShape(styleLayer);
-    }
+    opacitySliderVisible = layerTree.data(index, QfFlatLayerTreeModel.Opacity) > -1;
   }
 
   Page {
@@ -162,7 +136,7 @@ QfPopup {
         topPadding: 6
         bottomPadding: 6
         text: ''
-        font: Theme.strongFont
+        font: QfTheme.strongFont
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideMiddle
         maximumLineCount: 1
@@ -175,11 +149,11 @@ QfPopup {
         visible: reloadDataButtonVisible
 
         bgcolor: "transparent"
-        iconSource: Theme.getThemeVectorIcon('refresh_24dp')
-        iconColor: Theme.mainTextColor
+        iconSource: QfTheme.getThemeVectorIcon('refresh_24dp')
+        iconColor: QfTheme.mainTextColor
 
         onClicked: {
-          layerTree.data(index, FlatLayerTreeModel.MapLayerPointer).reload();
+          layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer).reload();
           close();
           dashBoard.visible = false;
           displayToast(qsTr('Reload of layer %1 triggered').arg(layerTree.data(index, Qt.DisplayName)));
@@ -190,8 +164,8 @@ QfPopup {
     ScrollView {
       anchors.fill: parent
       padding: 5
-      ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-      ScrollBar.vertical: QfScrollBar {}
+      QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+      QfScrollBar.vertical: QfScrollBar {}
       contentWidth: popupLayout.childrenRect.width
       contentHeight: popupLayout.childrenRect.height
       clip: true
@@ -209,7 +183,7 @@ QfPopup {
 
         Text {
           id: invalidText
-          visible: index !== undefined && !layerTree.data(index, FlatLayerTreeModel.IsValid)
+          visible: index !== undefined && !layerTree.data(index, QfFlatLayerTreeModel.IsValid)
           Layout.fillWidth: true
           Layout.preferredHeight: visible ? implicitHeight : 0
           bottomPadding: visible ? 15 : 0
@@ -217,8 +191,8 @@ QfPopup {
           wrapMode: Text.WordWrap
           textFormat: Text.RichText
           text: qsTr('This layer is invalid. This might be due to a network issue, a missing file or a misconfiguration of the project.')
-          font: Theme.tipFont
-          color: Theme.errorColor
+          font: QfTheme.tipFont
+          color: QfTheme.errorColor
         }
 
         CheckBox {
@@ -227,11 +201,11 @@ QfPopup {
           topPadding: 5
           bottomPadding: 5
           text: qsTr('Expand legend item')
-          font: Theme.defaultFont
-          visible: index && layerTree.data(index, FlatLayerTreeModel.HasChildren) ? true : false
+          font: QfTheme.defaultFont
+          visible: index && layerTree.data(index, QfFlatLayerTreeModel.HasChildren) ? true : false
 
           onClicked: {
-            layerTree.setData(index, checkState === Qt.Unchecked, FlatLayerTreeModel.IsCollapsed);
+            layerTree.setData(index, checkState === Qt.Unchecked, QfFlatLayerTreeModel.IsCollapsed);
             close();
           }
         }
@@ -242,16 +216,16 @@ QfPopup {
           topPadding: 5
           bottomPadding: 5
           text: qsTr('Show on map')
-          font: Theme.defaultFont
+          font: QfTheme.defaultFont
           // visible for all layer tree items but nonspatial layers
-          visible: index && layerTree.data(index, FlatLayerTreeModel.Checkable) && layerTree.data(index, FlatLayerTreeModel.HasSpatialExtent) ? true : false
+          visible: index && layerTree.data(index, QfFlatLayerTreeModel.Checkable) && layerTree.data(index, QfFlatLayerTreeModel.HasSpatialExtent) ? true : false
           indicator.height: 16
           indicator.width: 16
           indicator.implicitHeight: 24
           indicator.implicitWidth: 24
 
           onClicked: {
-            layerTree.setData(index, checkState === Qt.Checked, FlatLayerTreeModel.Visible);
+            layerTree.setData(index, checkState === Qt.Checked, QfFlatLayerTreeModel.Visible);
             flatLayerTree.mapTheme = '';
             projectInfo.saveLayerTreeState();
             close();
@@ -264,16 +238,16 @@ QfPopup {
           topPadding: 5
           bottomPadding: 5
           text: qsTr('Show labels')
-          font: Theme.defaultFont
-          visible: index && layerTree.data(index, FlatLayerTreeModel.HasLabels) ? true : false
+          font: QfTheme.defaultFont
+          visible: index && layerTree.data(index, QfFlatLayerTreeModel.HasLabels) ? true : false
           indicator.height: 16
           indicator.width: 16
           indicator.implicitHeight: 24
           indicator.implicitWidth: 24
 
           onClicked: {
-            layerTree.setData(index, checkState === Qt.Checked, FlatLayerTreeModel.LabelsVisible);
-            projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+            layerTree.setData(index, checkState === Qt.Checked, QfFlatLayerTreeModel.LabelsVisible);
+            projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
             close();
           }
         }
@@ -297,15 +271,15 @@ QfPopup {
             enabled: false
             bgcolor: "transparent"
 
-            icon.source: Theme.getThemeVectorIcon("ic_opacity_black_24dp")
-            icon.color: Theme.mainTextColor
+            icon.source: QfTheme.getThemeVectorIcon("ic_opacity_black_24dp")
+            icon.color: QfTheme.mainTextColor
           }
 
           Text {
             Layout.alignment: Qt.AlignVCenter
             text: qsTr("Opacity")
-            font: Theme.defaultFont
-            color: Theme.mainTextColor
+            font: QfTheme.defaultFont
+            color: QfTheme.mainTextColor
           }
 
           QfSlider {
@@ -313,7 +287,7 @@ QfPopup {
             Layout.fillWidth: true
             Layout.rightMargin: 5
             Layout.alignment: Qt.AlignVCenter
-            value: index !== undefined ? layerTree.data(index, FlatLayerTreeModel.Opacity) * 100 : 0
+            value: index !== undefined ? layerTree.data(index, QfFlatLayerTreeModel.Opacity) * 100 : 0
             from: 0
             to: 100
             stepSize: 1
@@ -321,8 +295,8 @@ QfPopup {
             height: 40
 
             onMoved: function () {
-              layerTree.setData(index, value / 100, FlatLayerTreeModel.Opacity);
-              projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+              layerTree.setData(index, value / 100, QfFlatLayerTreeModel.Opacity);
+              projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
             }
           }
         }
@@ -333,45 +307,45 @@ QfPopup {
           Layout.fillWidth: true
           Layout.topMargin: 6
           spacing: 4
-          visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer) ? true : false
+          visible: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer) ? true : false
 
           function applyMode(mode) {
-            const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+            const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
             if (!vl)
               return;
             if (mode === "single") {
-              LayerUtils.setSingleSymbolRenderer(vl);
+              QfLayerUtils.setSingleSymbolRenderer(vl);
             } else if (mode === "categorized") {
               if (pendingField === "")
                 return;
-              LayerUtils.setCategorizedRenderer(vl, pendingField, pendingRamp);
+              QfLayerUtils.setCategorizedRenderer(vl, pendingField, pendingRamp);
             } else if (mode === "graduated") {
               if (pendingField === "")
                 return;
-              LayerUtils.setGraduatedRenderer(vl, pendingField, pendingClassCount, pendingRamp);
+              QfLayerUtils.setGraduatedRenderer(vl, pendingField, pendingClassCount, pendingRamp);
             }
             // WorkField: rampy syntetyczne (losowe, zloty kat) nie przechodza
             // przez setCategorizedRenderer — malowanie trzeba dolozyc osobno.
             // Dla ramp zwyklych to powtorzenie tego samego, wiec nieszkodliwe.
             if (mode !== "single")
-              LayerUtils.applyColorRamp(vl, pendingRamp);
-            symbologyVisible = LayerUtils.hasSimpleSymbology(vl);
-            categoriesVisible = LayerUtils.hasCategorizedSymbology(vl);
-            categoryEntries = categoriesVisible ? LayerUtils.rendererCategories(vl) : [];
+              QfLayerUtils.applyColorRamp(vl, pendingRamp);
+            symbologyVisible = QfLayerUtils.hasSimpleSymbology(vl);
+            categoriesVisible = QfLayerUtils.hasCategorizedSymbology(vl);
+            categoryEntries = categoriesVisible ? QfLayerUtils.rendererCategories(vl) : [];
             if (symbologyVisible) {
-              symbolKind = LayerUtils.symbolType(vl);
-              fillPalette.currentColor = LayerUtils.fillColor(vl);
-              strokePalette.currentColor = LayerUtils.strokeColor(vl);
+              symbolKind = QfLayerUtils.symbolType(vl);
+              fillPalette.currentColor = QfLayerUtils.fillColor(vl);
+              strokePalette.currentColor = QfLayerUtils.strokeColor(vl);
             }
-            projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+            projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
           }
 
           Text {
             Layout.fillWidth: true
             Layout.leftMargin: 4
             text: qsTr("Sposób wyświetlania")
-            font: Theme.strongTipFont
-            color: Theme.mainTextColor
+            font: QfTheme.strongTipFont
+            color: QfTheme.mainTextColor
           }
 
           Flow {
@@ -381,26 +355,26 @@ QfPopup {
 
             QfButton {
               text: qsTr("Pojedynczy")
-              font.pointSize: Theme.tinyFont.pointSize
-              bgcolor: symbologyVisible ? Theme.mainColor : Theme.controlBackgroundAlternateColor
-              color: symbologyVisible ? Theme.mainOverlayColor : Theme.mainTextColor
+              font.pointSize: QfTheme.tinyFont.pointSize
+              bgcolor: symbologyVisible ? QfTheme.mainColor : QfTheme.controlBackgroundAlternateColor
+              color: symbologyVisible ? QfTheme.mainOverlayColor : QfTheme.mainTextColor
               onClicked: rendererModeRow.applyMode("single")
             }
 
             QfButton {
               text: qsTr("Kategorie")
-              font.pointSize: Theme.tinyFont.pointSize
-              bgcolor: categoriesVisible ? Theme.mainColor : Theme.controlBackgroundAlternateColor
-              color: categoriesVisible ? Theme.mainOverlayColor : Theme.mainTextColor
+              font.pointSize: QfTheme.tinyFont.pointSize
+              bgcolor: categoriesVisible ? QfTheme.mainColor : QfTheme.controlBackgroundAlternateColor
+              color: categoriesVisible ? QfTheme.mainOverlayColor : QfTheme.mainTextColor
               enabled: pendingField !== ""
               onClicked: rendererModeRow.applyMode("categorized")
             }
 
             QfButton {
               text: qsTr("Przedziały")
-              font.pointSize: Theme.tinyFont.pointSize
-              bgcolor: Theme.controlBackgroundAlternateColor
-              color: Theme.mainTextColor
+              font.pointSize: QfTheme.tinyFont.pointSize
+              bgcolor: QfTheme.controlBackgroundAlternateColor
+              color: QfTheme.mainTextColor
               enabled: pendingField !== "" && fieldCombo.currentNumeric
               onClicked: rendererModeRow.applyMode("graduated")
             }
@@ -415,15 +389,15 @@ QfPopup {
 
             Text {
               text: qsTr("Pole")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
             }
 
-            ComboBox {
+            QfComboBox {
               id: fieldCombo
 
               Layout.fillWidth: true
-              font: Theme.defaultFont
+              font: QfTheme.defaultFont
               model: availableFields.map(f => f.name)
               currentIndex: -1
               displayText: currentIndex < 0 ? qsTr("wybierz…") : currentText
@@ -439,7 +413,7 @@ QfPopup {
               from: 2
               to: 12
               value: pendingClassCount
-              font: Theme.defaultFont
+              font: QfTheme.defaultFont
               onValueChanged: pendingClassCount = value
             }
           }
@@ -457,16 +431,16 @@ QfPopup {
 
             Text {
               text: qsTr("Rampa")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
             }
 
-            ComboBox {
+            QfComboBox {
               id: rampCombo
 
               Layout.fillWidth: true
-              font: Theme.defaultFont
-              model: LayerUtils.colorRampNames()
+              font: QfTheme.defaultFont
+              model: QfLayerUtils.colorRampNames()
               currentIndex: Math.max(0, model.indexOf(pendingRamp))
 
               // WorkField 19.08.2026: nazwa rampy nic nie mowi o tym, jak
@@ -483,7 +457,7 @@ QfPopup {
                 spacing: 0
 
                 Repeater {
-                  model: LayerUtils.colorRampPreview(rampSwatch.rampName, rampSwatch.cells)
+                  model: QfLayerUtils.colorRampPreview(rampSwatch.rampName, rampSwatch.cells)
 
                   delegate: Rectangle {
                     required property var modelData
@@ -513,8 +487,8 @@ QfPopup {
                   Text {
                     Layout.fillWidth: true
                     text: rampItem.modelData
-                    font: Theme.defaultFont
-                    // WorkField: liste rozwijana rysuje STYL, nie Theme — kolor
+                    font: QfTheme.defaultFont
+                    // WorkField: liste rozwijana rysuje STYL, nie QfTheme — kolor
                     // tekstu musi pochodzic z tego samego zrodla co tlo popupu,
                     // inaczej wychodzi jasne na jasnym (notatka z 18.08).
                     color: rampItem.highlighted ? rampItem.palette.highlightedText : rampItem.palette.text
@@ -536,8 +510,8 @@ QfPopup {
                 Text {
                   Layout.fillWidth: true
                   text: rampCombo.currentText
-                  font: Theme.defaultFont
-                  color: Theme.mainTextColor
+                  font: QfTheme.defaultFont
+                  color: QfTheme.mainTextColor
                   elide: Text.ElideRight
                   verticalAlignment: Text.AlignVCenter
                 }
@@ -545,15 +519,15 @@ QfPopup {
 
               onActivated: {
                 pendingRamp = currentText;
-                const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
                 if (!vl)
                   return;
                 // Przemalowanie, nie odtworzenie klasyfikacji: recznie
                 // poprawione kategorie przezywaja zmiane rampy tylko wtedy,
                 // gdy nie przechodzimy przez setCategorizedRenderer.
-                if (LayerUtils.applyColorRamp(vl, pendingRamp)) {
-                  categoryEntries = LayerUtils.rendererCategories(vl);
-                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                if (QfLayerUtils.applyColorRamp(vl, pendingRamp)) {
+                  categoryEntries = QfLayerUtils.rendererCategories(vl);
+                  projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
                 }
               }
             }
@@ -568,13 +542,13 @@ QfPopup {
             Layout.rightMargin: 8
             Layout.topMargin: 6
             spacing: 4
-            visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer) ? true : false
+            visible: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer) ? true : false
 
             Text {
               Layout.fillWidth: true
               text: qsTr("Znaczniki")
-              font: Theme.strongTipFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongTipFont
+              color: QfTheme.mainTextColor
             }
 
             Flow {
@@ -583,15 +557,15 @@ QfPopup {
 
               QfButton {
                 text: qsTr("Stan w środku")
-                font.pointSize: Theme.tinyFont.pointSize
-                bgcolor: Theme.controlBackgroundAlternateColor
-                color: Theme.mainTextColor
+                font.pointSize: QfTheme.tinyFont.pointSize
+                bgcolor: QfTheme.controlBackgroundAlternateColor
+                color: QfTheme.mainTextColor
                 onClicked: {
-                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
                   if (!vl)
                     return;
-                  if (LayerUtils.addStatusMarker(vl, "ZROBIONE")) {
-                    projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                  if (QfLayerUtils.addStatusMarker(vl, "ZROBIONE")) {
+                    projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
                     displayToast(qsTr("Znacznik stanu dodany."));
                   } else {
                     // Uczciwie: najczęstsza przyczyna to brak pola, a nie awaria.
@@ -602,16 +576,16 @@ QfPopup {
 
               QfButton {
                 text: qsTr("Wierzchołki")
-                font.pointSize: Theme.tinyFont.pointSize
-                bgcolor: Theme.controlBackgroundAlternateColor
-                color: Theme.mainTextColor
+                font.pointSize: QfTheme.tinyFont.pointSize
+                bgcolor: QfTheme.controlBackgroundAlternateColor
+                color: QfTheme.mainTextColor
                 onClicked: {
-                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
                   if (!vl)
                     return;
-                  if (LayerUtils.addVertexMarkers(vl)) {
-                    vertexCfg = LayerUtils.vertexMarkerConfig(vl);
-                    projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                  if (QfLayerUtils.addVertexMarkers(vl)) {
+                    vertexCfg = QfLayerUtils.vertexMarkerConfig(vl);
+                    projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
                     displayToast(qsTr("Znaczniki wierzchołków dodane."));
                   } else {
                     displayToast(qsTr("Nie dodano — to działa na poligonach i liniach."), 'warning');
@@ -621,18 +595,18 @@ QfPopup {
 
               QfButton {
                 text: qsTr("Zdejmij dodatki")
-                font.pointSize: Theme.tinyFont.pointSize
-                bgcolor: Theme.controlBackgroundAlternateColor
-                color: Theme.mainTextColor
+                font.pointSize: QfTheme.tinyFont.pointSize
+                bgcolor: QfTheme.controlBackgroundAlternateColor
+                color: QfTheme.mainTextColor
                 onClicked: {
-                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
                   if (!vl)
                     return;
-                  displayToast(LayerUtils.removeExtraSymbolLayers(vl)
+                  displayToast(QfLayerUtils.removeExtraSymbolLayers(vl)
                                ? qsTr("Zdjęte.")
                                : qsTr("Nie było czego zdejmować."));
-                  vertexCfg = LayerUtils.vertexMarkerConfig(vl);
-                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                  vertexCfg = QfLayerUtils.vertexMarkerConfig(vl);
+                  projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
                 }
               }
             }
@@ -646,12 +620,12 @@ QfPopup {
               visible: vertexCfg.present
 
               function zapisz(kolor, rozmiar, ksztalt) {
-                const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
                 if (!vl)
                   return;
-                LayerUtils.setVertexMarker(vl, kolor, rozmiar, ksztalt);
-                vertexCfg = LayerUtils.vertexMarkerConfig(vl);
-                projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                QfLayerUtils.setVertexMarker(vl, kolor, rozmiar, ksztalt);
+                vertexCfg = QfLayerUtils.vertexMarkerConfig(vl);
+                projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
               }
 
               Rectangle {
@@ -660,7 +634,7 @@ QfPopup {
                 radius: 4
                 color: vertexCfg.color
                 border.width: 1
-                border.color: Theme.controlBorderColor
+                border.color: QfTheme.controlBorderColor
 
                 MouseArea {
                   anchors.fill: parent
@@ -670,16 +644,16 @@ QfPopup {
                 }
               }
 
-              ComboBox {
+              QfComboBox {
                 Layout.preferredWidth: 116
-                font: Theme.defaultFont
+                font: QfTheme.defaultFont
                 model: [qsTr("kwadrat"), qsTr("kółko"), qsTr("romb"), qsTr("krzyżyk")]
                 readonly property var klucze: ["square", "circle", "diamond", "cross"]
                 currentIndex: Math.max(0, klucze.indexOf(vertexCfg.shape))
                 onActivated: parent.zapisz(vertexCfg.color, vertexCfg.size, klucze[currentIndex])
               }
 
-              Slider {
+              QfSlider {
                 Layout.fillWidth: true
                 from: 0.4
                 to: 5.0
@@ -695,16 +669,16 @@ QfPopup {
 
               Text {
                 text: vertexCfg.size.toFixed(1) + " mm"
-                font: Theme.tinyFont
-                color: Theme.secondaryTextColor
+                font: QfTheme.tinyFont
+                color: QfTheme.secondaryTextColor
               }
             }
 
             Text {
               Layout.fillWidth: true
               wrapMode: Text.WordWrap
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
               text: qsTr("Znaczniki dokładają się do symbolu warstwy — kolory kategorii zostają. „Zdejmij dodatki” zostawia sam symbol podstawowy.")
             }
           }
@@ -718,7 +692,7 @@ QfPopup {
             spacing: 0
 
             Repeater {
-              model: LayerUtils.colorRampPreview(pendingRamp, 24)
+              model: QfLayerUtils.colorRampPreview(pendingRamp, 24)
 
               delegate: Rectangle {
                 required property var modelData
@@ -768,16 +742,16 @@ QfPopup {
             Text {
               Layout.fillWidth: true
               text: stepper.label
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
             }
 
             QfButton {
               text: "−"
-              font.pointSize: Theme.defaultFont.pointSize + 2
+              font.pointSize: QfTheme.defaultFont.pointSize + 2
               implicitWidth: 46
-              bgcolor: Theme.toolButtonBackgroundColor
-              color: Theme.mainOverlayColor
+              bgcolor: QfTheme.toolButtonBackgroundColor
+              color: QfTheme.mainOverlayColor
               onClicked: stepper.bump(-stepper.step)
               onPressAndHold: stepper.bump(-stepper.step * 10)
             }
@@ -786,16 +760,16 @@ QfPopup {
               Layout.preferredWidth: 74
               horizontalAlignment: Text.AlignHCenter
               text: stepper.value.toFixed(stepper.decimals) + stepper.suffix
-              font: Theme.strongTipFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongTipFont
+              color: QfTheme.mainTextColor
             }
 
             QfButton {
               text: "+"
-              font.pointSize: Theme.defaultFont.pointSize + 2
+              font.pointSize: QfTheme.defaultFont.pointSize + 2
               implicitWidth: 46
-              bgcolor: Theme.toolButtonBackgroundColor
-              color: Theme.mainOverlayColor
+              bgcolor: QfTheme.toolButtonBackgroundColor
+              color: QfTheme.mainOverlayColor
               onClicked: stepper.bump(stepper.step)
               onPressAndHold: stepper.bump(stepper.step * 10)
             }
@@ -806,8 +780,8 @@ QfPopup {
             Layout.leftMargin: 4
             Layout.topMargin: visible ? 6 : 0
             Layout.preferredHeight: visible ? implicitHeight : 0
-            font: Theme.strongTipFont
-            color: Theme.mainTextColor
+            font: QfTheme.strongTipFont
+            color: QfTheme.mainTextColor
           }
 
 
@@ -830,17 +804,17 @@ QfPopup {
               radius: 4
               color: currentColor
               border.width: 1
-              border.color: Theme.controlBorderColor
+              border.color: QfTheme.controlBorderColor
 
               MouseArea {
                 anchors.fill: parent
                 onClicked: openColorPicker(qsTr("Wypełnienie"), fillPalette.currentColor, function (chosen) {
-                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
                   if (!vl)
                     return;
-                  LayerUtils.setFillColor(vl, chosen);
+                  QfLayerUtils.setFillColor(vl, chosen);
                   fillPalette.currentColor = chosen;
-                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                  projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
                 })
               }
             }
@@ -848,8 +822,8 @@ QfPopup {
             Text {
               Layout.fillWidth: true
               text: qsTr("Dotknij, aby zmienić")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
             }
           }
 
@@ -874,28 +848,28 @@ QfPopup {
               radius: 4
               color: currentColor
               border.width: 1
-              border.color: Theme.controlBorderColor
+              border.color: QfTheme.controlBorderColor
 
               MouseArea {
                 anchors.fill: parent
                 onClicked: openStrokePicker(strokePalette.currentColor, strokeWidthValue, currentStrokeStyle, function (chosen) {
                   if (!styleTargetLayer)
                     return;
-                  LayerUtils.setStrokeColor(styleTargetLayer, chosen);
+                  QfLayerUtils.setStrokeColor(styleTargetLayer, chosen);
                   strokePalette.currentColor = chosen;
                   if (styleTargetMapLayer)
                     projectInfo.saveLayerStyle(styleTargetMapLayer);
                 }, function (w) {
                   if (!styleTargetLayer)
                     return;
-                  LayerUtils.setStrokeWidth(styleTargetLayer, w);
+                  QfLayerUtils.setStrokeWidth(styleTargetLayer, w);
                   strokeWidthValue = w;
                   if (styleTargetMapLayer)
                     projectInfo.saveLayerStyle(styleTargetMapLayer);
                 }, function (st) {
                   if (!styleTargetLayer)
                     return;
-                  LayerUtils.setStrokeStyle(styleTargetLayer, st);
+                  QfLayerUtils.setStrokeStyle(styleTargetLayer, st);
                   currentStrokeStyle = st;
                   if (styleTargetMapLayer)
                     projectInfo.saveLayerStyle(styleTargetMapLayer);
@@ -906,8 +880,8 @@ QfPopup {
             Text {
               Layout.fillWidth: true
               text: qsTr("Dotknij, aby zmienić")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
             }
           }
 
@@ -952,17 +926,17 @@ QfPopup {
                 required property var modelData
 
                 text: modelData.n
-                font.pointSize: Theme.tinyFont.pointSize
-                bgcolor: currentMarkerShape === modelData.s ? Theme.mainColor : Theme.controlBackgroundAlternateColor
-                color: currentMarkerShape === modelData.s ? Theme.mainOverlayColor : Theme.mainTextColor
+                font.pointSize: QfTheme.tinyFont.pointSize
+                bgcolor: currentMarkerShape === modelData.s ? QfTheme.mainColor : QfTheme.controlBackgroundAlternateColor
+                color: currentMarkerShape === modelData.s ? QfTheme.mainOverlayColor : QfTheme.mainTextColor
 
                 onClicked: {
-                  const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                  const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
                   if (!vl)
                     return;
-                  LayerUtils.setMarkerShape(vl, modelData.s);
+                  QfLayerUtils.setMarkerShape(vl, modelData.s);
                   currentMarkerShape = modelData.s;
-                  projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                  projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
                 }
               }
             }
@@ -977,8 +951,8 @@ QfPopup {
 
             Text {
               text: symbolKind === 1 ? qsTr("Szerokość") : qsTr("Rozmiar")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
             }
 
             QfSlider {
@@ -991,11 +965,11 @@ QfPopup {
               height: 40
 
               onMoved: function () {
-                const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+                const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
                 if (!vl)
                   return;
-                LayerUtils.setSymbolSize(vl, value);
-                projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+                QfLayerUtils.setSymbolSize(vl, value);
+                projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
               }
             }
           }
@@ -1014,8 +988,8 @@ QfPopup {
             Layout.fillWidth: true
             Layout.leftMargin: 4
             text: qsTr("Kategorie (%1)").arg(categoryEntries.length)
-            font: Theme.strongTipFont
-            color: Theme.mainTextColor
+            font: QfTheme.strongTipFont
+            color: QfTheme.mainTextColor
           }
 
           ListView {
@@ -1047,7 +1021,7 @@ QfPopup {
                   radius: 4
                   color: modelData.color
                   border.width: 1
-                  border.color: Theme.controlBorderColor
+                  border.color: QfTheme.controlBorderColor
                   opacity: modelData.visible ? 1.0 : 0.35
 
                   MouseArea {
@@ -1061,8 +1035,8 @@ QfPopup {
                         return;
                       const nrKategorii = index;
                       openColorPicker(qsTr("Kategoria"), modelData.color, function (chosen) {
-                        LayerUtils.setCategoryColor(styleTargetLayer, nrKategorii, chosen);
-                        categoryEntries = LayerUtils.rendererCategories(styleTargetLayer);
+                        QfLayerUtils.setCategoryColor(styleTargetLayer, nrKategorii, chosen);
+                        categoryEntries = QfLayerUtils.rendererCategories(styleTargetLayer);
                         if (styleTargetMapLayer)
                           projectInfo.saveLayerStyle(styleTargetMapLayer);
                       });
@@ -1073,8 +1047,8 @@ QfPopup {
                 Text {
                   Layout.fillWidth: true
                   text: modelData.label
-                  font: Theme.defaultFont
-                  color: Theme.mainTextColor
+                  font: QfTheme.defaultFont
+                  color: QfTheme.mainTextColor
                   opacity: modelData.visible ? 1.0 : 0.5
                   elide: Text.ElideRight
 
@@ -1093,14 +1067,14 @@ QfPopup {
                   // WorkField 21.08.2026: nazwy ikon były niewypełnionymi
                   // zaślepkami, a obsługa kliknięcia pobierała warstwę
                   // i ją wyrzucała — przycisk widoczny, prowadzący donikąd.
-                  iconSource: Theme.getThemeVectorIcon(modelData.visible ? "ic_eye_black_24dp" : "ic_eye_off_black_24dp")
-                  iconColor: modelData.visible ? Theme.mainTextColor : Theme.mainTextDisabledColor
+                  iconSource: QfTheme.getThemeVectorIcon(modelData.visible ? "ic_eye_black_24dp" : "ic_eye_off_black_24dp")
+                  iconColor: modelData.visible ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
 
                   onClicked: {
                     if (!styleTargetLayer)
                       return;
-                    LayerUtils.setCategoryVisible(styleTargetLayer, index, !modelData.visible);
-                    categoryEntries = LayerUtils.rendererCategories(styleTargetLayer);
+                    QfLayerUtils.setCategoryVisible(styleTargetLayer, index, !modelData.visible);
+                    categoryEntries = QfLayerUtils.rendererCategories(styleTargetLayer);
                     if (styleTargetMapLayer)
                       projectInfo.saveLayerStyle(styleTargetMapLayer);
                   }
@@ -1117,14 +1091,14 @@ QfPopup {
           Layout.fillWidth: true
           Layout.topMargin: 6
           spacing: 4
-          visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer) ? true : false
+          visible: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer) ? true : false
 
           function currentLayer() {
-            return layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+            return layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
           }
 
           function persist() {
-            projectInfo.saveLayerStyle(layerTree.data(index, FlatLayerTreeModel.MapLayerPointer));
+            projectInfo.saveLayerStyle(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer));
           }
 
           RowLayout {
@@ -1135,8 +1109,8 @@ QfPopup {
             Text {
               Layout.fillWidth: true
               text: qsTr("Etykiety")
-              font: Theme.strongTipFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongTipFont
+              color: QfTheme.mainTextColor
             }
 
             QfSwitch {
@@ -1147,9 +1121,9 @@ QfPopup {
                 const vl = labelPanel.currentLayer();
                 if (!vl)
                   return;
-                LayerUtils.setLabelsEnabled(vl, checked, labelField);
+                QfLayerUtils.setLabelsEnabled(vl, checked, labelField);
                 labelsOn = checked;
-                const ls = LayerUtils.labelSettings(vl);
+                const ls = QfLayerUtils.labelSettings(vl);
                 labelField = ls.field !== undefined ? ls.field : "";
                 labelPanel.persist();
               }
@@ -1165,13 +1139,13 @@ QfPopup {
 
             Text {
               text: qsTr("Pole")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
             }
 
-            ComboBox {
+            QfComboBox {
               Layout.fillWidth: true
-              font: Theme.defaultFont
+              font: QfTheme.defaultFont
               model: availableFields.map(f => f.name)
               currentIndex: availableFields.findIndex(f => f.name === labelField)
 
@@ -1180,7 +1154,7 @@ QfPopup {
                 if (!vl)
                   return;
                 labelField = availableFields[idx].name;
-                LayerUtils.setLabelField(vl, labelField);
+                QfLayerUtils.setLabelField(vl, labelField);
                 labelPanel.persist();
               }
             }
@@ -1195,8 +1169,8 @@ QfPopup {
 
             Text {
               text: qsTr("Rozmiar")
-              font: Theme.defaultFont
-              color: Theme.mainTextColor
+              font: QfTheme.defaultFont
+              color: QfTheme.mainTextColor
             }
 
             QfSlider {
@@ -1213,7 +1187,7 @@ QfPopup {
                 if (!vl)
                   return;
                 labelSize = value;
-                LayerUtils.setLabelSize(vl, value);
+                QfLayerUtils.setLabelSize(vl, value);
                 labelPanel.persist();
               }
             }
@@ -1224,8 +1198,8 @@ QfPopup {
             Layout.leftMargin: 4
             visible: labelsOn
             text: qsTr("Kolor tekstu")
-            font: Theme.tipFont
-            color: Theme.secondaryTextColor
+            font: QfTheme.tipFont
+            color: QfTheme.secondaryTextColor
           }
 
           RowLayout {
@@ -1241,7 +1215,7 @@ QfPopup {
               radius: 4
               color: labelColor
               border.width: 1
-              border.color: Theme.controlBorderColor
+              border.color: QfTheme.controlBorderColor
 
               MouseArea {
                 anchors.fill: parent
@@ -1249,7 +1223,7 @@ QfPopup {
                   const vl = labelPanel.currentLayer();
                   if (!vl)
                     return;
-                  LayerUtils.setLabelColor(vl, chosen);
+                  QfLayerUtils.setLabelColor(vl, chosen);
                   labelColor = chosen;
                   labelPanel.persist();
                 })
@@ -1259,8 +1233,8 @@ QfPopup {
             Text {
               Layout.fillWidth: true
               text: qsTr("Dotknij, aby zmienić")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
             }
           }
 
@@ -1273,8 +1247,8 @@ QfPopup {
             Text {
               Layout.fillWidth: true
               text: qsTr("Otoczka")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
             }
 
             QfSwitch {
@@ -1285,7 +1259,7 @@ QfPopup {
                 const vl = labelPanel.currentLayer();
                 if (!vl)
                   return;
-                LayerUtils.setLabelBuffer(vl, checked, labelBufferColor);
+                QfLayerUtils.setLabelBuffer(vl, checked, labelBufferColor);
                 labelBufferOn = checked;
                 labelPanel.persist();
               }
@@ -1305,7 +1279,7 @@ QfPopup {
               radius: 4
               color: labelBufferColor
               border.width: 1
-              border.color: Theme.controlBorderColor
+              border.color: QfTheme.controlBorderColor
 
               MouseArea {
                 anchors.fill: parent
@@ -1313,7 +1287,7 @@ QfPopup {
                   const vl = labelPanel.currentLayer();
                   if (!vl)
                     return;
-                  LayerUtils.setLabelBuffer(vl, true, chosen);
+                  QfLayerUtils.setLabelBuffer(vl, true, chosen);
                   labelBufferColor = chosen;
                   labelPanel.persist();
                 })
@@ -1323,8 +1297,8 @@ QfPopup {
             Text {
               Layout.fillWidth: true
               text: qsTr("Dotknij, aby zmienić")
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
             }
           }
         }
@@ -1333,18 +1307,18 @@ QfPopup {
           Layout.fillWidth: true
           Layout.topMargin: 6
           spacing: 6
-          visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.MapLayerPointer) ? true : false
+          visible: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer) ? true : false
 
           QfButton {
             Layout.fillWidth: true
             text: qsTr("Wczytaj styl")
-            font.pointSize: Theme.tinyFont.pointSize
+            font.pointSize: QfTheme.tinyFont.pointSize
 
             onClicked: {
-              const ml = layerTree.data(index, FlatLayerTreeModel.MapLayerPointer);
+              const ml = layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer);
               if (!ml)
                 return;
-              styleFileMenu.entries = LayerUtils.availableStyleFiles(ml);
+              styleFileMenu.entries = QfLayerUtils.availableStyleFiles(ml);
               if (styleFileMenu.entries.length === 0) {
                 displayToast(qsTr("Nie znaleziono plików .qml obok warstwy ani w folderze projektu"));
                 return;
@@ -1356,27 +1330,27 @@ QfPopup {
           QfButton {
             Layout.fillWidth: true
             text: qsTr("Zapisz styl")
-            font.pointSize: Theme.tinyFont.pointSize
+            font.pointSize: QfTheme.tinyFont.pointSize
 
             onClicked: {
-              const ml = layerTree.data(index, FlatLayerTreeModel.MapLayerPointer);
+              const ml = layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer);
               if (!ml)
                 return;
               platformUtilities.createDir(qgisProject.homePath, "styles");
-              const target = qgisProject.homePath + "/styles/" + FileUtils.sanitizeFilePathPart(ml.name) + ".qml";
-              const error = LayerUtils.saveStyleToFile(ml, target);
-              displayToast(error === "" ? qsTr("Zapisano styl: %1").arg(FileUtils.fileName(target)) : error);
+              const target = qgisProject.homePath + "/styles/" + QfFileUtils.sanitizeFilePathPart(ml.name) + ".qml";
+              const error = QfLayerUtils.saveStyleToFile(ml, target);
+              displayToast(error === "" ? qsTr("Zapisano styl: %1").arg(QfFileUtils.fileName(target)) : error);
             }
           }
         }
 
-        Menu {
+        QfMenu {
           id: styleFileMenu
 
           property var entries: []
 
           width: 300
-          font: Theme.defaultFont
+          font: QfTheme.defaultFont
 
           Repeater {
             model: styleFileMenu.entries
@@ -1385,13 +1359,13 @@ QfPopup {
               required property var modelData
 
               text: modelData.name
-              font: Theme.defaultFont
+              font: QfTheme.defaultFont
 
               onTriggered: {
-                const ml = layerTree.data(index, FlatLayerTreeModel.MapLayerPointer);
+                const ml = layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer);
                 if (!ml)
                   return;
-                const error = LayerUtils.loadStyleFromFile(ml, modelData.path);
+                const error = QfLayerUtils.loadStyleFromFile(ml, modelData.path);
                 if (error === "") {
                   displayToast(qsTr("Wczytano styl: %1").arg(modelData.name));
                   projectInfo.saveLayerStyle(ml);
@@ -1409,9 +1383,9 @@ QfPopup {
           Layout.fillWidth: true
           Layout.topMargin: 5
           text: qsTr("Eksportuj jako…")
-          visible: index !== undefined && layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer) ? true : false
+          visible: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer) ? true : false
           onClicked: {
-            const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+            const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
             if (vl) {
               exportDialog.openFor(vl);
               close();
@@ -1424,7 +1398,7 @@ QfPopup {
           Layout.fillWidth: true
           Layout.topMargin: 5
           text: qsTr("Gotowe")
-          icon.source: Theme.getThemeVectorIcon("ic_check_white_24dp")
+          icon.source: QfTheme.getThemeVectorIcon("ic_check_white_24dp")
           onClicked: close()
         }
 
@@ -1432,9 +1406,9 @@ QfPopup {
           id: zoomToButton
           Layout.fillWidth: true
           Layout.topMargin: 5
-          text: index ? layerTree.data(index, FlatLayerTreeModel.Type) === FlatLayerTreeModel.Group ? qsTr('Zoom to group') : layerTree.data(index, FlatLayerTreeModel.Type) === FlatLayerTreeModel.Legend && layerTree.data(index, FlatLayerTreeModel.LayerType) === "vectorlayer" ? qsTr('Zoom to parent layer') : qsTr('Zoom to layer') : ''
+          text: index ? layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.Group ? qsTr('Zoom to group') : layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.QfLegend && layerTree.data(index, QfFlatLayerTreeModel.LayerType) === "vectorlayer" ? qsTr('Zoom to parent layer') : qsTr('Zoom to layer') : ''
           visible: zoomToButtonVisible
-          icon.source: Theme.getThemeVectorIcon('zoom_out_map_24dp')
+          icon.source: QfTheme.getThemeVectorIcon('zoom_out_map_24dp')
 
           onClicked: {
             mapCanvas.mapSettings.extent = layerTree.nodeExtent(index, mapCanvas.mapSettings);
@@ -1450,16 +1424,16 @@ QfPopup {
           dropdown: showVisibleFeaturesListDropdownVisible
           text: qsTr('Show features list')
           visible: showFeaturesListButtonVisible
-          icon.source: Theme.getThemeVectorIcon('ic_list_black_24dp')
+          icon.source: QfTheme.getThemeVectorIcon('ic_list_black_24dp')
 
           onClicked: {
-            if (parseInt(layerTree.data(index, FlatLayerTreeModel.FeatureCount)) === 0) {
+            if (parseInt(layerTree.data(index, QfFlatLayerTreeModel.FeatureCount)) === 0) {
               displayToast(qsTr("The layer has no features"));
             } else {
-              var vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-              var filter = layerTree.data(index, FlatLayerTreeModel.FilterExpression);
+              var vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
+              var filter = layerTree.data(index, QfFlatLayerTreeModel.FilterExpression);
               featureListForm.model.setFeatures(vl, filter);
-              if (layerTree.data(index, FlatLayerTreeModel.HasSpatialExtent)) {
+              if (layerTree.data(index, QfFlatLayerTreeModel.HasSpatialExtent)) {
                 mapCanvas.mapSettings.extent = layerTree.nodeExtent(index, mapCanvas.mapSettings);
               }
             }
@@ -1478,10 +1452,10 @@ QfPopup {
           Layout.topMargin: 5
           text: trackingButtonText
           visible: trackingButtonVisible
-          icon.source: Theme.getThemeVectorIcon('directions_walk_24dp')
+          icon.source: QfTheme.getThemeVectorIcon('directions_walk_24dp')
 
           onClicked: {
-            const layer = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+            const layer = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
             popup.close();
             if (trackingModel.layerInActiveTracking(layer)) {
               trackingModel.stopTracker(layer);
@@ -1496,14 +1470,14 @@ QfPopup {
         Text {
           id: lockText
 
-          property var padlockIcon: Theme.getThemeVectorIcon('ic_lock_black_24dp')
+          property var padlockIcon: QfTheme.getThemeVectorIcon('ic_lock_black_24dp')
           property real padlockSize: fontMetrics.height - 5
 
-          property bool isReadOnly: index !== undefined && layerTree.data(index, FlatLayerTreeModel.ReadOnly)
-          property bool isFeatureAdditionLocked: index !== undefined && layerTree.data(index, FlatLayerTreeModel.FeatureAdditionLocked)
-          property bool isAttributeEditingLocked: index !== undefined && layerTree.data(index, FlatLayerTreeModel.AttributeEditingLocked)
-          property bool isGeometryEditingLocked: index !== undefined && layerTree.data(index, FlatLayerTreeModel.GeometryEditingLocked)
-          property bool isFeatureDeletionLocked: index !== undefined && layerTree.data(index, FlatLayerTreeModel.FeatureDeletionLocked)
+          property bool isReadOnly: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.ReadOnly)
+          property bool isFeatureAdditionLocked: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.FeatureAdditionLocked)
+          property bool isAttributeEditingLocked: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.AttributeEditingLocked)
+          property bool isGeometryEditingLocked: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.GeometryEditingLocked)
+          property bool isFeatureDeletionLocked: index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.FeatureDeletionLocked)
 
           visible: isReadOnly || isFeatureAdditionLocked || isAttributeEditingLocked || isGeometryEditingLocked || isFeatureDeletionLocked
           Layout.fillWidth: true
@@ -1532,8 +1506,8 @@ QfPopup {
             }
             return '';
           }
-          font: Theme.tipFont
-          color: Theme.secondaryTextColor
+          font: QfTheme.tipFont
+          color: QfTheme.secondaryTextColor
         }
 
         Text {
@@ -1543,9 +1517,9 @@ QfPopup {
           wrapMode: Text.WordWrap
           textFormat: Text.RichText
           text: ''
-          font.pointSize: Theme.tipFont.pointSize
+          font.pointSize: QfTheme.tipFont.pointSize
           font.italic: true
-          color: Theme.secondaryTextColor
+          color: QfTheme.secondaryTextColor
 
           onLinkActivated: link => {
             Qt.openUrlExternally(link);
@@ -1557,21 +1531,21 @@ QfPopup {
 
   QfMenu {
     id: showFeaturesMenu
-    title: qsTr("Show Features Menu")
+    title: qsTr("Show Features QfMenu")
 
     MenuItem {
       text: qsTr('Show visible features list')
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: 48
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: {
-        if (parseInt(layerTree.data(index, FlatLayerTreeModel.FeatureCount)) === 0) {
+        if (parseInt(layerTree.data(index, QfFlatLayerTreeModel.FeatureCount)) === 0) {
           displayToast(qsTr("The layer has no features"));
         } else {
-          var vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
-          var filter = layerTree.data(index, FlatLayerTreeModel.FilterExpression);
+          var vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
+          var filter = layerTree.data(index, QfFlatLayerTreeModel.FilterExpression);
           featureListForm.model.setFeatures(vl, filter, mapCanvas.mapSettings.visibleExtent);
         }
         close();
@@ -1586,7 +1560,7 @@ QfPopup {
     function onDataChanged(topleft, bottomright, roles) {
       if (index === undefined)
         return;
-      if (roles.includes(FlatLayerTreeModel.FeatureCount)) {
+      if (roles.includes(QfFlatLayerTreeModel.FeatureCount)) {
         updateTitle();
       }
     }
@@ -1595,14 +1569,14 @@ QfPopup {
   function updateTitle() {
     if (index === undefined)
       return;
-    const type = layerTree.data(index, FlatLayerTreeModel.Type);
-    const vl = layerTree.data(index, FlatLayerTreeModel.VectorLayerPointer);
+    const type = layerTree.data(index, QfFlatLayerTreeModel.Type);
+    const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
     let title = layerTree.data(index, Qt.Name);
     if (vl) {
-      if (type === FlatLayerTreeModel.Legend) {
+      if (type === QfFlatLayerTreeModel.QfLegend) {
         title += ' (' + vl.name + ')';
-      } else if (type === FlatLayerTreeModel.Layer && layerTree.data(index, FlatLayerTreeModel.IsValid)) {
-        var count = layerTree.data(index, FlatLayerTreeModel.FeatureCount);
+      } else if (type === QfFlatLayerTreeModel.Layer && layerTree.data(index, QfFlatLayerTreeModel.IsValid)) {
+        var count = layerTree.data(index, QfFlatLayerTreeModel.FeatureCount);
         if (count !== undefined && count >= 0) {
           var countSuffix = ' [' + count + ']';
           if (!title.endsWith(countSuffix))
@@ -1616,7 +1590,7 @@ QfPopup {
   function updateCredits() {
     var credits = '';
     if (index !== undefined) {
-      credits = StringUtils.insertLinks(layerTree.data(index, FlatLayerTreeModel.Credits));
+      credits = QfStringUtils.insertLinks(layerTree.data(index, QfFlatLayerTreeModel.Credits));
     } else {
       credits = '';
     }
@@ -1627,14 +1601,14 @@ QfPopup {
   function isTrackingButtonVisible() {
     if (!index)
       return false;
-    return layerTree.data(index, FlatLayerTreeModel.Type) === FlatLayerTreeModel.Layer && !layerTree.data(index, FlatLayerTreeModel.ReadOnly) && layerTree.data(index, FlatLayerTreeModel.Trackable);
+    return layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.Layer && !layerTree.data(index, QfFlatLayerTreeModel.ReadOnly) && layerTree.data(index, QfFlatLayerTreeModel.Trackable);
   }
 
   function isShowFeaturesListButtonVisible() {
-    return layerTree.data(index, FlatLayerTreeModel.IsValid) && layerTree.data(index, FlatLayerTreeModel.LayerType) === 'vectorlayer';
+    return layerTree.data(index, QfFlatLayerTreeModel.IsValid) && layerTree.data(index, QfFlatLayerTreeModel.LayerType) === 'vectorlayer';
   }
 
   function isShowVisibleFeaturesListDropdownVisible() {
-    return isShowFeaturesListButtonVisible() && layerTree.data(index, FlatLayerTreeModel.HasSpatialExtent);
+    return isShowFeaturesListButtonVisible() && layerTree.data(index, QfFlatLayerTreeModel.HasSpatialExtent);
   }
 }

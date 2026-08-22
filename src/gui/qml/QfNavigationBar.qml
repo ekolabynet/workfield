@@ -1,5 +1,5 @@
 /***************************************************************************
-                            NavigationBar.qml
+                            QfNavigationBar.qml
                               -------------------
               begin                : 10.12.2014
               copyright            : (C) 2014 by Matthias Kuhn
@@ -17,8 +17,8 @@
 import QtQuick
 import QtQuick.Controls
 import org.qgis
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -31,9 +31,9 @@ Rectangle {
   property bool allowDelete
   property bool isVertical: false
 
-  property MultiFeatureListModel model
-  property FeatureListModelSelection selection
-  property FeaturelistExtentController extentController
+  property QfMultiFeatureListModel model
+  property QfFeatureListModelSelection selection
+  property QfFeatureListExtentController extentController
 
   property double topMargin: 0.0
   property double leftMargin: 0.0
@@ -71,13 +71,13 @@ Rectangle {
   anchors.topMargin: 5
   anchors.left: parent.left
   anchors.right: parent.right
-  height: toolBar.topMargin + Theme.toolButtonSize + 10
-  color: Theme.mainColor
+  height: toolBar.topMargin + QfTheme.toolButtonSize + 10
+  color: QfTheme.mainColor
   clip: true
 
   states: [
     State {
-      name: "Navigation"
+      name: "QfNavigation"
     },
     State {
       name: "Indication"
@@ -98,7 +98,7 @@ Rectangle {
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 1
 
-    color: Theme.controlBorderColor
+    color: QfTheme.controlBorderColor
   }
 
   Item {
@@ -111,20 +111,20 @@ Rectangle {
     Text {
       // Insure that the text is always visually centered by using the same left and right margin
       property double balancedMargin: Math.max((saveButton.visible ? saveButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (cancelButton.visible ? cancelButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (digitizeToggle.visible ? digitizeToggle.width : 0) + (zalacznikButton.visible ? zalacznikButton.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
-      font: Theme.strongFont
-      color: Theme.mainOverlayColor
+      font: QfTheme.strongFont
+      color: QfTheme.mainOverlayColor
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
       anchors.leftMargin: 0 + balancedMargin + toolBar.leftMargin
       anchors.rightMargin: 0 + balancedMargin + toolBar.rightMargin
-      height: Theme.toolButtonSize
+      height: QfTheme.toolButtonSize
 
       text: {
-        if (model && selection && selection.focusedItem > -1 && (toolBar.state === 'Navigation' || toolBar.state === 'Edit')) {
+        if (model && selection && selection.focusedItem > -1 && (toolBar.state === 'QfNavigation' || toolBar.state === 'Edit')) {
           var featurePosition = model.count > 1 ? ((selection.focusedItem + 1) + '/' + model.count + ': ') : '';
           const warstwa = selection.focusedLayer ? selection.focusedLayer.name + ' \u00b7 ' : '';
-          return featurePosition + warstwa + FeatureUtils.displayName(selection.focusedLayer, selection.focusedFeature);
+          return featurePosition + warstwa + QfFeatureUtils.displayName(selection.focusedLayer, selection.focusedFeature);
         } else {
           return toolBar.title;
         }
@@ -183,15 +183,15 @@ Rectangle {
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    visible: toolBar.state === "Navigation"
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    visible: toolBar.state === "QfNavigation"
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: Theme.getThemeVectorIcon("ic_chevron_right_white_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_chevron_right_white_24dp")
+    iconColor: QfTheme.mainOverlayColor
 
-    enabled: toolBar.state === "Navigation"
+    enabled: toolBar.state === "QfNavigation"
 
     onClicked: {
       if (toolBar.model && (selection.focusedItem + 1) < toolBar.model.count) {
@@ -218,12 +218,12 @@ Rectangle {
     anchors.topMargin: toolBar.topMargin + 5
 
     visible: enabled
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: toolBar.state === "Navigation" ? Theme.getThemeVectorIcon("ic_chevron_left_white_24dp") : Theme.getThemeVectorIcon("ic_arrow_left_white_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: toolBar.state === "QfNavigation" ? QfTheme.getThemeVectorIcon("ic_chevron_left_white_24dp") : QfTheme.getThemeVectorIcon("ic_arrow_left_white_24dp")
+    iconColor: QfTheme.mainOverlayColor
 
     enabled: toolBar.state !== "Edit" && !toolBar.multiSelection
 
@@ -252,14 +252,14 @@ Rectangle {
     anchors.topMargin: toolBar.topMargin + 5
 
     visible: toolBar.state === "Edit" || toolBar.state === "ProcessingLaunch"
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
-    iconColor: !featureForm.model.constraintsHardValid ? Theme.mainOverlayColor : Theme.mainOverlayColor
-    bgcolor: !featureForm.model.constraintsHardValid ? Theme.errorColor : !featureForm.model.constraintsSoftValid ? Theme.warningColor : featureForm.model.hasConstraints ? Theme.goodColor : "transparent"
-    borderColor: Theme.mainBackgroundColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_check_white_24dp")
+    iconColor: !featureForm.model.constraintsHardValid ? QfTheme.mainOverlayColor : QfTheme.mainOverlayColor
+    bgcolor: !featureForm.model.constraintsHardValid ? QfTheme.errorColor : !featureForm.model.constraintsSoftValid ? QfTheme.warningColor : featureForm.model.hasConstraints ? QfTheme.goodColor : "transparent"
+    borderColor: QfTheme.mainBackgroundColor
     roundborder: true
     round: true
 
@@ -290,12 +290,12 @@ Rectangle {
     anchors.topMargin: toolBar.topMargin + 5
 
     visible: !qfieldSettings.autoSave && toolBar.state === "Edit"
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_clear_white_24dp")
+    iconColor: QfTheme.mainOverlayColor
 
     onClicked: {
       toolBar.cancel();
@@ -320,19 +320,19 @@ Rectangle {
       return ZalacznikiUtils.relacjaZalacznikow(selection.focusedLayer).istnieje === true;
     }
 
-    visible: toolBar.state === "Navigation" && warstwaZZalacznikami && selection && selection.focusedFeature && selection.focusedFeature.id >= 0
+    visible: toolBar.state === "QfNavigation" && warstwaZZalacznikami && selection && selection.focusedFeature && selection.focusedFeature.id >= 0
     round: true
 
     anchors.right: digitizeToggle.left
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    iconSource: Theme.getThemeVectorIcon("ic_camera_photo_black_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_camera_photo_black_24dp")
+    iconColor: QfTheme.mainOverlayColor
     bgcolor: "transparent"
 
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
 
     onClicked: {
       ZalacznikiUtils.zazadajZdjecia(selection.focusedLayer, selection.focusedFeature);
@@ -344,19 +344,19 @@ Rectangle {
 
     // WorkField: przelacznik stanu rysowania, widoczny zawsze (On/Off);
     // ten sam jezyk co olowek w panelu warstw: zielone kolo = rysowanie
-    visible: toolBar.state === "Navigation" && (projectInfo.editRights || editButton.isCreatedCloudFeature)
+    visible: toolBar.state === "QfNavigation" && (projectInfo.editRights || editButton.isCreatedCloudFeature)
     round: true
 
     anchors.right: editGeomButton.left
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    iconSource: Theme.getThemeVectorIcon("ic_create_white_24dp")
+    iconSource: QfTheme.getThemeVectorIcon("ic_create_white_24dp")
     bgcolor: stateMachine.state === "digitize" ? "#00E676" : "transparent"
-    iconColor: stateMachine.state === "digitize" ? "#062E12" : Theme.mainOverlayColor
+    iconColor: stateMachine.state === "digitize" ? "#062E12" : QfTheme.mainOverlayColor
 
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
 
     onClicked: {
       const rysuje = stateMachine.state === "digitize";
@@ -374,17 +374,17 @@ Rectangle {
     // WorkField: edycja geometrii dostepna takze w Przegladaniu — nasz
     // workflow (olowek per warstwa + powrot do browse po edycji) chowal
     // jedyna droge do kolejnego ciecia
-    visible: toolBar.state === "Navigation" && supportsGeometryEditing && !featureForm.model.featureModel.geometryEditingLocked && (projectInfo.editRights || editButton.isCreatedCloudFeature)
+    visible: toolBar.state === "QfNavigation" && supportsGeometryEditing && !featureForm.model.featureModel.geometryEditingLocked && (projectInfo.editRights || editButton.isCreatedCloudFeature)
 
     anchors.right: editButton.left
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    iconSource: Theme.getThemeVectorIcon("ic_edit_geometry_white_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_edit_geometry_white_24dp")
+    iconColor: QfTheme.mainOverlayColor
 
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
     onClicked: {
@@ -417,13 +417,13 @@ Rectangle {
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    visible: toolBar.state === "Navigation" && supportsEditing && !featureForm.model.featureModel.attributeEditingLocked && (projectInfo.editRights || isCreatedCloudFeature)
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    visible: toolBar.state === "QfNavigation" && supportsEditing && !featureForm.model.featureModel.attributeEditingLocked && (projectInfo.editRights || isCreatedCloudFeature)
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: Theme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
+    iconColor: QfTheme.mainOverlayColor
 
     onClicked: {
       toolBar.editAttributesButtonClicked();
@@ -443,7 +443,7 @@ Rectangle {
         editGeomButton.supportsGeometryEditing = selection.focusedLayer && selection.focusedLayer.supportsEditing && !selection.focusedGeometry.isNull && (selection.focusedLayer.geometryType() !== Qgis.GeometryType.Point || WkbTypes.isMultiType(selection.focusedLayer.wkbType()));
       }
       function onFocusedFeatureChanged() {
-        if (QFieldCloudUtils.getProjectId(qgisProject.fileName) !== '') {
+        if (QfCloudUtils.getProjectId(qgisProject.fileName) !== '') {
           editButton.isCreatedCloudFeature = cloudProjectsModel.layerObserver.deltaFileWrapper.isCreatedFeature(selection.focusedLayer, selection.focusedFeature);
         } else {
           editButton.isCreatedCloudFeature = false;
@@ -461,17 +461,17 @@ Rectangle {
     anchors.topMargin: toolBar.topMargin + 5
 
     visible: toolBar.state !== "Edit" && toolBar.state !== "Processing" && toolBar.state !== "ProcessingLaunch"
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: Theme.getThemeVectorIcon("ic_dot_menu_black_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_dot_menu_black_24dp")
+    iconColor: QfTheme.mainOverlayColor
 
     onClicked: {
       if (toolBar.state === "Indication") {
         featureListMenu.popup(menuButton.x + menuButton.width - featureListMenu.width, menuButton.y);
-      } else if (toolBar.state === "Navigation") {
+      } else if (toolBar.state === "QfNavigation") {
         featureMenu.popup(menuButton.x + menuButton.width - featureMenu.width, menuButton.y);
       }
     }
@@ -491,12 +491,12 @@ Rectangle {
     anchors.topMargin: toolBar.topMargin + 5
 
     visible: toolBar.multiSelection && toolBar.model && (toolBar.state === "Processing" || toolBar.state === "ProcessingLaunch" || toolBar.state === "Indication")
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_clear_white_24dp")
+    iconColor: QfTheme.mainOverlayColor
 
     enabled: (toolBar.multiSelection && toolBar.model)
 
@@ -516,12 +516,12 @@ Rectangle {
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
-    width: (toolBar.state === "Indication" && toolBar.multiSelection && toolBar.model ? Theme.toolButtonSize : 0)
+    width: (toolBar.state === "Indication" && toolBar.multiSelection && toolBar.model ? QfTheme.toolButtonSize : 0)
     visible: width > 0
-    height: Theme.toolButtonSize
+    height: QfTheme.toolButtonSize
     verticalAlignment: Text.AlignVCenter
-    font: Theme.strongFont
-    color: Theme.mainOverlayColor
+    font: QfTheme.strongFont
+    color: QfTheme.mainOverlayColor
 
     text: model.selectedFeatures.length < 100 ? model.selectedFeatures.length : '99+'
 
@@ -536,12 +536,12 @@ Rectangle {
     anchors.topMargin: toolBar.topMargin + 5
 
     visible: toolBar.state === "Indication" && toolBar.model && toolBar.model.canEditAttributesSelection && toolBar.model.selectedCount > 1 && projectInfo.editRights
-    width: visible ? Theme.toolButtonSize : 0
-    height: Theme.toolButtonSize
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: Theme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconSource: QfTheme.getThemeVectorIcon("ic_edit_attributes_white_24dp")
+    iconColor: QfTheme.mainOverlayColor
 
     enabled: toolBar.model && toolBar.model.canEditAttributesSelection && toolBar.model.selectedCount > 1 && projectInfo.editRights
 
@@ -559,7 +559,7 @@ Rectangle {
   QfMenu {
     id: featureListMenu
     objectName: "featureListMenu"
-    title: qsTr("Feature List Menu")
+    title: qsTr("Feature List QfMenu")
 
     topMargin: mainWindow.sceneTopMargin
     bottomMargin: mainWindow.sceneBottomMargin
@@ -570,9 +570,9 @@ Rectangle {
       checkable: true
       checked: toolBar.multiSelection
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: 48
-      leftPadding: Theme.menuItemCheckLeftPadding
+      leftPadding: QfTheme.menuItemCheckLeftPadding
 
       onTriggered: {
         toggleMultiSelection();
@@ -585,12 +585,12 @@ Rectangle {
 
     MenuItem {
       text: qsTr('Print Atlas Feature(s) to PDF')
-      icon.source: Theme.getThemeVectorIcon("ic_print_black_24dp")
-      enabled: toolBar.model && toolBar.model.selectedCount > 0 && LayerUtils.isAtlasCoverageLayer(toolBar.model.selectedLayer)
+      icon.source: QfTheme.getThemeVectorIcon("ic_print_black_24dp")
+      enabled: toolBar.model && toolBar.model.selectedCount > 0 && QfLayerUtils.isAtlasCoverageLayer(toolBar.model.selectedLayer)
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: 48
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: {
         featureListMenu.close();
@@ -609,11 +609,11 @@ Rectangle {
       id: mergeSelectedFeaturesBtn
       text: qsTr('Merge Selected Features')
       height: 48
-      icon.source: Theme.getThemeVectorIcon("ic_merge_features_white_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_merge_features_white_24dp")
       enabled: toolBar.model && toolBar.model.canMergeSelection && toolBar.model.selectedCount > 1 && projectInfo.editRights
 
-      font: Theme.defaultFont
-      leftPadding: Theme.menuItemLeftPadding
+      font: QfTheme.defaultFont
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: multiMergeClicked()
     }
@@ -622,11 +622,11 @@ Rectangle {
       id: moveSelectedFeaturesBtn
       text: qsTr('Move Selected Feature(s)')
       height: 48
-      icon.source: Theme.getThemeVectorIcon("ic_move_white_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_move_white_24dp")
       enabled: toolBar.model && toolBar.model.canMoveSelection && projectInfo.editRights
 
-      font: Theme.defaultFont
-      leftPadding: Theme.menuItemLeftPadding
+      font: QfTheme.defaultFont
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: multiMoveClicked()
     }
@@ -635,11 +635,11 @@ Rectangle {
       id: duplicateSelectedFeaturesBtn
       text: qsTr('Duplicate Selected Feature(s)')
       height: 48
-      icon.source: Theme.getThemeVectorIcon("ic_duplicate_black_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_duplicate_black_24dp")
       enabled: toolBar.model && toolBar.model.canDuplicateSelection && projectInfo.insertRights
 
-      font: Theme.defaultFont
-      leftPadding: Theme.menuItemLeftPadding
+      font: QfTheme.defaultFont
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: multiDuplicateClicked()
     }
@@ -647,13 +647,13 @@ Rectangle {
     MenuItem {
       id: deleteSelectedFeaturesBtn
       text: qsTr('Delete Selected Feature(s)')
-      icon.source: Theme.getThemeVectorIcon("ic_delete_forever_white_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_delete_forever_white_24dp")
       enabled: toolBar.model && toolBar.model.canDeleteSelection && projectInfo.editRights
       visible: enabled
       height: enabled ? 48 : 0
 
-      font: Theme.defaultFont
-      leftPadding: Theme.menuItemLeftPadding
+      font: QfTheme.defaultFont
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: multiDeleteClicked()
     }
@@ -666,11 +666,11 @@ Rectangle {
       id: processingSelectedFeaturesBtn
       text: qsTr('Process Selected Feature(s)')
       height: 48
-      icon.source: Theme.getThemeVectorIcon("ic_processing_black_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_processing_black_24dp")
       enabled: toolBar.model && toolBar.model.canProcessSelection && projectInfo.editRights
 
-      font: Theme.defaultFont
-      leftPadding: Theme.menuItemLeftPadding
+      font: QfTheme.defaultFont
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: multiProcessingClicked()
     }
@@ -679,7 +679,7 @@ Rectangle {
   QfMenu {
     id: featureMenu
     objectName: "featureMenu"
-    title: qsTr("Feature Menu")
+    title: qsTr("Feature QfMenu")
 
     topMargin: mainWindow.sceneTopMargin
     bottomMargin: mainWindow.sceneBottomMargin
@@ -689,18 +689,18 @@ Rectangle {
       leftPadding: 2
       rightPadding: 2
       spacing: 2
-      height: Theme.toolButtonSize
+      height: QfTheme.toolButtonSize
       clip: true
 
-      property color hoveredColor: Qt.hsla(Theme.mainTextColor.hslHue, Theme.mainTextColor.hslSaturation, Theme.mainTextColor.hslLightness, 0.2)
+      property color hoveredColor: Qt.hsla(QfTheme.mainTextColor.hslHue, QfTheme.mainTextColor.hslSaturation, QfTheme.mainTextColor.hslLightness, 0.2)
 
       QfToolButton {
         anchors.verticalCenter: parent.verticalCenter
-        height: Theme.toolButtonSize
-        width: Theme.toolButtonSize
+        height: QfTheme.toolButtonSize
+        width: QfTheme.toolButtonSize
         round: true
-        iconSource: Theme.getThemeVectorIcon("ic_cut_black_24dp")
-        iconColor: enabled ? Theme.mainTextColor : Theme.mainTextDisabledColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_cut_black_24dp")
+        iconColor: enabled ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
         bgcolor: enabled && hovered ? parent.hoveredColor : "#00ffffff"
 
         onClicked: {
@@ -715,11 +715,11 @@ Rectangle {
 
       QfToolButton {
         anchors.verticalCenter: parent.verticalCenter
-        height: Theme.toolButtonSize
-        width: Theme.toolButtonSize
+        height: QfTheme.toolButtonSize
+        width: QfTheme.toolButtonSize
         round: true
-        iconSource: Theme.getThemeVectorIcon("ic_copy_black_24dp")
-        iconColor: enabled ? Theme.mainTextColor : Theme.mainTextDisabledColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_copy_black_24dp")
+        iconColor: enabled ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
         bgcolor: enabled && hovered ? parent.hoveredColor : "#00ffffff"
 
         onClicked: {
@@ -730,11 +730,11 @@ Rectangle {
 
       QfToolButton {
         anchors.verticalCenter: parent.verticalCenter
-        height: Theme.toolButtonSize
-        width: Theme.toolButtonSize
+        height: QfTheme.toolButtonSize
+        width: QfTheme.toolButtonSize
         round: true
-        iconSource: Theme.getThemeVectorIcon("ic_paste_black_24dp")
-        iconColor: enabled ? Theme.mainTextColor : Theme.mainTextDisabledColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_paste_black_24dp")
+        iconColor: enabled ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
         bgcolor: enabled && hovered ? parent.hoveredColor : "#00ffffff"
         enabled: clipboardManager && clipboardManager.holdsFeature && featureForm.model.featureModel.currentLayer && !featureForm.model.featureModel.currentLayer.readOnly
 
@@ -751,13 +751,13 @@ Rectangle {
 
       QfToolButton {
         anchors.verticalCenter: parent.verticalCenter
-        height: Theme.toolButtonSize
-        width: Theme.toolButtonSize
+        height: QfTheme.toolButtonSize
+        width: QfTheme.toolButtonSize
         round: true
-        iconSource: Theme.getThemeVectorIcon("ic_print_black_24dp")
-        iconColor: enabled ? Theme.mainTextColor : Theme.mainTextDisabledColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_print_black_24dp")
+        iconColor: enabled ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
         bgcolor: enabled && hovered ? parent.hoveredColor : "#00ffffff"
-        enabled: LayerUtils.isAtlasCoverageLayer(selection.focusedLayer)
+        enabled: QfLayerUtils.isAtlasCoverageLayer(selection.focusedLayer)
 
         onClicked: {
           featureMenu.close();
@@ -767,11 +767,11 @@ Rectangle {
 
       QfToolButton {
         anchors.verticalCenter: parent.verticalCenter
-        height: Theme.toolButtonSize
-        width: Theme.toolButtonSize
+        height: QfTheme.toolButtonSize
+        width: QfTheme.toolButtonSize
         round: true
-        iconSource: Theme.getThemeVectorIcon("ic_navigation_flag_purple_24dp")
-        iconColor: enabled ? Theme.mainTextColor : Theme.mainTextDisabledColor
+        iconSource: QfTheme.getThemeVectorIcon("ic_navigation_flag_purple_24dp")
+        iconColor: enabled ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
         bgcolor: enabled && hovered ? parent.hoveredColor : "#00ffffff"
 
         onClicked: {
@@ -788,11 +788,11 @@ Rectangle {
 
     MenuItem {
       text: qsTr('Zoom to Feature')
-      icon.source: Theme.getThemeVectorIcon("ic_fullscreen_white_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_fullscreen_white_24dp")
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: 48
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: extentController.zoomToSelected()
     }
@@ -800,9 +800,9 @@ Rectangle {
     MenuItem {
       text: qsTr('Auto-Zoom to Feature')
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: 48
-      leftPadding: Theme.menuItemCheckLeftPadding
+      leftPadding: QfTheme.menuItemCheckLeftPadding
 
       checkable: true
       checked: qfieldSettings.autoZoomToIdentifiedFeature
@@ -819,13 +819,13 @@ Rectangle {
     MenuItem {
       id: processFeatureButton
       text: qsTr('Process Feature')
-      icon.source: Theme.getThemeVectorIcon("ic_processing_black_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_processing_black_24dp")
       enabled: ((projectInfo.editRights || editButton.isCreatedCloudFeature) && (!selection.focusedLayer || !featureForm.model.featureModel.geometryEditingLocked))
       visible: enabled
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: visible ? 48 : 0
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: processingFeatureClicked()
     }
@@ -833,13 +833,13 @@ Rectangle {
     MenuItem {
       id: moveFeatureBtn
       text: qsTr('Move Feature')
-      icon.source: Theme.getThemeVectorIcon("ic_move_white_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_move_white_24dp")
       enabled: ((projectInfo.editRights || editButton.isCreatedCloudFeature) && (!selection.focusedLayer || !featureForm.model.featureModel.geometryEditingLocked))
       visible: enabled
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: visible ? 48 : 0
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: moveClicked()
     }
@@ -847,13 +847,13 @@ Rectangle {
     MenuItem {
       id: duplicateFeatureBtn
       text: qsTr('Duplicate Feature')
-      icon.source: Theme.getThemeVectorIcon("ic_duplicate_black_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_duplicate_black_24dp")
       enabled: (projectInfo.insertRights && (!selection.focusedLayer || (!selection.focusedLayer.readOnly && !featureForm.model.featureModel.featureAdditionLocked)))
       visible: enabled
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: visible ? 48 : 0
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: duplicateClicked()
     }
@@ -861,7 +861,7 @@ Rectangle {
     MenuItem {
       id: rotateFeatureBtn
       text: qsTr('Rotate Feature')
-      icon.source: Theme.getThemeVectorIcon("ic_rotate_white_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_rotate_white_24dp")
       // allow only rotation for line or polygon or multipoint
       property bool isGeometryCompatible: {
         const vl = selection.focusedLayer;
@@ -877,9 +877,9 @@ Rectangle {
       enabled: ((projectInfo.editRights || editButton.isCreatedCloudFeature) && (!selection.focusedLayer || !featureForm.model.featureModel.geometryEditingLocked)) && isGeometryCompatible
       visible: enabled
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: visible ? 48 : 0
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: rotateClicked()
     }
@@ -887,13 +887,13 @@ Rectangle {
     MenuItem {
       id: transferFeatureAttributesBtn
       text: qsTr('Update Attributes from Feature')
-      icon.source: Theme.getThemeVectorIcon("ic_transfer_into_black_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_transfer_into_black_24dp")
       enabled: (projectInfo.insertRights && (!selection.focusedLayer || !featureForm.model.featureModel.attributeEditingLocked))
       visible: enabled
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: visible ? 48 : 0
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: transferClicked()
     }
@@ -901,13 +901,13 @@ Rectangle {
     MenuItem {
       id: deleteFeatureBtn
       text: qsTr('Delete Feature')
-      icon.source: Theme.getThemeVectorIcon("ic_delete_forever_white_24dp")
+      icon.source: QfTheme.getThemeVectorIcon("ic_delete_forever_white_24dp")
       enabled: ((projectInfo.editRights || editButton.isCreatedCloudFeature) && (!selection.focusedLayer || !featureForm.model.featureModel.featureDeletionLocked))
       visible: enabled
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: visible ? 48 : 0
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: deleteClicked()
     }
@@ -929,9 +929,9 @@ Rectangle {
     MenuItem {
       text: qsTr('Select template below')
 
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       height: 48
-      leftPadding: Theme.menuItemLeftPadding
+      leftPadding: QfTheme.menuItemLeftPadding
 
       enabled: false
     }
@@ -939,7 +939,7 @@ Rectangle {
     Instantiator {
       id: atlasListInstantiator
 
-      model: PrintLayoutListModel {
+      model: QfPrintLayoutListModel {
         project: qgisProject
         atlasCoverageLayer: toolBar.state === "Indication" ? model.selectedLayer : selection.focusedLayer
       }
@@ -947,9 +947,9 @@ Rectangle {
       MenuItem {
         text: Title
 
-        font: Theme.defaultFont
+        font: QfTheme.defaultFont
         height: 48
-        leftPadding: Theme.menuItemLeftPadding
+        leftPadding: QfTheme.menuItemLeftPadding
 
         onTriggered: {
           displayToast(qsTr('Printing...'));

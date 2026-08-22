@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import org.qfield
-import Theme
+import QfTheme
 
 /**
  * \ingroup qml
@@ -23,13 +23,13 @@ import Theme
  * („Wyślij do…", „Eksportuj do folderu…") zostaje jako druga droga — przydaje
  * się, gdy dane mają iść od razu do chmury albo na komunikator.
  */
-Popup {
+QfPopup {
   id: wymiana
 
   property var t
 
   readonly property string projectDir: qgisProject ? qgisProject.homePath : ""
-  readonly property string projectName: projectDir !== "" ? FileUtils.fileName(projectDir) : ""
+  readonly property string projectName: projectDir !== "" ? QfFileUtils.fileName(projectDir) : ""
 
   //! katalog roboczy w przestrzeni użytkownika; na komputerze bramą
   //! jest wymiana magazynu (~/WorkField/wymiana), nie ścieżka Androida
@@ -70,7 +70,7 @@ Popup {
       return;
     }
     const cel = doWyslania + "/" + projectName;
-    if (FileUtils.copyRecursively(projectDir, cel, null, false)) {
+    if (QfFileUtils.copyRecursively(projectDir, cel, null, false)) {
       stan = qsTr("Projekt skopiowany do do_wyslania/%1").arg(projectName);
       displayToast(stan);
     } else {
@@ -87,14 +87,14 @@ Popup {
     const projekty = iface.dataRoot() + "Imported Projects";
     if (jestKatalogiem) {
       const cel = projekty + "/" + nazwa;
-      if (FileUtils.copyRecursively(zrodlo, cel, null, false)) {
+      if (QfFileUtils.copyRecursively(zrodlo, cel, null, false)) {
         stan = qsTr("Wniesiono projekt %1").arg(nazwa);
         displayToast(stan);
       } else {
         stan = qsTr("Nie udało się skopiować %1").arg(nazwa);
       }
     } else if (/\.zip$/i.test(nazwa)) {
-      if (FileUtils.unzipTo(zrodlo, projekty)) {
+      if (QfFileUtils.unzipTo(zrodlo, projekty)) {
         stan = qsTr("Rozpakowano %1").arg(nazwa);
         displayToast(stan);
       } else {
@@ -102,7 +102,7 @@ Popup {
       }
     } else {
       // pojedyncza warstwa: otwieramy ją wprost, bez kopiowania
-      iface.loadFile(zrodlo, FileUtils.fileName(zrodlo, false));
+      iface.loadFile(zrodlo, QfFileUtils.fileName(zrodlo, false));
       stan = qsTr("Dodano warstwę %1").arg(nazwa);
     }
   }
@@ -127,7 +127,7 @@ Popup {
         color: wymiana.t.mainTextColor
       }
 
-      ToolButton {
+      QfToolButton {
         implicitWidth: 96
         implicitHeight: 48
         onClicked: wymiana.close()
@@ -185,7 +185,7 @@ Popup {
       columnSpacing: 6
       rowSpacing: 6
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
         enabled: wymiana.projectDir !== ""
         text: qsTr("Do folderu wymiany")
@@ -193,9 +193,9 @@ Popup {
         onClicked: wymiana.wyniesProjekt()
       }
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
-        enabled: wymiana.projectDir !== "" && (platformUtilities.capabilities & PlatformUtilities.CustomSend)
+        enabled: wymiana.projectDir !== "" && (platformUtilities.capabilities & QfPlatformUtilities.CustomSend)
         text: qsTr("Wyślij jako paczkę…")
         font: wymiana.t.tipFont
         onClicked: {
@@ -204,10 +204,10 @@ Popup {
         }
       }
 
-      Button {
+      QfButton {
         Layout.fillWidth: true
         Layout.columnSpan: 2
-        enabled: wymiana.projectDir !== "" && (platformUtilities.capabilities & PlatformUtilities.CustomExport)
+        enabled: wymiana.projectDir !== "" && (platformUtilities.capabilities & QfPlatformUtilities.CustomExport)
         text: qsTr("Eksportuj do wybranego folderu…")
         font: wymiana.t.tipFont
         onClicked: {
@@ -247,7 +247,7 @@ Popup {
       spacing: 2
       model: modelPrzychodzace
 
-      ScrollBar.vertical: ScrollBar {
+      QfScrollBar.vertical: QfScrollBar {
       }
 
       delegate: Rectangle {
@@ -293,7 +293,7 @@ Popup {
             }
           }
 
-          Button {
+          QfButton {
             text: qsTr("Wnieś")
             font: wymiana.t.tipFont
             onClicked: wymiana.wniesPozycje(fileName, fileIsDir)
@@ -315,17 +315,17 @@ Popup {
       Layout.fillWidth: true
       spacing: 8
 
-      Button {
+      QfButton {
         flat: true
-        visible: platformUtilities.capabilities & PlatformUtilities.CustomImport
+        visible: platformUtilities.capabilities & QfPlatformUtilities.CustomImport
         text: qsTr("Importuj folder…")
         font: wymiana.t.tipFont
         onClicked: platformUtilities.importProjectFolder()
       }
 
-      Button {
+      QfButton {
         flat: true
-        visible: platformUtilities.capabilities & PlatformUtilities.CustomImport
+        visible: platformUtilities.capabilities & QfPlatformUtilities.CustomImport
         text: qsTr("Importuj paczkę…")
         font: wymiana.t.tipFont
         onClicked: platformUtilities.importProjectArchive()
@@ -335,7 +335,7 @@ Popup {
         Layout.fillWidth: true
       }
 
-      ToolButton {
+      QfToolButton {
         text: qsTr("Odśwież")
         font: wymiana.t.tipFont
         onClicked: {

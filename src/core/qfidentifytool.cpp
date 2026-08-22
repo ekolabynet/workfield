@@ -1,5 +1,5 @@
 /***************************************************************************
-  identifytool.cpp - IdentifyTool
+  qfidentifytool.cpp - QfIdentifyTool
 
  ---------------------
  begin                : 30.8.2016
@@ -13,8 +13,8 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
-#include "identifytool.h"
-#include "multifeaturelistmodel.h"
+#include "qfidentifytool.h"
+#include "qfmultifeaturelistmodel.h"
 #include "qgsquickmapsettings.h"
 
 #include <qgsexpressioncontextutils.h>
@@ -30,19 +30,19 @@
 #include <qgsvectortilemvtdecoder.h>
 #include <qgsvectortileutils.h>
 
-IdentifyTool::IdentifyTool( QObject *parent )
+QfIdentifyTool::QfIdentifyTool( QObject *parent )
   : QObject( parent )
   , mMapSettings( nullptr )
   , mSearchRadiusMm( 5 )
 {
 }
 
-QgsQuickMapSettings *IdentifyTool::mapSettings() const
+QgsQuickMapSettings *QfIdentifyTool::mapSettings() const
 {
   return mMapSettings;
 }
 
-void IdentifyTool::setMapSettings( QgsQuickMapSettings *mapSettings )
+void QfIdentifyTool::setMapSettings( QgsQuickMapSettings *mapSettings )
 {
   if ( mapSettings == mMapSettings )
     return;
@@ -51,14 +51,14 @@ void IdentifyTool::setMapSettings( QgsQuickMapSettings *mapSettings )
   emit mapSettingsChanged();
 }
 
-void IdentifyTool::identify( const QPointF &point ) const
+void QfIdentifyTool::identify( const QPointF &point ) const
 {
   if ( mDeactivated )
     return;
 
   if ( !mModel || !mMapSettings )
   {
-    qWarning() << "Unable to use IdentifyTool without mapSettings or model property set.";
+    qWarning() << "Unable to use QfIdentifyTool without mapSettings or model property set.";
     return;
   }
 
@@ -96,7 +96,7 @@ void IdentifyTool::identify( const QPointF &point ) const
   emit identifyFinished();
 }
 
-QList<IdentifyTool::IdentifyResult> IdentifyTool::identifyVectorLayer( QgsVectorLayer *layer, const QgsPointXY &point ) const
+QList<QfIdentifyTool::IdentifyResult> QfIdentifyTool::identifyVectorLayer( QgsVectorLayer *layer, const QgsPointXY &point ) const
 {
   QList<IdentifyResult> results;
 
@@ -192,9 +192,9 @@ QList<IdentifyTool::IdentifyResult> IdentifyTool::identifyVectorLayer( QgsVector
   return results;
 }
 
-QList<IdentifyTool::IdentifyResult> IdentifyTool::identifyRasterLayer( QgsRasterLayer *layer, const QgsPointXY &point ) const
+QList<QfIdentifyTool::IdentifyResult> QfIdentifyTool::identifyRasterLayer( QgsRasterLayer *layer, const QgsPointXY &point ) const
 {
-  QList<IdentifyTool::IdentifyResult> results;
+  QList<QfIdentifyTool::IdentifyResult> results;
   if ( !layer->dataProvider() || !layer->isValid() )
     return results;
 
@@ -301,9 +301,9 @@ QList<IdentifyTool::IdentifyResult> IdentifyTool::identifyRasterLayer( QgsRaster
   return results;
 }
 
-QList<IdentifyTool::IdentifyResult> IdentifyTool::identifyVectorTileLayer( QgsVectorTileLayer *layer, const QgsPointXY &point ) const
+QList<QfIdentifyTool::IdentifyResult> QfIdentifyTool::identifyVectorTileLayer( QgsVectorTileLayer *layer, const QgsPointXY &point ) const
 {
-  QList<IdentifyTool::IdentifyResult> results;
+  QList<QfIdentifyTool::IdentifyResult> results;
   if ( !layer || !layer->isSpatial() )
     return results;
 
@@ -383,12 +383,12 @@ QList<IdentifyTool::IdentifyResult> IdentifyTool::identifyVectorTileLayer( QgsVe
   return results;
 }
 
-MultiFeatureListModel *IdentifyTool::model() const
+QfMultiFeatureListModel *QfIdentifyTool::model() const
 {
   return mModel;
 }
 
-void IdentifyTool::setModel( MultiFeatureListModel *model )
+void QfIdentifyTool::setModel( QfMultiFeatureListModel *model )
 {
   if ( model == mModel )
     return;
@@ -397,7 +397,7 @@ void IdentifyTool::setModel( MultiFeatureListModel *model )
   emit modelChanged();
 }
 
-void IdentifyTool::setDeactivated( bool deactivated )
+void QfIdentifyTool::setDeactivated( bool deactivated )
 {
   if ( mDeactivated == deactivated )
     return;
@@ -408,33 +408,33 @@ void IdentifyTool::setDeactivated( bool deactivated )
   mDeactivated = deactivated;
 }
 
-double IdentifyTool::searchRadiusMU( const QgsRenderContext &context ) const
+double QfIdentifyTool::searchRadiusMU( const QgsRenderContext &context ) const
 {
   return mSearchRadiusMm * context.scaleFactor() * context.mapToPixel().mapUnitsPerPixel();
 }
 
-double IdentifyTool::searchRadiusMU() const
+double QfIdentifyTool::searchRadiusMU() const
 {
   QgsRenderContext context = QgsRenderContext::fromMapSettings( mMapSettings->mapSettings() );
   return searchRadiusMU( context );
 }
 
-QgsRectangle IdentifyTool::toLayerCoordinates( QgsMapLayer *layer, const QgsRectangle &rect ) const
+QgsRectangle QfIdentifyTool::toLayerCoordinates( QgsMapLayer *layer, const QgsRectangle &rect ) const
 {
   return mMapSettings->mapSettings().mapToLayerCoordinates( layer, rect );
 }
 
-QgsPointXY IdentifyTool::toLayerCoordinates( QgsMapLayer *layer, const QgsPointXY &point ) const
+QgsPointXY QfIdentifyTool::toLayerCoordinates( QgsMapLayer *layer, const QgsPointXY &point ) const
 {
   return mMapSettings->mapSettings().mapToLayerCoordinates( layer, point );
 }
 
-double IdentifyTool::searchRadiusMm() const
+double QfIdentifyTool::searchRadiusMm() const
 {
   return mSearchRadiusMm;
 }
 
-void IdentifyTool::setSearchRadiusMm( double searchRadiusMm )
+void QfIdentifyTool::setSearchRadiusMm( double searchRadiusMm )
 {
   if ( mSearchRadiusMm == searchRadiusMm )
     return;

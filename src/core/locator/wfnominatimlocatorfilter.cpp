@@ -11,7 +11,7 @@
 #include <qgsproject.h>
 #include <qgsrectangle.h>
 
-WfNominatimLocatorFilter::WfNominatimLocatorFilter( QgsGeocoderInterface *geocoder, LocatorModelSuperBridge *locatorBridge )
+WfNominatimLocatorFilter::WfNominatimLocatorFilter( QgsGeocoderInterface *geocoder, QfLocatorModelSuperBridge *locatorBridge )
   : QgsAbstractGeocoderLocatorFilter( QStringLiteral( "wf-nominatim" ), tr( "Miejsca (OSM Nominatim)" ), QStringLiteral( "n" ), geocoder )
   , mLocatorBridge( locatorBridge )
 {

@@ -29,39 +29,39 @@
 #include <qgsunittypes.h>
 
 // QField includes
-#include "appcontroller.h"
-#include "appcoordinateoperationhandlers.h"
-#include "bookmarkmodel.h"
-#include "clipboardmanager.h"
-#include "cogoregistry.h"
-#include "drawingtemplatemodel.h"
-#include "focusstack.h"
-#include "pluginmanager.h"
+#include "qfappauthrequesthandler.h"
+#include "qfappcontroller.h"
+#include "qfappcoordinateoperationhandlers.h"
+#include "qfbookmarkmodel.h"
+#include "qfclipboardmanager.h"
+#include "qfcogoregistry.h"
+#include "qfdrawingtemplatemodel.h"
+#include "qffocusstack.h"
 #include "qfield_app_export.h"
-#include "qfieldappauthrequesthandler.h"
-#include "qfieldurlhandler.h"
+#include "qfpluginmanager.h"
+#include "qfscreendimmer.h"
+#include "qfsettings.h"
+#include "qfurlhandler.h"
 #include "qgsgpkgflusher.h"
-#include "screendimmer.h"
-#include "settings.h"
 
-class AppInterface;
-class AppMissingGridHandler;
-class BarcodeImageProvider;
+class QfAppInterface;
+class QfAppMissingGridHandler;
+class QfBarcodeImageProvider;
+class QfLayerTreeMapCanvasBridge;
+class QfFlatLayerTreeModel;
+class LayerTreeModel;
+class QfLegendImageProvider;
+class QfAsyncLegendImageProvider;
+class QfLocalFilesImageProvider;
+class QfProjectsImageProvider;
+class QfTrackingModel;
+class QfLocatorFiltersModel;
+class QfLayerObserver;
+class QfFeatureHistory;
+class QfMessageLogModel;
 class QgsOfflineEditing;
 class QgsQuickMapCanvasMap;
-class LayerTreeMapCanvasBridge;
-class FlatLayerTreeModel;
-class LayerTreeModel;
-class LegendImageProvider;
-class AsyncLegendImageProvider;
-class LocalFilesImageProvider;
-class ProjectsImageProvider;
-class TrackingModel;
-class LocatorFiltersModel;
 class QgsProject;
-class LayerObserver;
-class FeatureHistory;
-class MessageLogModel;
 class QgsPrintLayout;
 
 /**
@@ -72,7 +72,7 @@ class QgsPrintLayout;
 /**
  * \ingroup app
  */
-class QFIELD_APP_EXPORT QgisMobileapp : public QQmlApplicationEngine, public AppController
+class QFIELD_APP_EXPORT QgisMobileapp : public QQmlApplicationEngine, public QfAppController
 {
     Q_OBJECT
   public:
@@ -201,55 +201,56 @@ class QFIELD_APP_EXPORT QgisMobileapp : public QQmlApplicationEngine, public App
 
   private:
     void registerGlobalVariables();
+    void prepareLocalizedDataPaths( const QString &projectFilePath );
     void loadProjectQuirks();
     void saveProjectPreviewImage();
     bool printAtlas( QgsPrintLayout *layoutToPrint, const QString &destination );
 
     QgsOfflineEditing *mOfflineEditing = nullptr;
-    LayerTreeMapCanvasBridge *mLayerTreeCanvasBridge = nullptr;
-    FlatLayerTreeModel *mFlatLayerTree = nullptr;
+    QfLayerTreeMapCanvasBridge *mLayerTreeCanvasBridge = nullptr;
+    QfFlatLayerTreeModel *mFlatLayerTree = nullptr;
     QgsMapLayerProxyModel *mLayerList = nullptr;
-    AppInterface *mIface = nullptr;
-    Settings mSettings;
+    QfAppInterface *mIface = nullptr;
+    QfSettings mSettings;
     QPointer<QgsQuickMapCanvasMap> mMapCanvas;
     bool mFirstRenderingFlag;
-    LegendImageProvider *mLegendImageProvider = nullptr;
-    AsyncLegendImageProvider *mAsyncLegendImageProvider = nullptr;
-    LocalFilesImageProvider *mLocalFilesImageProvider = nullptr;
-    ProjectsImageProvider *mProjectsImageProvider = nullptr;
-    BarcodeImageProvider *mBarcodeImageProvider = nullptr;
+    QfLegendImageProvider *mLegendImageProvider = nullptr;
+    QfAsyncLegendImageProvider *mAsyncLegendImageProvider = nullptr;
+    QfLocalFilesImageProvider *mLocalFilesImageProvider = nullptr;
+    QfProjectsImageProvider *mProjectsImageProvider = nullptr;
+    QfBarcodeImageProvider *mBarcodeImageProvider = nullptr;
 
     QgsProject *mProject = nullptr;
     QString mProjectFilePath;
     QString mProjectFileName;
 
-    std::unique_ptr<FocusStack> mFocusStack;
+    std::unique_ptr<QfFocusStack> mFocusStack;
     std::unique_ptr<QgsGpkgFlusher> mGpkgFlusher;
-    std::unique_ptr<LayerObserver> mLayerObserver;
-    std::unique_ptr<FeatureHistory> mFeatureHistory;
-    std::unique_ptr<ClipboardManager> mClipboardManager;
+    std::unique_ptr<QfLayerObserver> mLayerObserver;
+    std::unique_ptr<QfFeatureHistory> mFeatureHistory;
+    std::unique_ptr<QfClipboardManager> mClipboardManager;
 
-    QFieldAppAuthRequestHandler *mAuthRequestHandler = nullptr;
+    QfAppAuthRequestHandler *mAuthRequestHandler = nullptr;
 
-    BookmarkModel *mBookmarkModel = nullptr;
-    DrawingTemplateModel *mDrawingTemplateModel = nullptr;
-    MessageLogModel *mMessageLogModel = nullptr;
+    QfBookmarkModel *mBookmarkModel = nullptr;
+    QfDrawingTemplateModel *mDrawingTemplateModel = nullptr;
+    QfMessageLogModel *mMessageLogModel = nullptr;
 
-    PluginManager *mPluginManager = nullptr;
+    QfPluginManager *mPluginManager = nullptr;
 
-    std::unique_ptr<CogoRegistry> mCogoRegistry;
+    std::unique_ptr<QfCogoRegistry> mCogoRegistry;
 
     // Dummy objects. We are not able to call static functions from QML, so we need something here.
     QgsWkbTypes mWkbTypes;
     QgsUnitTypes mUnitTypes;
     QgsExifTools mExifTools;
 
-    TrackingModel *mTrackingModel = nullptr;
+    QfTrackingModel *mTrackingModel = nullptr;
 
-    AppMissingGridHandler *mAppMissingGridHandler = nullptr;
+    QfAppMissingGridHandler *mAppMissingGridHandler = nullptr;
 
-    std::unique_ptr<ScreenDimmer> mScreenDimmer;
-    std::unique_ptr<QFieldUrlHandler> mUrlHandler;
+    std::unique_ptr<QfScreenDimmer> mScreenDimmer;
+    std::unique_ptr<QfUrlHandler> mUrlHandler;
 
     QgsApplication *mApp;
 };

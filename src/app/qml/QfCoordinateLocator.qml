@@ -1,8 +1,8 @@
 import QtQuick
 import QtQuick.Shapes
 import org.qgis
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -20,7 +20,7 @@ Item {
 
   //! Cursor shape: 0 = dot, 1 = cross, 2 = cross with dot, 3 = classic circle crosshair, 4 = reticle
   property int cursorShape: 3
-  readonly property color effectiveCursorColor: !!overrideLocation && overrideLocation.x ? Qt.darker(Theme.positionColor, 1.25) : cursorFillColor
+  readonly property color effectiveCursorColor: !!overrideLocation && overrideLocation.x ? Qt.darker(QfTheme.positionColor, 1.25) : cursorFillColor
   readonly property real crossHalfLength: cursorSizeScale >= 2.0 ? 16 : cursorSizeScale >= 1.5 ? 14 : 8
 
   /**
@@ -71,7 +71,7 @@ Item {
   readonly property alias snappedPoint: snappingUtils.snappedPoint // In screen coordinates, derived from snappinResult
   readonly property alias topSnappingResult: snappingUtils.snappingResult // The snappingResult itself, only one (compared to QGIS where it's usually a list)
 
-  SnappingUtils {
+  QfSnappingUtils {
     id: snappingUtils
 
     enabled: locator.visible
@@ -177,7 +177,7 @@ Item {
       anchors.leftMargin: 1.2
       height: parent.height - 2.4
       width: (positioningSettings.averagedPositioning ? Math.min(parent.width, (parent.width * (averagedPositionCount / positioningSettings.averagedPositioningMinimumCount))) : parent.width) - 2.4
-      color: positioningSettings.accuracyIndicator ? !positionSource.positionInformation || !positionSource.positionInformation.haccValid || positionSource.positionInformation.hacc > positioningSettings.accuracyBad ? Theme.accuracyBad : positionSource.positionInformation.hacc > positioningSettings.accuracyExcellent ? Theme.accuracyTolerated : Theme.accuracyExcellent : Theme.positionColor
+      color: positioningSettings.accuracyIndicator ? !positionSource.positionInformation || !positionSource.positionInformation.haccValid || positionSource.positionInformation.hacc > positioningSettings.accuracyBad ? QfTheme.accuracyBad : positionSource.positionInformation.hacc > positioningSettings.accuracyExcellent ? QfTheme.accuracyTolerated : QfTheme.accuracyExcellent : QfTheme.positionColor
 
       transitions: [
         Transition {
@@ -194,7 +194,7 @@ Item {
       anchors.centerIn: parent
       text: averagedPositionCount
       color: mainColor
-      font.pointSize: Theme.tinyFont.pointSize - 2
+      font.pointSize: QfTheme.tinyFont.pointSize - 2
       style: Text.Outline
       styleColor: highlightColor
     }
@@ -719,7 +719,7 @@ Item {
    * Computes the possible common angle
    *
    * @param {QPointF} currentPoint - the current point being proposed
-   * @param {Rubberband} rubberbandModel - holds all previously added points in the current digitizing session
+   * @param {QfRubberband} rubberbandModel - holds all previously added points in the current digitizing session
    * @param {number} commonAngleStepDeg - the common angle in degrees we are trying to snap to
    * @param {boolean} isRelativeAngle - whether the angle should be calculated relative to the last geometry segment
    * @returns {number|undefined} - the closest common angle. Returns`undefined` if there is no nearby point that forms a common angle.
@@ -772,7 +772,7 @@ Item {
    * Computes a new point that forms a common angle
    *
    * @param {QPointF} currentPoint - the current point being proposed
-   * @param {Rubberband} rubberbandModel - holds all previously added points in the current digitizing session
+   * @param {QfRubberband} rubberbandModel - holds all previously added points in the current digitizing session
    * @param {number} commonAngleDegrees - the common angle in degrees we are snapping to
    * @param {boolean} isRelativeAngle - whether the angle should be calculated relative to the last geometry segment
    * @param {boolean} forwardMode - true: snap to firstPoint and false: snap to previousPoint

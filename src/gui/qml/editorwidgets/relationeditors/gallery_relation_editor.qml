@@ -3,17 +3,15 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Controls.Material.impl
 import QtMultimedia
-import org.qfield
+import org.qfield.core
+import org.qfield.gui
 import org.qgis
-import Theme
-import "../.."
-import ".."
 import "../ExternalResourceUtils.js" as ExternalResourceUtils
 
-RelationEditorBase {
+QfRelationEditorBase {
   id: relationEditor
 
-  relationEditorModel: ReferencingFeatureListModel {
+  relationEditorModel: QfReferencingFeatureListModel {
     id: referencingFeatureListModel
     currentRelationId: relationId
     currentNmRelationId: nmRelationId ? nmRelationId : ""
@@ -28,7 +26,7 @@ RelationEditorBase {
     }
   }
 
-  property bool isCardView: settings.valueBool("/QField/RelationEditor/GalleryCardView", true)
+  property bool isCardView: !settings || settings.valueBool("/QField/RelationEditor/GalleryCardView", true)
   property string imagePrefix: {
     if (qgisProject == undefined)
       return "";
@@ -79,7 +77,7 @@ RelationEditorBase {
   property list<string> failedDownloads: []
   property var fetchedPaths: ({})
 
-  // ExternalStorage handles one fetch at a time, so requests are queued and dispatched sequentially as each one completes
+  // QfExternalStorage handles one fetch at a time, so requests are queued and dispatched sequentially as each one completes
   property list<var> fetchQueue: []
   property string currentFetchKey: ""
 
@@ -154,7 +152,7 @@ RelationEditorBase {
     }
   }
 
-  ExternalStorage {
+  QfExternalStorage {
     id: externalStorage
     type: referencingFeatureListModel.attachmentStorageType
 
@@ -193,7 +191,7 @@ RelationEditorBase {
     }
   }
 
-  AudioAnalyzer {
+  QfAudioAnalyzer {
     id: audioAnalyzer
 
     property list<var> queue: []
@@ -222,20 +220,20 @@ RelationEditorBase {
     function processQueue() {
       if (queue.length > 0) {
         currentProcess = queue.shift();
-        audioAnalyzer.analyze(UrlUtils.fromString(currentProcess));
+        audioAnalyzer.analyze(QfUrlUtils.fromString(currentProcess));
       }
     }
   }
 
-  property ResourceSource resourceSource
+  property QfResourceSource resourceSource
   Connections {
     target: resourceSource
     function onResourceReceived(path) {
       if (path) {
-        if (referencingFeatureListModel.attachmentDocumentViewer === ExternalResource.DocumentImage) {
+        if (referencingFeatureListModel.attachmentDocumentViewer === QfEditorWidgetExternalResource.DocumentImage) {
           let maximumWidthHeight = iface.readProjectNumEntry("qfieldsync", "maximumImageWidthHeight", 0);
           if (maximumWidthHeight > 0) {
-            FileUtils.restrictImageSize(imagePrefix + path, maximumWidthHeight);
+            QfFileUtils.restrictImageSize(imagePrefix + path, maximumWidthHeight);
           }
         }
         showAddFeaturePopup(undefined, path);
@@ -267,7 +265,7 @@ RelationEditorBase {
   listView.flickableDirection: isCardView ? Flickable.HorizontalFlick : Flickable.VerticalFlick
   listView.topMargin: isCardView ? cardMargin : 0
   listView.bottomMargin: isCardView ? cardMargin : 0
-  listView.ScrollBar.vertical.policy: isCardView ? ScrollBar.AlwaysOff : ScrollBar.AsNeeded
+  listView.QfScrollBar.vertical.policy: isCardView ? QfScrollBar.AlwaysOff : QfScrollBar.AsNeeded
 
   listView.model: DelegateModel {
     model: referencingFeatureListModel
@@ -276,7 +274,7 @@ RelationEditorBase {
 
   onIsCardViewChanged: stopAllMedia()
 
-  ExpressionEvaluator {
+  QfExpressionEvaluator {
     id: attachmentNamingEvaluator
     layer: referencingFeatureListModel.relation ? referencingFeatureListModel.relation.referencingLayer : null
     project: qgisProject
@@ -296,10 +294,10 @@ RelationEditorBase {
     prepareFeature();
     platformUtilities.createDir(qgisProject.homePath, 'DCIM');
     attachmentNamingEvaluator.expressionText = ExternalResourceUtils.getAttachmentNaming(referencingFeatureListModel.relation ? referencingFeatureListModel.relation.referencingLayer : null, referencingFeatureListModel.attachmentFieldName);
-    if (platformUtilities.capabilities & PlatformUtilities.NativeCamera && settings.valueBool("nativeCamera2", true)) {
-      let filepath = ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), ExternalResource.DocumentImage, FileUtils);
+    if (platformUtilities.capabilities & QfPlatformUtilities.NativeCamera && settings.valueBool("nativeCamera2", true)) {
+      let filepath = ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), QfEditorWidgetExternalResource.DocumentImage, QfFileUtils);
       filepath = filepath.replace('{extension}', 'JPG');
-      resourceSource = platformUtilities.getCameraPicture(imagePrefix, filepath, FileUtils.fileSuffix(filepath), relationEditor);
+      resourceSource = platformUtilities.getCameraPicture(imagePrefix, filepath, QfFileUtils.fileSuffix(filepath), relationEditor);
     } else {
       relationCameraLoader.isVideo = false;
       relationCameraLoader.active = true;
@@ -312,10 +310,10 @@ RelationEditorBase {
     prepareFeature();
     platformUtilities.createDir(qgisProject.homePath, 'DCIM');
     attachmentNamingEvaluator.expressionText = ExternalResourceUtils.getAttachmentNaming(referencingFeatureListModel.relation ? referencingFeatureListModel.relation.referencingLayer : null, referencingFeatureListModel.attachmentFieldName);
-    if (platformUtilities.capabilities & PlatformUtilities.NativeCamera && settings.valueBool("nativeCamera2", true)) {
-      let filepath = ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), ExternalResource.DocumentVideo, FileUtils);
+    if (platformUtilities.capabilities & QfPlatformUtilities.NativeCamera && settings.valueBool("nativeCamera2", true)) {
+      let filepath = ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), QfEditorWidgetExternalResource.DocumentVideo, QfFileUtils);
       filepath = filepath.replace('{extension}', 'MP4');
-      resourceSource = platformUtilities.getCameraVideo(imagePrefix, filepath, FileUtils.fileSuffix(filepath), relationEditor);
+      resourceSource = platformUtilities.getCameraVideo(imagePrefix, filepath, QfFileUtils.fileSuffix(filepath), relationEditor);
     } else {
       relationCameraLoader.isVideo = true;
       relationCameraLoader.active = true;
@@ -332,23 +330,23 @@ RelationEditorBase {
 
   headerActions: [
     QfToolButton {
-      width: Theme.toolButtonSize
-      height: Theme.toolButtonSize
+      width: QfTheme.toolButtonSize
+      height: QfTheme.toolButtonSize
       enabled: isEnabled
       visible: isEnabled
 
       round: false
       iconSource: {
         switch (referencingFeatureListModel.attachmentDocumentViewer) {
-        case ExternalResource.DocumentVideo:
-          return Theme.getThemeVectorIcon("ic_camera_video_black_24dp");
-        case ExternalResource.DocumentAudio:
-          return Theme.getThemeVectorIcon("ic_microphone_black_24dp");
+        case QfEditorWidgetExternalResource.DocumentVideo:
+          return QfTheme.getThemeVectorIcon("ic_camera_video_black_24dp");
+        case QfEditorWidgetExternalResource.DocumentAudio:
+          return QfTheme.getThemeVectorIcon("ic_microphone_black_24dp");
         default:
-          return Theme.getThemeVectorIcon("ic_camera_photo_black_24dp");
+          return QfTheme.getThemeVectorIcon("ic_camera_photo_black_24dp");
         }
       }
-      iconColor: Theme.mainTextColor
+      iconColor: QfTheme.mainTextColor
       bgcolor: 'transparent'
       onClicked: {
         if (!prepareParent()) {
@@ -356,10 +354,10 @@ RelationEditorBase {
         }
 
         switch (referencingFeatureListModel.attachmentDocumentViewer) {
-        case ExternalResource.DocumentVideo:
+        case QfEditorWidgetExternalResource.DocumentVideo:
           captureVideo();
           break;
-        case ExternalResource.DocumentAudio:
+        case QfEditorWidgetExternalResource.DocumentAudio:
           captureAudio();
           break;
         default:
@@ -399,8 +397,8 @@ RelationEditorBase {
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
         round: false
-        iconSource: Theme.getThemeVectorIcon('ic_grid_black_24dp')
-        iconColor: Theme.mainTextColor
+        iconSource: QfTheme.getThemeVectorIcon('ic_grid_black_24dp')
+        iconColor: QfTheme.mainTextColor
         bgcolor: 'transparent'
         enabled: false
         opacity: 0.3
@@ -412,8 +410,8 @@ RelationEditorBase {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         round: false
-        iconSource: Theme.getThemeVectorIcon('ic_list_black_24dp')
-        iconColor: Theme.mainTextColor
+        iconSource: QfTheme.getThemeVectorIcon('ic_list_black_24dp')
+        iconColor: QfTheme.mainTextColor
         bgcolor: 'transparent'
         enabled: false
         opacity: 0.3
@@ -426,8 +424,8 @@ RelationEditorBase {
         width: viewSwitch.slotSize - inset * 2
         height: viewSwitch.slotSize - inset * 2
         radius: 3
-        color: Theme.mainBackgroundColor
-        border.color: Theme.controlBorderColor
+        color: QfTheme.mainBackgroundColor
+        border.color: QfTheme.controlBorderColor
         border.width: 1
         clip: true
 
@@ -437,8 +435,8 @@ RelationEditorBase {
           anchors.centerIn: parent
           round: false
           hoverEnabled: false
-          iconSource: viewSwitch.checked ? Theme.getThemeVectorIcon('ic_list_black_24dp') : Theme.getThemeVectorIcon('ic_grid_black_24dp')
-          iconColor: Theme.mainTextColor
+          iconSource: viewSwitch.checked ? QfTheme.getThemeVectorIcon('ic_list_black_24dp') : QfTheme.getThemeVectorIcon('ic_grid_black_24dp')
+          iconColor: QfTheme.mainTextColor
           bgcolor: 'transparent'
           enabled: false
         }
@@ -507,15 +505,15 @@ RelationEditorBase {
     if (path.startsWith("http://") || path.startsWith("https://")) {
       return path;
     }
-    if (FileUtils.fileExists(path)) {
-      if (FileUtils.mimeTypeName(path).startsWith("audio/")) {
+    if (QfFileUtils.fileExists(path)) {
+      if (QfFileUtils.mimeTypeName(path).startsWith("audio/")) {
         audioAnalyzer.enqueue(path);
       }
       return path;
     }
     const fullPath = imagePrefix + path;
-    if (FileUtils.fileExists(fullPath)) {
-      if (FileUtils.mimeTypeName(fullPath).startsWith("audio/")) {
+    if (QfFileUtils.fileExists(fullPath)) {
+      if (QfFileUtils.mimeTypeName(fullPath).startsWith("audio/")) {
         audioAnalyzer.enqueue(fullPath);
       }
       return fullPath;
@@ -529,9 +527,9 @@ RelationEditorBase {
     // File not found locally; attempt on-demand download
     if (externalStorage.type !== "") {
       const authConfigId = referencingFeatureListModel.attachmentStorageAuthConfigId;
-      if (authConfigId !== "" && !AuthUtils.isAuthenticationConfigurationAvailable(authConfigId)) {
+      if (authConfigId !== "" && !QfAuthUtils.isAuthenticationConfigurationAvailable(authConfigId)) {
         failedDownloads.push(path);
-        mainWindow.displayToast(qsTr("The external storage's authentication configuration ID is missing, please insure it is imported into %1").arg(appName), "error", qsTr("Learn more"), function () {
+        mainWindow.displayToast(qsTr("The external storage's authentication configuration ID is missing, please insure it is imported into %1").arg(Qfield.name), "error", qsTr("Learn more"), function () {
           Qt.openUrlExternally('https://docs.qfield.org/how-to/advanced-how-tos/authentication/');
         });
       } else {
@@ -551,10 +549,13 @@ RelationEditorBase {
     active: false
 
     property bool isVideo: false
+    property var resourceLayer: attachmentNamingEvaluator.layer
 
     sourceComponent: Component {
-      QFieldCamera {
+      QfCamera {
         allowCaptureModeToggle: true
+
+        currentLayer: resourceLayer
 
         Component.onCompleted: {
           state = relationCameraLoader.isVideo ? 'VideoCapture' : 'PhotoCapture';
@@ -562,12 +563,12 @@ RelationEditorBase {
         }
 
         onFinished: path => {
-          const filepath = StringUtils.replaceFilenameTags(ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), state === "VideoPreview" ? ExternalResource.DocumentVideo : ExternalResource.DocumentImage, FileUtils), path);
+          const filepath = QfStringUtils.replaceFilenameTags(ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), state === "VideoPreview" ? QfEditorWidgetExternalResource.DocumentVideo : QfEditorWidgetExternalResource.DocumentImage, QfFileUtils), path);
           platformUtilities.renameFile(path, imagePrefix + filepath);
-          if (!FileUtils.mimeTypeName(path).startsWith("video/")) {
+          if (!QfFileUtils.mimeTypeName(path).startsWith("video/")) {
             let maximumWidthHeight = iface.readProjectNumEntry("qfieldsync", "maximumImageWidthHeight", 0);
             if (maximumWidthHeight > 0) {
-              FileUtils.restrictImageSize(imagePrefix + filepath, maximumWidthHeight);
+              QfFileUtils.restrictImageSize(imagePrefix + filepath, maximumWidthHeight);
             }
           }
           showAddFeaturePopup(undefined, filepath);
@@ -583,12 +584,12 @@ RelationEditorBase {
     id: relationAudioRecorderLoader
     active: false
     sourceComponent: Component {
-      QFieldAudioRecorder {
+      QfAudioRecorder {
         z: 10000
         visible: false
         Component.onCompleted: open()
         onFinished: path => {
-          const filepath = StringUtils.replaceFilenameTags(ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), ExternalResource.DocumentAudio, FileUtils), path);
+          const filepath = QfStringUtils.replaceFilenameTags(ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), QfEditorWidgetExternalResource.DocumentAudio, QfFileUtils), path);
           platformUtilities.renameFile(path, imagePrefix + filepath);
           showAddFeaturePopup(undefined, filepath);
           close();
@@ -620,10 +621,10 @@ RelationEditorBase {
           }
         }
       }
-      readonly property string attachmentMimeType: attachmentFullPath !== "" ? FileUtils.mimeTypeName(attachmentFullPath) : ""
+      readonly property string attachmentMimeType: attachmentFullPath !== "" ? QfFileUtils.mimeTypeName(attachmentFullPath) : ""
       readonly property bool attachmentIsVideo: attachmentMimeType.startsWith("video/")
       readonly property bool attachmentIsAudio: attachmentMimeType.startsWith("audio/")
-      readonly property bool attachmentIsImage: attachmentMimeType.startsWith("image/") && FileUtils.isImageMimeTypeSupported(attachmentMimeType)
+      readonly property bool attachmentIsImage: attachmentMimeType.startsWith("image/") && QfFileUtils.isImageMimeTypeSupported(attachmentMimeType)
       readonly property bool attachmentFetching: attachmentPath !== "" && attachmentFullPath === "" && relationEditor.pendingDownloads.indexOf(attachmentPath) >= 0
 
       Loader {
@@ -632,7 +633,7 @@ RelationEditorBase {
         parent: listVideoContainer
         anchors.fill: parent
 
-        property url sourceUrl: attachmentIsVideo ? UrlUtils.fromString(attachmentFullPath) : ""
+        property url sourceUrl: attachmentIsVideo ? QfUrlUtils.fromString(attachmentFullPath) : ""
         property bool firstFrameDrawn: false
         property bool queued: false
 
@@ -712,7 +713,7 @@ RelationEditorBase {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             radius: 6
-            color: Theme.controlBorderColor
+            color: QfTheme.controlBorderColor
             clip: true
 
             Rectangle {
@@ -730,7 +731,7 @@ RelationEditorBase {
               asynchronous: true
               autoTransform: true
               visible: attachmentIsImage
-              source: attachmentIsImage ? UrlUtils.fromString(attachmentFullPath) : ""
+              source: attachmentIsImage ? QfUrlUtils.fromString(attachmentFullPath) : ""
 
               layer.enabled: true
               layer.effect: QfOpacityMask {
@@ -763,7 +764,7 @@ RelationEditorBase {
                   height: listWaveformBars.height * modelData
                   radius: 1.5
                   anchors.verticalCenter: parent.verticalCenter
-                  color: Theme.mainTextDisabledColor
+                  color: QfTheme.mainTextDisabledColor
                   opacity: 0.35
                 }
               }
@@ -778,7 +779,7 @@ RelationEditorBase {
 
               Image {
                 anchors.fill: parent
-                source: Theme.getThemeVectorIcon("ic_file_black_24dp")
+                source: QfTheme.getThemeVectorIcon("ic_file_black_24dp")
                 fillMode: Image.PreserveAspectFit
                 opacity: 0.3
               }
@@ -788,16 +789,16 @@ RelationEditorBase {
                 width: Math.min(listSuffixText.contentWidth + 6, parent.width)
                 height: listSuffixText.contentHeight + 2
                 radius: 2
-                color: Theme.controlBorderColor
+                color: QfTheme.controlBorderColor
                 visible: listSuffixText.text !== ""
 
                 Text {
                   id: listSuffixText
                   anchors.centerIn: parent
-                  text: FileUtils.fileSuffix(attachmentFullPath).toUpperCase()
-                  font.pointSize: Theme.tinyFont.pointSize
+                  text: QfFileUtils.fileSuffix(attachmentFullPath).toUpperCase()
+                  font.pointSize: QfTheme.tinyFont.pointSize
                   font.weight: Font.Bold
-                  color: Theme.mainTextColor
+                  color: QfTheme.mainTextColor
                   opacity: 0.6
                 }
               }
@@ -809,7 +810,7 @@ RelationEditorBase {
               width: 28
               height: 28
               visible: !attachmentIsImage && !attachmentIsVideo && !attachmentIsAudio && !attachmentFetching && attachmentFullPath === ""
-              source: Theme.getThemeVectorIcon("ic_photo_notavailable_black_24dp")
+              source: QfTheme.getThemeVectorIcon("ic_photo_notavailable_black_24dp")
               fillMode: Image.PreserveAspectFit
               opacity: 0.3
             }
@@ -827,7 +828,7 @@ RelationEditorBase {
               width: 40
               height: 40
               radius: width / 2
-              color: Qt.hsla(Theme.mainBackgroundColor.hslHue, Theme.mainBackgroundColor.hslSaturation, Theme.mainBackgroundColor.hslLightness, Theme.darkTheme ? 0.75 : 0.95)
+              color: Qt.hsla(QfTheme.mainBackgroundColor.hslHue, QfTheme.mainBackgroundColor.hslSaturation, QfTheme.mainBackgroundColor.hslLightness, QfTheme.darkTheme ? 0.75 : 0.95)
               visible: attachmentIsVideo
 
               QfToolButton {
@@ -835,8 +836,8 @@ RelationEditorBase {
                 width: 36
                 height: 36
                 round: false
-                iconSource: Theme.getThemeVectorIcon("ic_play_black_24dp")
-                iconColor: Theme.mainTextColor
+                iconSource: QfTheme.getThemeVectorIcon("ic_play_black_24dp")
+                iconColor: QfTheme.mainTextColor
                 bgcolor: 'transparent'
                 enabled: false
               }
@@ -850,8 +851,8 @@ RelationEditorBase {
             anchors.right: listFormButton.left
             anchors.rightMargin: 10
             text: model.displayString
-            color: Theme.mainTextColor
-            font: Theme.resultFont
+            color: QfTheme.mainTextColor
+            font: QfTheme.resultFont
             elide: Text.ElideRight
             wrapMode: Text.WordWrap
             maximumLineCount: 2
@@ -861,11 +862,11 @@ RelationEditorBase {
             id: listFormButton
             anchors.right: listMenuButton.left
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.toolButtonSize
-            height: Theme.toolButtonSize
+            width: QfTheme.toolButtonSize
+            height: QfTheme.toolButtonSize
             round: false
-            iconSource: isEnabled ? Theme.getThemeVectorIcon('ic_edit_attributes_white_24dp') : Theme.getThemeVectorIcon('ic_baseline-list_white_24dp')
-            iconColor: Theme.mainTextColor
+            iconSource: isEnabled ? QfTheme.getThemeVectorIcon('ic_edit_attributes_white_24dp') : QfTheme.getThemeVectorIcon('ic_baseline-list_white_24dp')
+            iconColor: QfTheme.mainTextColor
             bgcolor: 'transparent'
 
             onClicked: openFeatureForm(model.referencingFeature, model.nmReferencedFeature)
@@ -875,11 +876,11 @@ RelationEditorBase {
             id: listMenuButton
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.toolButtonSize
-            height: Theme.toolButtonSize
+            width: QfTheme.toolButtonSize
+            height: QfTheme.toolButtonSize
             round: false
-            iconSource: Theme.getThemeVectorIcon("ic_dot_menu_black_24dp")
-            iconColor: Theme.mainTextColor
+            iconSource: QfTheme.getThemeVectorIcon("ic_dot_menu_black_24dp")
+            iconColor: QfTheme.mainTextColor
             bgcolor: 'transparent'
 
             onClicked: {
@@ -923,10 +924,10 @@ RelationEditorBase {
           }
         }
       }
-      readonly property string attachmentMimeType: attachmentFullPath !== "" ? FileUtils.mimeTypeName(attachmentFullPath) : ""
+      readonly property string attachmentMimeType: attachmentFullPath !== "" ? QfFileUtils.mimeTypeName(attachmentFullPath) : ""
       readonly property bool attachmentIsVideo: attachmentMimeType.startsWith("video/")
       readonly property bool attachmentIsAudio: attachmentMimeType.startsWith("audio/")
-      readonly property bool attachmentIsImage: attachmentMimeType.startsWith("image/") && FileUtils.isImageMimeTypeSupported(attachmentMimeType)
+      readonly property bool attachmentIsImage: attachmentMimeType.startsWith("image/") && QfFileUtils.isImageMimeTypeSupported(attachmentMimeType)
       readonly property bool attachmentFetching: attachmentPath !== "" && attachmentFullPath === "" && relationEditor.pendingDownloads.indexOf(attachmentPath) >= 0
 
       Component.onDestruction: {
@@ -946,7 +947,7 @@ RelationEditorBase {
         parent: cardVideoContainer
         anchors.fill: parent
 
-        property url sourceUrl: attachmentIsVideo ? UrlUtils.fromString(attachmentFullPath) : ""
+        property url sourceUrl: attachmentIsVideo ? QfUrlUtils.fromString(attachmentFullPath) : ""
         property bool firstFrameDrawn: false
         property bool queued: false
 
@@ -1014,7 +1015,7 @@ RelationEditorBase {
         id: audioPlayerLoader
         active: attachmentIsAudio
 
-        property url sourceUrl: attachmentIsAudio ? UrlUtils.fromString(attachmentFullPath) : ""
+        property url sourceUrl: attachmentIsAudio ? QfUrlUtils.fromString(attachmentFullPath) : ""
         property bool isPlaying: false
         property real progress: 0
 
@@ -1074,7 +1075,7 @@ RelationEditorBase {
         anchors.fill: parent
         anchors.margins: 4
         radius: 10
-        color: Theme.controlBorderColor
+        color: QfTheme.controlBorderColor
         clip: true
         visible: true
 
@@ -1088,7 +1089,7 @@ RelationEditorBase {
           relationEditor.releaseMediaFocus(cardContainer);
         }
 
-        readonly property color overlayColor: Qt.hsla(Theme.mainBackgroundColor.hslHue, Theme.mainBackgroundColor.hslSaturation, Theme.mainBackgroundColor.hslLightness, Theme.darkTheme ? 0.75 : 0.95)
+        readonly property color overlayColor: Qt.hsla(QfTheme.mainBackgroundColor.hslHue, QfTheme.mainBackgroundColor.hslSaturation, QfTheme.mainBackgroundColor.hslLightness, QfTheme.darkTheme ? 0.75 : 0.95)
 
         Rectangle {
           id: roundMask
@@ -1107,7 +1108,7 @@ RelationEditorBase {
           autoTransform: true
           cache: true
           visible: !attachmentIsVideo && !attachmentIsAudio
-          source: (attachmentIsVideo || attachmentIsAudio) ? "" : UrlUtils.fromString(attachmentFullPath)
+          source: (attachmentIsVideo || attachmentIsAudio) ? "" : QfUrlUtils.fromString(attachmentFullPath)
 
           layer.enabled: true
           layer.effect: QfOpacityMask {
@@ -1153,9 +1154,9 @@ RelationEditorBase {
                 anchors.verticalCenter: parent.verticalCenter
                 color: {
                   if (audioPlayerLoader.active && (index / cardWaveformBars.barCount) < audioPlayerLoader.progress) {
-                    return Theme.mainColor;
+                    return QfTheme.mainColor;
                   }
-                  return Theme.mainTextDisabledColor;
+                  return QfTheme.mainTextDisabledColor;
                 }
                 opacity: {
                   if (audioPlayerLoader.active && (index / cardWaveformBars.barCount) < audioPlayerLoader.progress) {
@@ -1174,25 +1175,25 @@ RelationEditorBase {
             width: 2
             height: parent.height
             radius: 1
-            color: Theme.mainColor
+            color: QfTheme.mainColor
           }
 
           Rectangle {
             anchors.centerIn: parent
-            width: Theme.toolButtonSize
-            height: Theme.toolButtonSize
+            width: QfTheme.toolButtonSize
+            height: QfTheme.toolButtonSize
             radius: width / 2
             color: cardContainer.overlayColor
             border.width: 0.5
-            border.color: Theme.controlBorderColor
+            border.color: QfTheme.controlBorderColor
 
             QfToolButton {
               anchors.centerIn: parent
               width: 40
               height: 40
               round: false
-              iconSource: audioPlayerLoader.isPlaying ? Theme.getThemeVectorIcon("ic_pause_black_24dp") : Theme.getThemeVectorIcon("ic_play_black_24dp")
-              iconColor: Theme.mainTextColor
+              iconSource: audioPlayerLoader.isPlaying ? QfTheme.getThemeVectorIcon("ic_pause_black_24dp") : QfTheme.getThemeVectorIcon("ic_play_black_24dp")
+              iconColor: QfTheme.mainTextColor
               bgcolor: 'transparent'
               enabled: false
             }
@@ -1210,7 +1211,7 @@ RelationEditorBase {
 
           Image {
             anchors.fill: parent
-            source: Theme.getThemeVectorIcon("ic_file_black_24dp")
+            source: QfTheme.getThemeVectorIcon("ic_file_black_24dp")
             fillMode: Image.PreserveAspectFit
             opacity: 0.3
           }
@@ -1220,16 +1221,16 @@ RelationEditorBase {
             width: Math.min(cardSuffixText.contentWidth + 8, parent.width)
             height: cardSuffixText.contentHeight + 4
             radius: 2
-            color: Theme.controlBorderColor
+            color: QfTheme.controlBorderColor
             visible: cardSuffixText.text !== ""
 
             Text {
               id: cardSuffixText
               anchors.centerIn: parent
-              text: FileUtils.fileSuffix(attachmentFullPath).toUpperCase()
-              font.pointSize: Theme.tinyFont
+              text: QfFileUtils.fileSuffix(attachmentFullPath).toUpperCase()
+              font.pointSize: QfTheme.tinyFont
               font.weight: Font.Bold
-              color: Theme.mainTextColor
+              color: QfTheme.mainTextColor
               opacity: 0.6
             }
           }
@@ -1243,7 +1244,7 @@ RelationEditorBase {
           width: 44
           height: 44
           visible: cardThumbnail.status !== Image.Ready && !attachmentIsVideo && !attachmentIsAudio && !attachmentFetching && attachmentFullPath === ""
-          source: Theme.getThemeVectorIcon("ic_photo_notavailable_black_24dp")
+          source: QfTheme.getThemeVectorIcon("ic_photo_notavailable_black_24dp")
           fillMode: Image.PreserveAspectFit
           opacity: 0.3
         }
@@ -1271,8 +1272,8 @@ RelationEditorBase {
             width: 44
             height: 44
             round: false
-            iconSource: Theme.getThemeVectorIcon("ic_play_black_24dp")
-            iconColor: Theme.mainTextColor
+            iconSource: QfTheme.getThemeVectorIcon("ic_play_black_24dp")
+            iconColor: QfTheme.mainTextColor
             bgcolor: 'transparent'
             enabled: false
           }
@@ -1303,8 +1304,8 @@ RelationEditorBase {
             anchors.verticalCenter: parent.verticalCenter
 
             text: model.displayString
-            color: Theme.mainTextColor
-            font: Theme.tipFont
+            color: QfTheme.mainTextColor
+            font: QfTheme.tipFont
             wrapMode: Text.WordWrap
             maximumLineCount: 2
             elide: Text.ElideRight
@@ -1315,12 +1316,12 @@ RelationEditorBase {
             anchors.right: parent.right
             anchors.rightMargin: 2
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.toolButtonSize
-            height: Theme.toolButtonSize
+            width: QfTheme.toolButtonSize
+            height: QfTheme.toolButtonSize
 
             round: false
-            iconSource: Theme.getThemeVectorIcon("ic_dot_menu_black_24dp")
-            iconColor: Theme.mainTextColor
+            iconSource: QfTheme.getThemeVectorIcon("ic_dot_menu_black_24dp")
+            iconColor: QfTheme.mainTextColor
             bgcolor: 'transparent'
 
             onClicked: {

@@ -3,8 +3,9 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qgis
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.gui
+import QfTheme
 
 /**
  * \ingroup qml
@@ -33,7 +34,7 @@ Drawer {
   property alias allowActiveLayerChange: legend.allowActiveLayerChange
   /// type:QgsVectorLayer
   property alias activeLayer: legend.activeLayer
-  /// type:FlatLayerTreeModel
+  /// type:QfFlatLayerTreeModel
   property alias layerTree: legend.model
   /// type:QgsQuickMapSettings
   property MapSettings mapSettings
@@ -67,7 +68,21 @@ Drawer {
 
   background: Rectangle {
     anchors.fill: parent
-    color: Theme.mainBackgroundColor
+    color: QfTheme.mainBackgroundColor
+  Connections {
+    target: stateMachine
+
+    function onStateChanged() {
+      if (stateMachine.state === "measure") {
+        return;
+      }
+      modeSwitch.checked = stateMachine.state === "digitize";
+    }
+  }
+
+  background: Rectangle {
+    anchors.fill: parent
+    color: QfTheme.mainBackgroundColor
   }
 
   ColumnLayout {
@@ -85,8 +100,8 @@ Drawer {
         anchors.left: parent.left
         anchors.leftMargin: mainWindow.sceneLeftMargin
         anchors.bottom: parent.bottom
-        iconSource: Theme.getThemeVectorIcon('ic_arrow_left_white_24dp')
-        iconColor: Theme.mainTextColor
+        iconSource: QfTheme.getThemeVectorIcon('ic_arrow_left_white_24dp')
+        iconColor: QfTheme.mainTextColor
         bgcolor: "transparent"
         onClicked: close()
       }
@@ -96,7 +111,7 @@ Drawer {
       id: sideMenu
       Layout.fillWidth: true
       Layout.leftMargin: mainWindow.sceneLeftMargin
-      t: Theme
+      t: QfTheme
 
       onActionTriggered: (action, origin) => {
         switch (action) {
@@ -151,7 +166,7 @@ Drawer {
     Rectangle {
       Layout.fillWidth: true
       Layout.preferredHeight: 1
-      color: Theme.controlBorderColor
+      color: QfTheme.controlBorderColor
     }
     RowLayout {
       id: projectInformationLayout
@@ -178,13 +193,13 @@ Drawer {
             } else if (cloudProjectsModel.currentProject) {
               return cloudProjectsModel.currentProject.name;
             } else {
-              return FileUtils.fileName(qgisProject.fileName, false);
+              return QfFileUtils.fileName(qgisProject.fileName, false);
             }
           }
           return "";
         }
-        font: Theme.strongFont
-        color: Theme.mainTextColor
+        font: QfTheme.strongFont
+        color: QfTheme.mainTextColor
         elide: Text.ElideRight
       }
 
@@ -195,8 +210,8 @@ Drawer {
         height: 36
         padding: 0
         visible: flatLayerTree.isTemporal
-        iconSource: Theme.getThemeVectorIcon('ic_temporal_black_24dp')
-        iconColor: mapSettings.isTemporal ? Theme.mainColor : Theme.mainTextColor
+        iconSource: QfTheme.getThemeVectorIcon('ic_temporal_black_24dp')
+        iconColor: mapSettings.isTemporal ? QfTheme.mainColor : QfTheme.mainTextColor
         bgcolor: "transparent"
         onClicked: temporalProperties.open()
       }
@@ -231,8 +246,8 @@ Drawer {
         width: 36
         height: 36
         padding: 0
-        iconSource: Theme.getThemeVectorIcon('ic_info_white_24dp')
-        iconColor: Theme.mainTextColor
+        iconSource: QfTheme.getThemeVectorIcon('ic_info_white_24dp')
+        iconColor: QfTheme.mainTextColor
         bgcolor: "transparent"
         onClicked: {
           informationPopup.header = qsTr("Project Information");
@@ -258,7 +273,7 @@ Drawer {
       visible: false
       objectName: "mapThemeContainer"
       Layout.fillWidth: true
-      title: qsTr("Map Theme")
+      title: qsTr("Map QfTheme")
       leftPadding: 10
       rightPadding: 10
       topPadding: label.height + 5
@@ -272,8 +287,8 @@ Drawer {
         width: parent.availableWidth
         leftPadding: mainWindow.sceneLeftMargin
         text: parent.title
-        color: Theme.mainTextColor
-        font: Theme.strongTipFont
+        color: QfTheme.mainTextColor
+        font: QfTheme.strongTipFont
         elide: Text.ElideRight
         verticalAlignment: Text.AlignVCenter
       }
@@ -289,9 +304,9 @@ Drawer {
           id: mapThemeComboBox
           Layout.fillWidth: true
           Layout.leftMargin: mainWindow.sceneLeftMargin
-          font: Theme.defaultFont
+          font: QfTheme.defaultFont
 
-          popup.font: Theme.defaultFont
+          popup.font: QfTheme.defaultFont
           popup.topMargin: mainWindow.sceneTopMargin
           popup.bottomMargin: mainWindow.sceneTopMargin
 
@@ -337,7 +352,7 @@ Drawer {
             height: 36
             text: modelData
             font.weight: mapThemeComboBox.currentIndex === index ? Font.DemiBold : Font.Normal
-            font.pointSize: Theme.tipFont.pointSize
+            font.pointSize: QfTheme.tipFont.pointSize
             highlighted: mapThemeComboBox.highlightedIndex == index
           }
         }
@@ -356,7 +371,7 @@ Drawer {
       objectName: "legendContainer"
       Layout.fillWidth: true
       Layout.fillHeight: true
-      title: qsTr("Legend")
+      title: qsTr("QfLegend")
       leftPadding: 5
       rightPadding: 5
       topPadding: label.height + 5
@@ -372,8 +387,8 @@ Drawer {
         width: parent.availableWidth
         leftPadding: mainWindow.sceneLeftMargin
         text: parent.title
-        color: Theme.mainTextColor
-        font: Theme.strongTipFont
+        color: QfTheme.mainTextColor
+        font: QfTheme.strongTipFont
         elide: Text.ElideRight
         verticalAlignment: Text.AlignVCenter
         clip: true
@@ -389,12 +404,12 @@ Drawer {
           visible: legend.model.hasCollapsibleItems
 
           text: legend.model.isCollapsed ? qsTr('Expand All') : qsTr('Collapse All')
-          bgcolor: Theme.darkTheme ? Theme.mainBackgroundColorSemiOpaque : Theme.lightestGraySemiOpaque
-          color: Theme.mainTextColor
-          icon.source: legend.model.isCollapsed ? Theme.getThemeVectorIcon('ic_expand_all_24dp') : Theme.getThemeVectorIcon('ic_collapse_all_24dp')
+          bgcolor: QfTheme.darkTheme ? QfTheme.mainBackgroundColorSemiOpaque : QfTheme.lightestGraySemiOpaque
+          color: QfTheme.mainTextColor
+          icon.source: legend.model.isCollapsed ? QfTheme.getThemeVectorIcon('ic_expand_all_24dp') : QfTheme.getThemeVectorIcon('ic_collapse_all_24dp')
           icon.width: 14
           icon.height: 14
-          font.pointSize: Theme.tinyFont.pointSize - 2
+          font.pointSize: QfTheme.tinyFont.pointSize - 2
 
           onClicked: {
             legend.model.setAllCollapsed(!legend.model.isCollapsed);
@@ -403,7 +418,7 @@ Drawer {
         }
       }
 
-      Legend {
+      QfLegend {
         id: legend
         objectName: "legend"
         isVisible: dashBoard.position > 0
@@ -418,13 +433,13 @@ Drawer {
 
   Rectangle {
     id: bottomRow
-    height: Theme.toolButtonSize + mainWindow.sceneBottomMargin
+    height: QfTheme.toolButtonSize + mainWindow.sceneBottomMargin
     width: parent.width
     anchors.bottom: parent.bottom
-    color: Theme.darkTheme ? Theme.mainBackgroundColorSemiOpaque : Theme.lightestGraySemiOpaque
+    color: QfTheme.darkTheme ? QfTheme.mainBackgroundColorSemiOpaque : QfTheme.lightestGraySemiOpaque
 
     Item {
-      height: Theme.toolButtonSize
+      height: QfTheme.toolButtonSize
       anchors.bottom: parent.bottom
       anchors.bottomMargin: mainWindow.sceneBottomMargin
       anchors.left: parent.left
@@ -436,12 +451,12 @@ Drawer {
         // WorkField: przelacznika trybu nie ma - warstwe do edycji wybiera sie
         // olowkiem w liscie warstw, a rysowanie zaczynaja kafle paska zapisu.
         width: parent.width
-        height: Theme.toolButtonSize
+        height: QfTheme.toolButtonSize
         anchors.verticalCenter: parent.verticalCenter
-        leftPadding: Theme.menuItemLeftPadding
+        leftPadding: QfTheme.menuItemLeftPadding
 
-        font: Theme.defaultFont
-        icon.source: Theme.getThemeVectorIcon("ic_home_black_24dp")
+        font: QfTheme.defaultFont
+        icon.source: QfTheme.getThemeVectorIcon("ic_home_black_24dp")
 
         text: qsTr("Home")
 
@@ -450,12 +465,12 @@ Drawer {
     }
   }
 
-  TemporalProperties {
+  QfTemporalProperties {
     id: temporalProperties
     mapSettings: dashBoard.mapSettings
   }
 
-  InformationPopup {
+  QfInformationPopup {
     id: informationPopup
   }
 }

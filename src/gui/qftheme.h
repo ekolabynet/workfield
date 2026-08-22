@@ -1,5 +1,5 @@
 /***************************************************************************
-  theme.h - Theme
+  qftheme.h - QfTheme
 
 ---------------------
 begin                : 22.2.2026
@@ -14,10 +14,10 @@ email                : kaustuv@opengis.ch
 *                                                                         *
 ***************************************************************************/
 
-#ifndef THEME_H
-#define THEME_H
+#ifndef QFTHEME_H
+#define QFTHEME_H
 
-#include "qfield_core_export.h"
+#include "qfield_gui_export.h"
 
 #include <QColor>
 #include <QFont>
@@ -25,14 +25,14 @@ email                : kaustuv@opengis.ch
 #include <QVariantMap>
 
 /**
- * \ingroup core
+ * \ingroup gui
  *
  * \brief Provides all color, font scale, and layout constants used throughout
- * the QField UI. Registered as a QML singleton under URI "Theme" 1.0.
+ * the QField UI. Registered as a QML singleton in org.qfield.gui.
  *
  * \note Default colors are loaded from :/theme/theme.json
  */
-class QFIELD_CORE_EXPORT Theme final : public QObject
+class QFIELD_GUI_EXPORT QfTheme final : public QObject
 {
     Q_OBJECT
 
@@ -133,7 +133,7 @@ class QFIELD_CORE_EXPORT Theme final : public QObject
     Q_PROPERTY( int menuItemCheckLeftPadding READ menuItemCheckLeftPadding CONSTANT )
 
   public:
-    explicit Theme( QObject *parent = nullptr );
+    explicit QfTheme( QObject *parent = nullptr );
 
     enum BaseAppearance
     {
@@ -148,7 +148,7 @@ class QFIELD_CORE_EXPORT Theme final : public QObject
    * Applies the dark/light/system appearance setting and the matching color palette.
    * An optional \a extraColors map is applied on top for per-call overrides.
    * \note Material.theme and Application.styleHints.colorScheme are QML-only
-   * APIs; bind them in QML to \c Theme.darkTheme instead
+   * APIs; bind them in QML to \c QfTheme.darkTheme instead
    */
     Q_INVOKABLE void applyAppearance( const QVariantMap &extraColors = QVariantMap(), BaseAppearance baseAppearance = UseSettingsAppearance );
 
@@ -442,4 +442,4 @@ class QFIELD_CORE_EXPORT Theme final : public QObject
     qreal mScreenPpi = 160.0;
 };
 
-#endif // THEME_H
+#endif // QFTHEME_H

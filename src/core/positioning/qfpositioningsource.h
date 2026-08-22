@@ -1,5 +1,5 @@
 /***************************************************************************
-  positioningsource.h - PositioningSource
+  qfpositioningsource.h - QfPositioningSource
 
  ---------------------
  begin                : 20.12.2024
@@ -14,13 +14,13 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef POSITIONINGSOURCE_H
-#define POSITIONINGSOURCE_H
+#ifndef QFPOSITIONINGSOURCE_H
+#define QFPOSITIONINGSOURCE_H
 
-#include "abstractgnssreceiver.h"
-#include "gnsspositioninformation.h"
-#include "ntripclient.h"
-#include "ntripsettings.h"
+#include "qfabstractgnssreceiver.h"
+#include "qfgnsspositioninformation.h"
+#include "qfntripclient.h"
+#include "qfntripsettings.h"
 
 #include <QCompass>
 #include <QObject>
@@ -31,7 +31,7 @@
  * positioning details.
  * \ingroup core
  */
-class PositioningSource : public QObject
+class QfPositioningSource : public QObject
 {
     Q_OBJECT
 
@@ -40,13 +40,13 @@ class PositioningSource : public QObject
 
     Q_PROPERTY( QString deviceId READ deviceId WRITE setDeviceId NOTIFY deviceIdChanged )
     Q_PROPERTY( int deviceCapabilities READ deviceCapabilities NOTIFY deviceChanged )
-    Q_PROPERTY( GnssPositionDetails deviceDetails READ deviceDetails NOTIFY positionInformationChanged )
+    Q_PROPERTY( QfGnssPositionDetails deviceDetails READ deviceDetails NOTIFY positionInformationChanged )
     Q_PROPERTY( QString deviceLastError READ deviceLastError NOTIFY deviceLastErrorChanged )
     Q_PROPERTY( QAbstractSocket::SocketState deviceSocketState READ deviceSocketState NOTIFY deviceSocketStateChanged )
     Q_PROPERTY( QString deviceSocketStateString READ deviceSocketStateString NOTIFY deviceSocketStateStringChanged )
     Q_PROPERTY( double deviceBatteryLevel READ deviceBatteryLevel NOTIFY deviceBatteryLevelChanged )
 
-    Q_PROPERTY( GnssPositionInformation positionInformation READ positionInformation NOTIFY positionInformationChanged )
+    Q_PROPERTY( QfGnssPositionInformation positionInformation READ positionInformation NOTIFY positionInformationChanged )
 
     Q_PROPERTY( ElevationCorrectionMode elevationCorrectionMode READ elevationCorrectionMode WRITE setElevationCorrectionMode NOTIFY elevationCorrectionModeChanged )
     Q_PROPERTY( double antennaHeight READ antennaHeight WRITE setAntennaHeight NOTIFY antennaHeightChanged )
@@ -60,7 +60,7 @@ class PositioningSource : public QObject
     Q_PROPERTY( bool backgroundMode READ backgroundMode WRITE setBackgroundMode NOTIFY backgroundModeChanged )
 
     Q_PROPERTY( bool enableNtrip READ enableNtrip WRITE setEnableNtrip NOTIFY enableNtripChanged )
-    Q_PROPERTY( NtripSettings ntripSettings READ ntripSettings WRITE setNtripSettings NOTIFY ntripSettingsChanged )
+    Q_PROPERTY( QfNtripSettings ntripSettings READ ntripSettings WRITE setNtripSettings NOTIFY ntripSettingsChanged )
     Q_PROPERTY( NtripState ntripState READ ntripState NOTIFY ntripStateChanged )
     Q_PROPERTY( QString ntripLastError READ ntripLastError NOTIFY ntripLastErrorChanged )
     Q_PROPERTY( qint64 ntripBytesSent READ ntripBytesSent NOTIFY ntripBytesSentChanged )
@@ -90,8 +90,8 @@ class PositioningSource : public QObject
     };
     Q_ENUM( ElevationCorrectionMode )
 
-    explicit PositioningSource( QObject *parent = nullptr );
-    virtual ~PositioningSource() = default;
+    explicit QfPositioningSource( QObject *parent = nullptr );
+    virtual ~QfPositioningSource() = default;
 
     /**
      * Returns TRUE when positioning is active.
@@ -138,12 +138,12 @@ class PositioningSource : public QObject
      * Returns the current positioning device.
      * \see deviceId
      */
-    AbstractGnssReceiver *device() const { return mReceiver.get(); }
+    QfAbstractGnssReceiver *device() const { return mReceiver.get(); }
 
     /**
      * Returns extra details (such as hdop, vdop, pdop) provided by the positioning device.
      */
-    GnssPositionDetails deviceDetails() const { return mReceiver ? mReceiver->details() : GnssPositionDetails(); }
+    QfGnssPositionDetails deviceDetails() const { return mReceiver ? mReceiver->details() : QfGnssPositionDetails(); }
 
     /**
      * Returns positioning device's last error string.
@@ -168,9 +168,9 @@ class PositioningSource : public QObject
     double deviceBatteryLevel() const { return mReceiver ? mReceiver->batteryLevel() : std::numeric_limits<double>::quiet_NaN(); }
 
     /**
-     * Returns a GnssPositionInformation position information object.
+     * Returns a QfGnssPositionInformation position information object.
      */
-    GnssPositionInformation positionInformation() const { return mPositionInformation; };
+    QfGnssPositionInformation positionInformation() const { return mPositionInformation; };
 
     /**
      * Returns the current elevation correction mode.
@@ -262,12 +262,12 @@ class PositioningSource : public QObject
     /**
      * Returns the NTRIP settings.
      */
-    NtripSettings ntripSettings() const { return mNtripSettings; }
+    QfNtripSettings ntripSettings() const { return mNtripSettings; }
 
     /**
      * Sets the NTRIP settings.
      */
-    void setNtripSettings( const NtripSettings &ntripSettings );
+    void setNtripSettings( const QfNtripSettings &ntripSettings );
 
     /**
      * Returns the current NTRIP connection state.
@@ -299,7 +299,7 @@ class PositioningSource : public QObject
      * \see backgroundMode()
      * \see setBackgroundMode()
      */
-    Q_INVOKABLE QList<GnssPositionInformation> getBackgroundPositionInformation() const;
+    Q_INVOKABLE QList<QfGnssPositionInformation> getBackgroundPositionInformation() const;
 
     static QString backgroundFilePath;
 
@@ -342,7 +342,7 @@ class PositioningSource : public QObject
 
   private slots:
 
-    void lastGnssPositionInformationChanged( const GnssPositionInformation &lastGnssPositionInformation );
+    void lastGnssPositionInformationChanged( const QfGnssPositionInformation &lastGnssPositionInformation );
     void processCompassReading();
     void onDeviceSocketStateChanged();
 
@@ -358,7 +358,7 @@ class PositioningSource : public QObject
     QString mDeviceId;
     bool mValid = false;
 
-    GnssPositionInformation mPositionInformation;
+    QfGnssPositionInformation mPositionInformation;
 
     ElevationCorrectionMode mElevationCorrectionMode = ElevationCorrectionMode::None;
     double mAntennaHeight = 0.0;
@@ -369,15 +369,15 @@ class PositioningSource : public QObject
     bool mBackgroundMode = false;
 
     bool mEnableNtrip = false;
-    NtripSettings mNtripSettings;
+    QfNtripSettings mNtripSettings;
     NtripState mNtripState = NtripState::Disconnected;
     QString mNtripLastError;
     qint64 mNtripBytesSent = 0;
     qint64 mNtripBytesReceived = 0;
     QDateTime mNtripLastBytesReceivedUtcDateTime;
 
-    std::unique_ptr<AbstractGnssReceiver> mReceiver;
-    std::unique_ptr<NtripClient> mNtripClient;
+    std::unique_ptr<QfAbstractGnssReceiver> mReceiver;
+    std::unique_ptr<QfNtripClient> mNtripClient;
 
     QCompass mCompass;
     QTimer mCompassTimer;
@@ -386,7 +386,7 @@ class PositioningSource : public QObject
     double mOrientation = std::numeric_limits<double>::quiet_NaN();
 };
 
-Q_DECLARE_METATYPE( PositioningSource::NtripState )
-Q_DECLARE_METATYPE( PositioningSource::ElevationCorrectionMode )
+Q_DECLARE_METATYPE( QfPositioningSource::NtripState )
+Q_DECLARE_METATYPE( QfPositioningSource::ElevationCorrectionMode )
 
-#endif // POSITIONINGSOURCE_H
+#endif // QFPOSITIONINGSOURCE_H

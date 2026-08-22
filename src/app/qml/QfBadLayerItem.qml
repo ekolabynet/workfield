@@ -1,8 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import org.qfield
-import Theme
+import org.qfield.core
+import org.qfield.app
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -41,16 +42,16 @@ Page {
       Layout.fillHeight: false
 
       text: qsTr("Poniższych warstw nie udało się wczytać. Pozostałe warstwy projektu działają normalnie — możesz wrócić do pracy albo poprawić źródła w QGIS.")
-      font: Theme.defaultFont
-      color: Theme.mainTextColor
+      font: QfTheme.defaultFont
+      color: QfTheme.mainTextColor
       wrapMode: Text.WordWrap
     }
 
     Rectangle {
       Layout.fillWidth: true
       Layout.fillHeight: true
-      color: Theme.controlBackgroundColor
-      border.color: Theme.controlBorderColor
+      color: QfTheme.controlBackgroundColor
+      border.color: QfTheme.controlBorderColor
       border.width: 1
 
       ListView {
@@ -61,7 +62,7 @@ Page {
         spacing: 2
         anchors.fill: parent
 
-        model: BadLayerHandler {
+        model: QfBadLayerHandler {
           project: qgisProject
 
           onBadLayersFound: {
@@ -85,8 +86,8 @@ Page {
               width: rectangle.width - padding * 2
               padding: 5
               text: LayerName
-              font: Theme.strongTipFont
-              color: Theme.mainTextColor
+              font: QfTheme.strongTipFont
+              color: QfTheme.mainTextColor
               wrapMode: Text.WordWrap
             }
             Text {
@@ -94,8 +95,8 @@ Page {
               width: rectangle.width - padding * 2
               padding: 5
               text: DataSource
-              font: Theme.tipFont
-              color: Theme.secondaryTextColor
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
               wrapMode: Text.WordWrap
             }
           }
@@ -110,8 +111,8 @@ Page {
 
       text: qsTr('You may check the %1Portable Project%2 documentation page for more help.').arg("<a href=\"https://docs.qfield.org/how-to/project-setup/data_source_and_project_paths/\">").arg("</a>")
       textFormat: Text.RichText
-      font: Theme.tipFont
-      color: Theme.secondaryTextColor
+      font: QfTheme.tipFont
+      color: QfTheme.secondaryTextColor
       wrapMode: Text.WordWrap
 
       onLinkActivated: link => {
@@ -119,11 +120,11 @@ Page {
       }
     }
 
-    Button {
+    QfButton {
       Layout.fillWidth: true
       Layout.topMargin: 5
       text: qsTr("Wróć do projektu")
-      font: Theme.defaultFont
+      font: QfTheme.defaultFont
       onClicked: badLayerPage.visible = false
     }
   }

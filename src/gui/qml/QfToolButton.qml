@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Controls.Material.impl
-import org.qfield
+import org.qfield.core
+import org.qfield.gui
 
 /**
  * \ingroup qml
@@ -14,15 +15,15 @@ RoundButton {
   property alias iconColor: button.icon.color
   property alias statusBadge: badge
   property string bottomRightIndicatorText: ''
-  property string bottomRightIndicatorBgColor: Theme.cloudColor
-  property string bottomRightIndicatorFgColor: Theme.light
+  property string bottomRightIndicatorBgColor: QfTheme.cloudColor
+  property string bottomRightIndicatorFgColor: QfTheme.light
   property bool round: false
   property bool roundborder: false
   property alias bgcolor: backgroundRectangle.color
   property color borderColor: 'transparent'
 
-  width: Theme.toolButtonSize
-  height: Theme.toolButtonSize
+  width: QfTheme.toolButtonSize
+  height: QfTheme.toolButtonSize
   implicitWidth: width
   implicitHeight: height
   focusPolicy: Qt.NoFocus
@@ -43,7 +44,7 @@ RoundButton {
     // WorkField: semantyka round (koło) sterowana ustawieniem Teren -> Okrągłe przyciski;
     // przyciski bez round zachowują zaokrąglenie 12 zgodnie z M3
     // WorkField 18.08.2026: `settings` bywa cudzym `id: settings` (QtCore
-    // Settings, bez valueBool) albo null — zaleznie od pliku, w ktorym ten
+    // QfSettings, bez valueBool) albo null — zaleznie od pliku, w ktorym ten
     // przycisk stoi. Bez tej kontroli kazde narysowanie przycisku dokladalo
     // linie TypeError do logu; przy pelnym ekranie narzedzi to setki linii.
     readonly property bool okragleZUstawien: {
@@ -72,7 +73,7 @@ RoundButton {
       pressed: button.down
       anchor: parent
       active: button.down
-      color: Theme.darkTheme ? bgcolor == "#ffffff" ? "#10000000" : "#10ffffff" : bgcolor == "#ffffff" || bgcolor == "#00000000" ? "#10000000" : "#22ffffff"
+      color: QfTheme.darkTheme ? bgcolor == "#ffffff" ? "#10000000" : "#10ffffff" : bgcolor == "#ffffff" || bgcolor == "#00000000" ? "#10000000" : "#22ffffff"
     }
   }
 
@@ -82,7 +83,7 @@ RoundButton {
   icon.height: Math.min(width, height) / 2
 
   Material.foreground: icon.color
-  font: Theme.tipFont
+  font: QfTheme.tipFont
 
   QfBadge {
     id: badge
@@ -93,7 +94,7 @@ RoundButton {
     height: width
     visible: bottomRightIndicatorText
     color: bottomRightIndicatorBgColor
-    border.color: Theme.mainBackgroundColor
+    border.color: QfTheme.mainBackgroundColor
     border.width: Math.max(1, button.width / 24)
 
     badgeText.color: bottomRightIndicatorFgColor
