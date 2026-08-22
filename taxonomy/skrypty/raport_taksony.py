@@ -35,7 +35,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from taksony_normalizacja import rozbierz, do_wyswietlenia          # noqa: E402
 from zbuduj_taksony import (czytaj_zrodlo, najnowsze_prawo,         # noqa: E402
                             wczytaj_prawo, wersja_prawa, prawo_dla,
-                            wczytaj_dopasowania, porownaj_prawo, _int)
+                            wczytaj_dopasowania, porownaj_prawo, _int,
+                            najnowsza_ochrona, wczytaj_ochrone)
 
 # próg podobieństwa dla podejrzenia literówki; niżej = więcej fałszywych par
 PROG_PODOBIENSTWA = 0.86
@@ -89,6 +90,7 @@ def main():
     a.add_argument("--kolumna-pl")
     a.add_argument("--dopasowania")
     a.add_argument("--prawo")
+    a.add_argument("--ochrona")
     a.add_argument("--katalog", help="gdzie zapisać (domyślnie raporty/RRRR-MM-DD)")
     args = a.parse_args()
 
@@ -96,8 +98,13 @@ def main():
     plik_prawa = najnowsze_prawo(args.prawo)
     po_gat, po_rodz = wczytaj_prawo(plik_prawa)
     gotowe = wczytaj_dopasowania(args.dopasowania)
-    print("Wpisów: %d | warstwa prawna: %s | gotowych dopasowań: %d"
-          % (len(surowe), wersja_prawa(plik_prawa), len(gotowe)))
+    # ta sama warstwa ochrony co przy budowie — inaczej raport pokazuje
+    # co innego niż zbuduj_taksony i nie wiadomo, któremu wierzyć
+    ochrona_gat = wczytaj_ochrone(najnowsza_ochrona(args.ochrona))
+    print("Wpisów: %d | warstwa prawna: %s | ochrona gatunkowa: %d | "
+          "gotowych dopasowań: %d"
+          % (len(surowe), wersja_prawa(plik_prawa), len(ochrona_gat),
+             len(gotowe)))
 
     katalog = args.katalog or os.path.join(
         "raporty", datetime.now().strftime("%Y-%m-%d"))
@@ -118,7 +125,9 @@ def main():
         kanoniczne.append(w["kanoniczna"])
 
         p = prawo_dla(w["kanoniczna"], w["rodzaj"], po_gat, po_rodz)
-        wiersz = {"IGO": p["IGO"], "OCHRONA": p["OCHRONA"]}
+        o = ochrona_gat.get(w["kanoniczna"])
+        wiersz = {"IGO": p["IGO"],
+                  "OCHRONA": o["ochrona"] if o else p["OCHRONA"]}
         for uwaga in porownaj_prawo(zrodlowy, wiersz):
             rozbieznosci.append({
                 "GATUNEK": w["kanoniczna"],
@@ -129,7 +138,9 @@ def main():
                 "ROZBIEZNOSC": uwaga,
                 "SLOWNIK_CHRONIONY": zrodlowy.get("CHRONIONY") or "",
                 "SLOWNIK_IGO": zrodlowy.get("IGO") or "",
-                "PRAWO_OCHRONA": p["OCHRONA"] or "",
+                "PRAWO_OCHRONA": wiersz["OCHRONA"] or "",
+                "PODSTAWA_OCHRONY": ("1409 zał.%s poz.%s" % (o["zal"], o["lp"])
+                                     if o else ""),
                 "PRAWO_IGO": p["IGO"] or "",
                 "ZRODLO_PRAWO": p["ZRODLO"],
                 "DECYZJA": "",
@@ -165,8 +176,8 @@ def main():
            ["KLUCZ", "NAZWA_ZRODLOWA", "ILE_SKLEJONYCH", "DECYZJA"], duplikaty)
     zapisz(katalog, "rozbieznosci_prawne.csv",
            ["GATUNEK", "NAZWA_PL", "SKROT", "ROZBIEZNOSC", "SLOWNIK_CHRONIONY",
-            "SLOWNIK_IGO", "PRAWO_OCHRONA", "PRAWO_IGO", "ZRODLO_PRAWO",
-            "DECYZJA"], rozbieznosci)
+            "SLOWNIK_IGO", "PRAWO_OCHRONA", "PODSTAWA_OCHRONY", "PRAWO_IGO",
+            "ZRODLO_PRAWO", "DECYZJA"], rozbieznosci)
     zapisz(katalog, "do_przegladu.csv",
            ["GATUNEK", "NAZWA_ZRODLOWA", "RANGA", "POWOD", "GBIF_KEY",
             "PROPOZYCJA", "DECYZJA"], do_przegladu)

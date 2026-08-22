@@ -46,3 +46,6 @@ brand/*/CHM/
 
 # skrypty jednorazowe (zasada z MasterScriptu)
 _*.py
+
+# wyniki raportow - odtwarzalne; do repo trafiaja dopiero przejrzane
+taxonomy/raporty/
