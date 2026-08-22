@@ -30,8 +30,27 @@ kilka minut i nadpisanie grozi wciągnięciem starej wersji na telefon.
 
 ### Codzienny (development)
 
-Początek sesji z kodem: `git status`, `git log --oneline -3`, `git push`.
+Początek sesji z kodem — **najpierw gałąź, potem reszta**:
+
+    git branch --show-current          # ma być: development
+    git status --short | grep -v przed_
+    git log --oneline -3
+    git push
+
+Pierwsza linijka nie jest formalnością. 22.08.2026 przez cały dzień szły
+commity bez sprawdzenia, gdzie stoimy: MasterScript mówił `master`, praca
+szła na `wyposazenie`, deklaracja w NOTICE.md wylądowała na `development`.
+Skończyło się dobrze wyłącznie dlatego, że linie i tak były spójne.
+**Pilnowanie gałęzi należy do agenta, nie do prowadzącego.**
+
 Po każdej działającej zmianie: `git add -A && git commit -m "opis" && git push`.
+
+`git add -A` bierze **wszystko, co leży w drzewie**. Przy pracy równoległej
+(np. gdy prowadzący pisze coś obok) trzeba wymienić pliki jawnie:
+`git add <plik>`. 21.08 commit „moduł bez_nakladania" zabrał ze sobą 139
+linii pracy nad `PhotoTagStore`, których nazwa commita nie opisuje — i przez
+to nikt ich później nie znajdzie po opisie.
+
 Eksperymenty w toku: prefiks `WIP:`.
 
 ### Bump wersji (przenosi master)
