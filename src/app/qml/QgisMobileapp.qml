@@ -6066,7 +6066,7 @@ ApplicationWindow {
     Component.onCompleted: focusstack.addFocusTaker(this)
   }
 
-  Toast {
+  QfToast {
     id: toast
     bottomSpacing: Math.max(60, mainWindow.sceneBottomMargin, informationDrawer.height, overlayFeatureFormDrawer.opened && !overlayFeatureFormDrawer.fullScreenView && overlayFeatureFormDrawer.y > 0 ? overlayFeatureFormDrawer.height : 0, !featureListForm.isFullscreen && !featureListForm.canvasOperationRequested && featureListForm.y > 0 ? featureListForm.height : 0)
   }

@@ -2008,7 +2008,7 @@ Column {
   Component {
     id: qfCameraComponent
 
-    QFieldCamera {
+    QfCamera {
       id: quickCaptureCamera
 
       visible: false
