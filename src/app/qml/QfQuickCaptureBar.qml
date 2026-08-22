@@ -92,12 +92,27 @@ Column {
     qcKotwicaLimitMs = (typeof u.kotwicaLimitS === 'number' && u.kotwicaLimitS >= 5 && u.kotwicaLimitS <= 120 ? Math.round(u.kotwicaLimitS) : 30) * 1000;
   }
 
+  // WorkField 22.08: przycisk zwijania zszedl z gory paska na jego BOK —
+  // male okragle X. Wychodzi poza Column (stad jawny `parent` i wspolrzedne
+  // liczone od paska), bo dziecko Column zawsze zajeloby caly wiersz.
+  // Strona jest przeciwna do krawedzi ekranu: pasek zadokowany po prawej
+  // stoi 8 px od brzegu, wiec X po jego prawej byloby poza ekranem.
   Rectangle {
-    width: 56
+    id: przyciskZwijania
+
+    parent: quickCaptureBar.parent
+    z: quickCaptureBar.z + 1
+
+    width: 28
     height: 28
-    radius: 8
-    visible: quickCaptureBar.qcSekcja === "zwijana"
-    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
+    radius: width / 2
+    visible: quickCaptureBar.visible && quickCaptureBar.qcSekcja === "zwijana"
+
+    x: quickCaptureBar.qcKrawedz === "lewa"
+       ? quickCaptureBar.x + quickCaptureBar.width + 6
+       : quickCaptureBar.x - width - 6
+    y: quickCaptureBar.y + (quickCaptureBar.height - height) / 2
+
     color: "#546E7A"
     border.color: "#003D33"
     border.width: 1
@@ -105,8 +120,8 @@ Column {
 
     Text {
       anchors.centerIn: parent
-      text: quickCaptureBar.ustawieniaZwiniete ? "\u25be" : "\u25b4"
-      font.pointSize: Theme.tinyFont.pointSize + 2
+      text: quickCaptureBar.ustawieniaZwiniete ? "\u002b" : "\u00d7"
+      font.pointSize: Theme.tinyFont.pointSize + 4
       font.bold: true
       color: "#ECEFF1"
     }

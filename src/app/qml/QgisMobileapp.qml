@@ -145,8 +145,10 @@ ApplicationWindow {
       spacing: 0
 
       ToolButton {
+        // WorkField 22.08: ikony szuflad na gorze belki, w linii tytulu
+        Layout.alignment: Qt.AlignTop
         Layout.preferredWidth: 64
-        Layout.preferredHeight: 64
+        Layout.preferredHeight: 44
         icon.source: Theme.getThemeVectorIcon("ic_baseline-list_white_24dp")
         icon.width: 32
         icon.height: 32
@@ -250,8 +252,10 @@ ApplicationWindow {
       }
 
       ToolButton {
+        // WorkField 22.08: jw. — prawa szuflada w linii tytulu
+        Layout.alignment: Qt.AlignTop
         Layout.preferredWidth: 64
-        Layout.preferredHeight: 64
+        Layout.preferredHeight: 44
         icon.source: Theme.getThemeVectorIcon("ic_baseline-list_white_24dp")
         icon.width: 32
         icon.height: 32
@@ -2597,10 +2601,12 @@ ApplicationWindow {
 
       locatorBridge: locatorBridge
 
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.topMargin: mainWindow.sceneTopMargin + 4
-      anchors.rightMargin: mainWindow.sceneRightMargin + 4
+      // WorkField 22.08: dwie ikony upstreamu (menu i wyszukiwarka) stoja
+      // teraz jedna pod druga przy lewej krawedzi, pod belka terenowa
+      anchors.left: parent.left
+      anchors.top: mainMenuBar.bottom
+      anchors.topMargin: 4
+      anchors.leftMargin: mainWindow.sceneLeftMargin + 4
 
       visible: !screenLocker.enabled && stateMachine.state !== 'measure'
 
