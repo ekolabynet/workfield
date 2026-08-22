@@ -16,20 +16,20 @@ ListView {
 
   model: ListModel {
     ListElement {
-      categoryId: "mapCanvas"
-      iconName: "ic_map_white_24dp"
+      categoryId: "positioning"
+      iconName: "ic_location_white_24dp"
     }
     ListElement {
       categoryId: "digitizing"
       iconName: "ic_add_vertex_white_24dp"
     }
     ListElement {
-      categoryId: "interface"
-      iconName: "ic_3x3_grid_white_24dp"
+      categoryId: "mapCanvas"
+      iconName: "ic_map_white_24dp"
     }
     ListElement {
-      categoryId: "positioning"
-      iconName: "ic_location_white_24dp"
+      categoryId: "interface"
+      iconName: "ic_3x3_grid_white_24dp"
     }
     ListElement {
       categoryId: "network"
@@ -52,20 +52,22 @@ ListView {
   delegate: ItemDelegate {
     id: entry
     width: settingsIndex.width
-    height: 68
+    height: 48
 
     required property string categoryId
     required property string iconName
 
+    // WorkField 22.08: jeden wiersz. Nazwa ma niesc znaczenie sama — opis
+    // w drugim wierszu byl proteza slabej nazwy ("Interfejs: wyglad, czcionki").
     readonly property var labels: ({
-        "mapCanvas": [qsTr("Obszar mapy"), qsTr("Podziałka, zakładki, jakość rysowania")],
-        "digitizing": [qsTr("Digitalizacja i edycja"), qsTr("Wierzchołki, przyciąganie, zapis")],
-        "interface": [qsTr("Interfejs"), qsTr("Wygląd, czcionki, język, wtyczki")],
-        "positioning": [qsTr("Lokalizacja"), qsTr("GNSS, dokładność, NTRIP")],
-        "network": [qsTr("Sieć"), qsTr("Proxy i uwierzytelnianie")],
-        "workfieldCloud": [qsTr("Chmura WorkField"), qsTr("Konto zespołowe, zwroty projektów")],
-        "advanced": [qsTr("Zaawansowane"), qsTr("Renderowanie podglądu, autozapis")],
-        "variables": [qsTr("Zmienne"), qsTr("Zmienne wyrażeń projektu")]
+        "positioning": qsTr("Pozycja"),
+        "digitizing": qsTr("Rysowanie"),
+        "mapCanvas": qsTr("Mapa"),
+        "interface": qsTr("Wygląd"),
+        "workfieldCloud": qsTr("Chmura"),
+        "network": qsTr("Sieć"),
+        "variables": qsTr("Zmienne projektu"),
+        "advanced": qsTr("Zaawansowane")
       })
 
     contentItem: RowLayout {
@@ -81,25 +83,13 @@ ListView {
         color: t.mainTextColor
       }
 
-      ColumnLayout {
+      Text {
         Layout.fillWidth: true
-        spacing: 2
-
-        Text {
-          Layout.fillWidth: true
-          text: entry.labels[entry.categoryId][0]
-          font: t.strongFont
-          color: t.mainTextColor
-          elide: Text.ElideRight
-        }
-
-        Text {
-          Layout.fillWidth: true
-          text: entry.labels[entry.categoryId][1]
-          font: t.tipFont
-          color: t.secondaryTextColor
-          elide: Text.ElideRight
-        }
+        text: entry.labels[entry.categoryId]
+        font: t.strongFont
+        color: t.mainTextColor
+        elide: Text.ElideRight
+        verticalAlignment: Text.AlignVCenter
       }
     }
 
