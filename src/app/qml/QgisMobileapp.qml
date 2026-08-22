@@ -5151,7 +5151,7 @@ ApplicationWindow {
     }
   }
 
-  OverlayFeatureFormDrawer {
+  QfOverlayFeatureFormDrawer {
     id: overlayFeatureFormDrawer
     objectName: "overlayFeatureFormDrawer"
     digitizingToolbar: digitizingToolbar

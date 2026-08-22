@@ -444,7 +444,7 @@ Page {
     }
   }
 
-  PositioningNtripSettings {
+  QfPositioningNtripSettings {
     id: positioningNtripSettings
 
     onApply: {
@@ -1523,7 +1523,7 @@ Page {
   Component {
     id: variablesPage
     Item {
-      VariableEditor {
+      QfVariableEditor {
         id: variableEditor
         anchors.fill: parent
         anchors.margins: 4

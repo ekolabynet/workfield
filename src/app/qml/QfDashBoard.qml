@@ -462,7 +462,7 @@ Drawer {
     }
   }
 
-  TemporalProperties {
+  QfTemporalProperties {
     id: temporalProperties
     mapSettings: dashBoard.mapSettings
   }
