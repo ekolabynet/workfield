@@ -774,8 +774,6 @@ Page {
                 Layout.fillWidth: true
                 font: Theme.tipFont
                 color: Theme.secondaryTextColor
-                // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
-                visible: registry.pokazujObjasnienia
                 wrapMode: Text.WordWrap
                 text: {
                   if (positionSource.ntripSettings.isValid) {
@@ -800,8 +798,6 @@ Page {
                   visible: positionSource.ntripState === Positioning.NtripState.Connected
                   font: Theme.tipFont
                   color: Theme.secondaryTextColor
-                  // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
-                  visible: registry.pokazujObjasnienia
                   wrapMode: Text.WordWrap
                   text: {
                     if (page.visible && positionSource.ntripState === Positioning.NtripState.Connected) {
@@ -857,8 +853,6 @@ Page {
                 visible: positionSource.ntripState === Positioning.NtripState.Connected
                 font: Theme.tipFont
                 color: Theme.secondaryTextColor
-                // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
-                visible: registry.pokazujObjasnienia
                 wrapMode: Text.WordWrap
                 text: positionSource.ntripSettings.mountPoint
               }
