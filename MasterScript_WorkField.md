@@ -14,7 +14,8 @@ zero paniki.
 
 ## Środowisko (fakty, nie zgaduj ich na nowo)
 
-- Repo lokalne: `/DATA/SOFT/GIS/QFIELD_Pro/QField`, gałąź robocza `master`
+- Repo lokalne: `/DATA/SOFT/GIS/QFIELD_Pro/QField`, gałąź robocza
+  `development`; `master` rusza się tylko przy bumpie (patrz `docs/REPO.md`)
 - Zdalne: `origin` = `git@github.com:ekolabynet/workfield.git` (publiczne,
   SSH), `upstream` = `https://github.com/opengisch/QField.git`
 - Wersjonowanie: tagi `vX.Y.Z` + versionCode (np. v0.8.4 = 804)
@@ -25,6 +26,11 @@ zero paniki.
   instalacja: `adb install -r`
 - Marka: katalog `brand/` w repo (theme.json, workfieldgis.svg);
   domyślne APP_NAME/APP_ICON/APP_THEME_PATH ustawione w CMakeLists.txt
+- **Taksonomia i prawo gatunkowe:** wszystko żyje w `taxonomy/` w repo —
+  warstwy prawne i słownik jako CSV (źródło prawdy, diffowalne), GPKG tylko
+  jako wydruk przy wydaniu. Klucz to para `(nazwa kanoniczna, królestwo)`,
+  nie identyfikator zewnętrznej bazy. Zanim zaprojektujesz cokolwiek wokół
+  gatunków: `taxonomy/README.md`.
 - Na telefonie: fork = `ch.opengis.qfield_home`, stock QField =
   `ch.opengis.qfield`; dane na karcie `/storage/3263-3061/...`
 
@@ -32,7 +38,7 @@ zero paniki.
 
 1. **Żadnej pracy na wycinkach i na pamięci.** Przed edycją pliku Claude
    czyta jego AKTUALNĄ całość — najlepiej sam, z GitHuba:
-   `https://raw.githubusercontent.com/ekolabynet/workfield/master/<ścieżka>`
+   `https://raw.githubusercontent.com/ekolabynet/workfield/development/<ścieżka>`
    (upstream analogicznie: `opengisch/QField/<tag|master>/<ścieżka>`).
    Warunek: Piotr zrobił `git push`. Jeśli stan lokalny może być nowszy niż
    GitHub — najpierw push, potem edycja.

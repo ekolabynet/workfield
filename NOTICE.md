@@ -142,3 +142,22 @@ ikony pochodzące z motywu Breeze projektu KDE
 (https://invent.kde.org/frameworks/breeze-icons), rozpowszechniane na
 licencji LGPL-3.0-or-later. Zmieniono wyłącznie nazwy plików (przedrostek
 `wfg_`); zawartość grafik bez zmian. Pełna nota: `brand/ikony/LICENCJA_IKON.txt`.
+
+## Data sources
+
+Species dictionaries and the legal layers attached to them live in
+`taxonomy/`. Data files are kept as CSV (the source of truth); GeoPackage
+files are build outputs, produced at release time.
+
+- **WFO Plant List** (World Flora Online) — CC0
+- **Catalogue of Life / COL XR** — CC BY 4.0, cite the release DOI
+- **GBIF** name matching and backbone data — CC BY 4.0
+- **Wikidata** — CC0 (Polish vernacular names)
+- **Polish legal acts** (Dz.U.) — not subject to copyright under art. 4 of the
+  Polish Copyright Act; thresholds, fee groups, protected and invasive species
+- **Own work** — the trait matrix, abbreviations, Polish name corrections and
+  the mapping of statutory Polish names to scientific names
+
+Deliberately not redistributed here: IUCN Red List data (redistribution and
+commercial use are prohibited by its terms), and any CC BY-NC source, which is
+incompatible with GPL. Full breakdown: `taxonomy/docs/LICENCJE_audyt.md`.
