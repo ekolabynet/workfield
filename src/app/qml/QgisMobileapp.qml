@@ -136,39 +136,28 @@ ApplicationWindow {
     ToolBar {
     id: mainToolBar
     visible: !legendScreen.visible && !qfieldSettings.visible && !qfieldLocalDataPickerScreen.visible && !qfieldCloudScreen.visible && !welcomeScreen.visible && !aboutDialog.visible && !codeReader.visible && !sketcher.visible
-    // WorkField 22.08: wysokosc z tresci, nie na sztywno — kolumna ma trzy
-    // wiersze (tytul, warstwa, uklad wspolrzednych) i przy 64 px trzeci
-    // wychodzil poza belke na mape.
-    height: visible ? Math.max(88, belkaKolumna.implicitHeight + 20) + mainWindow.sceneTopMargin : 0
+    // WorkField 22.08: dwa wiersze zamiast trzech. Gorny: projekt (40%) i
+    // warstwa, dolny: uklad wspolrzednych i jakosc pozycji. Ikony "polek"
+    // zniknely — lewa dublowala okragly hamburger, prawa nie miala pary;
+    // ich role przejely okragle przyciski po bokach mapy.
+    height: visible ? Math.max(64, belkaKolumna.implicitHeight + 16) + mainWindow.sceneTopMargin : 0
     topPadding: mainWindow.sceneTopMargin
     Material.background: Theme.mainColor
 
-    RowLayout {
+    ColumnLayout {
+      id: belkaKolumna
+
       anchors.fill: parent
+      anchors.leftMargin: 12
+      anchors.rightMargin: 12
       spacing: 0
 
-      ToolButton {
-        // WorkField 22.08: ikony szuflad na gorze belki, w linii tytulu
-        Layout.alignment: Qt.AlignTop
-        Layout.preferredWidth: 64
-        Layout.preferredHeight: 44
-        icon.source: Theme.getThemeVectorIcon("ic_baseline-list_white_24dp")
-        icon.width: 32
-        icon.height: 32
-        icon.color: "white"
-        onClicked: dashBoard.opened ? dashBoard.close() : dashBoard.open()
-      }
-
-      ColumnLayout {
-        id: belkaKolumna
-
+      RowLayout {
         Layout.fillWidth: true
-        Layout.leftMargin: 8
-        Layout.rightMargin: 8
-        spacing: 0
+        spacing: 10
 
         Text {
-          Layout.fillWidth: true
+          Layout.preferredWidth: parent.width * 0.4
           visible: mainWindow.projectTitle !== ""
           text: mainWindow.projectTitle
           color: Theme.mainOverlayColor
@@ -185,87 +174,75 @@ ApplicationWindow {
           font.bold: true
           elide: Text.ElideRight
         }
-
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 6
-
-          Text {
-            Layout.fillWidth: true
-            color: Theme.mainOverlayColor
-            opacity: 0.75
-            font.pointSize: Theme.tinyFont.pointSize
-            elide: Text.ElideMiddle
-            text: {
-              let parts = [];
-              if (mapCanvas.mapSettings.destinationCrs)
-                parts.push(mapCanvas.mapSettings.destinationCrs.authid);
-              const pos = positionSource.active ? positionSource.projectedPosition : null;
-              if (pos && pos.x) {
-                const isDegrees = Math.abs(pos.x) < 360 && Math.abs(pos.y) < 360;
-                const digits = isDegrees ? 6 : 1;
-                parts.push(pos.x.toFixed(digits) + ", " + pos.y.toFixed(digits));
-              }
-              if (positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid) {
-                const acc = positionSource.positionInformation.hacc;
-                if (acc < 1)
-                  parts.push("±" + (acc * 100).toFixed(0) + " cm");
-                else if (acc < 100)
-                  parts.push("±" + acc.toFixed(1) + " m");
-              }
-              return parts.join("  ·  ");
-            }
-          }
-
-          Text {
-            id: ntripAgeIndicator
-
-            property double nowMs: Date.now()
-
-            readonly property double ageSeconds: {
-              const dt = positionSource.ntripLastBytesReceivedUtcDateTime;
-              if (!dt || isNaN(dt.getTime()))
-                return -1;
-              return Math.max(0, (nowMs - dt.getTime()) / 1000);
-            }
-
-            visible: positionSource.active && positionSource.enableNtrip
-            font.pointSize: Theme.tinyFont.pointSize
-            font.bold: true
-            text: ageSeconds < 0 ? "RTCM \u00b7" : "RTCM " + Math.round(ageSeconds) + "s"
-            color: ageSeconds < 0 ? "#FFA726" : ageSeconds <= 5 ? "#00E676" : ageSeconds <= 15 ? "#FFEB3B" : "#EF5350"
-
-            Timer {
-              running: ntripAgeIndicator.visible
-              interval: 1000
-              repeat: true
-              onTriggered: ntripAgeIndicator.nowMs = Date.now()
-            }
-          }
-
-          Text {
-            id: gnssQualityClass
-
-            readonly property real acc: positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid ? positionSource.positionInformation.hacc : -1
-
-            font.pointSize: Theme.tinyFont.pointSize
-            font.bold: true
-            text: acc < 0 ? qsTr("BRAK") : acc <= 0.03 ? "FIX" : acc <= 0.10 ? "FLOAT+" : acc <= 0.25 ? "FLOAT" : acc <= 0.50 ? "FLOAT-" : "GPS"
-            color: acc < 0 ? "#EF5350" : acc <= 0.03 ? "#00E676" : acc <= 0.10 ? "#B2FF59" : acc <= 0.25 ? "#FFEB3B" : acc <= 0.50 ? "#FFA726" : "#EF5350"
-          }
-        }
       }
 
-      ToolButton {
-        // WorkField 22.08: jw. — prawa szuflada w linii tytulu
-        Layout.alignment: Qt.AlignTop
-        Layout.preferredWidth: 64
-        Layout.preferredHeight: 44
-        icon.source: Theme.getThemeVectorIcon("ic_baseline-list_white_24dp")
-        icon.width: 32
-        icon.height: 32
-        icon.color: "white"
-        onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Text {
+          Layout.fillWidth: true
+          color: Theme.mainOverlayColor
+          opacity: 0.75
+          font.pointSize: Theme.tinyFont.pointSize
+          elide: Text.ElideMiddle
+          text: {
+            let parts = [];
+            if (mapCanvas.mapSettings.destinationCrs)
+              parts.push(mapCanvas.mapSettings.destinationCrs.authid);
+            const pos = positionSource.active ? positionSource.projectedPosition : null;
+            if (pos && pos.x) {
+              const isDegrees = Math.abs(pos.x) < 360 && Math.abs(pos.y) < 360;
+              const digits = isDegrees ? 6 : 1;
+              parts.push(pos.x.toFixed(digits) + ", " + pos.y.toFixed(digits));
+            }
+            if (positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid) {
+              const acc = positionSource.positionInformation.hacc;
+              if (acc < 1)
+                parts.push("\u00b1" + (acc * 100).toFixed(0) + " cm");
+              else if (acc < 100)
+                parts.push("\u00b1" + acc.toFixed(1) + " m");
+            }
+            return parts.join("  \u00b7  ");
+          }
+        }
+
+        Text {
+          id: ntripAgeIndicator
+
+          property double nowMs: Date.now()
+
+          readonly property double ageSeconds: {
+            const dt = positionSource.ntripLastBytesReceivedUtcDateTime;
+            if (!dt || isNaN(dt.getTime()))
+              return -1;
+            return Math.max(0, (nowMs - dt.getTime()) / 1000);
+          }
+
+          visible: positionSource.active && positionSource.enableNtrip
+          font.pointSize: Theme.tinyFont.pointSize
+          font.bold: true
+          text: ageSeconds < 0 ? "RTCM \u00b7" : "RTCM " + Math.round(ageSeconds) + "s"
+          color: ageSeconds < 0 ? "#FFA726" : ageSeconds <= 5 ? "#00E676" : ageSeconds <= 15 ? "#FFEB3B" : "#EF5350"
+
+          Timer {
+            running: ntripAgeIndicator.visible
+            interval: 1000
+            repeat: true
+            onTriggered: ntripAgeIndicator.nowMs = Date.now()
+          }
+        }
+
+        Text {
+          id: gnssQualityClass
+
+          readonly property real acc: positionSource.active && positionSource.positionInformation && positionSource.positionInformation.haccValid ? positionSource.positionInformation.hacc : -1
+
+          font.pointSize: Theme.tinyFont.pointSize
+          font.bold: true
+          text: acc < 0 ? qsTr("BRAK") : acc <= 0.03 ? "FIX" : acc <= 0.10 ? "FLOAT+" : acc <= 0.25 ? "FLOAT" : acc <= 0.50 ? "FLOAT-" : "GPS"
+          color: acc < 0 ? "#EF5350" : acc <= 0.03 ? "#00E676" : acc <= 0.10 ? "#B2FF59" : acc <= 0.25 ? "#FFEB3B" : acc <= 0.50 ? "#FFA726" : "#EF5350"
+        }
       }
     }
     }
@@ -2634,6 +2611,25 @@ ApplicationWindow {
       radius: 10
       color: "#66212121"
       source: locatorItem
+    }
+
+    // WorkField 22.08: prawa szuflada (dane) jako okragla zebatka pod belka,
+    // symetrycznie do hamburgera po lewej. Zastapila ikone "polki" w belce.
+    QfToolButton {
+      id: zebatkaButton
+
+      visible: !screenLocker.enabled && (Qt.platform.os === "android" || Qt.platform.os === "ios")
+      round: true
+      iconSource: QfTheme.getThemeVectorIcon("ic_settings_white_24dp")
+      iconColor: QfTheme.toolButtonColor
+      bgcolor: dataDrawer.opened ? QfTheme.mainColor : QfTheme.toolButtonBackgroundColor
+
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.rightMargin: mainWindow.sceneRightMargin + 4
+      anchors.topMargin: (mainWindow.header ? mainWindow.header.height : mainWindow.sceneTopMargin) + 4
+
+      onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
     }
 
     /* The main menu */
