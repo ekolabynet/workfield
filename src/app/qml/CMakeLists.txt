@@ -43,6 +43,7 @@ set(QFIELD_APP_QML_FILES
     QfMainDrawer.qml
     QfNaprawaProjektu.qml
     QfNewLayerDialog.qml
+    QfNiebo.qml
     QfNoweZadanie.qml
     QfNowyProjekt.qml
     QfPanelAkcji.qml

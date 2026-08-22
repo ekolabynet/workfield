@@ -116,6 +116,7 @@ set(QFIELD_CORE_SRCS
     qfwebdavconnection.cpp
     locator/wfnominatimlocatorfilter.cpp
     utils/narzedziaprojektu.cpp
+    utils/nieboutils.cpp
     utils/zalacznikiutils.cpp
     procesystudio.cpp
     phototagstore.cpp
@@ -242,6 +243,7 @@ set(QFIELD_CORE_HDRS
     ${CMAKE_CURRENT_BINARY_DIR}/qfield.h
     locator/wfnominatimlocatorfilter.h
     utils/narzedziaprojektu.h
+    utils/nieboutils.h
     utils/zalacznikiutils.h
     procesystudio.h
     phototagstore.h

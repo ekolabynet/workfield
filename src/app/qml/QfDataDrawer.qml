@@ -463,7 +463,22 @@ Drawer {
           font.pointSize: t.tinyFont.pointSize
           onClicked: gnssDiagPopup.close()
         }
+
+        // WorkField 22.08: wykres nieba — liczby powyzej mowia ILE, niebo mowi DLACZEGO
+        Button {
+          text: qsTr("Niebo")
+          font.pointSize: t.tinyFont.pointSize
+          highlighted: true
+          onClicked: {
+            gnssDiagPopup.close();
+            nieboPanel.open();
+          }
+        }
       }
     }
+  }
+
+  QfNiebo {
+    id: nieboPanel
   }
 }

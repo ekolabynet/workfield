@@ -104,6 +104,7 @@
 #include "utils/qfstringutils.h"
 #include "utils/qfurlutils.h"
 #include "utils/narzedziaprojektu.h"
+#include "utils/nieboutils.h"
 #include "utils/zalacznikiutils.h"
 
 #include <QAbstractSocket>
@@ -342,6 +343,7 @@ namespace QfCore
     // WorkField: nasze singletony. Rejestrujemy w org.qfield.core, bo klasy
     // leza w src/core; pliki importujace org.qfield widza je przez przekierowanie.
     REGISTER_SINGLETON( "org.qfield.core", NarzedziaProjektu, "NarzedziaProjektu" );
+    REGISTER_SINGLETON( "org.qfield.core", NieboUtils, "NieboUtils" );
     REGISTER_SINGLETON( "org.qfield.core", ZalacznikiUtils, "ZalacznikiUtils" );
     qmlRegisterUncreatableType<QfAbstractGnssReceiver>( "org.qfield.core", 1, 0, "AbstractGnssReceiver", "" );
     qmlRegisterUncreatableType<QfAppInterface>( "org.qfield.core", 1, 0, "AppInterface", "AppInterface is only provided by the environment and cannot be created ad-hoc" );
