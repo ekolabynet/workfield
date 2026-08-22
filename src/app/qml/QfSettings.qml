@@ -53,6 +53,7 @@ Page {
   readonly property bool autoSave: false
   property alias fingerTapDigitizing: registry.fingerTapDigitizing
   property alias mouseAsTouchScreen: registry.mouseAsTouchScreen
+  property alias pokazujObjasnienia: registry.pokazujObjasnienia
   property alias enableInfoCollection: registry.enableInfoCollection
   property alias enableMapRotation: registry.enableMapRotation
   property alias quality: registry.quality
@@ -169,6 +170,9 @@ Page {
     property bool autoSave: false
     property bool fingerTapDigitizing: false
     property bool mouseAsTouchScreen: false
+    // WorkField 22.08: objasnienia pod pozycjami domyslnie zgaszone —
+    // rozdymaly kazdy wiersz do trzech linii i rozpychaly ekran na desktopie
+    property bool pokazujObjasnienia: false
     property bool enableInfoCollection: true
     property bool enableMapRotation: true
     property double quality: 1.0
@@ -268,6 +272,12 @@ Page {
   ListModel {
     id: interfaceSettingsModel
 
+    ListElement {
+      title: qsTr("Pokazuj objaśnienia pod pozycjami")
+      description: qsTr("Objaśnienia tłumaczą, co robi każde ustawienie. Wyłączone mieszczą się cztery pozycje tam, gdzie wcześniej była jedna.")
+      settingAlias: "pokazujObjasnienia"
+      isVisible: true
+    }
     ListElement {
       title: qsTr("Nawigacja do obiektu")
       description: qsTr("Pokazuje kierunek i odległość do wybranego obiektu.")
@@ -370,14 +380,17 @@ Page {
           Column {
             width: parent.width - toggle.width
 
+            // WorkField 22.08: tytul w jednym wierszu (elide zamiast zawijania),
+            // objasnienie tylko gdy wlaczone w Wygladzie.
             Label {
               width: parent.width
-              padding: 8
-              leftPadding: 20
+              padding: 6
+              leftPadding: 12
               text: title
               font: QfTheme.defaultFont
               color: QfTheme.mainTextColor
-              wrapMode: Text.WordWrap
+              elide: Text.ElideRight
+              maximumLineCount: 1
               MouseArea {
                 anchors.fill: parent
                 onClicked: toggle.toggle()
@@ -386,10 +399,11 @@ Page {
 
             Label {
               width: parent.width
-              visible: description !== ''
-              padding: description !== '' ? 8 : 0
+              visible: description !== '' && registry.pokazujObjasnienia
+              height: visible ? implicitHeight : 0
+              padding: visible ? 6 : 0
               topPadding: 0
-              leftPadding: 20
+              leftPadding: 12
               text: description
               font: QfTheme.tipFont
               color: QfTheme.secondaryTextColor
