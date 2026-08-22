@@ -47,7 +47,7 @@ QfEditorWidgetBase {
     }
   }
 
-  QfTextField {
+  TextField {
     id: textField
 
     // WorkField: caret above the keyboard (patch 31)

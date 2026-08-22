@@ -295,7 +295,7 @@ ApplicationWindow {
     }
   }
 
-  QfSettings {
+  Settings {
     id: mainWindowSettings
 
     property real x: 0
@@ -4166,7 +4166,7 @@ ApplicationWindow {
     }
 
     MenuItem {
-      text: qsTr("QfSettings")
+      text: qsTr("Settings")
 
       font: QfTheme.defaultFont
       icon.source: QfTheme.getThemeVectorIcon("ic_tune_white_24dp")
@@ -4830,7 +4830,7 @@ ApplicationWindow {
     }
 
     MenuItem {
-      text: qsTr("QfPositioning QfSettings")
+      text: qsTr("QfPositioning Settings")
       height: 48
       leftPadding: QfTheme.menuItemIconlessLeftPadding
       font: QfTheme.defaultFont
@@ -6029,8 +6029,7 @@ ApplicationWindow {
     t: QfTheme
   }
 
-  QFieldSettings {
-  QfSettings {
+  Settings {
     id: qfieldSettings
     objectName: "qfieldSettings"
 
@@ -6067,7 +6066,7 @@ ApplicationWindow {
     Component.onCompleted: focusstack.addFocusTaker(this)
   }
 
-  QfToast {
+  Toast {
     id: toast
     bottomSpacing: Math.max(60, mainWindow.sceneBottomMargin, informationDrawer.height, overlayFeatureFormDrawer.opened && !overlayFeatureFormDrawer.fullScreenView && overlayFeatureFormDrawer.y > 0 ? overlayFeatureFormDrawer.height : 0, !featureListForm.isFullscreen && !featureListForm.canvasOperationRequested && featureListForm.y > 0 ? featureListForm.height : 0)
   }
@@ -6434,12 +6433,12 @@ ApplicationWindow {
       {
         "type": "information",
         "title": qsTr("Digitizing toggle"),
-        "description": qsTr("QfSwitch between browse and digitize modes. Browse mode focuses on delivering the best experience viewing the map and its features, while digitize mode enables you to create features and edit geometries."),
+        "description": qsTr("Switch between browse and digitize modes. Browse mode focuses on delivering the best experience viewing the map and its features, while digitize mode enables you to create features and edit geometries."),
         "target": () => [iface.findItemByObjectName('modeSwitch')]
       },
       {
         "type": "information",
-        "title": qsTr("QfLegend"),
+        "title": qsTr("Legend"),
         "description": qsTr("The legend shows map layers and allows you to toggle visibility and opacity properties by <b>long-pressing on a layer to open a properties popup</b>. The popup offers additional functionalities such as zooming to layer extent and displaying features contained within vector layers."),
         "target": () => [iface.findItemByObjectName('legend')]
       },

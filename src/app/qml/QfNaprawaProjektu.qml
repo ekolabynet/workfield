@@ -26,9 +26,9 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtCore
 import org.qfield
-import QfTheme
+import Theme
 
-QfPopup {
+Popup {
   id: naprawa
 
   //! instancja QfKontrolaProjektu
@@ -44,9 +44,9 @@ QfPopup {
   width: Math.min(mainWindow.width - 32, 480)
   modal: true
   focus: true
-  closePolicy: QfPopup.CloseOnEscape
+  closePolicy: Popup.CloseOnEscape
 
-  QfSettings {
+  Settings {
     id: ustawieniaChmury
     category: "WFGChmura"
     //! Publiczny udział NextCloud z plikami wspólnymi (słowniki, wyposażenie)
@@ -164,8 +164,8 @@ QfPopup {
     Text {
       Layout.fillWidth: true
       text: qsTr("Czego brakuje temu projektowi")
-      font: QfTheme.strongTipFont
-      color: QfTheme.mainTextColor
+      font: Theme.strongTipFont
+      color: Theme.mainTextColor
       wrapMode: Text.WordWrap
     }
 
@@ -180,12 +180,12 @@ QfPopup {
         Text {
           Layout.fillWidth: true
           text: (modelData.waga === "brak" ? "✗  " : "•  ") + modelData.opis
-          font: QfTheme.tipFont
-          color: modelData.waga === "brak" ? QfTheme.errorColor : QfTheme.secondaryTextColor
+          font: Theme.tipFont
+          color: modelData.waga === "brak" ? Theme.errorColor : Theme.secondaryTextColor
           wrapMode: Text.WordWrap
         }
 
-        QfButton {
+        Button {
           readonly property var dzialanie: naprawa.opisDzialania(modelData.rzecz)
           visible: modelData.waga === "brak" && dzialanie.mozliwe === true
           text: dzialanie.przycisk !== undefined ? dzialanie.przycisk : ""
@@ -203,22 +203,22 @@ QfPopup {
       Layout.fillWidth: true
       visible: naprawa.kontrola && naprawa.kontrola.braki.length === 0
       text: qsTr("Nic nie brakuje.")
-      font: QfTheme.tipFont
-      color: QfTheme.secondaryTextColor
+      font: Theme.tipFont
+      color: Theme.secondaryTextColor
     }
 
     Text {
       Layout.fillWidth: true
       text: qsTr("Ten ekran zapisuje wyłącznie pliki obok projektu. Nie zmienia danych w dane.gpkg.")
-      font: QfTheme.tinyFont
-      color: QfTheme.secondaryTextColor
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
       wrapMode: Text.WordWrap
     }
 
     RowLayout {
       Layout.fillWidth: true
       Item { Layout.fillWidth: true }
-      QfButton {
+      Button {
         text: qsTr("Zamknij")
         flat: true
         onClicked: naprawa.close()
@@ -228,7 +228,7 @@ QfPopup {
 
   // -------------------------------------------------- potwierdzenie zmiany
 
-  QfPopup {
+  Popup {
     id: potwierdzenie
 
     parent: mainWindow.contentItem
@@ -244,27 +244,27 @@ QfPopup {
       Text {
         Layout.fillWidth: true
         text: qsTr("Potwierdź")
-        font: QfTheme.strongTipFont
-        color: QfTheme.mainTextColor
+        font: Theme.strongTipFont
+        color: Theme.mainTextColor
       }
 
       Text {
         Layout.fillWidth: true
         text: naprawa._potwierdzenieOpis
-        font: QfTheme.tinyFont
-        color: QfTheme.mainTextColor
+        font: Theme.tinyFont
+        color: Theme.mainTextColor
         wrapMode: Text.Wrap
       }
 
       RowLayout {
         Layout.fillWidth: true
         Item { Layout.fillWidth: true }
-        QfButton {
+        Button {
           text: qsTr("Anuluj")
           flat: true
           onClicked: potwierdzenie.close()
         }
-        QfButton {
+        Button {
           text: qsTr("Zrób to")
           onClicked: {
             potwierdzenie.close();

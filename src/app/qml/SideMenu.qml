@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.impl
 import QtQuick.Layouts
-import QfTheme
+import Theme
 
 /**
  * Pionowe menu boczne: ikona + podpis.

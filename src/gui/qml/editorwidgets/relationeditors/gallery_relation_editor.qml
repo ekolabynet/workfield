@@ -265,7 +265,7 @@ QfRelationEditorBase {
   listView.flickableDirection: isCardView ? Flickable.HorizontalFlick : Flickable.VerticalFlick
   listView.topMargin: isCardView ? cardMargin : 0
   listView.bottomMargin: isCardView ? cardMargin : 0
-  listView.QfScrollBar.vertical.policy: isCardView ? QfScrollBar.AlwaysOff : QfScrollBar.AsNeeded
+  listView.ScrollBar.vertical.policy: isCardView ? ScrollBar.AlwaysOff : ScrollBar.AsNeeded
 
   listView.model: DelegateModel {
     model: referencingFeatureListModel

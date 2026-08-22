@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
@@ -10,9 +10,9 @@ import QfTheme
  * WorkField — PANEL AKCJI. Jedna forma prezentacji dla wszystkich sekcji.
  *
  * Dostaje listę akcji (z QfAkcje) i sam decyduje o układzie:
- *   QfTheme.ukladAkcji 0 → lista wierszy (ikona + nazwa w wierszu)
- *   QfTheme.ukladAkcji 1 → kafle w kolumnach (ikona nad nazwą)
- * Wysokości i odstępy pochodzą WYŁĄCZNIE z QfTheme (gęstość), więc żadna
+ *   Theme.ukladAkcji 0 → lista wierszy (ikona + nazwa w wierszu)
+ *   Theme.ukladAkcji 1 → kafle w kolumnach (ikona nad nazwą)
+ * Wysokości i odstępy pochodzą WYŁĄCZNIE z Theme (gęstość), więc żadna
  * sekcja nie ma własnych liczb i nic nie może się rozjechać.
  */
 ColumnLayout {
@@ -27,37 +27,37 @@ ColumnLayout {
 
   signal wybrano(var akcja)
 
-  spacing: QfTheme.odstepAkcji
+  spacing: Theme.odstepAkcji
 
   Text {
     Layout.fillWidth: true
     Layout.bottomMargin: 2
     visible: panel.tytul !== "" && panel.akcje.length > 0
     text: panel.tytul
-    font: QfTheme.strongTipFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.strongTipFont
+    color: Theme.secondaryTextColor
   }
 
   // ── forma: lista wierszy ────────────────────────────────────────
   ColumnLayout {
     Layout.fillWidth: true
-    visible: QfTheme.ukladAkcji === 0
-    spacing: QfTheme.odstepAkcji
+    visible: Theme.ukladAkcji === 0
+    spacing: Theme.odstepAkcji
 
     Repeater {
-      model: QfTheme.ukladAkcji === 0 ? panel.akcje : []
+      model: Theme.ukladAkcji === 0 ? panel.akcje : []
 
       delegate: ItemDelegate {
         required property var modelData
 
         Layout.fillWidth: true
-        Layout.preferredHeight: QfTheme.wysokoscWiersza
+        Layout.preferredHeight: Theme.wysokoscWiersza
         enabled: panel.dostepna(modelData)
         opacity: enabled ? 1.0 : 0.4
         padding: 0
 
         background: Rectangle {
-          color: parent.pressed ? QfTheme.mainColor : QfTheme.controlBackgroundAlternateColor
+          color: parent.pressed ? Theme.mainColor : Theme.controlBackgroundAlternateColor
           radius: 6
         }
 
@@ -69,14 +69,14 @@ ColumnLayout {
             Layout.preferredWidth: 24
             Layout.preferredHeight: 24
             fillMode: Image.PreserveAspectFit
-            source: QfTheme.getThemeVectorIcon(modelData.ikona)
+            source: Theme.getThemeVectorIcon(modelData.ikona)
           }
 
           Text {
             Layout.fillWidth: true
             text: modelData.nazwa
-            font: QfTheme.tipFont
-            color: QfTheme.mainTextColor
+            font: Theme.tipFont
+            color: Theme.mainTextColor
             elide: Text.ElideRight
           }
         }
@@ -89,25 +89,25 @@ ColumnLayout {
   // ── forma: kafle ────────────────────────────────────────────────
   GridLayout {
     Layout.fillWidth: true
-    visible: QfTheme.ukladAkcji === 1
-    columns: QfTheme.kolumnyKafli
-    columnSpacing: QfTheme.odstepAkcji
-    rowSpacing: QfTheme.odstepAkcji
+    visible: Theme.ukladAkcji === 1
+    columns: Theme.kolumnyKafli
+    columnSpacing: Theme.odstepAkcji
+    rowSpacing: Theme.odstepAkcji
 
     Repeater {
-      model: QfTheme.ukladAkcji === 1 ? panel.akcje : []
+      model: Theme.ukladAkcji === 1 ? panel.akcje : []
 
       delegate: ItemDelegate {
         required property var modelData
 
         Layout.fillWidth: true
-        Layout.preferredHeight: QfTheme.wysokoscKafla
+        Layout.preferredHeight: Theme.wysokoscKafla
         enabled: panel.dostepna(modelData)
         opacity: enabled ? 1.0 : 0.4
         padding: 0
 
         background: Rectangle {
-          color: parent.pressed ? QfTheme.mainColor : QfTheme.controlBackgroundAlternateColor
+          color: parent.pressed ? Theme.mainColor : Theme.controlBackgroundAlternateColor
           radius: 6
         }
 
@@ -120,7 +120,7 @@ ColumnLayout {
             Layout.preferredWidth: 24
             Layout.preferredHeight: 24
             fillMode: Image.PreserveAspectFit
-            source: QfTheme.getThemeVectorIcon(modelData.ikona)
+            source: Theme.getThemeVectorIcon(modelData.ikona)
           }
 
           Text {
@@ -128,8 +128,8 @@ ColumnLayout {
             Layout.leftMargin: 4
             Layout.rightMargin: 4
             text: modelData.nazwa
-            font: QfTheme.tinyFont
-            color: QfTheme.mainTextColor
+            font: Theme.tinyFont
+            color: Theme.mainTextColor
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             maximumLineCount: 2

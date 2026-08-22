@@ -54,7 +54,7 @@ Item {
     x: QfTheme.popupScreenEdgeHorizontalMargin
     y: (mainWindow.height - height) / 2
     z: 10000 // 1000s are embedded feature forms, use a higher value to insure feature form popups always show above embedded feature formes
-    closePolicy: QfPopup.CloseOnEscape
+    closePolicy: Popup.CloseOnEscape
     focus: visible
 
     onOpened: {
@@ -115,7 +115,7 @@ Item {
         width: parent.width
         height: searchFeaturePopup.height - searchBar.height - 60
         clip: true
-        QfScrollBar.vertical: QfScrollBar {}
+        ScrollBar.vertical: QfScrollBar {}
         section.property: featureListModel ? featureListModel.groupField != "" ? "groupFieldValue" : "" : ""
         section.labelPositioning: ViewSection.CurrentLabelAtStart | ViewSection.InlineLabels
         section.delegate: Component {
@@ -331,7 +331,7 @@ Item {
         wrapMode: Text.WordWrap
       }
 
-      popup: QfPopup {
+      popup: Popup {
         y: comboBox.height - 1
         width: comboBox.width
         implicitHeight: contentItem.implicitHeight
@@ -412,7 +412,7 @@ Item {
         color: value === undefined || !enabled ? QfTheme.mainTextDisabledColor : searchableText.text === '' ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
       }
 
-      QfTextField {
+      TextField {
         id: searchableText
 
         property string typedFilter: ''

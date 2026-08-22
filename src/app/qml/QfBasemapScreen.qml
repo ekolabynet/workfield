@@ -3,9 +3,9 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
-QfPopup {
+Popup {
   id: basemapScreen
 
   property var t
@@ -118,7 +118,7 @@ QfPopup {
       customUrl = item.url;
       customCrs = item.crs !== undefined ? item.crs : "EPSG:2180";
       customLayers = "";
-      serviceLayersMenu.entries = QfLayerUtils.wmsLayerNames(item.url);
+      serviceLayersMenu.entries = LayerUtils.wmsLayerNames(item.url);
       if (serviceLayersMenu.entries.length === 0)
         displayToast(qsTr("Nie udało się pobrać listy warstw"));
       else
@@ -129,15 +129,15 @@ QfPopup {
     let layer = null;
 
     if (item.kind === "xyz")
-      layer = QfLayerUtils.createXyzLayer(item.url, item.name, item.zmax !== undefined ? item.zmax : 19);
+      layer = LayerUtils.createXyzLayer(item.url, item.name, item.zmax !== undefined ? item.zmax : 19);
     else if (item.kind === "wms")
-      layer = QfLayerUtils.createWmsLayer(item.url, item.name, item.layers, item.crs !== undefined ? item.crs : "EPSG:3857");
+      layer = LayerUtils.createWmsLayer(item.url, item.name, item.layers, item.crs !== undefined ? item.crs : "EPSG:3857");
     else if (item.kind === "wmts")
-      layer = QfLayerUtils.createWmtsLayer(item.url, item.name, item.layer, item.tileMatrixSet, item.crs !== undefined ? item.crs : "EPSG:3857");
+      layer = LayerUtils.createWmtsLayer(item.url, item.name, item.layer, item.tileMatrixSet, item.crs !== undefined ? item.crs : "EPSG:3857");
     else if (item.kind === "wfs")
-      layer = QfLayerUtils.createWfsLayer(item.url, item.name, item.typeName, item.crs !== undefined ? item.crs : "EPSG:2180", true);
+      layer = LayerUtils.createWfsLayer(item.url, item.name, item.typeName, item.crs !== undefined ? item.crs : "EPSG:2180", true);
 
-    if (layer && QfProjectUtils.addMapLayer(qgisProject, layer)) {
+    if (layer && ProjectUtils.addMapLayer(qgisProject, layer)) {
       displayToast(qsTr("Dodano podkład %1").arg(item.name));
       basemapScreen.close();
     } else {
@@ -151,7 +151,7 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside
+  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
   ColumnLayout {
     anchors.fill: parent
@@ -245,7 +245,7 @@ QfPopup {
           { k: "wfs", n: "WFS" }
         ]
 
-        delegate: QfButton {
+        delegate: Button {
           required property var modelData
 
           text: modelData.n
@@ -257,7 +257,7 @@ QfPopup {
       }
     }
 
-    QfTextField {
+    TextField {
       Layout.fillWidth: true
       font: t.defaultFont
       placeholderText: basemapScreen.customKind === "xyz" ? "https://…/{z}/{x}/{y}.png" : "https://…/wms"
@@ -270,7 +270,7 @@ QfPopup {
       spacing: 6
       visible: basemapScreen.customKind !== "xyz"
 
-      QfTextField {
+      TextField {
         Layout.fillWidth: true
         font: t.defaultFont
         placeholderText: basemapScreen.customKind === "wfs" ? qsTr("nazwa typu, np. wfs:dzialki") : qsTr("nazwa warstwy w usłudze")
@@ -278,13 +278,13 @@ QfPopup {
         onTextChanged: basemapScreen.customLayers = text
       }
 
-      QfButton {
+      Button {
         text: qsTr("Wykaz")
         font.pointSize: t.tinyFont.pointSize
         enabled: basemapScreen.customUrl.trim() !== ""
 
         onClicked: {
-          serviceLayersMenu.entries = QfLayerUtils.wmsLayerNames(basemapScreen.customUrl.trim());
+          serviceLayersMenu.entries = LayerUtils.wmsLayerNames(basemapScreen.customUrl.trim());
           if (serviceLayersMenu.entries.length === 0) {
             displayToast(qsTr("Nie udało się pobrać listy warstw"));
             return;
@@ -294,7 +294,7 @@ QfPopup {
       }
     }
 
-    QfMenu {
+    Menu {
       id: serviceLayersMenu
 
       property var entries: []
@@ -319,7 +319,7 @@ QfPopup {
       Layout.fillWidth: true
       spacing: 6
 
-      QfTextField {
+      TextField {
         Layout.fillWidth: true
         font: t.defaultFont
         placeholderText: qsTr("nazwa podkładu")
@@ -327,7 +327,7 @@ QfPopup {
         onTextChanged: basemapScreen.customName = text
       }
 
-      QfTextField {
+      TextField {
         Layout.preferredWidth: 120
         font: t.defaultFont
         placeholderText: "EPSG:2180"
@@ -342,13 +342,13 @@ QfPopup {
       Layout.topMargin: 8
       spacing: 8
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Zamknij")
         onClicked: basemapScreen.close()
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Dodaj")
         highlighted: true

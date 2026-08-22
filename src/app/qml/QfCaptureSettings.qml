@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.qgis
 import org.qfield
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
@@ -12,7 +12,7 @@ import QfTheme
  * Definicje mieszkaja w pliku workfield_klawisze.json w katalogu projektu,
  * wiec wedruja razem z nim (takze przez QFieldSync) i sa czytelne w edytorze.
  */
-QfPopup {
+Popup {
   id: captureSettings
 
   property var t
@@ -28,7 +28,7 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: QfPopup.CloseOnEscape
+  closePolicy: Popup.CloseOnEscape
 
   background: Rectangle {
     color: "#EE263238"
@@ -155,7 +155,7 @@ QfPopup {
       Layout.fillWidth: true
       text: qsTr("Klawisze szybkiego zapisu")
       color: "#80CBC4"
-      font: QfTheme.strongFont
+      font: Theme.strongFont
       wrapMode: Text.Wrap
     }
 
@@ -163,7 +163,7 @@ QfPopup {
       Layout.fillWidth: true
       text: qsTr("Ustawienia zapisują się do pliku w katalogu projektu, więc jadą razem z nim do zespołu.")
       color: "#B0BEC5"
-      font: QfTheme.tinyFont
+      font: Theme.tinyFont
       wrapMode: Text.Wrap
     }
 
@@ -175,7 +175,7 @@ QfPopup {
       spacing: 4
       model: captureSettings.wpisy
 
-      QfScrollBar.vertical: QfScrollBar {
+      ScrollBar.vertical: ScrollBar {
       }
 
       delegate: Rectangle {
@@ -209,11 +209,11 @@ QfPopup {
             }
           }
 
-          QfTextField {
+          TextField {
             Layout.preferredWidth: 52
             text: modelData.etykieta
             color: "white"
-            font: QfTheme.tipFont
+            font: Theme.tipFont
             maximumLength: 3
             onEditingFinished: captureSettings.zmienPole(index, "etykieta", text)
           }
@@ -222,26 +222,26 @@ QfPopup {
             Layout.fillWidth: true
             text: modelData.warstwa
             color: "white"
-            font: QfTheme.tinyFont
+            font: Theme.tinyFont
             elide: Text.ElideMiddle
           }
 
-          QfToolButton {
+          ToolButton {
             text: modelData.zdjecie ? "📷" : "✏"
             onClicked: captureSettings.zmienPole(index, "zdjecie", !modelData.zdjecie)
           }
 
-          QfToolButton {
+          ToolButton {
             text: "▲"
             onClicked: captureSettings.przesun(index, -1)
           }
 
-          QfToolButton {
+          ToolButton {
             text: "▼"
             onClicked: captureSettings.przesun(index, 1)
           }
 
-          QfToolButton {
+          ToolButton {
             text: "✕"
             onClicked: captureSettings.usun(index)
           }
@@ -256,22 +256,22 @@ QfPopup {
       Text {
         text: qsTr("Dodaj warstwę:")
         color: "#B0BEC5"
-        font: QfTheme.tinyFont
+        font: Theme.tinyFont
       }
 
-      QfComboBox {
+      ComboBox {
         id: wyborWarstwy
         Layout.fillWidth: true
         textRole: "Name"
         valueRole: "LayerPointer"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
 
-        model: QfMapLayerModel {
+        model: MapLayerModel {
           project: qgisProject
         }
       }
 
-      QfButton {
+      Button {
         text: qsTr("Dodaj")
         onClicked: captureSettings.dodaj(wyborWarstwy.currentValue)
       }
@@ -284,14 +284,14 @@ QfPopup {
       Text {
         text: qsTr("Odległości (m):")
         color: "#B0BEC5"
-        font: QfTheme.tinyFont
+        font: Theme.tinyFont
       }
 
-      QfTextField {
+      TextField {
         Layout.fillWidth: true
         text: captureSettings.odleglosci
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
         onEditingFinished: captureSettings.odleglosci = text
       }
     }
@@ -300,13 +300,13 @@ QfPopup {
       Layout.fillWidth: true
       spacing: 8
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: captureSettings.close()
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Zapisz")
         onClicked: captureSettings.zapisz()

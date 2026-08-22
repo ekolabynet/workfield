@@ -3,9 +3,9 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
-QfPopup {
+Popup {
   id: subLayerPicker
 
   property var t
@@ -20,11 +20,11 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside
+  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
   function openFor(path) {
     sourcePath = path;
-    entries = QfLayerUtils.vectorSubLayers(path);
+    entries = LayerUtils.vectorSubLayers(path);
     if (entries.length === 0) {
       displayToast(qsTr("Nie znaleziono warstw wektorowych"));
       return;
@@ -49,7 +49,7 @@ QfPopup {
 
     Text {
       Layout.fillWidth: true
-      text: QfFileUtils.fileName(subLayerPicker.sourcePath)
+      text: FileUtils.fileName(subLayerPicker.sourcePath)
       font: t.tipFont
       color: t.secondaryTextColor
       elide: Text.ElideMiddle
@@ -113,13 +113,13 @@ QfPopup {
       Layout.topMargin: 8
       spacing: 8
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: subLayerPicker.close()
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Dodaj")
         highlighted: true

@@ -69,7 +69,7 @@ Item {
     }
 
     // ── kafle paska szybkiego przechwytu ───────────────────────
-    if (!QfFileUtils.fileExists(katalog + "/workfield_klawisze.json")) {
+    if (!FileUtils.fileExists(katalog + "/workfield_klawisze.json")) {
       znalezione.push({
         "rzecz": "klawisze",
         "opis": qsTr("brak definicji kafli paska"),
@@ -81,7 +81,7 @@ Item {
     // Tego aplikacja NIE wymyśli — to wiedza, nie struktura. Bez pliku
     // panel metatagów wygląda normalnie i nic nie podpowiada
     // (phototagstore.cpp: szuka wf_wskazniki.gpkg obok projektu).
-    if (!QfFileUtils.fileExists(katalog + "/wf_wskazniki.gpkg")) {
+    if (!FileUtils.fileExists(katalog + "/wf_wskazniki.gpkg")) {
       znalezione.push({
         "rzecz": "wskazniki",
         "opis": qsTr("brak słownika gatunków — podpowiadanie nie zadziała"),

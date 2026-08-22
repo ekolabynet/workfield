@@ -145,7 +145,7 @@ ListView {
             contentWidth: legendImage.width
             contentHeight: legendImage.height
             clip: true
-            QfScrollBar.horizontal: QfScrollBar {}
+            ScrollBar.horizontal: QfScrollBar {}
 
             Image {
               id: legendImage
@@ -200,7 +200,7 @@ ListView {
           iconColor: QfTheme.mainOverlayColor
         }
 
-        // QfLegend icon
+        // Legend icon
         Item {
           height: 24
           width: 24

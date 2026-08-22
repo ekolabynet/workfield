@@ -120,7 +120,7 @@ Page {
       }
     }
 
-    QfButton {
+    Button {
       Layout.fillWidth: true
       Layout.topMargin: 5
       text: qsTr("Wróć do projektu")

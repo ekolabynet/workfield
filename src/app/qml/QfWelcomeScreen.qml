@@ -56,7 +56,7 @@ Page {
     }
   }
 
-  QfSettings {
+  Settings {
     id: registry
     category: 'QField'
 
@@ -76,8 +76,8 @@ Page {
     leftPadding: mainWindow.sceneLeftMargin
     rightPadding: mainWindow.sceneRightMargin
     bottomPadding: mainWindow.sceneBottomMargin
-    QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
-    QfScrollBar.vertical: QfScrollBar {
+    ScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+    ScrollBar.vertical: QfScrollBar {
       opacity: active
       _maxSize: 4
       _minSize: 2
@@ -551,7 +551,7 @@ Page {
             clip: true
             visible: count > 0
 
-            QfScrollBar.horizontal: QfScrollBar {
+            ScrollBar.horizontal: QfScrollBar {
               policy: templatesListView.contentWidth > templatesListView.width ? QfScrollBar.AsNeeded : QfScrollBar.AlwaysOff
             }
 
@@ -652,7 +652,7 @@ Page {
               // WorkField: na komputerze siatka kolumn zamiast jednej listy
               readonly property int kolumny: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? Math.max(1, Math.floor(width / 360)) : 1
 
-              QfScrollBar.vertical: QfScrollBar {}
+              ScrollBar.vertical: QfScrollBar {}
               flickableDirection: Flickable.AutoFlickIfNeeded
               boundsBehavior: Flickable.StopAtBounds
               clip: true
@@ -1125,7 +1125,7 @@ Page {
     }
   }
 
-  QfDialog {
+  Dialog {
     id: templateNameDialog
 
     property string templatePath: ""
@@ -1137,7 +1137,7 @@ Page {
     width: Math.min(mainWindow.width - 40, 400)
     modal: true
     title: qsTr("Nowy projekt z szablonu")
-    standardButtons: QfDialog.Ok | QfDialog.Cancel
+    standardButtons: Dialog.Ok | Dialog.Cancel
     focus: visible
 
     ColumnLayout {
@@ -1152,7 +1152,7 @@ Page {
         wrapMode: Text.WordWrap
       }
 
-      QfTextField {
+      TextField {
         id: templateNameField
         Layout.fillWidth: true
         font: QfTheme.defaultFont

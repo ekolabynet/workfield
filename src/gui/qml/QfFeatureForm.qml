@@ -232,7 +232,7 @@ Page {
             property real keyboardInset: form.keyboardInset
             bottomMargin: form.bottomMargin + (form.model.isWizard ? wizardNavigationContainer.height : 0) + keyboardInset
             clip: true
-            QfScrollBar.vertical: QfScrollBar {}
+            ScrollBar.vertical: QfScrollBar {}
             boundsBehavior: Flickable.StopAtBounds
 
             Rectangle {
@@ -1231,13 +1231,13 @@ Page {
         property bool isVisible: !form.model.isWizard && (form.state === 'Add' || form.state === 'Edit')
         Layout.alignment: Qt.AlignTop | Qt.AlignRight
         visible: isVisible
-        width: QfTheme.toolButtonSize
-        height: QfTheme.toolButtonSize
+        width: Theme.toolButtonSize
+        height: Theme.toolButtonSize
         clip: true
-        iconSource: QfTheme.getThemeVectorIcon("ic_check_white_24dp")
-        iconColor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? QfTheme.mainOverlayColor : QfTheme.mainTextColor
-        bgcolor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? QfTheme.errorColor : !model.constraintsSoftValid ? QfTheme.warningColor : model.hasConstraints ? QfTheme.goodColor : QfTheme.mainColor
-        borderColor: QfTheme.mainBackgroundColor
+        iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
+        iconColor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? Theme.mainOverlayColor : Theme.mainTextColor
+        bgcolor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? Theme.errorColor : !model.constraintsSoftValid ? Theme.warningColor : model.hasConstraints ? Theme.goodColor : Theme.mainColor
+        borderColor: Theme.mainBackgroundColor
         roundborder: true
         round: true
         onClicked: {
@@ -1277,7 +1277,7 @@ Page {
     id: featureFormMenu
     objectName: "featureFormMenu"
 
-    title: qsTr("Feature Form QfMenu")
+    title: qsTr("Feature Form Menu")
 
     topMargin: mainWindow.sceneTopMargin
     bottomMargin: mainWindow.sceneBottomMargin

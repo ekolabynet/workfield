@@ -113,7 +113,7 @@ Item {
       }
     }
 
-    QfTextField {
+    TextField {
       id: searchField
       rightPadding: 7
       anchors.left: searchButton.right

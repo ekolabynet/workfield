@@ -2,9 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import QfTheme
+import Theme
 
-QfPopup {
+Popup {
   id: colorPicker
 
   property var t
@@ -62,7 +62,7 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside
+  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
   ColumnLayout {
     anchors.fill: parent
@@ -114,11 +114,11 @@ QfPopup {
       boundsBehavior: Flickable.StopAtBounds
       flickableDirection: Flickable.HorizontalAndVerticalFlick
 
-      QfScrollBar.vertical: QfScrollBar {
-        policy: paletteView.contentHeight > paletteView.height ? QfScrollBar.AlwaysOn : QfScrollBar.AlwaysOff
+      ScrollBar.vertical: ScrollBar {
+        policy: paletteView.contentHeight > paletteView.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
       }
-      QfScrollBar.horizontal: QfScrollBar {
-        policy: paletteView.contentWidth > paletteView.width ? QfScrollBar.AlwaysOn : QfScrollBar.AlwaysOff
+      ScrollBar.horizontal: ScrollBar {
+        policy: paletteView.contentWidth > paletteView.width ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
       }
 
       Column {
@@ -171,7 +171,7 @@ QfPopup {
         color: t.mainTextColor
       }
 
-      QfSlider {
+      Slider {
         Layout.fillWidth: true
         from: 0
         to: 1
@@ -206,7 +206,7 @@ QfPopup {
         color: t.mainTextColor
       }
 
-      QfButton {
+      Button {
         text: "−"
         implicitWidth: 46
         onClicked: {
@@ -223,7 +223,7 @@ QfPopup {
         color: t.mainTextColor
       }
 
-      QfButton {
+      Button {
         text: "+"
         implicitWidth: 46
         onClicked: {
@@ -258,7 +258,7 @@ QfPopup {
           }
         ]
 
-        delegate: QfButton {
+        delegate: Button {
           required property var modelData
 
           text: modelData.n
@@ -279,13 +279,13 @@ QfPopup {
       Layout.topMargin: 8
       spacing: 8
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: colorPicker.close()
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Wybierz")
         highlighted: true

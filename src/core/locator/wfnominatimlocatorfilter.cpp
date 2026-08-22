@@ -3,7 +3,7 @@
  ***************************************************************************/
 
 #include "wfnominatimlocatorfilter.h"
-#include "locatormodelsuperbridge.h"
+#include "qflocatormodelsuperbridge.h"
 #include "qgsquickmapsettings.h"
 
 #include <qgscoordinatetransform.h>

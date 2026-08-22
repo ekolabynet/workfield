@@ -153,7 +153,7 @@ Page {
     iface.setupNetworkProxy();
   }
 
-  QfSettings {
+  Settings {
     id: registry
     property bool enableNavigation: false
     property bool showScaleBar: true
@@ -459,8 +459,8 @@ Page {
         topPadding: 5
         leftPadding: 20
         rightPadding: 20
-        QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
-        QfScrollBar.vertical: QfScrollBar {}
+        ScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+        ScrollBar.vertical: QfScrollBar {}
         contentWidth: positioningGrid.width
         contentHeight: positioningGrid.height
         anchors.fill: parent
@@ -1545,8 +1545,8 @@ Page {
       ScrollView {
         anchors.fill: parent
         topPadding: 5
-        QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
-        QfScrollBar.vertical: QfScrollBar {}
+        ScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+        ScrollBar.vertical: QfScrollBar {}
         contentWidth: availableWidth
         clip: true
 
@@ -1620,7 +1620,7 @@ Page {
   }
 
   header: QfPageHeader {
-    title: settingsStack.depth > 1 && settingsStack.currentItem && settingsStack.currentItem.categoryId ? page.categoryTitles[settingsStack.currentItem.categoryId] : qsTr("%1 QfSettings").arg(Qfield.name)
+    title: settingsStack.depth > 1 && settingsStack.currentItem && settingsStack.currentItem.categoryId ? page.categoryTitles[settingsStack.currentItem.categoryId] : qsTr("%1 Settings").arg(Qfield.name)
 
     showBackButton: true
     showApplyButton: false

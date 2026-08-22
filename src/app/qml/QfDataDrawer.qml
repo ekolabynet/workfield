@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
 Drawer {
   id: dataDrawer
@@ -62,7 +62,7 @@ Drawer {
       color: t.controlBorderColor
     }
 
-    QfTabBar {
+    TabBar {
       id: drawerTabs
 
       Layout.fillWidth: true
@@ -113,7 +113,7 @@ Drawer {
 
           delegate: MenuItem {
             width: ListView.view.width
-            font: QfTheme.defaultFont
+            font: Theme.defaultFont
             text: modelData.label
 
             onClicked: {
@@ -173,7 +173,7 @@ Drawer {
         elide: Text.ElideMiddle
       }
 
-      QfButton {
+      Button {
         text: qsTr("Zmień…")
         font.pointSize: t.tinyFont.pointSize
         onClicked: layerPickerDialog.open()
@@ -192,7 +192,7 @@ Drawer {
       wrapMode: Text.WordWrap
     }
 
-        QfProcessingAlgorithmsList {
+        ProcessingAlgorithmsList {
           id: algorithmsList
 
           Layout.fillWidth: true
@@ -209,7 +209,7 @@ Drawer {
 
         MenuItem {
           Layout.fillWidth: true
-          font: QfTheme.defaultFont
+          font: Theme.defaultFont
           text: qsTr("Ustawienia aplikacji")
           onClicked: {
             dashBoard.showSettings();
@@ -219,7 +219,7 @@ Drawer {
 
         MenuItem {
           Layout.fillWidth: true
-          font: QfTheme.defaultFont
+          font: Theme.defaultFont
           text: qsTr("O aplikacji WorkField")
           onClicked: {
             dashBoard.showAbout();
@@ -229,7 +229,7 @@ Drawer {
 
         MenuItem {
           Layout.fillWidth: true
-          font: QfTheme.defaultFont
+          font: Theme.defaultFont
           text: qsTr("Dziennik komunikatów")
           onClicked: {
             dashBoard.showMessageLog();
@@ -239,7 +239,7 @@ Drawer {
 
         MenuItem {
           Layout.fillWidth: true
-          font: QfTheme.defaultFont
+          font: Theme.defaultFont
           text: qsTr("Udostępnij dziennik (debug)")
           onClicked: {
             const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");
@@ -263,7 +263,7 @@ Drawer {
     
   }
 
-  QfDialog {
+  Dialog {
     id: layerPickerDialog
 
     parent: mainWindow.contentItem
@@ -294,7 +294,7 @@ Drawer {
     }
   }
 
-  QfPopup {
+  Popup {
     id: gnssDiagPopup
 
     parent: mainWindow.contentItem
@@ -414,7 +414,7 @@ Drawer {
           Repeater {
             model: [10, 15, 20]
 
-            QfButton {
+            Button {
               text: modelData + "°"
               font.pointSize: t.tinyFont.pointSize
               enabled: positionSource.active && positionSource.deviceId !== ""
@@ -432,7 +432,7 @@ Drawer {
         Layout.topMargin: 4
         spacing: 8
 
-        QfButton {
+        Button {
           text: qsTr("Połącz NTRIP ponownie")
           font.pointSize: t.tinyFont.pointSize
           enabled: positionSource.enableNtrip
@@ -447,7 +447,7 @@ Drawer {
           Layout.fillWidth: true
         }
 
-        QfButton {
+        Button {
           text: qsTr("Ustawienia")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
@@ -458,7 +458,7 @@ Drawer {
           }
         }
 
-        QfButton {
+        Button {
           text: qsTr("Zamknij")
           font.pointSize: t.tinyFont.pointSize
           onClicked: gnssDiagPopup.close()

@@ -7,11 +7,11 @@ import QtQuick.Controls.Material
 /**
  * \ingroup qml
  */
-QfDialog {
+Dialog {
   visible: false
   modal: true
   font: QfTheme.defaultFont
-  standardButtons: QfDialog.Ok | QfDialog.Cancel
+  standardButtons: Dialog.Ok | Dialog.Cancel
 
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
@@ -42,27 +42,27 @@ QfDialog {
   onRejected: haptyka(30)
 
   onAboutToShow: {
-    const okBtn = standardButton(QfDialog.Ok);
+    const okBtn = standardButton(Dialog.Ok);
     if (okBtn) {
       okBtn.text = qsTr("OK");
       pomalujPrzycisk(okBtn, "#43a047");
     }
-    const cancelBtn = standardButton(QfDialog.Cancel);
+    const cancelBtn = standardButton(Dialog.Cancel);
     if (cancelBtn) {
       cancelBtn.text = qsTr("Cancel");
       pomalujPrzycisk(cancelBtn, "#e53935");
     }
-    const yesBtn = standardButton(QfDialog.Yes);
+    const yesBtn = standardButton(Dialog.Yes);
     if (yesBtn) {
       yesBtn.text = qsTr("Yes");
       pomalujPrzycisk(yesBtn, "#43a047");
     }
-    const noBtn = standardButton(QfDialog.No);
+    const noBtn = standardButton(Dialog.No);
     if (noBtn) {
       noBtn.text = qsTr("No");
       pomalujPrzycisk(noBtn, "#e53935");
     }
-    const closeBtn = standardButton(QfDialog.Close);
+    const closeBtn = standardButton(Dialog.Close);
     if (closeBtn)
       closeBtn.text = qsTr("Close");
   }

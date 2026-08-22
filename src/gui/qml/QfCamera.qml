@@ -10,7 +10,7 @@ import org.qfield.gui
 /**
  * \ingroup qml
  */
-QfPopup {
+Popup {
   id: cameraItem
   z: 10000 // 1000s are embedded feature forms, use a higher value to insure feature form popups always show above embedded feature forms
 
@@ -20,7 +20,6 @@ QfPopup {
   readonly property bool isPortraitMode: mainWindow.height > mainWindow.width
 
   property string currentPath: ''
-  property var currentPosition: QfPositioningUtils.createEmptyGnssPositionInformation()
 
   // rodzaj ujecia: plat / dol / gora / gatunek
   property string photoShotType: "dol"
@@ -107,7 +106,7 @@ QfPopup {
   parent: mainWindow.contentItem
   modal: true
   focus: true
-  closePolicy: QfPopup.NoAutoClose
+  closePolicy: Popup.NoAutoClose
 
   property string state: "PhotoCapture"
   onStateChanged: {
@@ -168,7 +167,7 @@ QfPopup {
     id: captureAttitude
   }
 
-  QfSettings {
+  Settings {
     id: cameraSettings
     property bool stamping: false
     property bool geoTagging: true
@@ -287,14 +286,14 @@ QfPopup {
           CaptureSession {
             id: captureSession
 
-            camera: QfCamera {
+            camera: Camera {
               id: camera
 
               property bool restarting: false
               active: cameraItem.visible && cameraPermission.status === Qt.PermissionStatus.Granted && !restarting
 
               onErrorOccurred: (error, errorString) => {
-                console.log('QField QfCamera error ' + error + ': ' + errorString);
+                console.log('QField Camera error ' + error + ': ' + errorString);
               }
 
               function applyCameraFormat() {
@@ -710,7 +709,7 @@ QfPopup {
                 }
                 if (cameraItem.state == "PhotoCapture") {
                   platformUtilities.createDir(qgisProject.homePath, 'DCIM');
-                  captureLoader.item.camera.focusMode = QfCamera.FocusModeAuto;
+                  captureLoader.item.camera.focusMode = Camera.FocusModeAuto;
                   captureLoader.item.imageCapture.captureToFile(qgisProject.homePath + '/DCIM/');
                   cameraItem.isCapturing = true;
                   captureFocusTimer.restart();
@@ -962,7 +961,7 @@ QfPopup {
 
           QfToolButton {
             id: flashButton
-            visible: captureLoader.item && captureLoader.item.camera.isFlashModeSupported(QfCamera.FlashOn)
+            visible: captureLoader.item && captureLoader.item.camera.isFlashModeSupported(Camera.FlashOn)
 
             x: cameraItem.isPortraitMode ? (parent.width / 4) * 3 - (width / 2) : (parent.width - width) / 2 + cameraItem.captureOffset
             y: cameraItem.isPortraitMode ? (parent.height - height) / 2 + cameraItem.captureOffset : (parent.height / 4) - (height / 2)
@@ -972,11 +971,11 @@ QfPopup {
                 return '';
               }
               switch (captureLoader.item.camera.flashMode) {
-              case QfCamera.FlashAuto:
+              case Camera.FlashAuto:
                 return QfTheme.getThemeVectorIcon('ic_flash_auto_black_24dp');
-              case QfCamera.FlashOn:
+              case Camera.FlashOn:
                 return QfTheme.getThemeVectorIcon('ic_flash_on_black_24dp');
-              case QfCamera.FlashOff:
+              case Camera.FlashOff:
                 return QfTheme.getThemeVectorIcon('ic_flash_off_black_24dp');
               default:
                 return '';
@@ -990,10 +989,10 @@ QfPopup {
               if (!captureLoader.item) {
                 return;
               }
-              if (captureLoader.item.camera.flashMode === QfCamera.FlashOff) {
-                captureLoader.item.camera.flashMode = QfCamera.FlashOn;
+              if (captureLoader.item.camera.flashMode === Camera.FlashOff) {
+                captureLoader.item.camera.flashMode = Camera.FlashOn;
               } else {
-                captureLoader.item.camera.flashMode = QfCamera.FlashOff;
+                captureLoader.item.camera.flashMode = Camera.FlashOff;
               }
             }
           }

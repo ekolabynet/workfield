@@ -19,7 +19,7 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   focus: visible
-  closePolicy: QfPopup.CloseOnEscape
+  closePolicy: Popup.CloseOnEscape
 
   property alias name: positioningDeviceName.text
   property alias type: positioningDeviceType.currentValue
@@ -103,7 +103,7 @@ QfPopup {
     padding: 5
     header: QfPageHeader {
       id: pageHeader
-      title: qsTr("QfPositioning Device QfSettings")
+      title: qsTr("Positioning Device Settings")
 
       showBackButton: false
       showApplyButton: true
@@ -129,8 +129,8 @@ QfPopup {
       leftPadding: 5
       rightPadding: 5
       bottomPadding: 0
-      QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
-      QfScrollBar.vertical: QfScrollBar {}
+      ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+      ScrollBar.vertical: QfScrollBar {}
       contentWidth: settingsLayout.childrenRect.width
       contentHeight: settingsLayout.childrenRect.height + positioningDeviceItem.item.childrenRect.height
       width: parent.width
@@ -222,7 +222,7 @@ QfPopup {
           }
         }
 
-        QfTextField {
+        TextField {
           id: positioningDeviceName
           Layout.fillWidth: true
           font: QfTheme.defaultFont

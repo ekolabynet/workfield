@@ -66,9 +66,6 @@ Drawer {
     }
   }
 
-  background: Rectangle {
-    anchors.fill: parent
-    color: QfTheme.mainBackgroundColor
   Connections {
     target: stateMachine
 
@@ -371,7 +368,7 @@ Drawer {
       objectName: "legendContainer"
       Layout.fillWidth: true
       Layout.fillHeight: true
-      title: qsTr("QfLegend")
+      title: qsTr("Legend")
       leftPadding: 5
       rightPadding: 5
       topPadding: label.height + 5
@@ -418,7 +415,7 @@ Drawer {
         }
       }
 
-      QfLegend {
+      Legend {
         id: legend
         objectName: "legend"
         isVisible: dashBoard.position > 0

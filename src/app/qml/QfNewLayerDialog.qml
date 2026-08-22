@@ -3,9 +3,9 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
-QfPopup {
+Popup {
   id: newLayerDialog
 
   property var t
@@ -37,7 +37,7 @@ QfPopup {
   readonly property string targetPath: {
     if (!qgisProject)
       return "";
-    const safe = QfFileUtils.sanitizeFilePathPart(layerName === "" ? "warstwa" : layerName);
+    const safe = FileUtils.sanitizeFilePathPart(layerName === "" ? "warstwa" : layerName);
     if (targetMode === "gpkg" && gpkgPath !== "")
       return gpkgPath;
     if (targetMode === "gpkg")
@@ -53,7 +53,7 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: QfPopup.CloseOnEscape
+  closePolicy: Popup.CloseOnEscape
 
   function openDialog() {
     layerName = "";
@@ -84,7 +84,7 @@ QfPopup {
       color: t.mainTextColor
     }
 
-    QfTextField {
+    TextField {
       Layout.fillWidth: true
       font: t.defaultFont
       placeholderText: qsTr("Nazwa warstwy")
@@ -107,7 +107,7 @@ QfPopup {
       Repeater {
         model: newLayerDialog.geometryTypes
 
-        delegate: QfButton {
+        delegate: Button {
           required property var modelData
           text: modelData.label
           font.pointSize: t.tinyFont.pointSize
@@ -129,7 +129,7 @@ QfPopup {
         color: t.mainTextColor
       }
 
-      QfTextField {
+      TextField {
         Layout.fillWidth: true
         font: t.defaultFont
         placeholderText: "EPSG:2180"
@@ -150,7 +150,7 @@ QfPopup {
       Layout.fillWidth: true
       spacing: 6
 
-      QfButton {
+      Button {
         text: qsTr("GeoPackage")
         font.pointSize: t.tinyFont.pointSize
         checkable: true
@@ -158,7 +158,7 @@ QfPopup {
         onClicked: newLayerDialog.targetMode = "gpkg"
       }
 
-      QfButton {
+      Button {
         text: qsTr("GeoJSON")
         font.pointSize: t.tinyFont.pointSize
         checkable: true
@@ -198,7 +198,7 @@ QfPopup {
         height: 48
         spacing: 6
 
-        QfTextField {
+        TextField {
           Layout.fillWidth: true
           font: t.defaultFont
           text: fieldName
@@ -209,7 +209,7 @@ QfPopup {
           }
         }
 
-        QfComboBox {
+        ComboBox {
           Layout.preferredWidth: 150
           font: t.defaultFont
           model: newLayerDialog.fieldTypes.map(f => f.label)
@@ -222,14 +222,14 @@ QfPopup {
           Layout.preferredHeight: 34
           padding: 0
           bgcolor: "transparent"
-          iconSource: QfTheme.getThemeVectorIcon("ic_delete_forever_white_24dp")
+          iconSource: Theme.getThemeVectorIcon("ic_delete_forever_white_24dp")
           iconColor: t.errorColor
           onClicked: fieldModel.remove(parent.index)
         }
       }
     }
 
-    QfButton {
+    Button {
       Layout.fillWidth: true
       text: qsTr("Dodaj pole")
       font.pointSize: t.tinyFont.pointSize
@@ -244,13 +244,13 @@ QfPopup {
       Layout.topMargin: 8
       spacing: 8
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: newLayerDialog.close()
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Utwórz")
         highlighted: true
@@ -277,7 +277,7 @@ QfPopup {
               type: "text"
             });
 
-          const layer = QfLayerUtils.createEmptyLayer(newLayerDialog.targetPath, newLayerDialog.layerName, newLayerDialog.geometryType, newLayerDialog.crsAuthId, fields);
+          const layer = LayerUtils.createEmptyLayer(newLayerDialog.targetPath, newLayerDialog.layerName, newLayerDialog.geometryType, newLayerDialog.crsAuthId, fields);
 
           if (layer) {
             let hasAttachment = false;
@@ -289,12 +289,12 @@ QfPopup {
               for (let m = 0; m < fieldModel.count; m++) {
                 const item = fieldModel.get(m);
                 if (item.fieldType === "attachment")
-                  QfLayerUtils.setAttachmentField(layer, item.fieldName.trim());
+                  LayerUtils.setAttachmentField(layer, item.fieldName.trim());
               }
             }
           }
 
-          if (layer && QfProjectUtils.addMapLayer(qgisProject, layer)) {
+          if (layer && ProjectUtils.addMapLayer(qgisProject, layer)) {
             displayToast(qsTr("Utworzono warstwę %1").arg(newLayerDialog.layerName));
             newLayerDialog.layerCreated(layer);
             newLayerDialog.close();

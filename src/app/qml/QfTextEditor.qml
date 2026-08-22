@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import org.qgis
 import org.qfield
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
@@ -16,7 +16,7 @@ import QfTheme
  * warstwy w projekcie, wzorcowy wpis klawisza. Kopia .bak przy
  * pierwszym zapisie. Plik pozostaje czystym JSON-em.
  */
-QfPopup {
+Popup {
   id: textEditor
 
   parent: mainWindow.contentItem
@@ -25,7 +25,7 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: QfPopup.CloseOnEscape
+  closePolicy: Popup.CloseOnEscape
 
   property string sciezka: ""
   property string oryginal: ""
@@ -314,10 +314,10 @@ QfPopup {
 
   // ---- wzorcowy wpis ----
   function pierwszaPunktowa() {
-    if (typeof QfProjectUtils === 'undefined' || !qgisProject) {
+    if (typeof ProjectUtils === 'undefined' || !qgisProject) {
       return "obserwacje";
     }
-    const w = QfProjectUtils.mapLayers(qgisProject);
+    const w = ProjectUtils.mapLayers(qgisProject);
     for (const id in w) {
       const l = w[id];
       try {
@@ -356,7 +356,7 @@ QfPopup {
 
   // ---- wczytywanie / zapis / wyjscia ----
   function wczytaj(fp) {
-    const tresc = String(QfFileUtils.readFileContent(fp));
+    const tresc = String(FileUtils.readFileContent(fp));
     if (tresc.length > 2000000) {
       displayToast(qsTr("Plik za duży na edytor terenowy (limit 2 MB)"), "warning");
       return;
@@ -385,10 +385,10 @@ QfPopup {
       }
     }
     if (!bakZapisany) {
-      QfFileUtils.writeFileContent(sciezka + ".bak", oryginal);
+      FileUtils.writeFileContent(sciezka + ".bak", oryginal);
       bakZapisany = true;
     }
-    if (QfFileUtils.writeFileContent(sciezka, obszar.text)) {
+    if (FileUtils.writeFileContent(sciezka, obszar.text)) {
       zmieniono = false;
       oryginal = obszar.text;
       displayToast(qsTr("Zapisano %1 (kopia: .bak)").arg(nazwaPliku(sciezka)));
@@ -486,7 +486,7 @@ QfPopup {
       Layout.fillWidth: true
       text: textEditor.sciezka === "" ? qsTr("Pliki projektu — edytor") : textEditor.nazwaPliku(textEditor.sciezka) + (textEditor.zmieniono ? " \u25cf" : "")
       color: textEditor.zmieniono ? "#FFC107" : "#80CBC4"
-      font: QfTheme.strongFont
+      font: Theme.strongFont
       elide: Text.ElideMiddle
     }
 
@@ -510,14 +510,14 @@ QfPopup {
             Layout.fillWidth: true
             text: fileName
             color: "white"
-            font: QfTheme.defaultFont
+            font: Theme.defaultFont
             elide: Text.ElideMiddle
           }
 
           Text {
             text: (fileSize / 1024).toFixed(1) + " kB"
             color: "#B0BEC5"
-            font: QfTheme.tinyFont
+            font: Theme.tinyFont
           }
         }
 
@@ -529,7 +529,7 @@ QfPopup {
         visible: parent.count === 0
         text: qgisProject && qgisProject.homePath !== "" ? qsTr("Brak plików json/txt/md/csv w katalogu projektu") : qsTr("Najpierw otwórz projekt")
         color: "#B0BEC5"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
     }
 
@@ -546,7 +546,7 @@ QfPopup {
         wrapMode: TextArea.Wrap
         selectByMouse: true
         font.family: "monospace"
-        font.pointSize: QfTheme.tipFont.pointSize
+        font.pointSize: Theme.tipFont.pointSize
         color: "white"
         placeholderText: qsTr("(pusty plik)")
 
@@ -586,7 +586,7 @@ QfPopup {
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
         color: "white"
-        font: QfTheme.tinyFont
+        font: Theme.tinyFont
         text: textEditor.statusJson === "ok" ? qsTr("✓ JSON poprawny") : textEditor.statusJson === "blad" ? qsTr("✗ linia %1: %2 — tapnij, by skoczyć").arg(textEditor.bladWiersz).arg(textEditor.bladOpis) : qsTr("… sprawdzam")
       }
 
@@ -658,14 +658,14 @@ QfPopup {
           Text {
             text: textEditor.hint !== null ? textEditor.hint.pole + (textEditor.hint.rozmiar > 0 ? "  —  " + textEditor.hint.rozmiar + " px" : "") : ""
             color: "#80CBC4"
-            font: QfTheme.strongTipFont
+            font: Theme.strongTipFont
           }
 
           Text {
             Layout.fillWidth: true
             text: textEditor.hint !== null ? textEditor.hint.opis : ""
             color: "#B0BEC5"
-            font: QfTheme.tinyFont
+            font: Theme.tinyFont
             wrapMode: Text.Wrap
           }
 
@@ -674,7 +674,7 @@ QfPopup {
             Layout.fillWidth: true
             text: textEditor.hint !== null ? textEditor.hint.warstwaInfo : ""
             color: textEditor.hint !== null && textEditor.hint.warstwaInfo.indexOf("\u2717") === 0 ? "#FF8A80" : "#B9F6CA"
-            font: QfTheme.tinyFont
+            font: Theme.tinyFont
             wrapMode: Text.Wrap
           }
         }
@@ -686,20 +686,20 @@ QfPopup {
       Layout.fillWidth: true
       spacing: 8
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: textEditor.potwierdz === 1 ? qsTr("Porzucić zmiany?") : qsTr("Wróć do listy")
         onClicked: textEditor.sprobujWyjsc(1)
       }
 
-      QfButton {
+      Button {
         visible: textEditor.nazwaPliku(textEditor.sciezka) === "workfield_klawisze.json"
         Layout.fillWidth: true
         text: qsTr("Wzorcowy wpis")
         onClicked: textEditor.wstawWzorzec()
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         enabled: textEditor.zmieniono
         text: qsTr("Zapisz")
@@ -707,7 +707,7 @@ QfPopup {
       }
     }
 
-    QfButton {
+    Button {
       Layout.fillWidth: true
       text: textEditor.potwierdz === 2 ? qsTr("Porzucić zmiany?") : qsTr("Zamknij")
       onClicked: textEditor.sciezka !== "" ? textEditor.sprobujWyjsc(2) : textEditor.close()

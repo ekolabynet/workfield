@@ -144,8 +144,8 @@ Pane {
   ScrollView {
     anchors.fill: parent
     anchors.bottomMargin: searchButtonRow.height
-    QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
-    QfScrollBar.vertical: QfScrollBar {}
+    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical: QfScrollBar {}
     clip: true
 
     ColumnLayout {
@@ -245,7 +245,7 @@ Pane {
             color: QfTheme.mainTextColor
           }
 
-          QfSwitch {
+          Switch {
             id: includePublicSwitch
             Layout.alignment: Qt.AlignRight
 

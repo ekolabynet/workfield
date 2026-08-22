@@ -30,8 +30,8 @@ Item {
     ScrollView {
       Layout.fillWidth: true
       Layout.fillHeight: true
-      QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
-      QfScrollBar.vertical: QfScrollBar {}
+      ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+      ScrollBar.vertical: QfScrollBar {}
       contentItem: information
       contentWidth: information.width
       contentHeight: information.height
@@ -198,10 +198,10 @@ Item {
 
   QfMenu {
     id: linksMenu
-    title: qsTr("Links QfMenu")
+    title: qsTr("Links Menu")
 
     MenuItem {
-      text: qsTr('QfChangelog')
+      text: qsTr('Changelog')
 
       font: QfTheme.defaultFont
       height: 48

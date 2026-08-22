@@ -164,8 +164,8 @@ QfPopup {
     ScrollView {
       anchors.fill: parent
       padding: 5
-      QfScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
-      QfScrollBar.vertical: QfScrollBar {}
+      ScrollBar.horizontal.policy: QfScrollBar.AlwaysOff
+      ScrollBar.vertical: QfScrollBar {}
       contentWidth: popupLayout.childrenRect.width
       contentHeight: popupLayout.childrenRect.height
       clip: true
@@ -393,7 +393,7 @@ QfPopup {
               color: QfTheme.mainTextColor
             }
 
-            QfComboBox {
+            ComboBox {
               id: fieldCombo
 
               Layout.fillWidth: true
@@ -435,7 +435,7 @@ QfPopup {
               color: QfTheme.mainTextColor
             }
 
-            QfComboBox {
+            ComboBox {
               id: rampCombo
 
               Layout.fillWidth: true
@@ -644,7 +644,7 @@ QfPopup {
                 }
               }
 
-              QfComboBox {
+              ComboBox {
                 Layout.preferredWidth: 116
                 font: QfTheme.defaultFont
                 model: [qsTr("kwadrat"), qsTr("kółko"), qsTr("romb"), qsTr("krzyżyk")]
@@ -1143,7 +1143,7 @@ QfPopup {
               color: QfTheme.mainTextColor
             }
 
-            QfComboBox {
+            ComboBox {
               Layout.fillWidth: true
               font: QfTheme.defaultFont
               model: availableFields.map(f => f.name)
@@ -1406,7 +1406,7 @@ QfPopup {
           id: zoomToButton
           Layout.fillWidth: true
           Layout.topMargin: 5
-          text: index ? layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.Group ? qsTr('Zoom to group') : layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.QfLegend && layerTree.data(index, QfFlatLayerTreeModel.LayerType) === "vectorlayer" ? qsTr('Zoom to parent layer') : qsTr('Zoom to layer') : ''
+          text: index ? layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.Group ? qsTr('Zoom to group') : layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.Legend && layerTree.data(index, QfFlatLayerTreeModel.LayerType) === "vectorlayer" ? qsTr('Zoom to parent layer') : qsTr('Zoom to layer') : ''
           visible: zoomToButtonVisible
           icon.source: QfTheme.getThemeVectorIcon('zoom_out_map_24dp')
 
@@ -1573,7 +1573,7 @@ QfPopup {
     const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
     let title = layerTree.data(index, Qt.Name);
     if (vl) {
-      if (type === QfFlatLayerTreeModel.QfLegend) {
+      if (type === QfFlatLayerTreeModel.Legend) {
         title += ' (' + vl.name + ')';
       } else if (type === QfFlatLayerTreeModel.Layer && layerTree.data(index, QfFlatLayerTreeModel.IsValid)) {
         var count = layerTree.data(index, QfFlatLayerTreeModel.FeatureCount);

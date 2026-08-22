@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
 /**
  * Ustawienia sieciowe: uwierzytelnianie i proxy.
@@ -15,7 +15,7 @@ GridLayout {
   function syncFromSettings() {
     const typeIdx = proxyTypeComboBox.indexOfValue(settingsPage.proxyType);
     proxyTypeComboBox.currentIndex = typeIdx >= 0 ? typeIdx : 0;
-    authenticationConfigurationsListView.model = QfAuthUtils.authenticationConfigurationDetails();
+    authenticationConfigurationsListView.model = AuthUtils.authenticationConfigurationDetails();
   }
 
   Layout.fillWidth: true
@@ -28,8 +28,8 @@ GridLayout {
 
   Label {
     text: qsTr('Network')
-    font: QfTheme.strongFont
-    color: QfTheme.mainTextColor
+    font: Theme.strongFont
+    color: Theme.mainTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.topMargin: 10
@@ -41,8 +41,8 @@ GridLayout {
     Layout.columnSpan: 2
     visible: authenticationConfigurationsListView.count > 0
     text: qsTr("Available authentication configurations:")
-    font: QfTheme.defaultFont
-    color: QfTheme.mainTextColor
+    font: Theme.defaultFont
+    color: Theme.mainTextColor
     wrapMode: Text.WordWrap
   }
 
@@ -51,9 +51,9 @@ GridLayout {
     Layout.columnSpan: 2
     Layout.preferredHeight: 140
     visible: authenticationConfigurationsListView.count > 0
-    color: QfTheme.controlBackgroundColor
+    color: Theme.controlBackgroundColor
     border.width: 1
-    border.color: QfTheme.controlBorderColor
+    border.color: Theme.controlBorderColor
 
     ListView {
       id: authenticationConfigurationsListView
@@ -75,8 +75,8 @@ GridLayout {
           Text {
             Layout.fillWidth: true
             Layout.topMargin: 5
-            font: QfTheme.defaultFont
-            color: QfTheme.mainTextColor
+            font: Theme.defaultFont
+            color: Theme.mainTextColor
             text: modelData["name"] + ' (' + modelData["id"] + ')'
             wrapMode: Text.Wrap
           }
@@ -84,8 +84,8 @@ GridLayout {
           Text {
             Layout.fillWidth: true
             visible: modelData["uri"] !== ""
-            font: QfTheme.tipFont
-            color: QfTheme.secondaryTextColor
+            font: Theme.tipFont
+            color: Theme.secondaryTextColor
             text: modelData["uri"]
             wrapMode: Text.Wrap
           }
@@ -96,7 +96,7 @@ GridLayout {
           anchors.bottom: parent.bottom
           width: parent.width
           height: 1
-          color: QfTheme.controlBorderColor
+          color: Theme.controlBorderColor
         }
       }
     }
@@ -110,15 +110,15 @@ GridLayout {
     text: qsTr("Clear authentication cache")
 
     onClicked: {
-      QfAuthUtils.clearAuthenticationConfigurationCache();
+      AuthUtils.clearAuthenticationConfigurationCache();
       displayToast(qsTr('Authentication cache cleared'));
     }
   }
 
   Label {
     text: qsTr("Enable proxy")
-    font: QfTheme.defaultFont
-    color: QfTheme.mainTextColor
+    font: Theme.defaultFont
+    color: Theme.mainTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
   }
@@ -133,8 +133,8 @@ GridLayout {
 
   Label {
     text: qsTr("Type")
-    font: QfTheme.defaultFont
-    color: proxyEnabledSwitch.checked ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+    font: Theme.defaultFont
+    color: proxyEnabledSwitch.checked ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.columnSpan: 2
@@ -150,9 +150,9 @@ GridLayout {
     Layout.columnSpan: 2
     Layout.leftMargin: 8
     Layout.alignment: Qt.AlignVCenter
-    font: QfTheme.defaultFont
+    font: Theme.defaultFont
 
-    popup.font: QfTheme.defaultFont
+    popup.font: Theme.defaultFont
     popup.topMargin: mainWindow.sceneTopMargin
     popup.bottomMargin: mainWindow.sceneTopMargin
 
@@ -191,8 +191,8 @@ GridLayout {
 
   Label {
     text: qsTr("Host")
-    font: QfTheme.defaultFont
-    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+    font: Theme.defaultFont
+    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.leftMargin: 8
@@ -203,7 +203,7 @@ GridLayout {
     id: proxyHostField
     enabled: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
     visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
-    font: QfTheme.defaultFont
+    font: Theme.defaultFont
     Layout.fillWidth: true
     placeholderText: qsTr("e.g. proxy.example.com")
     inputMethodHints: Qt.ImhUrlCharactersOnly
@@ -213,8 +213,8 @@ GridLayout {
 
   Label {
     text: qsTr("Port")
-    font: QfTheme.defaultFont
-    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+    font: Theme.defaultFont
+    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.leftMargin: 8
@@ -225,7 +225,7 @@ GridLayout {
     id: proxyPortField
     enabled: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
     visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
-    font: QfTheme.defaultFont
+    font: Theme.defaultFont
     Layout.fillWidth: true
     placeholderText: qsTr("e.g. 8888")
     inputMethodHints: Qt.ImhDigitsOnly
@@ -239,8 +239,8 @@ GridLayout {
 
   Label {
     text: qsTr("Username")
-    font: QfTheme.defaultFont
-    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+    font: Theme.defaultFont
+    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.leftMargin: 8
@@ -251,7 +251,7 @@ GridLayout {
     id: proxyUserField
     enabled: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
     visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
-    font: QfTheme.defaultFont
+    font: Theme.defaultFont
     Layout.fillWidth: true
     placeholderText: qsTr("Optional")
     text: settingsPage.proxyUser
@@ -260,8 +260,8 @@ GridLayout {
 
   Label {
     text: qsTr("Password")
-    font: QfTheme.defaultFont
-    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+    font: Theme.defaultFont
+    color: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy' ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.leftMargin: 8
@@ -272,7 +272,7 @@ GridLayout {
     id: proxyPasswordField
     enabled: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
     visible: proxyEnabledSwitch.checked && settingsPage.proxyType !== 'DefaultProxy'
-    font: QfTheme.defaultFont
+    font: Theme.defaultFont
     Layout.fillWidth: true
     echoMode: TextInput.Password
     placeholderText: qsTr("Optional")
@@ -282,8 +282,8 @@ GridLayout {
 
   Label {
     text: qsTr("URLs excluded from proxy (comma-separated)")
-    font: QfTheme.defaultFont
-    color: proxyEnabledSwitch.checked ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+    font: Theme.defaultFont
+    color: proxyEnabledSwitch.checked ? Theme.mainTextColor : Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.columnSpan: 2
@@ -295,7 +295,7 @@ GridLayout {
     id: proxyExcludedUrlsField
     enabled: proxyEnabledSwitch.checked
     visible: proxyEnabledSwitch.checked
-    font: QfTheme.defaultFont
+    font: Theme.defaultFont
     Layout.fillWidth: true
     Layout.columnSpan: 2
     Layout.leftMargin: 8
@@ -306,8 +306,8 @@ GridLayout {
 
   Label {
     text: qsTr("Configure a network proxy to route QField's traffic through a proxy server. Useful for corporate networks and VPNs.")
-    font: QfTheme.tipFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.tipFont
+    color: Theme.secondaryTextColor
     wrapMode: Text.WordWrap
     Layout.fillWidth: true
     Layout.columnSpan: 2

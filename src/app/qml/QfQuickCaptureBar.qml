@@ -4,7 +4,7 @@ import QtQuick.Shapes
 import QtQuick.Layouts
 import org.qgis
 import org.qfield
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
@@ -106,7 +106,7 @@ Column {
     Text {
       anchors.centerIn: parent
       text: quickCaptureBar.ustawieniaZwiniete ? "\u25be" : "\u25b4"
-      font.pointSize: QfTheme.tinyFont.pointSize + 2
+      font.pointSize: Theme.tinyFont.pointSize + 2
       font.bold: true
       color: "#ECEFF1"
     }
@@ -130,9 +130,9 @@ Column {
     visible: !quickCaptureBar.zwinieteEfektywne
     x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
 
-    bgcolor: qfieldSettings.fastMode ? "#FFC107" : QfTheme.toolButtonBackgroundSemiOpaqueColor
-    iconSource: QfTheme.getThemeVectorIcon(qfieldSettings.fastMode ? "ic_flash_on_black_24dp" : "ic_flash_off_black_24dp")
-    iconColor: qfieldSettings.fastMode ? "#3E2723" : QfTheme.toolButtonColor
+    bgcolor: qfieldSettings.fastMode ? "#FFC107" : Theme.toolButtonBackgroundSemiOpaqueColor
+    iconSource: Theme.getThemeVectorIcon(qfieldSettings.fastMode ? "ic_flash_on_black_24dp" : "ic_flash_off_black_24dp")
+    iconColor: qfieldSettings.fastMode ? "#3E2723" : Theme.toolButtonColor
 
     onClicked: {
       haptyka(30);
@@ -156,7 +156,7 @@ Column {
     Text {
       anchors.centerIn: parent
       text: "ODL"
-      font.pointSize: QfTheme.tinyFont.pointSize
+      font.pointSize: Theme.tinyFont.pointSize
       font.bold: true
       color: quickCaptureBar.distantMode ? "#3E2723" : "#ECEFF1"
     }
@@ -191,7 +191,7 @@ Column {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: qsTr("KTW")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         font.bold: true
         color: "white"
       }
@@ -199,7 +199,7 @@ Column {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: quickCaptureBar.kotwice.length > 0 ? quickCaptureBar.kotwice.length : (quickCaptureBar.kotwicaTryb ? qsTr("wł") : qsTr("wył"))
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         font.bold: true
         color: "white"
       }
@@ -234,7 +234,7 @@ Column {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: qsTr("ODR")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         font.bold: true
         color: "#3E2723"
       }
@@ -242,7 +242,7 @@ Column {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: quickCaptureBar.odroczone.length
-        font.pointSize: QfTheme.strongFont.pointSize
+        font.pointSize: Theme.strongFont.pointSize
         font.bold: true
         color: "#3E2723"
       }
@@ -269,7 +269,7 @@ Column {
     Text {
       anchors.centerIn: parent
       text: "+"
-      font.pointSize: QfTheme.strongFont.pointSize + 8
+      font.pointSize: Theme.strongFont.pointSize + 8
       font.bold: true
       color: "#003D33"
     }
@@ -380,7 +380,7 @@ Column {
       const rbZ = aktywnyRubberband();
       // edytor geometrii: linia ciecia moze zaczynac sie od zera wierzcholkow
       if (rbZ && (edytorGeometriiAktywny() || rbZ.vertexCount >= 1)) {
-        const pkt = QfGeometryUtils.reprojectPoint(QfGeometryUtils.point(k.pozycja.x, k.pozycja.y), mapCanvas.mapSettings.destinationCrs, rbZ.crs);
+        const pkt = GeometryUtils.reprojectPoint(GeometryUtils.point(k.pozycja.x, k.pozycja.y), mapCanvas.mapSettings.destinationCrs, rbZ.crs);
         rbZ.addVertexFromPoint(pkt);
         haptyka(10);
         if (timeout) {
@@ -391,9 +391,9 @@ Column {
       // ksztalt juz zamkniety/porzucony — spozniona kotwica jako punkt ratunkowy
     }
     const wkt = "POINT(" + k.pozycja.x + " " + k.pozycja.y + ")";
-    const geomMap = QfGeometryUtils.createGeometryFromWkt(wkt);
-    const geomLayer = QfGeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, k.layer.crs);
-    let feature = QfFeatureUtils.createFeature(k.layer, geomLayer, k.pi);
+    const geomMap = GeometryUtils.createGeometryFromWkt(wkt);
+    const geomLayer = GeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, k.layer.crs);
+    let feature = FeatureUtils.createFeature(k.layer, geomLayer, k.pi);
     if (k.foto !== "") {
       feature.setAttribute("foto", k.foto);
       if (k.ujecie !== undefined && k.ujecie !== "") {
@@ -607,9 +607,9 @@ Column {
   // zapis obiektu odleglego wraz z metryczka pochodzenia
   function saveDistantFeature(px, py, dist, metoda, kat) {
     const wkt = "POINT(" + px + " " + py + ")";
-    const geomMap = QfGeometryUtils.createGeometryFromWkt(wkt);
-    const geomLayer = QfGeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, distantLayer.crs);
-    let feature = QfFeatureUtils.createFeature(distantLayer, geomLayer, positionSource.positionInformation);
+    const geomMap = GeometryUtils.createGeometryFromWkt(wkt);
+    const geomLayer = GeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, distantLayer.crs);
+    let feature = FeatureUtils.createFeature(distantLayer, geomLayer, positionSource.positionInformation);
     if (!feature) {
       displayToast(qsTr("Nie udało się utworzyć obiektu"), "error");
       return;
@@ -701,11 +701,11 @@ Column {
 
   function loadDefinitions() {
     const sciezka = defsPath();
-    if (sciezka === "" || !QfFileUtils.fileExists(sciezka)) {
+    if (sciezka === "" || !FileUtils.fileExists(sciezka)) {
       return null;
     }
     try {
-      const tresc = String(QfFileUtils.readFileContent(sciezka));
+      const tresc = String(FileUtils.readFileContent(sciezka));
       const dane = JSON.parse(tresc);
       return dane && dane.klawisze ? dane : null;
     } catch (e) {
@@ -719,7 +719,7 @@ Column {
     if (sciezka === "") {
       return false;
     }
-    const ok = QfFileUtils.writeFileContent(sciezka, JSON.stringify(dane, null, 2));
+    const ok = FileUtils.writeFileContent(sciezka, JSON.stringify(dane, null, 2));
     if (ok) {
       refreshLayers();
     }
@@ -861,7 +861,7 @@ Column {
   // WorkField: tor z paska omija widget zalacznika, ktory normalnie nadaje
   // zdjeciu nazwe wg konwencji projektu (QFieldSync/attachment_naming) —
   // liczymy wiec te sama nazwe sami, jedno zrodlo prawdy z formularzem.
-  QfExpressionEvaluator {
+  ExpressionEvaluator {
     id: nazwaFotoEvaluator
     project: qgisProject
     appExpressionContextScopesGenerator: appScopesGenerator
@@ -910,7 +910,7 @@ Column {
       }
       // znaczniki widgetu: {filename} nie ma tu sensu, {extension} = jpg
       wzgledna = wzgledna.replace("{filename}", "").replace("{extension}", "jpg");
-      wzgledna = QfFileUtils.sanitizeFilePath(wzgledna);
+      wzgledna = FileUtils.sanitizeFilePath(wzgledna);
     }
     if (wzgledna === "") {
       // fallback: konwencji w projekcie brak — nazwa warstwowa z ms
@@ -930,7 +930,7 @@ Column {
     // seria potrafi zrobic kilka klatek szybciej niz rosnie zegar nazwy
     let cel = wzgledna;
     let licznik = 2;
-    while (QfFileUtils.fileExists(home + "/" + cel)) {
+    while (FileUtils.fileExists(home + "/" + cel)) {
       cel = wzgledna.substring(0, gdzieKropka) + "_" + licznik + wzgledna.substring(gdzieKropka);
       licznik++;
     }
@@ -954,20 +954,20 @@ Column {
     if (layer.readOnly) {
       return false;
     }
-    return !QfLayerUtils.isFeatureAdditionLocked(layer);
+    return !LayerUtils.isFeatureAdditionLocked(layer);
   }
 
   // QFieldSync nazywa warstwy "plik — warstwa", wiec obok nazwy doslownej
   // przyjmujemy tez koncowke po myslniku
   function findLayerByName(nazwa) {
-    const doslownie = QfLayerUtils.vectorLayerByName(qgisProject, nazwa);
+    const doslownie = LayerUtils.vectorLayerByName(qgisProject, nazwa);
     if (doslownie) {
       return doslownie;
     }
     if (!qgisProject) {
       return null;
     }
-    const wszystkie = QfProjectUtils.mapLayers(qgisProject);
+    const wszystkie = ProjectUtils.mapLayers(qgisProject);
     for (const id in wszystkie) {
       const l = wszystkie[id];
       if (!l || !l.name) {
@@ -1081,9 +1081,9 @@ Column {
       return null;
     }
     const wkt = "POINT(" + pos.x + " " + pos.y + ")";
-    const geomMap = QfGeometryUtils.createGeometryFromWkt(wkt);
-    const geomLayer = QfGeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, layer.crs);
-    return QfFeatureUtils.createFeature(layer, geomLayer, positionSource.positionInformation);
+    const geomMap = GeometryUtils.createGeometryFromWkt(wkt);
+    const geomLayer = GeometryUtils.reprojectGeometry(geomMap, mapCanvas.mapSettings.destinationCrs, layer.crs);
+    return FeatureUtils.createFeature(layer, geomLayer, positionSource.positionInformation);
   }
 
   function captureInto(layer, bezZdjecia) {
@@ -1118,7 +1118,7 @@ Column {
         if (rb0 && (edytorGeometriiAktywny() || rb0.vertexCount > 1)) {
           const pos0 = positionSource.projectedPosition;
           if (pos0 && isFinite(pos0.x) && isFinite(pos0.y) && !(pos0.x === 0 && pos0.y === 0)) {
-            const pkt0 = QfGeometryUtils.reprojectPoint(QfGeometryUtils.point(pos0.x, pos0.y), mapCanvas.mapSettings.destinationCrs, rb0.crs);
+            const pkt0 = GeometryUtils.reprojectPoint(GeometryUtils.point(pos0.x, pos0.y), mapCanvas.mapSettings.destinationCrs, rb0.crs);
             rb0.addVertexFromPoint(pkt0);
           } else {
             displayToast(qsTr("Brak użytecznej pozycji — wierzchołek nie powstał"), "warning");
@@ -1189,7 +1189,7 @@ Column {
   function openCameraFor(layer) {
     nazwaLayer = layer;
     const fileName = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss_zzz") + ".jpg";
-    if (!(platformUtilities.capabilities & QfPlatformUtilities.NativeCamera) || !settings.valueBool("nativeCamera2", true)) {
+    if (!(platformUtilities.capabilities & PlatformUtilities.NativeCamera) || !settings.valueBool("nativeCamera2", true)) {
       // wbudowany aparat: ujecia, seria ciagla, blysk i wibracja
       platformUtilities.createDir(qgisProject.homePath, "DCIM");
       if (qfCameraLoader.active && qfCameraLoader.item) {
@@ -1433,7 +1433,7 @@ Column {
   }
 
   // model do cichego zapisu w trybie szybkim - niezalezny od szuflady formularza
-  QfFeatureModel {
+  FeatureModel {
     id: silentFeatureModel
     project: qgisProject
   }
@@ -1441,7 +1441,7 @@ Column {
   // WorkField: osobny model do zapisu zalacznikow (tabele ZAL_<warstwa>).
   // Osobny, bo silentFeatureModel trzyma wlasnie zapisanego rodzica i jego
   // klucz jest nam potrzebny az do konca dopinania.
-  QfFeatureModel {
+  FeatureModel {
     id: zalacznikFeatureModel
     project: qgisProject
   }
@@ -1480,7 +1480,7 @@ Column {
     target: typeof overlayFeatureFormDrawer !== 'undefined' ? overlayFeatureFormDrawer.featureForm : null
     ignoreUnknownSignals: true
 
-    // QfFeatureForm.save(): NOWY obiekt konczy sie sygnalem created(),
+    // FeatureForm.save(): NOWY obiekt konczy sie sygnalem created(),
     // istniejacy — saved(). Pasek tworzy zawsze nowe, wiec bez created()
     // zalacznik oczekujacy nigdy by sie nie dopial.
     function onCreated() {
@@ -1565,7 +1565,7 @@ Column {
     if (klucz === undefined || klucz === null || klucz === "") {
       return false;
     }
-    const dziecko = QfFeatureUtils.createFeature(opis.warstwa);
+    const dziecko = FeatureUtils.createFeature(opis.warstwa);
     // QgsFeature jest w QML typem wartosciowym: "!dziecko" nigdy nie bedzie
     // prawda, a flaga "valid" bywa nieustawiona w obiekcie jeszcze niezapisanym.
     // Sprawdzamy wiec to, co realnie musi byc: pola warstwy.
@@ -1707,7 +1707,7 @@ Column {
       Text {
         anchors.centerIn: parent
         text: modelData.letter
-        font.pointSize: QfTheme.strongFont.pointSize + 4 + Math.max(0, Math.round((parent.width - 56) / 6))
+        font.pointSize: Theme.strongFont.pointSize + 4 + Math.max(0, Math.round((parent.width - 56) / 6))
         font.bold: true
         color: "#003D33"
       }
@@ -1779,7 +1779,7 @@ Column {
   }
 
   // WorkField: ile stad do obiektu?
-  QfPopup {
+  Popup {
     id: distancePicker
 
     parent: mainWindow.contentItem
@@ -1787,7 +1787,7 @@ Column {
     x: (mainWindow.width - width) / 2
     y: (mainWindow.height - height) / 2
     modal: true
-    closePolicy: QfPopup.CloseOnEscape
+    closePolicy: Popup.CloseOnEscape
 
     background: Rectangle {
       color: "#EE263238"
@@ -1805,15 +1805,15 @@ Column {
         Layout.fillWidth: true
         text: qsTr("Jak daleko jest obiekt?")
         color: "#80CBC4"
-        font: QfTheme.strongFont
+        font: Theme.strongFont
         wrapMode: Text.Wrap
       }
 
       Text {
         Layout.fillWidth: true
         text: isNaN(quickCaptureBar.distantAz) ? qsTr("Brak azymutu — kompas nie odpowiada") : qsTr("Azymut %1°").arg(Math.round(quickCaptureBar.distantAz))
-        color: isNaN(quickCaptureBar.distantAz) ? QfTheme.warningColor : "#B0BEC5"
-        font: QfTheme.tinyFont
+        color: isNaN(quickCaptureBar.distantAz) ? Theme.warningColor : "#B0BEC5"
+        font: Theme.tinyFont
       }
 
       Flow {
@@ -1823,9 +1823,9 @@ Column {
         Repeater {
           model: quickCaptureBar.distancePresets
 
-          delegate: QfButton {
+          delegate: Button {
             text: modelData + " m"
-            font.pointSize: QfTheme.tipFont.pointSize
+            font.pointSize: Theme.tipFont.pointSize
             onClicked: {
               distancePicker.close();
               quickCaptureBar.finishDistant(modelData);
@@ -1838,13 +1838,13 @@ Column {
         Layout.fillWidth: true
         spacing: 8
 
-        QfTextField {
+        TextField {
           id: customDistance
           Layout.fillWidth: true
           placeholderText: qsTr("inna, w metrach")
           color: "white"
           placeholderTextColor: "#90A4AE"
-          font: QfTheme.tipFont
+          font: Theme.tipFont
           inputMethodHints: Qt.ImhDigitsOnly
           validator: IntValidator {
             bottom: 1
@@ -1852,7 +1852,7 @@ Column {
           }
         }
 
-        QfButton {
+        Button {
           text: qsTr("Zapisz")
           enabled: customDistance.text !== ""
           onClicked: {
@@ -1863,7 +1863,7 @@ Column {
         }
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: quickCaptureBar.bearing1Valid ? qsTr("Nie wiem — to drugi namiar") : qsTr("Nie wiem — zrobię drugi namiar")
         onClicked: {
@@ -1875,7 +1875,7 @@ Column {
   }
 
   // WorkField: wybor warstwy docelowej dla pustego klawisza
-  QfPopup {
+  Popup {
     id: layerPicker
 
     parent: mainWindow.contentItem
@@ -1884,7 +1884,7 @@ Column {
     x: (mainWindow.width - width) / 2
     y: (mainWindow.height - height) / 2
     modal: true
-    closePolicy: QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
     background: Rectangle {
       color: "#EE263238"
@@ -1902,7 +1902,7 @@ Column {
         Layout.fillWidth: true
         text: qsTr("Warstwa dla szybkiego zapisu")
         color: "#80CBC4"
-        font: QfTheme.strongFont
+        font: Theme.strongFont
         wrapMode: Text.Wrap
       }
 
@@ -1910,7 +1910,7 @@ Column {
         Layout.fillWidth: true
         text: qsTr("Ten projekt nie ma warstw szablonu. Wskaż warstwę punktową, do której ma trafiać szybki zapis.")
         color: "#B0BEC5"
-        font: QfTheme.tinyFont
+        font: Theme.tinyFont
         wrapMode: Text.Wrap
       }
 
@@ -1920,15 +1920,15 @@ Column {
         Layout.fillHeight: true
         clip: true
 
-        model: QfMapLayerModel {
+        model: MapLayerModel {
           project: qgisProject
         }
 
-        QfScrollBar.vertical: QfScrollBar {
+        ScrollBar.vertical: ScrollBar {
         }
 
         delegate: ItemDelegate {
-          // QfMapLayerModel nie przyjmuje filtrow z QML (Qgis.LayerFilter nie
+          // MapLayerModel nie przyjmuje filtrow z QML (Qgis.LayerFilter nie
           // jest wystawione), wiec odsiewamy warstwy nie-wektorowe tutaj
           readonly property bool isVector: model.LayerType === Qgis.LayerType.Vector && (model.GeometryType === Qgis.GeometryType.Point || model.GeometryType === Qgis.GeometryType.Line || model.GeometryType === Qgis.GeometryType.Polygon) && quickCaptureBar.layerWritable(model.LayerPointer) && quickCaptureBar.customLayerNames.indexOf(model.Name) < 0
 
@@ -1939,7 +1939,7 @@ Column {
           contentItem: Text {
             text: model.Name
             color: "white"
-            font: QfTheme.tipFont
+            font: Theme.tipFont
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
           }
@@ -1948,7 +1948,7 @@ Column {
         }
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Nowa pusta warstwa…")
         onClicked: {
@@ -1986,7 +1986,7 @@ Column {
     Text {
       anchors.centerIn: parent
       text: "FOTO"
-      font.pointSize: QfTheme.tinyFont.pointSize
+      font.pointSize: Theme.tinyFont.pointSize
       font.bold: true
       color: "#003D33"
     }

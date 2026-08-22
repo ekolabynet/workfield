@@ -3,9 +3,9 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
-QfPopup {
+Popup {
   id: fieldsScreen
 
   property var t
@@ -35,7 +35,7 @@ QfPopup {
   }
 
   function reload() {
-    entries = layer ? QfLayerUtils.layerFields(layer) : [];
+    entries = layer ? LayerUtils.layerFields(layer) : [];
   }
 
   parent: mainWindow.contentItem
@@ -44,7 +44,7 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: QfPopup.CloseOnEscape
+  closePolicy: Popup.CloseOnEscape
 
   ColumnLayout {
     anchors.fill: parent
@@ -67,7 +67,7 @@ QfPopup {
 
     Text {
       Layout.fillWidth: true
-      visible: fieldsScreen.layer && !QfLayerUtils.canEditFields(fieldsScreen.layer)
+      visible: fieldsScreen.layer && !LayerUtils.canEditFields(fieldsScreen.layer)
       text: qsTr("Ta warstwa nie pozwala na zmianę struktury pól.")
       font: t.tipFont
       color: t.warningColor
@@ -116,7 +116,7 @@ QfPopup {
           height: 32
           padding: 0
           bgcolor: "transparent"
-          enabled: !isSystemField && fieldsScreen.layer && QfLayerUtils.canEditFields(fieldsScreen.layer)
+          enabled: !isSystemField && fieldsScreen.layer && LayerUtils.canEditFields(fieldsScreen.layer)
           iconSource: t.getThemeVectorIcon("ic_delete_forever_white_24dp")
           iconColor: t.errorColor
 
@@ -145,7 +145,7 @@ QfPopup {
       Layout.fillWidth: true
       spacing: 6
 
-      QfTextField {
+      TextField {
         Layout.fillWidth: true
         font: t.defaultFont
         placeholderText: qsTr("nazwa pola")
@@ -153,7 +153,7 @@ QfPopup {
         onTextChanged: fieldsScreen.newFieldName = text
       }
 
-      QfComboBox {
+      ComboBox {
         Layout.preferredWidth: 150
         font: t.defaultFont
         model: fieldsScreen.fieldTypes.map(f => f.label)
@@ -162,40 +162,40 @@ QfPopup {
       }
     }
 
-    QfButton {
+    Button {
       Layout.fillWidth: true
       text: qsTr("Dodaj pole")
-      enabled: fieldsScreen.newFieldName.trim() !== "" && fieldsScreen.layer && QfLayerUtils.canEditFields(fieldsScreen.layer)
+      enabled: fieldsScreen.newFieldName.trim() !== "" && fieldsScreen.layer && LayerUtils.canEditFields(fieldsScreen.layer)
 
       onClicked: {
         const type = fieldsScreen.fieldTypes[fieldsScreen.newFieldTypeIndex].key;
         const name = fieldsScreen.newFieldName.trim();
 
         if (type === "attachment") {
-          const existing = QfLayerUtils.layerFields(fieldsScreen.layer);
+          const existing = LayerUtils.layerFields(fieldsScreen.layer);
           const hasUuid = existing.some(f => f.name === "uuid");
           if (!hasUuid) {
-            const uuidError = QfLayerUtils.addLayerField(fieldsScreen.layer, "uuid", "text");
+            const uuidError = LayerUtils.addLayerField(fieldsScreen.layer, "uuid", "text");
             if (uuidError !== "") {
               displayToast(uuidError);
               return;
             }
           }
 
-          const fieldError = QfLayerUtils.addLayerField(fieldsScreen.layer, name, "text");
+          const fieldError = LayerUtils.addLayerField(fieldsScreen.layer, name, "text");
           if (fieldError !== "") {
             displayToast(fieldError);
             return;
           }
 
-          QfLayerUtils.setAttachmentField(fieldsScreen.layer, name);
+          LayerUtils.setAttachmentField(fieldsScreen.layer, name);
           displayToast(qsTr("Dodano pole zdjęć %1").arg(name));
           fieldsScreen.newFieldName = "";
           fieldsScreen.reload();
           return;
         }
 
-        const error = QfLayerUtils.addLayerField(fieldsScreen.layer, name, type);
+        const error = LayerUtils.addLayerField(fieldsScreen.layer, name, type);
         if (error === "") {
           displayToast(qsTr("Dodano pole %1").arg(name));
           fieldsScreen.newFieldName = "";
@@ -206,7 +206,7 @@ QfPopup {
       }
     }
 
-    QfButton {
+    Button {
       Layout.fillWidth: true
       Layout.topMargin: 8
       text: qsTr("Gotowe")
@@ -215,7 +215,7 @@ QfPopup {
     }
   }
 
-  QfPopup {
+  Popup {
     id: removeFieldConfirm
 
     property string fieldName: ""
@@ -225,7 +225,7 @@ QfPopup {
     x: (mainWindow.width - width) / 2
     y: (mainWindow.height - height) / 2
     modal: true
-    closePolicy: QfPopup.CloseOnEscape
+    closePolicy: Popup.CloseOnEscape
 
     ColumnLayout {
       anchors.fill: parent
@@ -252,19 +252,19 @@ QfPopup {
         Layout.topMargin: 8
         spacing: 8
 
-        QfButton {
+        Button {
           Layout.fillWidth: true
           text: qsTr("Anuluj")
           onClicked: removeFieldConfirm.close()
         }
 
-        QfButton {
+        Button {
           Layout.fillWidth: true
           text: qsTr("Usuń")
           highlighted: true
 
           onClicked: {
-            const error = QfLayerUtils.removeLayerField(fieldsScreen.layer, removeFieldConfirm.fieldName);
+            const error = LayerUtils.removeLayerField(fieldsScreen.layer, removeFieldConfirm.fieldName);
             displayToast(error === "" ? qsTr("Usunięto pole %1").arg(removeFieldConfirm.fieldName) : error);
             fieldsScreen.reload();
             removeFieldConfirm.close();

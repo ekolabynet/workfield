@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
 ColumnLayout {
   property var settingsPage
@@ -22,8 +22,8 @@ ColumnLayout {
 
     Label {
       text: qsTr('Advanced')
-      font: QfTheme.strongFont
-      color: QfTheme.mainTextColor
+      font: Theme.strongFont
+      color: Theme.mainTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
       Layout.topMargin: 5
@@ -51,8 +51,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("Autozapis projektu")
-      font: QfTheme.strongFont
-      color: QfTheme.mainTextColor
+      font: Theme.strongFont
+      color: Theme.mainTextColor
       Layout.fillWidth: true
       Layout.topMargin: 10
       Layout.columnSpan: 2
@@ -60,8 +60,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("Zapisuj projekt automatycznie co (minuty, 0 = wyłączone):")
-      font: QfTheme.defaultFont
-      color: QfTheme.mainTextColor
+      font: Theme.defaultFont
+      color: Theme.mainTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
     }
@@ -70,7 +70,7 @@ ColumnLayout {
       from: 0
       to: 120
       editable: true
-      font: QfTheme.defaultFont
+      font: Theme.defaultFont
       value: settingsRegistry ? settingsRegistry.projectAutoSaveInterval : 5
       onValueModified: {
         if (settingsRegistry) {
@@ -81,8 +81,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("Aparat")
-      font: QfTheme.strongFont
-      color: QfTheme.mainTextColor
+      font: Theme.strongFont
+      color: Theme.mainTextColor
       Layout.fillWidth: true
       Layout.topMargin: 10
       Layout.columnSpan: 2
@@ -90,14 +90,14 @@ ColumnLayout {
 
     Label {
       text: qsTr("Korekta obrotu podglądu i zdjęć (gdy obraz jest odwrócony):")
-      font: QfTheme.defaultFont
-      color: QfTheme.mainTextColor
+      font: Theme.defaultFont
+      color: Theme.mainTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
     }
 
-    QfComboBox {
-      font: QfTheme.defaultFont
+    ComboBox {
+      font: Theme.defaultFont
       model: ["0°", "90°", "180°", "270°"]
       currentIndex: settingsRegistry ? settingsRegistry.cameraRotationOffset / 90 : 0
       onActivated: {
@@ -109,8 +109,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("Katalog danych")
-      font: QfTheme.strongFont
-      color: QfTheme.mainTextColor
+      font: Theme.strongFont
+      color: Theme.mainTextColor
       Layout.fillWidth: true
       Layout.topMargin: 10
       Layout.columnSpan: 2
@@ -118,8 +118,8 @@ ColumnLayout {
 
     Label {
       text: qsTr("Miejsce przechowywania projektów, szablonów i pobranych danych. Dotknij lokalizacji (także zaznaczonej), aby przenieść, skopiować lub zacząć od nowa. Po zmianie uruchom aplikację ponownie.")
-      font: QfTheme.tipFont
-      color: QfTheme.secondaryTextColor
+      font: Theme.tipFont
+      color: Theme.secondaryTextColor
       wrapMode: Text.WordWrap
       Layout.fillWidth: true
       Layout.columnSpan: 2
@@ -144,7 +144,7 @@ ColumnLayout {
             id: dirRadio
             ButtonGroup.group: dirButtonGroup
             width: parent.width
-            font: QfTheme.defaultFont
+            font: Theme.defaultFont
             text: (modelData.indexOf("emulated") !== -1 ? qsTr("Pamięć wewnętrzna") : modelData.indexOf("/storage/") === 0 ? qsTr("Karta SD") : qsTr("Dysk lokalny")) + " — " + iface.storageFreeGb(modelData).toFixed(1) + qsTr(" GB wolne")
           checked: iface.preferredDataDir() === "" ? index === 0 : modelData.indexOf(iface.preferredDataDir()) === 0 || iface.preferredDataDir().indexOf(modelData) === 0
 
@@ -158,8 +158,8 @@ ColumnLayout {
             width: parent.width
             leftPadding: 40
             text: modelData
-            font: QfTheme.tinyFont
-            color: QfTheme.secondaryTextColor
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
             elide: Text.ElideMiddle
           }
         }
@@ -167,7 +167,7 @@ ColumnLayout {
     }
   }
 
-  QfDialog {
+  Dialog {
     id: storageMigrateDialog
 
     property string targetDir: ""
@@ -186,36 +186,36 @@ ColumnLayout {
       Label {
         Layout.fillWidth: true
         text: qsTr("Co zrobić z obecnymi danymi? Przenoszenie i kopiowanie może potrwać kilka minut przy dużych plikach — nie zamykaj aplikacji w trakcie.")
-        font: QfTheme.defaultFont
-        color: QfTheme.mainTextColor
+        font: Theme.defaultFont
+        color: Theme.mainTextColor
         wrapMode: Text.WordWrap
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Przenieś dane do nowej lokalizacji")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: storageMigrateDialog.apply(true, true)
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Skopiuj dane (oryginały zostają)")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: storageMigrateDialog.apply(true, false)
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Zacznij z pustym katalogiem")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: storageMigrateDialog.apply(false, false)
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Anuluj")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: storageMigrateDialog.close()
       }
     }

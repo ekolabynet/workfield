@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
@@ -71,24 +71,24 @@ ColumnLayout {
     Layout.fillWidth: true
     wrapMode: Text.WordWrap
     text: qsTr("Konto chmury WorkField")
-    font: QfTheme.strongTipFont
-    color: QfTheme.mainTextColor
+    font: Theme.strongTipFont
+    color: Theme.mainTextColor
   }
 
   Label {
     Layout.fillWidth: true
     wrapMode: Text.WordWrap
     text: qsTr("Bez konta widoczne są tylko szablony publiczne. Konto daje dostęp do szablonów zespołu, wydań zadań i odkładania zwrotów.")
-    font: QfTheme.tipFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.tipFont
+    color: Theme.secondaryTextColor
   }
 
   Label {
     text: qsTr("Adres serwera")
-    font: QfTheme.tinyFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
   }
-  QfTextField {
+  TextField {
     id: poleSerwer
     Layout.fillWidth: true
     text: cloudSettings.serwer
@@ -98,10 +98,10 @@ ColumnLayout {
 
   Label {
     text: qsTr("Login")
-    font: QfTheme.tinyFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
   }
-  QfTextField {
+  TextField {
     id: poleLogin
     Layout.fillWidth: true
     text: cloudSettings.login
@@ -110,10 +110,10 @@ ColumnLayout {
 
   Label {
     text: qsTr("Hasło aplikacji")
-    font: QfTheme.tinyFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
   }
-  QfTextField {
+  TextField {
     id: poleHaslo
     Layout.fillWidth: true
     text: cloudSettings.haslo
@@ -125,8 +125,8 @@ ColumnLayout {
     Layout.fillWidth: true
     wrapMode: Text.WordWrap
     text: qsTr("Hasło aplikacji utworzysz w NextCloud: Ustawienia → Bezpieczeństwo → Utwórz nowe hasło aplikacji. Nie używaj hasła do konta — hasło aplikacji można unieważnić osobno.")
-    font: QfTheme.tinyFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
   }
 
   RowLayout {
@@ -134,12 +134,12 @@ ColumnLayout {
     Layout.topMargin: 6
     spacing: 8
 
-    QfButton {
+    Button {
       text: qsTr("Sprawdź połączenie")
       onClicked: cloudSettings.sprawdz()
     }
 
-    QfButton {
+    Button {
       flat: true
       text: qsTr("Wyczyść")
       onClicked: {
@@ -156,7 +156,7 @@ ColumnLayout {
     wrapMode: Text.WordWrap
     visible: cloudSettings.stan !== ""
     text: cloudSettings.stan
-    font: QfTheme.tipFont
-    color: cloudSettings.stan.indexOf(qsTr("połączono")) === 0 ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+    font: Theme.tipFont
+    color: cloudSettings.stan.indexOf(qsTr("połączono")) === 0 ? Theme.mainTextColor : Theme.secondaryTextColor
   }
 }

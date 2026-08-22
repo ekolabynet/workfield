@@ -1305,7 +1305,7 @@ Page {
         color: QfTheme.mainTextColor
       }
 
-      QfTextField {
+      TextField {
         id: downloadUploadWebdavPasswordInput
         enabled: !webdavConnectionLoader.item || !webdavConnectionLoader.item.isFetchingAvailablePaths
         width: downloadUploadWebdavIntroLabel.width
@@ -1438,7 +1438,7 @@ Page {
           color: QfTheme.secondaryTextColor
         }
 
-        QfComboBox {
+        ComboBox {
           id: importWebdavUrlInput
           Layout.fillWidth: true
           enabled: !webdavConnectionLoader.item || !webdavConnectionLoader.item.isFetchingAvailablePaths
@@ -1486,7 +1486,7 @@ Page {
           color: QfTheme.secondaryTextColor
         }
 
-        QfComboBox {
+        ComboBox {
           id: importWebdavUserInput
           enabled: !webdavConnectionLoader.item || !webdavConnectionLoader.item.isFetchingAvailablePaths
           Layout.fillWidth: true
@@ -1521,7 +1521,7 @@ Page {
           }
         }
 
-        QfTextField {
+        TextField {
           id: importWebdavPasswordInput
           enabled: !webdavConnectionLoader.item || !webdavConnectionLoader.item.isFetchingAvailablePaths
           Layout.fillWidth: true
@@ -1647,7 +1647,7 @@ Page {
             anchors.fill: parent
             anchors.margins: 1
             enabled: !webdavConnectionLoader.item || !webdavConnectionLoader.item.isFetchingAvailablePaths
-            QfScrollBar.vertical: QfScrollBar {}
+            ScrollBar.vertical: QfScrollBar {}
             clip: true
             model: []
 
@@ -1814,7 +1814,7 @@ Page {
           color: QfTheme.secondaryTextColor
         }
 
-        QfTextField {
+        TextField {
           id: importWebdavImportedFolderName
           enabled: !webdavConnectionLoader.item || !webdavConnectionLoader.item.isFetchingAvailablePaths
           width: parent.width
@@ -1897,7 +1897,7 @@ Page {
     }
   }
 
-  QfPopup {
+  Popup {
     id: gotoPathPopup
 
     parent: mainWindow.contentItem
@@ -1905,7 +1905,7 @@ Page {
     x: (mainWindow.width - width) / 2
     y: (mainWindow.height - height) / 2
     modal: true
-    closePolicy: QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
     ColumnLayout {
       anchors.fill: parent
@@ -1918,7 +1918,7 @@ Page {
         color: QfTheme.mainTextColor
       }
 
-      QfTextField {
+      TextField {
         id: gotoPathField
 
         Layout.fillWidth: true

@@ -934,7 +934,7 @@ void QfAppInterface::setPreferredDataDir( const QString &path )
 }
 
 #include <QStorageInfo>
-#include "platforms/platformutilities.h"
+#include "platforms/qfplatformutilities.h"
 
 double QfAppInterface::storageFreeGb( const QString &path ) const
 {

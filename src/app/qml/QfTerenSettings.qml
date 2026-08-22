@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
@@ -12,7 +12,7 @@ import QfTheme
  * Sekcja 2: skrot do klawiszy szybkiego zapisu.
  * Wartosci trzymane w ustawieniach aplikacji (klucze WorkField/*).
  */
-QfPopup {
+Popup {
   id: terenSettings
 
   parent: mainWindow.contentItem
@@ -22,7 +22,7 @@ QfPopup {
   x: (mainWindow.width - width) / 2
   y: (mainWindow.height - height) / 2
   modal: true
-  closePolicy: QfPopup.CloseOnEscape
+  closePolicy: Popup.CloseOnEscape
 
   background: Rectangle {
     color: "#EE263238"
@@ -46,7 +46,7 @@ QfPopup {
     clip: true
     flickableDirection: Flickable.VerticalFlick
 
-    QfScrollBar.vertical: QfScrollBar {
+    ScrollBar.vertical: ScrollBar {
     }
 
     ColumnLayout {
@@ -60,7 +60,7 @@ QfPopup {
       Layout.fillWidth: true
       text: qsTr("Teren — ustawienia WorkField")
       color: "#80CBC4"
-      font: QfTheme.strongFont
+      font: Theme.strongFont
       wrapMode: Text.Wrap
     }
 
@@ -68,7 +68,7 @@ QfPopup {
       Layout.fillWidth: true
       text: qsTr("Przyciski edycji geometrii")
       color: "#B0BEC5"
-      font: QfTheme.strongTipFont
+      font: Theme.strongTipFont
     }
 
     RowLayout {
@@ -78,16 +78,16 @@ QfPopup {
       Text {
         text: qsTr("Rozmiar")
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
 
-      QfSlider {
+      Slider {
         id: suwakRozmiar
         Layout.fillWidth: true
         from: 100
         to: 150
         stepSize: 10
-        snapMode: QfSlider.SnapAlways
+        snapMode: Slider.SnapAlways
         value: settings.valueInt('WorkField/przyciskiSkala', 100)
         onMoved: settings.setValue('WorkField/przyciskiSkala', Math.round(value))
       }
@@ -95,7 +95,7 @@ QfPopup {
       Text {
         text: Math.round(suwakRozmiar.value) + "%"
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
     }
 
@@ -103,7 +103,7 @@ QfPopup {
       Layout.fillWidth: true
       spacing: 8
 
-      QfSwitch {
+      Switch {
         id: przelacznikOkragle
         checked: settings.valueBool('WorkField/przyciskiOkragle', true)
         onToggled: settings.setValue('WorkField/przyciskiOkragle', checked)
@@ -113,7 +113,7 @@ QfPopup {
         Layout.fillWidth: true
         text: qsTr("Okrągłe przyciski")
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
         wrapMode: Text.Wrap
       }
     }
@@ -125,16 +125,16 @@ QfPopup {
       Text {
         text: qsTr("Wibracje")
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
 
-      QfSlider {
+      Slider {
         id: suwakHaptyka
         Layout.fillWidth: true
         from: 0
         to: 5
         stepSize: 1
-        snapMode: QfSlider.SnapAlways
+        snapMode: Slider.SnapAlways
         value: settings.valueInt('WorkField/haptykaSila', 3)
         onMoved: {
           settings.setValue('WorkField/haptykaSila', Math.round(value));
@@ -145,7 +145,7 @@ QfPopup {
       Text {
         text: Math.round(suwakHaptyka.value) === 0 ? qsTr("wył.") : "×" + Math.round(suwakHaptyka.value)
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
     }
 
@@ -156,24 +156,24 @@ QfPopup {
       Text {
         text: qsTr("Testuj tony:")
         color: "#B0BEC5"
-        font: QfTheme.tinyFont
+        font: Theme.tinyFont
       }
 
-      QfButton {
+      Button {
         text: qsTr("dodaj")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: terenSettings.haptykaTest(15)
       }
 
-      QfButton {
+      Button {
         text: qsTr("usuń")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: terenSettings.haptykaTest(45)
       }
 
-      QfButton {
+      Button {
         text: qsTr("zapisz")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: terenSettings.haptykaTest(80)
       }
     }
@@ -182,7 +182,7 @@ QfPopup {
       Layout.fillWidth: true
       text: qsTr("Rozmiar i okrągłość zaczną działać po ponownym uruchomieniu aplikacji. Siła wibracji działa od razu.")
       color: "#B0BEC5"
-      font: QfTheme.tinyFont
+      font: Theme.tinyFont
       wrapMode: Text.Wrap
     }
 
@@ -191,7 +191,7 @@ QfPopup {
       Layout.topMargin: 6
       text: qsTr("Panele akcji")
       color: "#B0BEC5"
-      font: QfTheme.strongTipFont
+      font: Theme.strongTipFont
     }
 
     RowLayout {
@@ -201,17 +201,17 @@ QfPopup {
       Text {
         text: qsTr("Gęstość")
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
 
-      QfComboBox {
+      ComboBox {
         id: wyborGestosci
         Layout.fillWidth: true
         model: [qsTr("Zwarta"), qsTr("Standardowa"), qsTr("Rękawice")]
         currentIndex: settings.valueInt('WorkField/gestosc', 1)
         onActivated: {
           settings.setValue('WorkField/gestosc', currentIndex);
-          QfTheme.gestosc = currentIndex;
+          Theme.gestosc = currentIndex;
         }
       }
     }
@@ -223,17 +223,17 @@ QfPopup {
       Text {
         text: qsTr("Układ")
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
 
-      QfComboBox {
+      ComboBox {
         id: wyborUkladu
         Layout.fillWidth: true
         model: [qsTr("Lista wierszy"), qsTr("Kafle")]
         currentIndex: settings.valueInt('WorkField/ukladAkcji', 0)
         onActivated: {
           settings.setValue('WorkField/ukladAkcji', currentIndex);
-          QfTheme.ukladAkcji = currentIndex;
+          Theme.ukladAkcji = currentIndex;
         }
       }
     }
@@ -242,7 +242,7 @@ QfPopup {
       Layout.fillWidth: true
       text: qsTr("Zmiana działa od razu. Gęstość „Rękawice” powiększa przyciski i odstępy do pracy w rękawicach.")
       color: "#B0BEC5"
-      font: QfTheme.tinyFont
+      font: Theme.tinyFont
       wrapMode: Text.Wrap
     }
 
@@ -252,7 +252,7 @@ QfPopup {
       visible: Qt.platform.os !== "android" && Qt.platform.os !== "ios"
       spacing: 8
 
-      QfSwitch {
+      Switch {
         checked: settings.valueBool('WorkField/quickCaptureNaKomputerze', false)
         onToggled: {
           settings.setValue('WorkField/quickCaptureNaKomputerze', checked);
@@ -266,7 +266,7 @@ QfPopup {
         Layout.fillWidth: true
         text: qsTr("Pasek szybkiego zapisu na komputerze")
         color: "white"
-        font: QfTheme.tipFont
+        font: Theme.tipFont
         wrapMode: Text.Wrap
       }
     }
@@ -277,7 +277,7 @@ QfPopup {
       color: "#455A64"
     }
 
-    QfButton {
+    Button {
       Layout.fillWidth: true
       text: qsTr("Pliki projektu (edytor)…")
       onClicked: {
@@ -286,7 +286,7 @@ QfPopup {
       }
     }
 
-    QfButton {
+    Button {
       Layout.fillWidth: true
       text: qsTr("Klawisze szybkiego zapisu…")
       onClicked: {
@@ -299,7 +299,7 @@ QfPopup {
       Layout.fillHeight: true
     }
 
-    QfButton {
+    Button {
       Layout.fillWidth: true
       text: qsTr("Zamknij")
       onClicked: terenSettings.close()

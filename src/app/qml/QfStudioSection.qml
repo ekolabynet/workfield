@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtQuick.Effects
 import org.qfield
-import QfTheme
+import Theme
 
 /**
  * WFG Studio — zakładka "Studio" szuflady (etap 1, tylko desktop).
@@ -41,7 +41,7 @@ ColumnLayout {
   readonly property string korzen: naTelefonie ? iface.dataRoot()
                                                : ustawieniaStudia.korzenProjektow
 
-  QfSettings {
+  Settings {
     id: ustawieniaStudia
     category: "WFGStudio"
     // desktop ma szeroki dostęp do dysku, więc korzeń jest ustawialny;
@@ -54,7 +54,7 @@ ColumnLayout {
 
 
   //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
-  component QfPozycjaMenu: QfButton {
+  component QfPozycjaMenu: Button {
     id: pozycja
 
     // WorkField 18.08.2026: wlasne tlo NIE jest kosmetyka. Styl pulpitowy
@@ -72,14 +72,14 @@ ColumnLayout {
     flat: true
     Layout.fillWidth: true
     implicitHeight: 34
-    font.pointSize: QfTheme.tinyFont.pointSize
+    font.pointSize: Theme.tinyFont.pointSize
 
     contentItem: RowLayout {
       spacing: 10
 
       Image {
         id: obrazIkony
-        source: pozycja.ikona !== "" ? QfTheme.getThemeVectorIcon(pozycja.ikona) : ""
+        source: pozycja.ikona !== "" ? Theme.getThemeVectorIcon(pozycja.ikona) : ""
         sourceSize: Qt.size(22, 22)
         visible: false
       }
@@ -92,13 +92,13 @@ ColumnLayout {
         Layout.preferredHeight: 22
         source: obrazIkony
         visible: obrazIkony.status === Image.Ready
-        color: pozycja.enabled ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+        color: pozycja.enabled ? Theme.mainTextColor : Theme.secondaryTextColor
       }
       Text {
         Layout.fillWidth: true
         text: pozycja.text
         font: pozycja.font
-        color: pozycja.enabled ? QfTheme.mainTextColor : QfTheme.secondaryTextColor
+        color: pozycja.enabled ? Theme.mainTextColor : Theme.secondaryTextColor
         elide: Text.ElideRight
         horizontalAlignment: Text.AlignLeft
         verticalAlignment: Text.AlignVCenter
@@ -388,17 +388,17 @@ ColumnLayout {
     Text {
       Layout.fillWidth: true
       text: studio.korzen
-      font: QfTheme.tinyFont
-      color: QfTheme.secondaryTextColor
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
       elide: Text.ElideMiddle
     }
     // WorkField 18.08.2026: te dwa przyciski rysowaly ikone przez
-    // `icon.source:`, czyli kanalem stylu Material — a nie naszym QfTheme.
+    // `icon.source:`, czyli kanalem stylu Material — a nie naszym Theme.
     // Dlatego zostawaly ciemne mimo dwoch wczesniejszych latek na ikony:
     // tamte zmienialy komponenty z wlasnym contentItem, ten wiersz nie.
     // Teraz jedzie tym samym wzorcem co QfPozycjaMenu: ukryty Image +
-    // ColorOverlay, kolor z QfTheme. Styl nie ma juz nic do powiedzenia.
-    QfButton {
+    // ColorOverlay, kolor z Theme. Styl nie ma juz nic do powiedzenia.
+    Button {
       id: przyciskZmien
       flat: true
       // WorkField 18.08.2026: na telefonie FolderDialog nie siega poza
@@ -412,14 +412,14 @@ ColumnLayout {
         radius: 4
       }
       text: qsTr("Zmień…")
-      font: QfTheme.tinyFont
+      font: Theme.tinyFont
       onClicked: wyborKorzenia.open()
 
       contentItem: RowLayout {
         spacing: 6
         Image {
           id: ikonaZmien
-          source: QfTheme.getThemeVectorIcon("wfg_ustawienia")
+          source: Theme.getThemeVectorIcon("wfg_ustawienia")
           sourceSize: Qt.size(18, 18)
           visible: false
         }
@@ -428,17 +428,17 @@ ColumnLayout {
           Layout.preferredHeight: 18
           source: ikonaZmien
           visible: ikonaZmien.status === Image.Ready
-          color: QfTheme.mainTextColor
+          color: Theme.mainTextColor
         }
         Text {
           text: przyciskZmien.text
           font: przyciskZmien.font
-          color: QfTheme.mainTextColor
+          color: Theme.mainTextColor
           verticalAlignment: Text.AlignVCenter
         }
       }
     }
-    QfButton {
+    Button {
       id: przyciskOdswiez
       flat: true
 
@@ -449,14 +449,14 @@ ColumnLayout {
         radius: 4
       }
       text: qsTr("Odśwież")
-      font: QfTheme.tinyFont
+      font: Theme.tinyFont
       onClicked: studio.przeladuj()
 
       contentItem: RowLayout {
         spacing: 6
         Image {
           id: ikonaOdswiez
-          source: QfTheme.getThemeVectorIcon("wfg_odswiez")
+          source: Theme.getThemeVectorIcon("wfg_odswiez")
           sourceSize: Qt.size(18, 18)
           visible: false
         }
@@ -465,12 +465,12 @@ ColumnLayout {
           Layout.preferredHeight: 18
           source: ikonaOdswiez
           visible: ikonaOdswiez.status === Image.Ready
-          color: QfTheme.mainTextColor
+          color: Theme.mainTextColor
         }
         Text {
           text: przyciskOdswiez.text
           font: przyciskOdswiez.font
-          color: QfTheme.mainTextColor
+          color: Theme.mainTextColor
           verticalAlignment: Text.AlignVCenter
         }
       }
@@ -479,7 +479,7 @@ ColumnLayout {
 
 
   // ── czasowniki: menu akcji na górze sekcji (decyzja 2026-08-10) ──
-  QfSettings {
+  Settings {
     id: ustawieniaPaneluM
     category: "WFGPanel"
     property int ukladMenu: 0
@@ -524,7 +524,7 @@ ColumnLayout {
     // (QfWymianaLokalna), ktore dziala bez zadnego z tych trzech warunkow.
     // WorkField 18.08.2026: „Zamień na szablon" przeniesione do zakładki
     // Projekt — czynność dotyczy projektu otwartego, nie zaznaczenia w drzewie.
-    // QfDialog i silnik zostają tutaj; wejściem jest zamienNaSzablonDla().
+    // Dialog i silnik zostają tutaj; wejściem jest zamienNaSzablonDla().
     QfPozycjaMenu {
       text: qsTr("Przerwij operację")
       ikona: "wfg_przerwij"
@@ -557,7 +557,7 @@ ColumnLayout {
       height: (wierszGalezi ? naglowekGalezi.implicitHeight
                             : opisKol.implicitHeight) + 10
       radius: 4
-      color: zaznaczony ? QfTheme.mainColor : "transparent"
+      color: zaznaczony ? Theme.mainColor : "transparent"
 
       RowLayout {
         id: naglowekGalezi
@@ -571,8 +571,8 @@ ColumnLayout {
 
         Text {
           text: wierszGalezi && studio.zwiniete[modelData.klucz] ? "▸" : "▾"
-          font: QfTheme.tipFont
-          color: QfTheme.secondaryTextColor
+          font: Theme.tipFont
+          color: Theme.secondaryTextColor
         }
         ColumnLayout {
           Layout.fillWidth: true
@@ -581,8 +581,8 @@ ColumnLayout {
           Text {
             Layout.fillWidth: true
             text: wierszGalezi ? modelData.nazwa : ""
-            font: (modelData.poziom || 0) === 0 ? QfTheme.strongTipFont : QfTheme.tipFont
-            color: QfTheme.mainTextColor
+            font: (modelData.poziom || 0) === 0 ? Theme.strongTipFont : Theme.tipFont
+            color: Theme.mainTextColor
             elide: Text.ElideRight
           }
           // WorkField 18.08.2026: stan zlecenia wtopiony w wiersz drzewa —
@@ -591,15 +591,15 @@ ColumnLayout {
             Layout.fillWidth: true
             visible: modelData.stan !== undefined && modelData.stan !== null
             text: studio.opisStanu(modelData.stan)
-            font: QfTheme.tinyFont
-            color: (modelData.stan && modelData.stan.w_terenie > 0) ? QfTheme.warningColor : QfTheme.secondaryTextColor
+            font: Theme.tinyFont
+            color: (modelData.stan && modelData.stan.w_terenie > 0) ? Theme.warningColor : Theme.secondaryTextColor
             elide: Text.ElideRight
           }
         }
         Text {
           text: wierszGalezi ? modelData.licznik : ""
-          font: QfTheme.tinyFont
-          color: QfTheme.secondaryTextColor
+          font: Theme.tinyFont
+          color: Theme.secondaryTextColor
         }
       }
 
@@ -616,8 +616,8 @@ ColumnLayout {
         Text {
           Layout.fillWidth: true
           text: modelData.nazwa || ""
-          font: QfTheme.tipFont
-          color: zaznaczony ? "white" : QfTheme.mainTextColor
+          font: Theme.tipFont
+          color: zaznaczony ? "white" : Theme.mainTextColor
           elide: Text.ElideRight
         }
         Text {
@@ -625,8 +625,8 @@ ColumnLayout {
           text: wierszGalezi ? "" : modelData.typ + " · "
                 + modelData.zmodyfikowano.replace("T", " ").substring(0, 16)
                 + (modelData.gdzie !== "" ? " · " + modelData.gdzie : "")
-          font: QfTheme.tinyFont
-          color: zaznaczony ? "white" : QfTheme.secondaryTextColor
+          font: Theme.tinyFont
+          color: zaznaczony ? "white" : Theme.secondaryTextColor
           elide: Text.ElideRight
         }
       }
@@ -659,8 +659,8 @@ ColumnLayout {
     Layout.bottomMargin: 4
     visible: listaProjektow.count === 0
     text: qsTr("Nie znaleziono żadnych zleceń w:\n%1").arg(studio.korzen)
-    font: QfTheme.tipFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.tipFont
+    color: Theme.secondaryTextColor
     wrapMode: Text.Wrap
   }
 
@@ -668,8 +668,8 @@ ColumnLayout {
   Text {
     Layout.leftMargin: 8
     text: qsTr("Zapis operacji")
-    font: QfTheme.tinyFont
-    color: QfTheme.secondaryTextColor
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
     // WorkField 18.08.2026: puste pole zabieralo 110 px nalezacych sie drzewu.
     // Pokazuje sie dopiero, gdy cos w nim jest — pierwsza dopisana linia
     // przywoluje je z powrotem, wiec nic nie ginie.
@@ -688,8 +688,8 @@ ColumnLayout {
       id: zapis
       readOnly: true
       wrapMode: TextEdit.Wrap
-      font: QfTheme.tinyFont
-      color: QfTheme.mainTextColor
+      font: Theme.tinyFont
+      color: Theme.mainTextColor
 
       function dopisz(tekst) {
         append(tekst);
@@ -700,7 +700,7 @@ ColumnLayout {
 
 
   // ── dialog: Zamień na szablon ─────────────────────────────────
-  QfPopup {
+  Popup {
     id: dialogSzablonu
 
     parent: mainWindow.contentItem
@@ -715,19 +715,19 @@ ColumnLayout {
 
       Text {
         text: qsTr("Zamień projekt na szablon")
-        font: QfTheme.strongTipFont
-        color: QfTheme.mainTextColor
+        font: Theme.strongTipFont
+        color: Theme.mainTextColor
       }
       Text {
         Layout.fillWidth: true
         text: studio.celSzablonu
               ? qsTr("Kopia %1 trafi do szablonów bez części terenowej:\nbez DCIM, zdjęć i foto_tagi; tabele FITO_* zostaną wyczyszczone.\nOryginał pozostanie nietknięty.").arg(studio.celSzablonu.nazwa)
               : ""
-        font: QfTheme.tinyFont
-        color: QfTheme.secondaryTextColor
+        font: Theme.tinyFont
+        color: Theme.secondaryTextColor
         wrapMode: Text.WordWrap
       }
-      QfTextField {
+      TextField {
         id: poleNazwySzablonu
         Layout.fillWidth: true
         placeholderText: qsTr("nazwa szablonu")
@@ -735,12 +735,12 @@ ColumnLayout {
       RowLayout {
         Layout.fillWidth: true
         Item { Layout.fillWidth: true }
-        QfButton {
+        Button {
           flat: true
           text: qsTr("Anuluj")
           onClicked: dialogSzablonu.close()
         }
-        QfButton {
+        Button {
           text: qsTr("Utwórz szablon")
           enabled: poleNazwySzablonu.text.trim() !== ""
           onClicked: {

@@ -9,20 +9,20 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
 import org.qgis
-import QfTheme
+import Theme
 
 /**
  * \ingroup qml
  *
- * WorkField main (left) drawer. Clean reimplementation of QfDashBoard with
+ * WorkField main (left) drawer. Clean reimplementation of DashBoard with
  * bottom tabs: Legenda / Narzędzia / Ustawienia / Pomoc.
- * Keeps the public contract of QfDashBoard (signals, aliases) so the rest of
+ * Keeps the public contract of DashBoard (signals, aliases) so the rest of
  * the application can keep addressing it as `dashBoard`.
  */
 Drawer {
   id: dashBoard
 
-  property var t: QfTheme
+  property var t: Theme
 
   onOpenedChanged: {
     if (opened) {
@@ -81,9 +81,9 @@ Drawer {
     const m = dashBoard.layerTree;
     for (let i = 0; i < m.rowCount(); i++) {
       const idx = m.index(i, 0);
-      if (m.data(idx, QfFlatLayerTreeModel.VectorLayerPointer) === warstwa) {
-        if ((m.data(idx, QfFlatLayerTreeModel.SnappingEnabled) === true) !== wlaczony) {
-          m.setData(idx, wlaczony, QfFlatLayerTreeModel.SnappingEnabled);
+      if (m.data(idx, FlatLayerTreeModel.VectorLayerPointer) === warstwa) {
+        if ((m.data(idx, FlatLayerTreeModel.SnappingEnabled) === true) !== wlaczony) {
+          m.setData(idx, wlaczony, FlatLayerTreeModel.SnappingEnabled);
           projectInfo.saveLayerSnappingConfiguration(warstwa);
         }
         return true;
@@ -114,12 +114,12 @@ Drawer {
       const n0 = m0.rowCount();
       for (let i0 = 0; i0 < n0; i0++) {
         const idx0 = m0.index(i0, 0);
-        const wsk0 = m0.data(idx0, QfFlatLayerTreeModel.VectorLayerPointer);
+        const wsk0 = m0.data(idx0, FlatLayerTreeModel.VectorLayerPointer);
         if (!wsk0)
           continue;
         const chcemy = wsk0 === warstwa || wsk0 === dashBoard.activeLayer;
-        if ((m0.data(idx0, QfFlatLayerTreeModel.SnappingEnabled) === true) !== chcemy)
-          m0.setData(idx0, chcemy, QfFlatLayerTreeModel.SnappingEnabled);
+        if ((m0.data(idx0, FlatLayerTreeModel.SnappingEnabled) === true) !== chcemy)
+          m0.setData(idx0, chcemy, FlatLayerTreeModel.SnappingEnabled);
         projectInfo.saveLayerSnappingConfiguration(wsk0);
       }
       displayToast(qsTr("Dociąganie: rysowana warstwa + %1").arg(nazwa));
@@ -133,9 +133,9 @@ Drawer {
     const m = dashBoard.layerTree;
     for (let i = 0; i < m.rowCount(); i++) {
       const idx = m.index(i, 0);
-      if (m.data(idx, QfFlatLayerTreeModel.VectorLayerPointer) === warstwa) {
-        const bylo = m.data(idx, QfFlatLayerTreeModel.SnappingEnabled) === true;
-        m.setData(idx, !bylo, QfFlatLayerTreeModel.SnappingEnabled);
+      if (m.data(idx, FlatLayerTreeModel.VectorLayerPointer) === warstwa) {
+        const bylo = m.data(idx, FlatLayerTreeModel.SnappingEnabled) === true;
+        m.setData(idx, !bylo, FlatLayerTreeModel.SnappingEnabled);
         projectInfo.saveLayerSnappingConfiguration(warstwa);
         displayToast(!bylo ? qsTr("Dociąganie do: %1").arg(nazwa) : qsTr("Bez dociągania do: %1").arg(nazwa));
         return;
@@ -144,7 +144,7 @@ Drawer {
   }
 
   //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
-  component QfPozycjaMenu: QfButton {
+  component QfPozycjaMenu: Button {
     id: pozycja
 
     // WorkField 18.08.2026: wlasne tlo NIE jest kosmetyka. Styl pulpitowy
@@ -203,7 +203,7 @@ Drawer {
   property alias allowActiveLayerChange: legend.allowActiveLayerChange
   /// type:QgsVectorLayer
   property alias activeLayer: legend.activeLayer
-  /// type:QfFlatLayerTreeModel
+  /// type:FlatLayerTreeModel
   property alias layerTree: legend.model
   /// type:QgsQuickMapSettings
   property MapSettings mapSettings
@@ -222,7 +222,7 @@ Drawer {
   // się o jego szerokość (patrz mapCanvas w qgismobileapp.qml)
   modal: Qt.platform.os === "android" || Qt.platform.os === "ios"
   dim: modal
-  closePolicy: modal ? QfPopup.CloseOnEscape | QfPopup.CloseOnPressOutside : QfPopup.CloseOnEscape
+  closePolicy: modal ? Popup.CloseOnEscape | Popup.CloseOnPressOutside : Popup.CloseOnEscape
   dragMargin: modal ? 10 : 0
   interactive: allowInteractive && modal
 
@@ -490,7 +490,7 @@ Drawer {
     }
   }
 
-  QfDialog {
+  Dialog {
     id: demScopeDialog
 
     parent: mainWindow.contentItem
@@ -507,8 +507,8 @@ Drawer {
       Label {
         Layout.fillWidth: true
         text: qsTr("Skorowidze GUGiK dzielą arkusze na roczniki. Które pobrać?")
-        font: QfTheme.defaultFont
-        color: QfTheme.mainTextColor
+        font: Theme.defaultFont
+        color: Theme.mainTextColor
         wrapMode: Text.WordWrap
       }
 
@@ -518,21 +518,21 @@ Drawer {
 
         Label {
           text: qsTr("Nazwa obszaru:")
-          font: QfTheme.tipFont
-          color: QfTheme.secondaryTextColor
+          font: Theme.tipFont
+          color: Theme.secondaryTextColor
         }
 
-        QfTextField {
+        TextField {
           id: areaNameField
           Layout.fillWidth: true
-          font: QfTheme.defaultFont
+          font: Theme.defaultFont
           text: demDownloader.areaName
         }
       }
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Najnowsze arkusze")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: {
           demDownloader.areaName = areaNameField.text.trim() !== "" ? areaNameField.text.trim() : "Obszar " + demDownloader.areaCounter;
           demScopeDialog.close();
@@ -540,10 +540,10 @@ Drawer {
         }
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Wszystkie roczniki")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: {
           demDownloader.areaName = areaNameField.text.trim() !== "" ? areaNameField.text.trim() : "Obszar " + demDownloader.areaCounter;
           demScopeDialog.close();
@@ -551,10 +551,10 @@ Drawer {
         }
       }
 
-      QfButton {
+      Button {
         Layout.fillWidth: true
         text: qsTr("Anuluj")
-        font.pointSize: QfTheme.tinyFont.pointSize
+        font.pointSize: Theme.tinyFont.pointSize
         onClicked: demScopeDialog.close()
       }
     }
@@ -575,7 +575,7 @@ Drawer {
         const c = iface.transformPointToProjectCrs(dashBoard.pendingBlankCenter.x, dashBoard.pendingBlankCenter.y, "EPSG:2180");
         if (c.x !== undefined) {
           // extent oczekuje QgsRectangle - Qt.rect() daje QRectF i nie przechodzi
-          mapCanvas.mapSettings.setExtentFromPoints([QfGeometryUtils.point(c.x - 50, c.y - 50), QfGeometryUtils.point(c.x + 50, c.y + 50)]);
+          mapCanvas.mapSettings.setExtentFromPoints([GeometryUtils.point(c.x - 50, c.y - 50), GeometryUtils.point(c.x + 50, c.y + 50)]);
         }
       }
     }
@@ -615,8 +615,8 @@ Drawer {
       Text {
         Layout.fillWidth: true
         text: qsTr("WorkField")
-        font: QfTheme.strongFont
-        color: QfTheme.mainTextColor
+        font: Theme.strongFont
+        color: Theme.mainTextColor
       }
 
       QfToolButton {
@@ -624,8 +624,8 @@ Drawer {
         height: 36
         padding: 0
         bgcolor: "transparent"
-        iconSource: QfTheme.getThemeVectorIcon("ic_arrow_left_black_24dp")
-        iconColor: QfTheme.mainTextColor
+        iconSource: Theme.getThemeVectorIcon("ic_arrow_left_black_24dp")
+        iconColor: Theme.mainTextColor
         onClicked: dashBoard.close()
       }
     }
@@ -633,7 +633,7 @@ Drawer {
     Rectangle {
       Layout.fillWidth: true
       Layout.preferredHeight: 1
-      color: QfTheme.controlBorderColor
+      color: Theme.controlBorderColor
     }
 
     // WorkField: poziomy przełącznik widoków panelu (komputer);
@@ -661,7 +661,7 @@ Drawer {
           padding: 0
 
           background: Rectangle {
-            color: przelacznikWidoku.aktywny ? QfTheme.mainColor : "transparent"
+            color: przelacznikWidoku.aktywny ? Theme.mainColor : "transparent"
             radius: 5
           }
 
@@ -679,7 +679,7 @@ Drawer {
               fillMode: Image.PreserveAspectFit
               sourceSize.width: 16
               sourceSize.height: 16
-              source: QfTheme.getThemeVectorIcon(przelacznikWidoku.modelData.ikona)
+              source: Theme.getThemeVectorIcon(przelacznikWidoku.modelData.ikona)
               visible: false
             }
 
@@ -690,13 +690,13 @@ Drawer {
               Layout.preferredHeight: 16
               source: ikonaWidoku
               visible: ikonaWidoku.status === Image.Ready
-              color: przelacznikWidoku.aktywny ? "white" : QfTheme.mainTextColor
+              color: przelacznikWidoku.aktywny ? "white" : Theme.mainTextColor
             }
 
             Text {
               text: przelacznikWidoku.modelData.nazwa
-              font: QfTheme.tinyFont
-              color: przelacznikWidoku.aktywny ? "white" : QfTheme.mainTextColor
+              font: Theme.tinyFont
+              color: przelacznikWidoku.aktywny ? "white" : Theme.mainTextColor
             }
 
             Item {
@@ -709,7 +709,7 @@ Drawer {
       }
     }
 
-    QfTabBar {
+    TabBar {
       id: dashTabs
 
       // WorkField: na komputerze sekcje wybiera menu (otworzSekcje),
@@ -722,26 +722,26 @@ Drawer {
       // WorkField: menu (otworzSekcje) wymusza sekcje przez sekcjaWymuszona,
       // ale na telefonie NIC jej nie zerowalo — stos zostawal na wymuszonej
       // sekcji na zawsze i zakladki przestawaly cokolwiek zmieniac.
-      // Tapniecie zakladki zwalnia wymuszenie. Na komputerze ten QfTabBar
+      // Tapniecie zakladki zwalnia wymuszenie. Na komputerze ten TabBar
       // jest niewidoczny i nigdy sie nie zmienia, wiec zmiana jest tam bezczynna.
       onCurrentIndexChanged: dashBoard.sekcjaWymuszona = -1
 
       TabButton {
         // WorkField 18.08.2026: zakladka jest juz na obu platformach.
         text: qsTr("Zlecenia")
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
       TabButton {
         text: qsTr("Projekt")
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
       TabButton {
         text: qsTr("Warstwy")
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
       TabButton {
         text: qsTr("Stylizacja")
-        font: QfTheme.tipFont
+        font: Theme.tipFont
       }
     }
 
@@ -779,8 +779,8 @@ Drawer {
       property string filePath: ""
 
       function refresh() {
-        dirty = QfProjectUtils.isProjectDirty(qgisProject);
-        filePath = qgisProject ? QfProjectUtils.projectFilePath(qgisProject) : "";
+        dirty = ProjectUtils.isProjectDirty(qgisProject);
+        filePath = qgisProject ? ProjectUtils.projectFilePath(qgisProject) : "";
       }
 
       RowLayout {
@@ -804,7 +804,7 @@ Drawer {
 
       Text {
         Layout.fillWidth: true
-        text: projectSection.filePath !== "" ? QfFileUtils.fileName(projectSection.filePath) : qsTr("projekt niezapisany")
+        text: projectSection.filePath !== "" ? FileUtils.fileName(projectSection.filePath) : qsTr("projekt niezapisany")
         font: t.tinyFont
         color: t.secondaryTextColor
         elide: Text.ElideMiddle
@@ -826,7 +826,7 @@ Drawer {
         FolderListModel {
           id: dcimAktywnosc
           folder: projectSection.filePath !== ""
-                  ? "file://" + QfFileUtils.absolutePath(projectSection.filePath) + "/DCIM"
+                  ? "file://" + FileUtils.absolutePath(projectSection.filePath) + "/DCIM"
                   : ""
           nameFilters: ["*.jpg", "*.jpeg"]
           showDirs: false
@@ -896,7 +896,7 @@ Drawer {
           font: t.tinyFont
           color: t.secondaryTextColor
         }
-        QfToolButton {
+        ToolButton {
           // przełącznik układu: lista (menu) / siatka dwukolumnowa
           text: ustawieniaPanelu.ukladMenu === 0 ? "\u25a4" : "\u25a6"
           font.pointSize: t.tinyFont.pointSize
@@ -904,7 +904,7 @@ Drawer {
           onClicked: ustawieniaPanelu.ukladMenu = ustawieniaPanelu.ukladMenu === 0 ? 1 : 0
         }
       }
-      QfSettings {
+      Settings {
         id: ustawieniaPanelu
         category: "WFGPanel"
         // 0 = lista jak klasyczne menu (decyzja 2026-08-10), 1 = siatka
@@ -1013,7 +1013,7 @@ Drawer {
           onClicked: {
             dashBoard.close();
             drzewoZlecen.zamienNaSzablonDla(qgisProject.homePath,
-                                            QfFileUtils.fileName(qgisProject.homePath));
+                                            FileUtils.fileName(qgisProject.homePath));
           }
         }
         QfPozycjaMenu {
@@ -1021,7 +1021,7 @@ Drawer {
           ikona: "wfg_zapisz"
           enabled: projectSection.filePath !== ""
           onClicked: {
-            if (QfProjectUtils.saveProject(qgisProject)) {
+            if (ProjectUtils.saveProject(qgisProject)) {
               displayToast(qsTr("Projekt zapisany"));
               projectSection.refresh();
             } else {
@@ -1042,7 +1042,7 @@ Drawer {
           onClicked: {
             if (!iface.zoomToProjectData(dashBoard.mapSettings)) {
               const c = dashBoard.mapSettings.getCenter();
-              dashBoard.mapSettings.setExtentFromPoints([QfGeometryUtils.point(c.x - 500, c.y - 500), QfGeometryUtils.point(c.x + 500, c.y + 500)]);
+              dashBoard.mapSettings.setExtentFromPoints([GeometryUtils.point(c.x - 500, c.y - 500), GeometryUtils.point(c.x + 500, c.y + 500)]);
             }
             dashBoard.close();
           }
@@ -1115,7 +1115,7 @@ Drawer {
             // WorkField: zgloszenie z terenu — mail z gotowym kontekstem
             const adres = "workfield@ekolaby.net";
             const temat = "WorkField " + appVersionStr + " — uwaga z terenu";
-            const tresc = qsTr("Opisz, co się działo (jedno zdanie wystarczy). Zrzut ekranu bardzo pomaga — dołącz go do tej wiadomości.") + "\n\n\n---\n" + "Wersja: " + appVersionStr + "\n" + "Projekt: " + (mainWindow.projectTitle !== "" ? mainWindow.projectTitle + " (" + QfFileUtils.fileName(projectSection.filePath) + ")" : QfFileUtils.fileName(projectSection.filePath)) + "\n" + "System: " + Qt.platform.os + "\n" + "Data: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm");
+            const tresc = qsTr("Opisz, co się działo (jedno zdanie wystarczy). Zrzut ekranu bardzo pomaga — dołącz go do tej wiadomości.") + "\n\n\n---\n" + "Wersja: " + appVersionStr + "\n" + "Projekt: " + (mainWindow.projectTitle !== "" ? mainWindow.projectTitle + " (" + FileUtils.fileName(projectSection.filePath) + ")" : FileUtils.fileName(projectSection.filePath)) + "\n" + "System: " + Qt.platform.os + "\n" + "Data: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm");
             Qt.openUrlExternally("mailto:" + adres + "?subject=" + encodeURIComponent(temat) + "&body=" + encodeURIComponent(tresc));
             displayToast(qsTr("Otwieram szkic zgłoszenia…"));
           }
@@ -1500,16 +1500,16 @@ Drawer {
           Text {
             Layout.fillWidth: true
             text: qsTr("Stylizacja warstw")
-            font: QfTheme.strongTipFont
-            color: QfTheme.mainTextColor
+            font: Theme.strongTipFont
+            color: Theme.mainTextColor
           }
 
           QfButton {
             visible: legend.model && legend.model.hasCollapsibleItems
             text: legend.model && legend.model.isCollapsed ? qsTr("Rozwiń") : qsTr("Zwiń")
             bgcolor: "transparent"
-            color: QfTheme.mainTextColor
-            font.pointSize: QfTheme.tinyFont.pointSize
+            color: Theme.mainTextColor
+            font.pointSize: Theme.tinyFont.pointSize
 
             onClicked: {
               legend.model.setAllCollapsed(!legend.model.isCollapsed);
@@ -1532,7 +1532,7 @@ Drawer {
             enabled: dashBoard.activeLayer !== null && qgisProject && qgisProject.homePath !== ""
             onClicked: {
               const wynik = procesyStylu.zapiszStyl(dashBoard.activeLayer, qgisProject.homePath);
-              displayToast(wynik.startsWith("BLAD") ? wynik : qsTr("Styl zapisany: %1").arg(QfFileUtils.fileName(wynik)));
+              displayToast(wynik.startsWith("BLAD") ? wynik : qsTr("Styl zapisany: %1").arg(FileUtils.fileName(wynik)));
             }
           }
           QfPozycjaMenu {
@@ -1555,7 +1555,7 @@ Drawer {
           }
         }
 
-        QfLegend {
+        Legend {
           id: legend
           objectName: "legend"
 
@@ -1572,14 +1572,14 @@ Drawer {
     
   }
 
-  QfPopup {
+  Popup {
     id: projectNameDialog
 
     property string mode: "blank"
 
     function openFor(newMode) {
       mode = newMode;
-      projectNameField.text = (mode === "blank" ? qsTr("Projekt") : QfFileUtils.fileName(projectSection.filePath).replace(/\.(qgs|qgz)$/, "") + " kopia") + " " + new Date().toISOString().slice(0, 10);
+      projectNameField.text = (mode === "blank" ? qsTr("Projekt") : FileUtils.fileName(projectSection.filePath).replace(/\.(qgs|qgz)$/, "") + " kopia") + " " + new Date().toISOString().slice(0, 10);
       open();
     }
 
@@ -1602,7 +1602,7 @@ Drawer {
         color: t.mainTextColor
       }
 
-      QfTextField {
+      TextField {
         id: projectNameField
         Layout.fillWidth: true
         font: t.defaultFont
@@ -1614,13 +1614,13 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        QfButton {
+        Button {
           flat: true
           text: qsTr("Anuluj")
           font.pointSize: t.tinyFont.pointSize
           onClicked: projectNameDialog.close()
         }
-        QfButton {
+        Button {
           flat: true
           text: qsTr("Utwórz")
           font.pointSize: t.tinyFont.pointSize
@@ -1629,7 +1629,7 @@ Drawer {
             if (name === "") {
               return;
             }
-            const safeName = QfFileUtils.sanitizeFilePathPart(name);
+            const safeName = FileUtils.sanitizeFilePathPart(name);
             const root = welcomeScreen.templatesDataRoot();
             platformUtilities.createDir(root, "Imported Projects");
             const destination = root + "Imported Projects/" + safeName;
@@ -1642,7 +1642,7 @@ Drawer {
                 return;
               }
               const celSzablonu = korzenSzablonow + "/" + safeName;
-              if (QfFileUtils.fileExists(celSzablonu + "/przepis.json")) {
+              if (FileUtils.fileExists(celSzablonu + "/przepis.json")) {
                 displayToast(qsTr("Szablon %1 już istnieje").arg(safeName), "error");
                 return;
               }
@@ -1685,11 +1685,11 @@ Drawer {
                 displayToast(qsTr("Nie udało się utworzyć projektu"));
               }
             } else {
-              QfProjectUtils.saveProject(qgisProject);
-              const sourceDir = QfFileUtils.absolutePath(projectSection.filePath);
-              if (QfFileUtils.copyRecursively(sourceDir, destination)) {
+              ProjectUtils.saveProject(qgisProject);
+              const sourceDir = FileUtils.absolutePath(projectSection.filePath);
+              if (FileUtils.copyRecursively(sourceDir, destination)) {
                 dataDrawer.close();
-                iface.loadFile(destination + "/" + QfFileUtils.fileName(projectSection.filePath), name);
+                iface.loadFile(destination + "/" + FileUtils.fileName(projectSection.filePath), name);
               } else {
                 displayToast(qsTr("Nie udało się skopiować projektu"));
               }
@@ -1701,7 +1701,7 @@ Drawer {
     }
   }
 
-  QfPopup {
+  Popup {
     id: deleteProjectConfirm
 
     parent: mainWindow.contentItem
@@ -1736,18 +1736,18 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        QfButton {
+        Button {
           flat: true
           text: qsTr("Anuluj")
           font.pointSize: t.tinyFont.pointSize
           onClicked: deleteProjectConfirm.close()
         }
-        QfButton {
+        Button {
           flat: true
           text: qsTr("Usuń")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
-            const dir = QfFileUtils.absolutePath(projectSection.filePath);
+            const dir = FileUtils.absolutePath(projectSection.filePath);
             deleteProjectConfirm.close();
             dataDrawer.close();
             if (iface.removeProjectFolder(dir)) {
@@ -1762,7 +1762,7 @@ Drawer {
     }
   }
 
-  QfPopup {
+  Popup {
     id: projectPropertiesPopup
 
     parent: mainWindow.contentItem
@@ -1797,7 +1797,7 @@ Drawer {
         color: t.secondaryTextColor
       }
 
-      QfTextField {
+      TextField {
         id: projectTitleField
         Layout.fillWidth: true
         font: t.defaultFont
@@ -1816,7 +1816,7 @@ Drawer {
         Layout.fillWidth: true
         spacing: 8
 
-        QfTextField {
+        TextField {
           id: objectNameField
           Layout.fillWidth: true
           font: t.defaultFont
@@ -1824,7 +1824,7 @@ Drawer {
           onEditingFinished: iface.setProjectVariable("obiekt_nazwa", text.trim())
         }
 
-        QfTextField {
+        TextField {
           id: objectShortField
           Layout.preferredWidth: 90
           font: t.defaultFont
@@ -1843,7 +1843,7 @@ Drawer {
           color: t.secondaryTextColor
         }
 
-        QfTextField {
+        TextField {
           id: objectCategoryField
           Layout.fillWidth: true
           font: t.defaultFont
@@ -1865,7 +1865,7 @@ Drawer {
         wrapMode: Text.WordWrap
       }
 
-      QfComboBox {
+      ComboBox {
         id: crsCombo
         Layout.fillWidth: true
         font: t.tinyFont
@@ -1893,7 +1893,7 @@ Drawer {
           color: t.secondaryTextColor
         }
 
-        QfTextField {
+        TextField {
           id: customCrsField
           Layout.fillWidth: true
           font: t.tinyFont
@@ -1904,7 +1904,7 @@ Drawer {
 
       Text {
         Layout.fillWidth: true
-        text: qsTr("Folder projektu: %1").arg(QfFileUtils.absolutePath(projectSection.filePath))
+        text: qsTr("Folder projektu: %1").arg(FileUtils.absolutePath(projectSection.filePath))
         font: t.tinyFont
         color: t.secondaryTextColor
         elide: Text.ElideMiddle
@@ -1927,14 +1927,14 @@ Drawer {
 
         model: FolderListModel {
           id: projectFilesModel
-          folder: projectPropertiesPopup.opened ? "file://" + QfFileUtils.absolutePath(projectSection.filePath) : ""
+          folder: projectPropertiesPopup.opened ? "file://" + FileUtils.absolutePath(projectSection.filePath) : ""
           nameFilters: ["*.gpkg", "*.qgs", "*.qgz"]
           showDirs: false
         }
 
         delegate: Text {
           width: projectFilesList.width
-          text: "• " + fileName + "  (" + QfFileUtils.representFileSize(fileSize) + ")"
+          text: "• " + fileName + "  (" + FileUtils.representFileSize(fileSize) + ")"
           font: t.tinyFont
           color: t.mainTextColor
           elide: Text.ElideMiddle
@@ -1947,13 +1947,13 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        QfButton {
+        Button {
           flat: true
           text: qsTr("Zamknij")
           font.pointSize: t.tinyFont.pointSize
           onClicked: projectPropertiesPopup.close()
         }
-        QfButton {
+        Button {
           flat: true
           text: qsTr("Zastosuj i zapisz")
           font.pointSize: t.tinyFont.pointSize
@@ -1967,7 +1967,7 @@ Drawer {
                 return;
               }
             }
-            QfProjectUtils.saveProject(qgisProject);
+            ProjectUtils.saveProject(qgisProject);
             crsCurrentLabel.refresh();
             projectSection.refresh();
             displayToast(qsTr("Zapisano właściwości projektu"));
@@ -1978,7 +1978,7 @@ Drawer {
     }
   }
 
-  QfPopup {
+  Popup {
     id: removeLayerConfirm
 
     property var targetLayer: null
@@ -1989,7 +1989,7 @@ Drawer {
     x: (mainWindow.width - width) / 2
     y: (mainWindow.height - height) / 2
     modal: true
-    closePolicy: QfPopup.CloseOnEscape
+    closePolicy: Popup.CloseOnEscape
 
     ColumnLayout {
       anchors.fill: parent
@@ -2024,14 +2024,14 @@ Drawer {
         Layout.topMargin: 8
         spacing: 8
 
-        QfButton {
+        Button {
           flat: true
           Layout.fillWidth: true
           text: qsTr("Anuluj")
           onClicked: removeLayerConfirm.close()
         }
 
-        QfButton {
+        Button {
           flat: true
           Layout.fillWidth: true
           text: qsTr("Usuń")
