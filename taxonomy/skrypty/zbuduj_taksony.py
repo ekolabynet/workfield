@@ -310,6 +310,10 @@ def czytaj_zrodlo(sciezka, tabela, kolumna):
                 'SELECT DISTINCT "%s" FROM "%s"' % (kolumna, tabela)) if r[0]]
         finally:
             con.close()
+    if not os.path.exists(sciezka):
+        sys.exit("Nie ma pliku: %s\n"
+                 "Podaj --zrodlo ze ścieżką do CSV albo do GPKG "
+                 "(wtedy dodaj --tabela)." % sciezka)
     with open(sciezka, encoding="utf-8-sig", newline="") as f:
         próbka = f.read(4096)
         f.seek(0)
