@@ -31,7 +31,7 @@ Item {
   property bool sensorInformationViewEnabled: sensorInformationView.activeSensors > 0
 
   // QfNavigationInformationView
-  property bool navigationInformationViewEnabled: navigation.isActive \&\& qfieldSettings.enableNavigation \&\& !elevationProfile.visible
+  property bool navigationInformationViewEnabled: navigation.isActive && qfieldSettings.enableNavigation && !elevationProfile.visible
 
   // QfPositioningInformationView
   property QfNavigation navigation
