@@ -72,7 +72,7 @@ Page {
       }
     }
 
-    Legend {
+    QfLegend {
       id: legendView
 
       Layout.fillWidth: true
