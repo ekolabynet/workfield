@@ -459,13 +459,7 @@ Drawer {
         }
 
         Button {
-          text: qsTr("Zamknij")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: gnssDiagPopup.close()
-        }
-
-        // WorkField 22.08: wykres nieba — liczby powyzej mowia ILE, niebo mowi DLACZEGO
-        Button {
+          // WorkField 22.08: Niebo przed Zamknij — wazniejsze, wiec blizej kciuka
           text: qsTr("Niebo")
           font.pointSize: t.tinyFont.pointSize
           highlighted: true
@@ -473,6 +467,12 @@ Drawer {
             gnssDiagPopup.close();
             nieboPanel.open();
           }
+        }
+
+        Button {
+          text: qsTr("Zamknij")
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: gnssDiagPopup.close()
         }
       }
     }

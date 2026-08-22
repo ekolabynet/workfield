@@ -411,12 +411,12 @@ Page {
             }
           }
 
-          QfSwitch {
+          QfPrzelacznikMaly {
             id: toggle
-            width: implicitContentWidth
             checked: registry[settingAlias]
-            Layout.alignment: Qt.AlignTop | Qt.AlignRight
-            onCheckedChanged: registry[settingAlias] = checked
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+            Layout.rightMargin: 8
+            onPrzelaczono: registry[settingAlias] = !checked
           }
         }
       }
@@ -774,6 +774,8 @@ Page {
                 Layout.fillWidth: true
                 font: Theme.tipFont
                 color: Theme.secondaryTextColor
+                // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+                visible: registry.pokazujObjasnienia
                 wrapMode: Text.WordWrap
                 text: {
                   if (positionSource.ntripSettings.isValid) {
@@ -798,6 +800,8 @@ Page {
                   visible: positionSource.ntripState === Positioning.NtripState.Connected
                   font: Theme.tipFont
                   color: Theme.secondaryTextColor
+                  // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+                  visible: registry.pokazujObjasnienia
                   wrapMode: Text.WordWrap
                   text: {
                     if (page.visible && positionSource.ntripState === Positioning.NtripState.Connected) {
@@ -853,6 +857,8 @@ Page {
                 visible: positionSource.ntripState === Positioning.NtripState.Connected
                 font: Theme.tipFont
                 color: Theme.secondaryTextColor
+                // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+                visible: registry.pokazujObjasnienia
                 wrapMode: Text.WordWrap
                 text: positionSource.ntripSettings.mountPoint
               }
@@ -943,6 +949,8 @@ Page {
               text: qsTr("When the map canvas is following or locked to position, it can also rotate to match compass orientation or movement direction.")
               font: Theme.tipFont
               color: Theme.secondaryTextColor
+              // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+              visible: registry.pokazujObjasnienia
 
               wrapMode: Text.WordWrap
             }
@@ -1002,6 +1010,8 @@ Page {
               text: qsTr("When digitizing features with the coordinate cursor locked to the current position, the measurement type selected above will be added to the geometry provided it has an M dimension.")
               font: Theme.tipFont
               color: Theme.secondaryTextColor
+              // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+              visible: registry.pokazujObjasnienia
 
               wrapMode: Text.WordWrap
             }
@@ -1149,6 +1159,8 @@ Page {
               })))
               font: Theme.tipFont
               color: Theme.secondaryTextColor
+              // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+              visible: registry.pokazujObjasnienia
               textFormat: Qt.RichText
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1250,6 +1262,8 @@ Page {
               text: qsTr("When enabled, digitizing vertices with a cursor locked to position will only accepted an averaged position from a minimum number of collected positions. Digitizing using averaged positions is done by pressing and holding the add vertex button, which will collect positions until the press is released. Accuracy requirement settings are respected when enabled.")
               font: Theme.tipFont
               color: Theme.secondaryTextColor
+              // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+              visible: registry.pokazujObjasnienia
               textFormat: Qt.RichText
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1336,6 +1350,8 @@ Page {
               text: qsTr("This value will correct the Z values recorded from the positioning device. If a value of 1.6 is entered, the system will automatically subtract 1.6 from each recorded value. Make sure to insert the effective antenna height, i.e. pole length + antenna phase center offset.")
               font: Theme.tipFont
               color: Theme.secondaryTextColor
+              // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+              visible: registry.pokazujObjasnienia
 
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1374,6 +1390,8 @@ Page {
               text: qsTr("Use the altitude as reported by the positioning device. Skip any altitude correction that may be implied by the coordinate system transformation.")
               font: Theme.tipFont
               color: Theme.secondaryTextColor
+              // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+              visible: registry.pokazujObjasnienia
 
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
@@ -1480,6 +1498,8 @@ Page {
               text: qsTr("Vertical grid shift is used to increase the altitude accuracy.")
               font: Theme.tipFont
               color: Theme.secondaryTextColor
+              // WorkField 22.08: objasnienie chodzi za przelacznikiem z sekcji Wyglad
+              visible: registry.pokazujObjasnienia
 
               wrapMode: Text.WordWrap
               Layout.fillWidth: true
