@@ -191,7 +191,7 @@ QList<QfRecentProjectListModel::RecentProject> QfRecentProjectListModel::recentP
         skip = true;
       }
 
-      type = QfCloudProject;
+      type = CloudProject;
     }
     else if ( path.startsWith( "http://", Qt::CaseInsensitive ) || path.startsWith( "https://", Qt::CaseInsensitive ) )
     {
