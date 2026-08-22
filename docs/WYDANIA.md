@@ -49,11 +49,17 @@ pojechały w teren bez niej.
 
 1. `APP_VERSION_NUM` i `APP_CODENAME` w `scripts/build.sh`.
 2. Wiersz w tabeli wyżej.
-3. `git commit`, `git tag -a vX.Y.Z -m "X.Y.Z - Nazwa"`,
+3. **Odświeżenie słownika taksonów** — sprawdzić, czy zmieniła się warstwa
+   prawna (`taxonomy/dane/prawo/`) albo wydanie kręgosłupa (WFO wydaje 21.06
+   i 21.12). Jeśli tak: nowy `prawo_gatunki_RRRR-MM-DD.csv`, przebudowa
+   słownika, świeży CSV w `taxonomy/dane/baza/`, wiersz w `taxonomy/WERSJE.md`
+   i przeliczenie `TAKSONY_XREF`. **Nie odświeżamy „przy okazji"** — bump to
+   jedyny moment, w którym słownik ma prawo się zmienić.
+4. `git commit`, `git tag -a vX.Y.Z -m "X.Y.Z - Nazwa"`,
    `git push origin vX.Y.Z` — **nie** `git push --tags`, bo to wypycha
    także tagi upstreamu (`v4.2.x`) i miesza dwie numeracje w jednym repo.
-4. `triplet=arm64-android ./scripts/build.sh`, potem
+5. `triplet=arm64-android ./scripts/build.sh`, potem
    `find build-arm64-android -name "*.apk"` i `adb install -r`.
-5. Kopia APK na Nextcloud, nazwa z datą i hashem commita.
-6. Sprawdzić `wymaga_aplikacji` w `wyposazenie/standardy.json` — czy
+6. Kopia APK na Nextcloud, nazwa z datą i hashem commita.
+7. Sprawdzić `wymaga_aplikacji` w `wyposazenie/standardy.json` — czy
    wydanie zmienia minimalny versionCode dla standardu projektu.

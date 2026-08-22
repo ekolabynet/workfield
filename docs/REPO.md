@@ -75,9 +75,16 @@ Tag powstaje ZAWSZE razem z bumpem — wydanie bez taga to wydanie widmo
 ## Zasady zawartości
 
 - `addins` (i całe publiczne repo): wyłącznie treści z licencją pozwalającą
-  na redystrybucję (CC BY itp.), z atrybucją w NOTICE.md. Dane bez takiej
-  licencji (np. pełny `wf_wskazniki.gpkg` z wartościami Zarzyckiego
-  i fitosocjologią) podróżują kanałem prywatnym (NextCloud), nigdy repo.
+  na redystrybucję (CC BY itp.), z atrybucją w NOTICE.md. Kanałem prywatnym
+  (NextCloud) podróżują warstwy z klauzulą **NC** (FungalRoot, KSIB, TRY)
+  i treści zastrzeżone (fitosocjologia z atlas-roslin.pl) — NC jest
+  sprzeczne z GPL. Liczby Zarzyckiego zostają publicznie: ochrona sui
+  generis wydania z 2002 wygasła z końcem 2017 (art. 10 ust. 2 ustawy
+  o ochronie baz danych). Rozbiór: `taxonomy/docs/LICENCJE_audyt.md`.
+- `taxonomy/` — nazwy gatunków i przypisane im prawo: warstwy prawne jako
+  CSV, skrypty budujące słownik `TAKSONY`, rejestr `taxonomy/WERSJE.md`.
+  Dane jako CSV (źródło prawdy), GPKG tylko jako wydruk przy wydaniu.
+  Wejście: `taxonomy/README.md`.
 - Dane terenowe (GPKG z pomiarami, DCIM), sekrety, keystore — nigdy do repo
   (patrz MasterScript). Kopie zapasowe łatek `*.przed_*` nie są wersjonowane.
 
