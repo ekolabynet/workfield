@@ -23,9 +23,8 @@ Drawer {
   interactive: opened || !overlayFeatureFormDrawer.opened
 
 
-  background: Rectangle {
-    color: t.mainBackgroundColor
-  }
+  // WorkField 22.08: bez wlasnego tla — Drawer bierze wtedy to samo, co lewa
+  // szuflada. Wczesniej mainBackgroundColor dawalo czern obok szarosci.
 
   ColumnLayout {
     anchors.fill: parent
@@ -214,42 +213,50 @@ Drawer {
           model: [
             {
               "id": "positioning",
-              "nazwa": qsTr("Pozycja")
+              "nazwa": qsTr("Pozycja"),
+              "ikona": "ic_location_white_24dp"
             },
             {
               "id": "digitizing",
-              "nazwa": qsTr("Rysowanie")
+              "nazwa": qsTr("Rysowanie"),
+              "ikona": "ic_add_vertex_white_24dp"
             },
             {
               "id": "mapCanvas",
-              "nazwa": qsTr("Mapa")
+              "nazwa": qsTr("Mapa"),
+              "ikona": "ic_map_white_24dp"
             },
             {
               "id": "interface",
-              "nazwa": qsTr("Wygląd")
+              "nazwa": qsTr("Wygląd"),
+              "ikona": "ic_3x3_grid_white_24dp"
             },
             {
               "id": "workfieldCloud",
-              "nazwa": qsTr("Chmura")
+              "nazwa": qsTr("Chmura"),
+              "ikona": "ic_cloud_active_24dp"
             },
             {
               "id": "network",
-              "nazwa": qsTr("Sieć")
+              "nazwa": qsTr("Sieć"),
+              "ikona": "ic_cloud_white_24dp"
             },
             {
               "id": "variables",
-              "nazwa": qsTr("Zmienne projektu")
+              "nazwa": qsTr("Zmienne projektu"),
+              "ikona": "ic_ellipsis_black_24dp"
             },
             {
               "id": "advanced",
-              "nazwa": qsTr("Zaawansowane")
+              "nazwa": qsTr("Zaawansowane"),
+              "ikona": "ic_settings_white_24dp"
             }
           ]
 
-          MenuItem {
-            Layout.fillWidth: true
-            font: Theme.defaultFont
+          QfPozycjaMenu {
+            t: dataDrawer.t
             text: modelData.nazwa
+            ikona: modelData.ikona
             onClicked: {
               mainWindow.pokazUstawienia(modelData.id);
               dataDrawer.close();
@@ -266,9 +273,9 @@ Drawer {
           color: t.controlBorderColor
         }
 
-        MenuItem {
-          Layout.fillWidth: true
-          font: Theme.defaultFont
+        QfPozycjaMenu {
+          t: dataDrawer.t
+          ikona: "ic_info_white_24dp"
           text: qsTr("O aplikacji WorkField")
           onClicked: {
             dashBoard.showAbout();
@@ -276,9 +283,9 @@ Drawer {
           }
         }
 
-        MenuItem {
-          Layout.fillWidth: true
-          font: Theme.defaultFont
+        QfPozycjaMenu {
+          t: dataDrawer.t
+          ikona: "ic_message_log_black_24dp"
           text: qsTr("Dziennik komunikatów")
           onClicked: {
             dashBoard.showMessageLog();
@@ -286,9 +293,9 @@ Drawer {
           }
         }
 
-        MenuItem {
-          Layout.fillWidth: true
-          font: Theme.defaultFont
+        QfPozycjaMenu {
+          t: dataDrawer.t
+          ikona: "ic_send_white_24dp"
           text: qsTr("Udostępnij dziennik (debug)")
           onClicked: {
             const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");

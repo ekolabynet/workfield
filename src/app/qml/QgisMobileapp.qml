@@ -278,8 +278,10 @@ ApplicationWindow {
   // z indeksem — jego role przejela zakladka Ustawienia w prawej szufladzie.
   function pokazUstawienia(kategoria) {
     qfieldSettings.visible = true;
-    if (kategoria)
+    if (kategoria) {
+      qfieldSettings.wprostZSzuflady = true;
       qfieldSettings.openCategory(kategoria);
+    }
   }
 
   property string projectTitle: ""

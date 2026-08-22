@@ -212,13 +212,17 @@ Popup {
           text: modelData === 0 ? qsTr("brak") : modelData + "°"
           font.pointSize: Theme.tinyFont.pointSize
           highlighted: niebo.maska === modelData
-          enabled: modelData === 0 || (positionSource.active && positionSource.deviceId !== "")
+          // Pierscien na kopule jest NASZ i zawsze da sie go przestawic.
+          // Komende do odbiornika wysylamy tylko wtedy, gdy jest komu —
+          // wbudowany GNSS nie ma deviceId i wczesniej blokowal caly przycisk.
           onClicked: {
-            if (modelData > 0)
-              positionSource.setGnssMinimumElevation(modelData);
             niebo.maska = modelData;
             settings.setValue('WorkField/maskaElewacji', modelData);
             kopula.requestPaint();
+            if (modelData > 0 && positionSource.active && positionSource.deviceId !== "") {
+              positionSource.setGnssMinimumElevation(modelData);
+              displayToast(qsTr("Maska %1° wysłana do odbiornika").arg(modelData));
+            }
           }
         }
       }
@@ -234,7 +238,7 @@ Popup {
 
     ScrollView {
       Layout.fillWidth: true
-      Layout.fillHeight: true
+      Layout.preferredHeight: 112
       clip: true
 
       Row {
@@ -249,13 +253,21 @@ Popup {
           Column {
             spacing: 2
 
-            Rectangle {
+            // Slupek rosnie od dolu: staly obszar 88 px, prostokat przyklejony
+            // do jego dolnej krawedzi. Wczesniej ustawialem `y` wewnatrz Column,
+            // ktora i tak sama rozstawia dzieci — stad dziura pod wykresem.
+            Item {
               width: 18
-              height: Math.max(2, (modelData.sygnal / 55) * 90)
-              y: 90 - height
-              radius: 2
-              color: niebo.barwa(modelData.sygnal)
-              opacity: modelData.uzyty ? 1.0 : 0.45
+              height: 88
+
+              Rectangle {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: Math.max(2, Math.min(1, modelData.sygnal / 55) * parent.height)
+                radius: 2
+                color: niebo.barwa(modelData.sygnal)
+                opacity: modelData.uzyty ? 1.0 : 0.45
+              }
             }
 
             Text {

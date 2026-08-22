@@ -48,6 +48,7 @@ set(QFIELD_APP_QML_FILES
     QfNowyProjekt.qml
     QfPanelAkcji.qml
     QfPhotoGallery.qml
+    QfPozycjaMenu.qml
     QfPrzelacznikMaly.qml
     QfPrzepis.qml
     QfQuickCaptureBar.qml

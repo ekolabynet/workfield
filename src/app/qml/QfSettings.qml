@@ -1560,6 +1560,11 @@ Page {
     }
   }
 
+  // WorkField 22.08: gdy sekcje otwiera szuflada, ekran z indeksem nie jest
+  // przystankiem po drodze — cofniecie ma wyjsc z ustawien, a nie wysadzic
+  // uzytkownika w menu, ktorego juz nigdzie nie ma.
+  property bool wprostZSzuflady: false
+
   function openCategory(id) {
     settingsStack.push(categoryPage, {
       "categoryId": id
@@ -1659,6 +1664,13 @@ Page {
     onFinished: {
       if (settingsStack.depth > 1) {
         settingsStack.pop();
+        if (page.wprostZSzuflady) {
+          page.wprostZSzuflady = false;
+          parent.finished();
+          if (variableEditorItem)
+            variableEditorItem.apply();
+          applyProxySettings();
+        }
         return;
       }
       parent.finished();
