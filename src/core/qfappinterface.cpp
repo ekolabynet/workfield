@@ -912,7 +912,7 @@ QString QfAppInterface::preferredDataDir() const
 
 void QfAppInterface::setPreferredDataDir( const QString &path )
 {
-  const QString markerPath = PlatformUtilities::instance()->appDataDirs().value( 0 ) + QStringLiteral( "/.preferred_data_dir" );
+  const QString markerPath = QfPlatformUtilities::instance()->appDataDirs().value( 0 ) + QStringLiteral( "/.preferred_data_dir" );
   if ( path.isEmpty() )
   {
     QFile::remove( markerPath );
@@ -949,7 +949,7 @@ QString QfAppInterface::dataRoot() const
   // applicationDirectory()) i do ktorej pisze import po stronie Javy.
   // Poprzednio uzywalismy appDataDirs[0] — katalogu zasobow .../QField/ —
   // przez co wnoszenie z wymiany i szablony ladowaly poziom za gleboko.
-  QString root = PlatformUtilities::instance()->applicationDirectory();
+  QString root = QfPlatformUtilities::instance()->applicationDirectory();
   if ( !root.isEmpty() && !root.endsWith( QLatin1Char( '/' ) ) )
     root += QLatin1Char( '/' );
   return root;
@@ -959,7 +959,7 @@ void QfAppInterface::migrateLegacyDataLayout()
 {
   // Jednorazowe sprzatanie po wadzie W1: to, co starsze wersje zapisaly
   // w bazie zasobow (.../QField/), przenosimy do bazy kanonicznej.
-  const QString legacyBase = PlatformUtilities::instance()->appDataDirs().value( 0 );
+  const QString legacyBase = QfPlatformUtilities::instance()->appDataDirs().value( 0 );
   const QString canonicalBase = dataRoot();
   if ( legacyBase.isEmpty() || canonicalBase.isEmpty() )
     return;
