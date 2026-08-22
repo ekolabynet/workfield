@@ -43,3 +43,6 @@ brand/*/CHM/
 
 # kopie zapasowe latek
 *.przed_*
+
+# skrypty jednorazowe (zasada z MasterScriptu)
+_*.py

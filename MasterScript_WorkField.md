@@ -48,6 +48,18 @@ zero paniki.
    poprawiony plik — nie jako słowny opis zmian.
 4. Punkt odniesienia względem upstreamu: `git merge-base HEAD
    upstream/master`; delta Piotra = plik upstreamu z tego punktu + jego diff.
+5. **Każdy podany skrypt ma z góry wskazany los — jednorazowy albo do repo.**
+   Claude nadaje nazwę zgodną z tym podziałem od razu, zamiast zostawiać
+   Piotrowi pytanie „co z tym zrobić":
+   - **jednorazowy** (diagnostyka, jednorazowa naprawa danych, sprawdzenie
+     hipotezy) — przedrostek `_` i numer albo krótki uuid:
+     `_sprawdz_geometrie_01.py`, `_napraw_sciezki_7f3a2b.py`. Leży w katalogu
+     roboczym, nigdy w repo (`.gitignore` blokuje `_*.py`). Przedrostek znaczy:
+     wolno skasować bez czytania;
+   - **wielokrotnego użytku** — od razu do repo, do `skrypty/` (nasze
+     narzędzia) albo do katalogu dziedziny (`taxonomy/skrypty/`), z nagłówkiem
+     mówiącym, co robi i jak się go uruchamia. **`scripts/` zostaje
+     upstreamowi** — nasze pliki tam to delta, która boli przy rebase.
 
 ## Rytm gita (wspólna pamięć)
 
