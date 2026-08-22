@@ -34,6 +34,8 @@ wozimy jako kolumny z wersją i datą, bo wygasają — GBIF unieważnił własn
 | `docs/ZACZEPY_w_repo.md` | jak ten katalog wstawić do repo i czym go zaczepić, żeby nie zniknął z pola widzenia |
 | `WERSJE.md` | **rejestr wydań warstw** — co, kiedy, z czego, co się zmieniło |
 | `dane/prawo/prawo_gatunki_RRRR-MM-DD.csv` | rośliny: progi 83f, grupy stawek, pomniki, zwolnienia, IGO, ochrona gatunkowa |
+| `dane/prawo/ochrona_roslin_2014-1409.csv` | rośliny chronione: 728 pozycji z Dz.U. 2014/1409 (ścisła, częściowa, pozyskiwane) |
+| `dane/prawo/strefy_roslin_2014-1409.csv` | strefy ochrony stanowisk roślin (zał. 4) |
 | `dane/prawo/ochrona_zwierzat_2016-2183.csv` | zwierzęta: 805 gatunków chronionych (zał. 1–3) |
 | `dane/prawo/strefy_ochrony_2016-2183.csv` | strefy ochrony ostoi i gniazd (zał. 4), z promieniami i terminami |
 | `dane/baza/` | **zbudowany słownik jako CSV** — to jest wynik pracy, nie półprodukt |
@@ -61,9 +63,14 @@ wozimy jako kolumny z wersją i datą, bo wygasają — GBIF unieważnił własn
                                      wirtualne _PROG, _IGO, _OCHRONA
 ```
 
-Osobno, poza łańcuchem: **`parsuj_ochrona_zwierzat.py`** — wyciąga załączniki
-rozporządzenia o ochronie gatunkowej zwierząt z oryginalnego PDF-a Dziennika
-Ustaw. Uruchamiany raz na akt, nie przy każdej budowie.
+Osobno, poza łańcuchem:
+
+- **`parsuj_ochrona_roslin.py`** i **`parsuj_ochrona_zwierzat.py`** — wyciągają
+  załączniki rozporządzeń o ochronie gatunkowej z oryginalnych PDF-ów
+  Dziennika Ustaw. Uruchamiane raz na akt, nie przy każdej budowie.
+- **`raport_taksony.py`** — cztery raporty do przejrzenia okiem: duplikaty,
+  rozbieżności ze słownikiem, pozycje bez pewnego dopasowania i **pary nazw
+  różniące się o literę** (kandydaci na literówkę w słowniku).
 
 Pierwszy krok zawsze na sucho:
 

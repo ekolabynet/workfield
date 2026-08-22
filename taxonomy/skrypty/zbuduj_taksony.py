@@ -88,6 +88,7 @@ KOLUMNY = [
     ("OWOCOWE", "INTEGER"),         # art. 83f ust. 1 pkt 5
     ("IGO", "TEXT"),                # status PRAWNY, nie przyrodniczy
     ("OCHRONA", "TEXT"),            # scisla / czesciowa (Dz.U. 2014 poz. 1409)
+    ("OCHRONA_CZYNNA", "INTEGER"),  # adnotacja (1) w rozporządzeniu
     ("ZRODLO_PRAWO", "TEXT"),
     ("WERSJA_PRAWA", "TEXT"),       # z nazwy pliku CSV — datowanie warstwy
     ("WERYFIKACJA", "TEXT"),        # puste = nikt tego nie sprawdził okiem
@@ -193,11 +194,49 @@ def prawo_dla(kanoniczna, rodzaj, po_gat, po_rodz):
         if w and w.get("ZRODLO"):
             zrodla.append(w["ZRODLO"])
     wynik["ZRODLO"] = " + ".join(dict.fromkeys(zrodla)) or DOMYSLNE_PRAWO["ZRODLO"]
-    wynik["NAZWA_PL"] = next((w["NAZWA_PL"] for w in warstwy
-                              if w and w.get("NAZWA_PL")), None)
+    # nazwa polska WYŁĄCZNIE z poziomu gatunku: progi wolno dziedziczyć
+    # po rodzaju ("topoli, wierzb"), ale Abies concolor nie nazywa się "jodła"
+    wynik["NAZWA_PL"] = (po_gat.get(kanoniczna) or {}).get("NAZWA_PL")
     wynik["WERYFIKACJA"] = next((w["WERYFIKACJA"] for w in warstwy
                                  if w and w.get("WERYFIKACJA")), None)
     return wynik
+
+
+def najnowsza_ochrona(wskazany=None):
+    if wskazany:
+        return wskazany
+    for katalog in SZUKAJ_PRAWA:
+        pliki = sorted(glob.glob(os.path.join(katalog, "ochrona_roslin_*.csv")))
+        if pliki:
+            return pliki[-1]
+    return None
+
+
+def wczytaj_ochrone(sciezka):
+    """Pełne załączniki rozporządzenia o ochronie gatunkowej roślin.
+    Klucz: nazwa naukowa z aktu ORAZ podane w nim synonimy — akt z 2014 r.
+    miejscami używa nazw, które dziś są synonimami."""
+    mapa = {}
+    if not sciezka or not os.path.exists(sciezka):
+        return mapa
+    with open(sciezka, encoding="utf-8-sig", newline="") as f:
+        for r in csv.DictReader(f, delimiter=";"):
+            lat = (r.get("NAZWA_LAT") or "").strip()
+            if not lat:
+                continue
+            wpis = {
+                "ochrona": (r.get("OCHRONA") or "").replace(
+                    "_pozyskiwanie", "").strip() or None,
+                "czynna": 1 if (r.get("OCHRONA_CZYNNA") or "").strip() else None,
+                "zal": r.get("ZALACZNIK"), "lp": r.get("LP"),
+                "adn": (r.get("ADNOTACJE") or "").strip(),
+                "nazwa_pl": (r.get("NAZWA_PL") or "").strip() or None,
+            }
+            mapa.setdefault(lat, wpis)
+            syn = (r.get("SYNONIM") or "").strip()
+            if syn and " " in syn:
+                mapa.setdefault(syn, wpis)
+    return mapa
 
 
 def _int(x):
@@ -238,15 +277,17 @@ def wczytaj_skroty(sciezka):
 
 
 def zbuduj_skrot(kanoniczna, odmiana, zajete):
-    """Wygenerowany skrót jest MAŁYMI literami — żeby na pierwszy rzut oka
-    było widać, że nikt go jeszcze nie używał w terenie."""
+    """Konwencja z istniejącego słownika: pierwsza litera rodzaju + dwie
+    pierwsze epitetu, małymi literami (Abies alba -> aba, A. concolor -> abc).
+    Kolumna SKROT_ZRODLO mówi, czy skrót przyszedł ze słownika, czy powstał
+    tutaj — wygenerowanego nikt jeszcze nie używał w terenie."""
     czlony = kanoniczna.split()
     if not czlony:
         return None
     if len(czlony) == 1:
-        rdzen = czlony[0][:2].lower()
+        rdzen = czlony[0][:3].lower()
     else:
-        rdzen = (czlony[0][0] + czlony[1][0]).lower()
+        rdzen = (czlony[0][0] + czlony[1][:2]).lower()
     if odmiana:
         rdzen += "".join(c for c in odmiana if c.isalnum())[:2].lower()
     kandydat, n = rdzen, 1
@@ -301,19 +342,23 @@ def decyzja(match_type, pewnosc, byl_epitet):
 
 # ------------------------------------------------------------------ wejście
 def czytaj_zrodlo(sciezka, tabela, kolumna):
+    """Zwraca listę słowników — całe wiersze źródła, nie same nazwy.
+    Dzięki temu skróty i nazwy polskie, które już są w słowniku, nie muszą
+    być generowane od nowa."""
     if sciezka.lower().endswith((".gpkg", ".sqlite", ".db")):
         if not tabela:
             sys.exit("Przy źródle w GPKG podaj --tabela")
         con = sqlite3.connect(sciezka)
+        con.row_factory = sqlite3.Row
         try:
-            return [r[0] for r in con.execute(
-                'SELECT DISTINCT "%s" FROM "%s"' % (kolumna, tabela)) if r[0]]
+            kol = [r[1] for r in con.execute('PRAGMA table_info("%s")' % tabela)]
+            if kolumna not in kol:
+                sys.exit("W tabeli %s nie ma kolumny %r. Są: %s"
+                         % (tabela, kolumna, ", ".join(kol)))
+            return [dict(r) for r in con.execute('SELECT * FROM "%s"' % tabela)
+                    if (r[kolumna] or "").strip()]
         finally:
             con.close()
-    if not os.path.exists(sciezka):
-        sys.exit("Nie ma pliku: %s\n"
-                 "Podaj --zrodlo ze ścieżką do CSV albo do GPKG "
-                 "(wtedy dodaj --tabela)." % sciezka)
     with open(sciezka, encoding="utf-8-sig", newline="") as f:
         próbka = f.read(4096)
         f.seek(0)
@@ -322,7 +367,69 @@ def czytaj_zrodlo(sciezka, tabela, kolumna):
         if kolumna not in (czyt.fieldnames or []):
             sys.exit("W pliku nie ma kolumny %r. Są: %s"
                      % (kolumna, ", ".join(czyt.fieldnames or [])))
-        return [r[kolumna] for r in czyt if (r.get(kolumna) or "").strip()]
+        return [dict(r) for r in czyt if (r.get(kolumna) or "").strip()]
+
+
+def wczytaj_dopasowania(wskazanie):
+    """--dopasowania PLIK.gpkg:tabela — wciąga GOTOWE wyniki dopasowania do
+    kręgosłupa. 2824 rozstrzygnięć już istnieje; pytanie API o nie drugi raz
+    to strata czasu i niepotrzebny ruch."""
+    if not wskazanie:
+        return {}
+    if ":" in wskazanie:
+        plik, tabela = wskazanie.rsplit(":", 1)
+    else:
+        plik, tabela = wskazanie, "taksony"
+    if not os.path.exists(plik):
+        sys.exit("Nie ma pliku z dopasowaniami: %s" % plik)
+    con = sqlite3.connect(plik)
+    con.row_factory = sqlite3.Row
+    try:
+        kol = [r[1] for r in con.execute('PRAGMA table_info("%s")' % tabela)]
+        if not kol:
+            sys.exit("W %s nie ma tabeli %s" % (plik, tabela))
+        wiersze = [dict(r) for r in con.execute('SELECT * FROM "%s"' % tabela)]
+    finally:
+        con.close()
+    mapa = {}
+    for w in wiersze:
+        wpis = {
+            "gbif_key": (w.get("gbif_key") or "") or None,
+            "kanoniczna": (w.get("nazwa_kanoniczna") or "") or None,
+            "status": (w.get("status") or "") or None,
+            "ranga": (w.get("ranga") or "") or None,
+            "rodzina": (w.get("rodzina") or "") or None,
+            "dopasowanie": (w.get("dopasowanie") or "") or None,
+            "nazwa_pl": (w.get("nazwa_polska") or "") or None,
+        }
+        for klucz in (w.get("nazwa_zrodlowa"), w.get("nazwa_kanoniczna")):
+            if klucz and klucz.strip():
+                mapa.setdefault(klucz.strip(), wpis)
+    return mapa
+
+
+def porownaj_prawo(zrodlowy, wiersz):
+    """Słownik Piotra ma własne kolumny CHRONIONY / IGO / CENNY. Warstwa prawna
+    ma swoje, wprost z Dz.U. Rozbieżność nie jest błędem — bywa różnicą między
+    inwazyjnością przyrodniczą a statusem prawnym — ale ma być WIDOCZNA."""
+    uwagi = []
+    igo_zrodlo = (zrodlowy.get("IGO") or "").strip().upper()
+    if igo_zrodlo in ("TAK", "NIE"):
+        ma_prawnie = bool(wiersz.get("IGO"))
+        if igo_zrodlo == "TAK" and not ma_prawnie:
+            uwagi.append("IGO: słownik TAK, brak na liście z Dz.U.")
+        elif igo_zrodlo == "NIE" and ma_prawnie:
+            uwagi.append("IGO: słownik NIE, jest na liście z Dz.U. (%s)"
+                         % wiersz["IGO"])
+    chr_zrodlo = (zrodlowy.get("CHRONIONY") or "").strip().upper()
+    if chr_zrodlo in ("TAK", "NIE"):
+        ma_prawnie = bool(wiersz.get("OCHRONA"))
+        if chr_zrodlo == "TAK" and not ma_prawnie:
+            uwagi.append("ochrona: słownik TAK, brak w rozporządzeniu")
+        elif chr_zrodlo == "NIE" and ma_prawnie:
+            uwagi.append("ochrona: słownik NIE, jest w rozporządzeniu (%s)"
+                         % wiersz["OCHRONA"])
+    return uwagi
 
 
 # ------------------------------------------------------------------- zapis
@@ -413,8 +520,16 @@ def main():
     a.add_argument("--kolumna", default="GATUNEK", help="kolumna z nazwą")
     a.add_argument("--gpkg", help="docelowy GeoPackage szablonu")
     a.add_argument("--prawo", help="CSV warstwy prawnej (domyślnie najnowszy)")
+    a.add_argument("--ochrona", help="CSV z ochroną gatunkową roślin "
+                                     "(domyślnie najnowszy ochrona_roslin_*.csv)")
     a.add_argument("--nazwy-pl", help="CSV: NAZWA_LAT;NAZWA_PL (Wikidata/GBIF)")
     a.add_argument("--skroty", help="istniejący słownik Gboarda albo CSV")
+    a.add_argument("--kolumna-skrot", help="kolumna ze skrótem w źródle "
+                                           "(np. SKROT) — ma pierwszeństwo")
+    a.add_argument("--kolumna-pl", help="kolumna z nazwą polską w źródle "
+                                        "(np. NAZWA_POLSKA)")
+    a.add_argument("--dopasowania", help="PLIK.gpkg:tabela z GOTOWYMI wynikami "
+                                         "dopasowania (domyślna tabela: taksony)")
     a.add_argument("--krolestwo", default="Plantae",
                    help="królestwo dla wpisów bez własnego (domyślnie Plantae)")
     a.add_argument("--gbif", action="store_true", help="dopasuj przez sieć")
@@ -447,6 +562,12 @@ def main():
     print("Warstwa prawna [%s]: %d gatunków, %d rodzajów"
           % (wersja_pr, len(po_gat), len(po_rodz)))
 
+    plik_ochrony = najnowsza_ochrona(args.ochrona)
+    ochrona_gat = wczytaj_ochrone(plik_ochrony)
+    if ochrona_gat:
+        print("Ochrona gatunkowa: %d nazw z %s"
+              % (len(ochrona_gat), os.path.basename(plik_ochrony)))
+
     stare_skroty = wczytaj_skroty(args.skroty)
     if args.skroty:
         print("Skróty z Gboarda: %d haseł" % len(stare_skroty))
@@ -468,7 +589,14 @@ def main():
     licznik = {}
     z_gboarda = 0
 
-    for surowy in surowe:
+    gotowe = wczytaj_dopasowania(args.dopasowania)
+    if gotowe:
+        print("Gotowe dopasowania: %d kluczy z %s"
+              % (len(gotowe), args.dopasowania))
+    rozbieznosci = []
+
+    for zrodlowy in surowe:
+        surowy = zrodlowy[args.kolumna]
         w = rozbierz(surowy)
         if not w["kanoniczna"]:
             continue
@@ -478,7 +606,11 @@ def main():
         widziane[klucz] = True
 
         nazwa_do_wyswietlenia = do_wyswietlenia(w)
-        skrot = (stare_skroty.get(nazwa_do_wyswietlenia)
+        skrot = None
+        if args.kolumna_skrot:
+            skrot = (zrodlowy.get(args.kolumna_skrot) or "").strip() or None
+        skrot = (skrot
+                 or stare_skroty.get(nazwa_do_wyswietlenia)
                  or stare_skroty.get(w["kanoniczna"])
                  or stare_skroty.get(surowy.strip()))
         if skrot in zajete:
@@ -486,7 +618,9 @@ def main():
             # skrót z Gboarda, kultywar dostaje własny, wygenerowany
             skrot = None
         if skrot:
-            skrot_zrodlo = "gboard"
+            skrot_zrodlo = "slownik" if (args.kolumna_skrot and
+                                         (zrodlowy.get(args.kolumna_skrot) or "").strip()
+                                         == skrot) else "gboard"
             zajete.add(skrot)
             z_gboarda += 1
         else:
@@ -499,7 +633,9 @@ def main():
             "GATUNEK": w["kanoniczna"],
             "KROLESTWO": args.krolestwo,
             "ODMIANA": w["odmiana"] or None,
-            "NAZWA_PL": nazwy_pl.get(w["kanoniczna"]) or p["NAZWA_PL"],
+            "NAZWA_PL": ((zrodlowy.get(args.kolumna_pl) or "").strip()
+                         if args.kolumna_pl else None)
+                        or nazwy_pl.get(w["kanoniczna"]) or p["NAZWA_PL"],
             "SKROT": skrot,
             "SKROT_ZRODLO": skrot_zrodlo,
             "RODZAJ": w["rodzaj"],
@@ -523,7 +659,49 @@ def main():
             "STATUS": None, "AKCEPTOWANA": None, "RODZINA": None,
         }
 
-        if args.gbif:
+        o = ochrona_gat.get(w["kanoniczna"])
+        if o:
+            # rozporządzenie ma pierwszeństwo nad dendrologiczną warstwą prawną:
+            # tam jest 26 drzewiastych, tu komplet 728 pozycji
+            wiersz["OCHRONA"] = o["ochrona"]
+            wiersz["OCHRONA_CZYNNA"] = o["czynna"]
+            wiersz["ZRODLO_PRAWO"] = "%s + 1409 zał.%s poz.%s%s" % (
+                wiersz["ZRODLO_PRAWO"], o["zal"], o["lp"],
+                " (adn. %s)" % o["adn"] if o["adn"] else "")
+            if not wiersz["NAZWA_PL"]:
+                wiersz["NAZWA_PL"] = o["nazwa_pl"]
+
+        g = gotowe.get(surowy.strip()) or gotowe.get(w["kanoniczna"])
+        if g:
+            wiersz["DOPASOWANIE"] = g["dopasowanie"]
+            wiersz["STATUS"] = g["status"]
+            wiersz["RODZINA"] = g["rodzina"]
+            wiersz["DECYZJA"] = ("AUTO" if g["dopasowanie"] == "EXACT"
+                                 else "PRZEGLAD")
+            if not wiersz["NAZWA_PL"]:
+                wiersz["NAZWA_PL"] = g["nazwa_pl"]
+            if g["gbif_key"]:
+                klucz_x = (w["kanoniczna"], args.krolestwo, "GBIF")
+                if klucz_x not in widziane_xref:
+                    widziane_xref.add(klucz_x)
+                    xref.append({
+                        "GATUNEK": w["kanoniczna"],
+                        "KROLESTWO": args.krolestwo,
+                        "ZRODLO": "GBIF",
+                        "ID_OBCE": str(g["gbif_key"]),
+                        "WERSJA_ZRODLA": "import: %s" % (args.dopasowania or "-"),
+                        "TYP_DOPASOWANIA": g["dopasowanie"],
+                        "PEWNOSC": None,
+                        "DATA": dzis,
+                    })
+
+        uwagi_prawne = porownaj_prawo(zrodlowy, wiersz)
+        if uwagi_prawne:
+            rozbieznosci.append((wiersz["NAZWA"], "; ".join(uwagi_prawne)))
+            wiersz["WERYFIKACJA"] = "; ".join(
+                [x for x in [wiersz["WERYFIKACJA"]] + uwagi_prawne if x])
+
+        if args.gbif and not g:
             try:
                 r = gbif_match(w["kanoniczna"], args.krolestwo, args.mail,
                                pamiec, args.checklist)
@@ -570,6 +748,15 @@ def main():
     if args.skroty:
         print("  skróty: %d z Gboarda, %d wygenerowanych (małymi literami)"
               % (z_gboarda, len(wiersze) - z_gboarda))
+    if rozbieznosci:
+        print("\nRozbieżności między słownikiem a warstwą prawną (%d):"
+              % len(rozbieznosci))
+        for nazwa, opis in rozbieznosci[:20]:
+            print("  %-34s %s" % (nazwa[:34], opis))
+        if len(rozbieznosci) > 20:
+            print("  … i %d dalszych (wszystkie w kolumnie WERYFIKACJA)"
+                  % (len(rozbieznosci) - 20))
+
     do_oka = [w for w in wiersze if w["DECYZJA"] in ("PRZEGLAD", "RECZNIE")]
     if do_oka:
         print("\nDo obejrzenia okiem (%d):" % len(do_oka))
@@ -582,6 +769,10 @@ def main():
         {"KLUCZ": "warstwa_prawna", "WERSJA": wersja_pr, "DATA": dzis,
          "LICENCJA": "domena publiczna (art. 4 pr.aut.)",
          "UWAGA": os.path.basename(plik_prawa or "brak")},
+        {"KLUCZ": "ochrona_gatunkowa",
+         "WERSJA": os.path.basename(plik_ochrony) if plik_ochrony else "brak",
+         "DATA": dzis, "LICENCJA": "domena publiczna (art. 4 pr.aut.)",
+         "UWAGA": "Dz.U. 2014 poz. 1409, zał. 1-3"},
         {"KLUCZ": "skrypt", "WERSJA": WERSJA_SKRYPTU, "DATA": dzis,
          "LICENCJA": "GPL-2.0-or-later", "UWAGA": "zbuduj_taksony.py"},
         {"KLUCZ": "kregoslup", "WERSJA": (args.checklist or "GBIF v2 match")

@@ -20,6 +20,18 @@ w pliku z adnotacją „źródło wtórne, sprawdzić". Rdestowce **zostają na
 liście krajowej** decyzją Piotra, mimo że rozporządzenie 2025/1422 przeniosło
 je na listę unijną — nowelizacji krajowej nie znaleziono.
 
+## Ochrona gatunkowa roślin
+
+| Wersja | Data | Zakres | Stan weryfikacji |
+|---|---|---|---|
+| `ochrona_roslin_2014-1409.csv` | 2026-08-22 | 728 pozycji: zał. 1 (415 ścisła), zał. 2 (301 częściowa), zał. 3 (12 pozyskiwane) | **z oryginalnego PDF Dziennika Ustaw**, numeracja bez luk, zero wierszy nieodczytanych |
+| `strefy_roslin_2014-1409.csv` | 2026-08-22 | 12 pozycji zał. 4 — strefy ochrony stanowisk, z promieniami | **z oryginalnego PDF**, z siatki tabeli |
+
+Adnotacje wprost z objaśnień aktu: **(1)** ochrona czynna, **(2)** zakaz
+transportu okazów, **(3)** brak odstępstwa z § 8 pkt 1. Ta warstwa **ma
+pierwszeństwo** nad kolumną `OCHRONA` w `prawo_gatunki_*.csv` — tam siedzi
+26 drzewiastych wpisanych ręcznie, tu komplet z rozporządzenia.
+
 ## Warstwa prawna — zwierzęta
 
 | Wersja | Data | Zakres | Stan weryfikacji |
