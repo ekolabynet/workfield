@@ -77,7 +77,7 @@ Drawer {
         font: t.tipFont
       }
       TabButton {
-        text: qsTr("System")
+        text: qsTr("Ustawienia")
         font: t.tipFont
       }
     }
@@ -203,18 +203,67 @@ Drawer {
 
       }
 
-      // ── System ──────────────────────────────────────────────
+      // ── Ustawienia ──────────────────────────────────────────
+      // WorkField 22.08: sekcje ustawien wprost tutaj. Wczesniej droga do
+      // "Pozycji" prowadzila przez zebatke, System, Ustawienia aplikacji
+      // i ekran z indeksem — piec krokow i trzy jezyki wizualne. Teraz dwa.
       ColumnLayout {
         spacing: 0
 
-        MenuItem {
-          Layout.fillWidth: true
-          font: Theme.defaultFont
-          text: qsTr("Ustawienia aplikacji")
-          onClicked: {
-            dashBoard.showSettings();
-            dataDrawer.close();
+        Repeater {
+          model: [
+            {
+              "id": "positioning",
+              "nazwa": qsTr("Pozycja")
+            },
+            {
+              "id": "digitizing",
+              "nazwa": qsTr("Rysowanie")
+            },
+            {
+              "id": "mapCanvas",
+              "nazwa": qsTr("Mapa")
+            },
+            {
+              "id": "interface",
+              "nazwa": qsTr("Wygląd")
+            },
+            {
+              "id": "workfieldCloud",
+              "nazwa": qsTr("Chmura")
+            },
+            {
+              "id": "network",
+              "nazwa": qsTr("Sieć")
+            },
+            {
+              "id": "variables",
+              "nazwa": qsTr("Zmienne projektu")
+            },
+            {
+              "id": "advanced",
+              "nazwa": qsTr("Zaawansowane")
+            }
+          ]
+
+          MenuItem {
+            Layout.fillWidth: true
+            font: Theme.defaultFont
+            text: modelData.nazwa
+            onClicked: {
+              mainWindow.pokazUstawienia(modelData.id);
+              dataDrawer.close();
+            }
           }
+        }
+
+        // separator: nizej rzeczy, ktore nie sa ustawieniami
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 1
+          Layout.topMargin: 6
+          Layout.bottomMargin: 6
+          color: t.controlBorderColor
         }
 
         MenuItem {

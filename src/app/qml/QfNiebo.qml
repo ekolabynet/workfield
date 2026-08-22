@@ -78,38 +78,22 @@ Popup {
 
     RowLayout {
       Layout.fillWidth: true
+      spacing: 8
+
+      // WorkField 22.08: wyrazny Wstecz, nie sam krzyzyk w rogu — panel
+      // otwiera sie z diagnostyki i trzeba miec dokad wrocic.
+      Button {
+        text: "\u2190  " + qsTr("Wstecz")
+        font: Theme.defaultFont
+        onClicked: niebo.close()
+      }
 
       Text {
         Layout.fillWidth: true
+        horizontalAlignment: Text.AlignRight
         text: qsTr("Niebo")
         font: Theme.strongFont
         color: Theme.mainTextColor
-      }
-
-      QfToolButton {
-        width: 32
-        height: 32
-        round: true
-        bgcolor: "transparent"
-        iconSource: Theme.getThemeVectorIcon("ic_close_white_24dp")
-        iconColor: Theme.mainTextColor
-        onClicked: niebo.close()
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      wrapMode: Text.WordWrap
-      font: Theme.tipFont
-      color: Theme.secondaryTextColor
-      text: {
-        const p = niebo.podsumowanie;
-        if (p.widoczne === 0)
-          return qsTr("Odbiornik nie podaje pozycji satelitów. Panel ożyje, gdy przyjdzie pierwsza depesza GSV.");
-        let s = qsTr("%1 widocznych · %2 w rozwiązaniu · mediana SNR %3 dB").arg(p.widoczne).arg(p.uzyte).arg(p.medianaSnr);
-        if (p.nisko > 0)
-          s += "  ·  " + qsTr("%1 nisko nad horyzontem").arg(p.nisko);
-        return s;
       }
     }
 
@@ -161,6 +145,18 @@ Popup {
             ctx.restore();
           }
 
+          // zenit — pogrubiony krzyz w srodku; bez niego oko gubi punkt
+          // odniesienia, gdy satelitow jest malo
+          ctx.strokeStyle = Theme.mainTextColor;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(cx - 9, cy);
+          ctx.lineTo(cx + 9, cy);
+          ctx.moveTo(cx, cy - 9);
+          ctx.lineTo(cx, cy + 9);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+
           // strony swiata
           ctx.fillStyle = Theme.secondaryTextColor;
           ctx.font = "bold 12px sans-serif";
@@ -198,6 +194,35 @@ Popup {
       }
     }
 
+    // ── maska elewacji ──────────────────────────────────────
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Text {
+        text: qsTr("Maska elewacji")
+        font: Theme.tipFont
+        color: Theme.secondaryTextColor
+      }
+
+      Repeater {
+        model: [0, 10, 15, 20]
+
+        Button {
+          text: modelData === 0 ? qsTr("brak") : modelData + "°"
+          font.pointSize: Theme.tinyFont.pointSize
+          highlighted: niebo.maska === modelData
+          enabled: modelData === 0 || (positionSource.active && positionSource.deviceId !== "")
+          onClicked: {
+            if (modelData > 0)
+              positionSource.setGnssMinimumElevation(modelData);
+            niebo.maska = modelData;
+            settings.setValue('WorkField/maskaElewacji', modelData);
+            kopula.requestPaint();
+          }
+        }
+      }
+    }
     // ── slupki SNR ──────────────────────────────────────────
     Text {
       Layout.fillWidth: true
@@ -245,34 +270,43 @@ Popup {
       }
     }
 
-    // ── maska elewacji ──────────────────────────────────────
-    RowLayout {
+    Text {
       Layout.fillWidth: true
-      spacing: 6
-
-      Text {
-        text: qsTr("Maska elewacji")
-        font: Theme.tipFont
-        color: Theme.secondaryTextColor
-      }
-
-      Repeater {
-        model: [0, 10, 15, 20]
-
-        Button {
-          text: modelData === 0 ? qsTr("brak") : modelData + "°"
-          font.pointSize: Theme.tinyFont.pointSize
-          highlighted: niebo.maska === modelData
-          enabled: modelData === 0 || (positionSource.active && positionSource.deviceId !== "")
-          onClicked: {
-            if (modelData > 0)
-              positionSource.setGnssMinimumElevation(modelData);
-            niebo.maska = modelData;
-            settings.setValue('WorkField/maskaElewacji', modelData);
-            kopula.requestPaint();
-          }
-        }
+      wrapMode: Text.WordWrap
+      font: Theme.tipFont
+      color: Theme.secondaryTextColor
+      text: {
+        const p = niebo.podsumowanie;
+        if (p.widoczne === 0)
+          return qsTr("Odbiornik nie podaje pozycji satelitów. Panel ożyje, gdy przyjdzie pierwsza depesza GSV.");
+        let s = qsTr("%1 widocznych · %2 w rozwiązaniu · mediana SNR %3 dB").arg(p.widoczne).arg(p.uzyte).arg(p.medianaSnr);
+        if (p.nisko > 0)
+          s += "  ·  " + qsTr("%1 nisko nad horyzontem").arg(p.nisko);
+        return s;
       }
     }
+
+    Text {
+      Layout.fillWidth: true
+      visible: niebo.satelity.length > 0
+      wrapMode: Text.WordWrap
+      font: Theme.tipFont
+      color: Theme.secondaryTextColor
+      text: {
+        // ile satelitow z kazdej konstelacji jest w rozwiazaniu — mowi,
+        // czy odbiornik korzysta z wszystkiego, co ma, czy tylko z GPS
+        const licz = {};
+        for (const sat of niebo.satelity) {
+          if (!sat.uzyty)
+            continue;
+          licz[sat.konstelacja] = (licz[sat.konstelacja] || 0) + 1;
+        }
+        const czesci = [];
+        for (const k in licz)
+          czesci.push(k + " " + licz[k]);
+        return czesci.length > 0 ? qsTr("W rozwiązaniu: ") + czesci.join("  ·  ") : qsTr("Żaden satelita nie wchodzi jeszcze do rozwiązania.");
+      }
+    }
+
   }
 }

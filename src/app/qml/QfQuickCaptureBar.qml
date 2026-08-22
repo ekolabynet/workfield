@@ -126,12 +126,16 @@ Column {
       color: "#ECEFF1"
     }
 
+    // WorkField 22.08: zwijanie tylko na DLUGIE przycisniecie. Przycisk stoi
+    // przy kaflach, ktore naciska sie w biegu — krotkie tapniecie za czesto
+    // trafialo w niego przypadkiem i pasek znikal w srodku pomiaru.
     MouseArea {
       anchors.fill: parent
-      onClicked: {
-        quickCaptureBar.haptyka(15);
+      onPressAndHold: {
+        quickCaptureBar.haptyka(25);
         quickCaptureBar.ustawieniaZwiniete = !quickCaptureBar.ustawieniaZwiniete;
       }
+      onClicked: quickCaptureBar.haptyka(5)
     }
   }
 

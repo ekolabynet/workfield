@@ -142,7 +142,10 @@ ApplicationWindow {
     // ich role przejely okragle przyciski po bokach mapy.
     height: visible ? Math.max(64, belkaKolumna.implicitHeight + 16) + mainWindow.sceneTopMargin : 0
     topPadding: mainWindow.sceneTopMargin
-    Material.background: Theme.mainColor
+    // WorkField 22.08: sama belka jest przezroczysta — teal niesie kazdy
+    // wiersz osobno. Dzieki temu tresc nie moze "wyjsc poza pasek":
+    // tlo jest wielkosci tekstu, a nie odwrotnie.
+    Material.background: "transparent"
 
     ColumnLayout {
       id: belkaKolumna
@@ -152,8 +155,16 @@ ApplicationWindow {
       anchors.rightMargin: 12
       spacing: 0
 
-      RowLayout {
+      Rectangle {
         Layout.fillWidth: true
+        Layout.preferredHeight: wierszGorny.implicitHeight + 8
+        color: Theme.mainColor
+        radius: 6
+
+      RowLayout {
+        id: wierszGorny
+        anchors.fill: parent
+        anchors.margins: 4
         spacing: 10
 
         Text {
@@ -175,9 +186,19 @@ ApplicationWindow {
           elide: Text.ElideRight
         }
       }
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: wierszDolny.implicitHeight + 8
+        Layout.topMargin: 3
+        color: Theme.mainColor
+        radius: 6
 
       RowLayout {
-        Layout.fillWidth: true
+        id: wierszDolny
+        anchors.fill: parent
+        anchors.margins: 4
         spacing: 6
 
         Text {
@@ -244,6 +265,7 @@ ApplicationWindow {
           color: acc < 0 ? "#EF5350" : acc <= 0.03 ? "#00E676" : acc <= 0.10 ? "#B2FF59" : acc <= 0.25 ? "#FFEB3B" : acc <= 0.50 ? "#FFA726" : "#EF5350"
         }
       }
+      }
     }
     }
   }
@@ -251,6 +273,14 @@ ApplicationWindow {
   // WorkField: tytul projektu do paska stanu i szuflady
   //! WorkField: interpreter przepisow widoczny jako mainWindow.przepisy
   property alias przepisy: qfPrzepis
+
+  // WorkField 22.08: wejscie prosto w sekcje ustawien, z pominieciem ekranu
+  // z indeksem — jego role przejela zakladka Ustawienia w prawej szufladzie.
+  function pokazUstawienia(kategoria) {
+    qfieldSettings.visible = true;
+    if (kategoria)
+      qfieldSettings.openCategory(kategoria);
+  }
 
   property string projectTitle: ""
   function refreshProjectTitle() {
