@@ -21,6 +21,34 @@ for one-handed, gloved outdoor use. These are deliberate, opinionated choices
 for a narrow use case — not improvements to QField, which serves a much
 broader audience with different priorities.
 
+## AI-assisted development
+
+Most of the code in this fork is written with the help of AI assistants
+(Anthropic's Claude), working from field requirements described by the
+maintainer. This is stated openly because the repository is public and
+because parts of this work are intended as upstream contributions.
+
+What this means in practice:
+
+- **Responsibility is human.** Design decisions, data-model choices and
+  acceptance are made by the maintainer. Every change is applied, built and
+  tested on real devices in real fieldwork before it is kept.
+- **Changes are applied as scripted patches**, not pasted by hand. Each patch
+  counts its anchors and refuses to write when the surrounding code differs
+  from what it expects, so a change either lands exactly where intended or
+  not at all.
+- **Verification is documented.** `docs/KOMITET.md` describes the working
+  process: what has to be read in the source before anything is written,
+  what has to be checked against the data before a change is accepted, and
+  which steps cannot be skipped. It exists because skipping them has cost
+  real field days.
+- **Mistakes are recorded, not hidden.** The same document lists failures
+  that reached the field, with their causes.
+
+Contributions offered upstream are, and will be, plain patches judged on
+their merits — small, reviewable and accompanied by the reasoning behind
+them.
+
 ## Main differences from upstream QField
 
 - **Camera**: built-in camera with shot presets (lens selection + zoom),
@@ -88,6 +116,24 @@ Polsce (presety usług GUGiK, interfejs pod pracę w rękawicach). WorkField
 **nie jest tworzony ani autoryzowany przez projekt QField** — oficjalną
 aplikację znajdziesz na [qfield.org](https://qfield.org/). Licencja:
 GPL-2.0-or-later. Błędy WorkField zgłaszaj wyłącznie w tym repozytorium.
+
+
+### Praca z asystentami AI
+
+Większość kodu w tym forku powstaje z pomocą asystentów AI (Claude firmy
+Anthropic), na podstawie wymagań zebranych w terenie. Piszemy to wprost,
+bo repozytorium jest publiczne, a część zmian ma trafić do QFielda.
+
+Odpowiedzialność jest ludzka: decyzje projektowe, wybór modelu danych
+i przyjęcie zmiany należą do prowadzącego. Każda zmiana jest budowana
+i sprawdzana na sprzęcie, w prawdziwej pracy terenowej.
+
+Zmiany nakładane są skryptami z kotwicami, które **odmawiają zapisu**,
+gdy kod wokół różni się od oczekiwanego — łatka albo trafia dokładnie tam,
+gdzie miała, albo nie wchodzi wcale. Tryb pracy, wymagane sprawdzenia
+i kroki, których nie wolno pominąć, opisuje `docs/KOMITET.md`. Ten dokument
+powstał dlatego, że pomijanie ich kosztowało realne dni w terenie —
+i wymienia też błędy, które do terenu dotarły.
 
 ## Ikony Breeze
 
