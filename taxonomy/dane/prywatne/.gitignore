@@ -1,0 +1,4 @@
+# wszystko poza opisem katalogu
+*
+!.gitignore
+!README.md

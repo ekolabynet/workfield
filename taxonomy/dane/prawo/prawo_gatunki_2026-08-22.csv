@@ -1,0 +1,143 @@
+POZIOM;NAZWA_LAT;NAZWA_PL;PROG_5;GRUPA_STAWKI;GRUPA_KRZEWY;POMNIK_130;ZWOLN_130;OWOCOWE;IGO;OCHRONA;ZRODLO;WERYFIKACJA
+gatunek;Populus alba;topola biała;80;1;;300;120;;;;83f/1330/2300/86;
+gatunek;Populus tremula;topola osika;80;1;;200;120;;;;83f/1330/2300/86;
+gatunek;Populus nigra;topola czarna;80;1;;350;120;;;;83f/1330/2300/86;
+rodzaj;Populus;topola;80;1;;350;120;;;;83f/1330/2300/86;
+gatunek;Salix alba;wierzba biała;80;1;;300;120;;;;83f/1330/2300/86;
+gatunek;Salix fragilis;wierzba krucha;80;1;;300;120;;;;83f/1330/2300/86;
+gatunek;Salix caprea;wierzba iwa;80;1;;150;120;;;;83f/1330/2300/86;
+gatunek;Salix pentandra;wierzba pięciopręcikowa;80;1;;200;120;;;;83f/1330/2300/86;
+gatunek;Salix myrtilloides;wierzba borówkolistna;80;1;;;120;;;scisla;83f/1409;zał.1 poz. ok. 392, numer niepewny
+gatunek;Salix lapponum;wierzba lapońska;80;1;;;120;;;scisla;83f/1409;zał.1 poz. ok. 393, numer niepewny
+rodzaj;Salix;wierzba;80;1;;;120;;;;83f/1330/86;
+gatunek;Acer negundo;klon jesionolistny;80;1;;;120;;;;83f/1330/86;inwazyjny przyrodniczo, bez statusu prawnego IGO
+gatunek;Acer saccharinum;klon srebrzysty;80;1;;;120;;;;83f/1330/86;
+gatunek;Aesculus hippocastanum;kasztanowiec zwyczajny;65;1;;250;120;;;;83f/1330/2300/86;
+gatunek;Robinia pseudoacacia;robinia akacjowa;65;1;;;120;;;;83f/1330/86;
+gatunek;Platanus hispanica;platan klonolistny;65;1;;300;120;;;;83f/1330/2300/86;
+rodzaj;Platanus;platan;65;1;;300;120;;;;83f/1330/2300/86;
+rodzaj;Aesculus;kasztanowiec (pozostałe);50;2;;;80;;;;1330;
+rodzaj;Betula;brzoza;50;2;;;80;;;;1330;
+gatunek;Betula pendula;brzoza brodawkowata;50;2;;200;80;;;;1330/2300;
+gatunek;Betula pubescens;brzoza omszona;50;2;;200;80;;;;1330/2300;
+gatunek;Betula nana;brzoza karłowata;50;2;;;80;;;scisla;1409;ochrona czynna (1), bez odstępstwa (3)
+gatunek;Betula humilis;brzoza niska;50;2;;;80;;;scisla;1409;ochrona czynna (1), bez odstępstwa (3)
+gatunek;Betula oycoviensis;brzoza ojcowska;50;2;;;80;;;scisla;1409;mieszaniec B. x oycoviensis
+rodzaj;Padus;czeremcha;50;2;;;80;;;;1330;
+gatunek;Padus avium;czeremcha zwyczajna;50;2;;100;80;;;;1330/2300;
+gatunek;Prunus avium;czereśnia;50;2;;100;80;1;;;1330/2300/83f;
+rodzaj;Pseudotsuga;daglezja;50;2;;250;80;;;;1330/2300;
+gatunek;Quercus rubra;dąb czerwony;50;2;;;80;;;;1330;inwazyjny przyrodniczo, bez statusu prawnego IGO
+gatunek;Gleditsia triacanthos;glediczja trójcierniowa;50;2;;250;80;;;;1330/2300;
+rodzaj;Fraxinus;jesion;50;2;;;80;;;;1330;
+gatunek;Fraxinus excelsior;jesion wyniosły;50;2;;250;80;;;;1330/2300;
+rodzaj;Abies;jodła;50;2;;;80;;;;1330;
+gatunek;Abies alba;jodła pospolita;50;2;;250;80;;;;1330/2300;
+gatunek;Abies koreana;jodła koreańska;50;4;;;80;;;;1330;wyjęta z grupy 2 wprost w akcie
+gatunek;Castanea sativa;kasztan jadalny;50;2;;;80;1;;;1330;
+gatunek;Acer rubrum;klon czerwony;50;2;;;80;;;;1330;
+gatunek;Acer pseudoplatanus;klon jawor;50;2;;250;80;;;;1330/2300;
+gatunek;Acer platanoides;klon zwyczajny;50;2;;250;80;;;;1330/2300;
+rodzaj;Tilia;lipa;50;2;;300;80;;;;1330/2300;
+gatunek;Metasequoia glyptostroboides;metasekwoja chińska;50;2;;;80;;;;1330;
+rodzaj;Larix;modrzew;50;2;;250;80;;;;1330/2300;
+rodzaj;Alnus;olcha;50;2;;;80;;;;1330;
+gatunek;Alnus glutinosa;olsza czarna;50;2;;250;80;;;;1330/2300;
+gatunek;Alnus incana;olsza szara;50;2;;200;80;;;;1330/2300;
+rodzaj;Juglans;orzech;50;2;;200;80;1;;;1330/2300;orzech włoski jako owocowy - sporne
+gatunek;Styphnolobium japonicum;perełkowiec japoński (sofora chińska);50;2;;250;80;;;;1330/2300;akt: "sofora chińska" i "perełkowiec"
+rodzaj;Pinus;sosna;50;2;;;80;;;;1330;
+gatunek;Pinus sylvestris;sosna zwyczajna;50;2;;250;80;;;;1330/2300;
+gatunek;Pinus nigra;sosna czarna;50;2;;250;80;;;;1330/2300;
+gatunek;Pinus strobus;sosna wejmutka;50;2;;200;80;;;;1330/2300;
+gatunek;Pinus banksiana;sosna Banksa;50;2;;150;80;;;;1330/2300;
+gatunek;Pinus cembra;sosna limba;50;2;;150;80;;;czesciowa;1330/2300/1409;zał.2 - źródło wtórne, sprawdzić
+gatunek;Pinus mugo;kosodrzewina;50;2;;;80;;;czesciowa;1409;zał.2 - źródło wtórne, sprawdzić
+gatunek;Pinus rhaetica;sosna błotna;50;2;;;80;;;scisla;1409;mieszaniec P. x rhaetica
+rodzaj;Rhus;sumak;50;2;1;;80;;;;1330;krzewy: grupa 1 (10 zł/m2)
+rodzaj;Picea;świerk;50;2;;;80;;;;1330;
+gatunek;Picea abies;świerk pospolity;50;2;;250;80;;;;1330/2300;
+rodzaj;Ulmus;wiąz;50;2;;;80;;;;1330;
+gatunek;Ulmus glabra;wiąz górski;50;2;;200;80;;;;1330/2300;
+gatunek;Ulmus minor;wiąz polny;50;2;;200;80;;;;1330/2300;
+gatunek;Ulmus laevis;wiąz szypułkowy;50;2;;200;80;;;;1330/2300;
+gatunek;Prunus cerasus;wiśnia;50;2;;;80;1;;;1330/83f;
+gatunek;Thuja plicata;żywotnik olbrzymi;50;2;;150;80;;;;1330/2300;
+gatunek;Prunus cerasifera;ałycza;50;3;;;80;1;;;1330/83f;wyjęta z grupy 2 wprost w akcie
+gatunek;Liquidambar styraciflua;ambrowiec balsamiczny;50;3;;;80;;;;1330;
+gatunek;Fagus sylvatica;buk zwyczajny;50;3;;300;80;;;;1330/2300;
+gatunek;Tsuga canadensis;choina kanadyjska;50;3;;200;80;;;;1330/2300;
+rodzaj;Tsuga;choina;50;3;;200;80;;;;1330/2300;
+gatunek;Taxodium distichum;cypryśnik błotny;50;3;;;80;;;;1330;
+rodzaj;Quercus;dąb;50;3;;;80;;;;1330;
+gatunek;Quercus robur;dąb szypułkowy;50;3;;300;80;;;;1330/2300;
+gatunek;Quercus petraea;dąb bezszypułkowy;50;3;;300;80;;;;1330/2300;
+gatunek;Carpinus betulus;grab pospolity;50;3;;200;80;;;;1330/2300;
+rodzaj;Pyrus;grusza;50;3;;150;80;1;;;1330/2300/83f;
+rodzaj;Malus;jabłoń;50;3;;100;80;1;;;1330/2300/83f;
+gatunek;Sorbus aucuparia;jarząb pospolity;50;3;;100;80;;;;1330/2300;
+gatunek;Acer campestre;klon polny;50;3;;150;80;;;;1330/2300;
+gatunek;Gymnocladus dioicus;kłęk amerykański;50;3;;;80;;;;1330;
+gatunek;Phellodendron amurense;korkowiec amurski;50;3;;;80;;;;1330;
+gatunek;Corylus colurna;leszczyna turecka;50;3;;250;80;;;;1330/2300;
+rodzaj;Magnolia;magnolia;50;3;;150;80;;;;1330/2300;akt: "magnolia drzewiasta" (pomniki)
+gatunek;Ginkgo biloba;miłorząb japoński;50;3;;150;80;;;;1330/2300;
+rodzaj;Morus;morwa;50;3;;;80;1;;;1330;
+rodzaj;Carya;orzesznik;50;3;;;80;;;;1330;
+gatunek;Hippophae rhamnoides;rokitnik zwyczajny;50;3;;50;80;;;czesciowa;1330/2300/1409;zał.2 - źródło wtórne, sprawdzić
+rodzaj;Catalpa;surmia;50;3;;;80;;;;1330;
+gatunek;Liriodendron tulipifera;tulipanowiec amerykański;50;3;;200;80;;;;1330/2300;
+gatunek;Prunus mahaleb;wiśnia wonna;50;3;;;80;;;;1330;wyjęta z grupy 2 wprost w akcie
+rodzaj;Taxus;cis;50;4;;;80;;;;1330;
+gatunek;Taxus baccata;cis pospolity;50;4;;50;80;;;czesciowa;1330/2300/1409;zał.2 - źródło wtórne, sprawdzić
+rodzaj;Chamaecyparis;cyprysik;50;4;;100;80;;;;1330/2300;
+rodzaj;Crataegus;głóg;50;4;;100;80;;;;1330/2300;
+rodzaj;Juniperus;jałowiec;50;4;;;80;;;;1330;
+gatunek;Juniperus communis;jałowiec pospolity;50;4;;50;80;;;;1330/2300;
+rodzaj;Sorbus;jarząb (pozostałe);50;4;;;80;;;;1330;
+gatunek;Sorbus intermedia;jarząb szwedzki;50;4;;100;80;;;scisla;1330/2300/1409;zał.1, bez odstępstwa (3)
+gatunek;Sorbus torminalis;jarząb brekinia;50;4;;;80;;;scisla;1330/1409;zał.1, bez odstępstwa (3)
+rodzaj;Elaeagnus;oliwnik;50;4;;;80;;;;1330;
+gatunek;Thuja occidentalis;żywotnik zachodni;50;4;;100;80;;;;1330/2300;
+gatunek;Sambucus racemosa;bez koralowy;50;5;;50;80;;;;2300;
+gatunek;Sambucus nigra;bez czarny;50;5;;100;80;;;;2300;
+gatunek;Frangula alnus;kruszyna pospolita;50;5;;50;80;;;;2300;
+gatunek;Rhamnus cathartica;szakłak pospolity;50;5;;50;80;;;;2300;
+rodzaj;Euonymus;trzmielina;50;5;;50;80;;;;2300;
+gatunek;Corylus avellana;leszczyna pospolita;50;5;;100;80;1;;;2300;
+gatunek;Prunus domestica;śliwa domowa;50;5;;;80;1;;;83f;
+gatunek;Cydonia oblonga;pigwa pospolita;50;5;;;80;1;;;83f;
+gatunek;Rosa gallica;róża francuska;50;5;;;80;;;scisla;1409;ochrona czynna (1)
+gatunek;Daphne cneorum;wawrzynek główkowy;50;5;;;80;;;scisla;1409;ochrona czynna (1), bez odstępstwa (3)
+gatunek;Daphne mezereum;wawrzynek wilczełyko;50;5;;;80;;;czesciowa;1409;zał.2 - źródło wtórne, sprawdzić
+gatunek;Rhododendron luteum;różanecznik żółty;50;5;;;80;;;scisla;1409;(1)(2)(3) - zakaz przemieszczania
+gatunek;Chamaedaphne calyculata;chamedafne północna;50;5;;;80;;;scisla;1409;jeden odczyt, sprawdzić
+gatunek;Arctostaphylos uva-ursi;mącznica lekarska;50;5;;;80;;;scisla;1409;
+gatunek;Erica tetralix;wrzosiec bagienny;50;5;;;80;;;scisla;1409;bez odstępstwa (3)
+gatunek;Rubus chamaemorus;malina moroszka;50;5;;;80;;;scisla;1409;jeden odczyt, sprawdzić
+gatunek;Rhododendron tomentosum;bagno zwyczajne;50;5;;;80;;;czesciowa;1409;akt może używać nazwy Ledum palustre
+gatunek;Empetrum nigrum;bażyna czarna;50;5;;;80;;;czesciowa;1409;zał.2 - źródło wtórne, sprawdzić
+gatunek;Andromeda polifolia;modrzewnica zwyczajna;50;5;;;80;;;czesciowa;1409;zał.2 - źródło wtórne, sprawdzić
+gatunek;Linnaea borealis;zimoziół północny;50;5;;;80;;;czesciowa;1409;zał.2 - źródło wtórne, sprawdzić
+gatunek;Lonicera periclymenum;wiciokrzew pomorski;50;5;;;80;;;czesciowa;1409;zał.2 - źródło wtórne, sprawdzić
+gatunek;Cerasus fruticosa;wiśnia karłowata;50;5;;;80;;;czesciowa;1409;zał.2 - źródło wtórne, sprawdzić
+gatunek;Cornus sericea;dereń rozłogowy;50;5;1;;80;;;;1330;krzewy: grupa 1 (10 zł/m2)
+gatunek;Rosa rugosa;róża pomarszczona;50;5;1;;80;;;;1330;krzewy: grupa 1 (10 zł/m2)
+gatunek;Spiraea tomentosa;tawuła kutnerowata;50;5;1;;80;;;;1330;krzewy: grupa 1 (10 zł/m2)
+gatunek;Amelanchier spicata;świdośliwa kłosowa;50;5;1;;80;;;;1330;krzewy: grupa 1 (10 zł/m2)
+gatunek;Ailanthus altissima;bożodrzew gruczołowaty;50;5;;;80;;UE_szeroka;;2649;zał.1 lp. 71
+gatunek;Celastrus orbiculatus;dławisz okrągłolistny;50;5;;;80;;UE_szeroka;;2649;zał.1 lp. 72, stosowanie od 2.08.2027
+gatunek;Heracleum mantegazzianum;barszcz Mantegazziego;;;;;;;UE_szeroka;;2649;zał.1 lp. 69
+gatunek;Heracleum sosnowskyi;barszcz Sosnowskiego;;;;;;;UE_szeroka;;2649;zał.1 lp. 70
+gatunek;Impatiens glandulifera;niecierpek gruczołowaty;;;;;;;UE_szeroka;;2649;zał.1 lp. 74
+gatunek;Asclepias syriaca;trojeść amerykańska;;;;;;;UE_szeroka;;2649;zał.1 lp. 76
+gatunek;Koenigia polystachya;rdest wielokłosowy;;;;;;;UE_szeroka;;2649;zał.1 lp. 75
+gatunek;Elodea nuttallii;moczarka delikatna;;;;;;;UE_szeroka;;2649;zał.1 lp. 73
+gatunek;Reynoutria japonica;rdestowiec japoński;;;;;;;PL_szeroka;;2649;zał.2 lp. 15 — UE 2025/1422 - decyzja: trzymamy krajową
+gatunek;Reynoutria sachalinensis;rdestowiec sachaliński;;;;;;;PL_szeroka;;2649;zał.2 lp. 16 — UE 2025/1422 - decyzja: trzymamy krajową
+gatunek;Reynoutria bohemica;rdestowiec czeski;;;;;;;PL_szeroka;;2649;zał.2 lp. 14 — UE 2025/1422 - decyzja: trzymamy krajową
+gatunek;Echinocystis lobata;kolczurka klapowana;;;;;;;PL_szeroka;;2649;zał.2 lp. 12
+gatunek;Impatiens capensis;niecierpek pomarańczowy;;;;;;;PL_szeroka;;2649;zał.2 lp. 13
+gatunek;Ulex europaeus;kolcolist zachodni;50;5;;;80;;PL_szeroka;;2649;zał.2 lp. 11
+gatunek;Azolla filiculoides;azolla drobna;;;;;;;PL_szeroka;;2649;zał.2 lp. 10
+gatunek;Prunus serotina;czeremcha amerykańska;50;5;;;80;;;;1330;inwazyjna przyrodniczo, bez statusu prawnego IGO

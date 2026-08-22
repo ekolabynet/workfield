@@ -1,0 +1,33 @@
+LP;GROMADA;RZAD;NAZWA_PL;NAZWA_LAT;STREFA_CALOROCZNA;STREFA_OKRESOWA;TERMIN_OKRESOWEJ;ZRODLO;WERYFIKACJA
+1;SSAKI (MAMMALIA);DRAPIEŻNE (CARNIVORA);wilk;Canis lupus;-;miejsce rozrodu i obszar w promieniu do 500 m od tego miejsca;01.04-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+2;SSAKI (MAMMALIA);DRAPIEŻNE (CARNIVORA);ryś;Lynx lynx;-;miejsce rozrodu i obszar w promieniu do 500 m od tego miejsca;01.04-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+3;SSAKI (MAMMALIA);DRAPIEŻNE (CARNIVORA);niedźwiedź brunatny;Ursus arctos;-;miejsce gawrowania i obszar w promieniu do 500 m od tego miejsca;01.11-30.04;Dz.U. 2016 poz. 2183 zał. 4;
+4;SSAKI (MAMMALIA);NIETOPERZE (CHIROPTERA);wszystkie gatunki występujące na terenie zimowisk, w których w ciągu 3 ostatnich lat choć raz stwierdzono ponad 200 osobników;;-;pomieszczenia i kryjówki zajmowane przez nietoperze;15.09-15.04;Dz.U. 2016 poz. 2183 zał. 4;pozycja zbiorcza, bez nazwy naukowej
+5;SSAKI (MAMMALIA);GRYZONIE (RODENTIA);żołędnica;Eliomys quercinus;wydzielenie leśne, w którym stwierdzono stanowisko, wraz ze starodrzewami w sąsiadujących wydzieleniach, o łącznej powierzchni co najmniej 25 ha - w przypadku braku starodrzewów w sąsiadujących wydzieleniach strefa może być mniejsza;-;-;Dz.U. 2016 poz. 2183 zał. 4;
+6;PTAKI (AVES);BLASZKODZIOBE (ANSERIFORMES);szlachar;Mergus serrator;zalesiona część wyspy, na której stwierdzono gniazdowanie;-;-;Dz.U. 2016 poz. 2183 zał. 4;pisownia nazwy naukowej do sprawdzenia w PDF
+7;PTAKI (AVES);GRZEBIĄCE (GALLIFORMES);cietrzew;Lyrurus tetrix;-;zwarty obszar wykorzystywany przez ptaki jako miejsce tokowania lub rozrodu wraz z obszarem w promieniu do 500 m od tego miejsca;01.02-31.08;Dz.U. 2016 poz. 2183 zał. 4;dwie strefy okresowe - druga w wierszu 7b
+7b;PTAKI (AVES);GRZEBIĄCE (GALLIFORMES);cietrzew;Lyrurus tetrix;-;obszar, na którym ptaki przebywają w okresie zimowym, wraz z obszarem w promieniu do 200 m od niego;01.12-01.03;Dz.U. 2016 poz. 2183 zał. 4;druga strefa okresowa pozycji 7
+8;PTAKI (AVES);GRZEBIĄCE (GALLIFORMES);głuszec;Tetrao urogallus;zwarty obszar wykorzystywany przez ptaki jako miejsce tokowania lub rozrodu wraz z obszarem w promieniu do 200 m od tego miejsca;obszar w promieniu do 500 m od miejsca tokowania lub rozrodu;01.02-31.08;Dz.U. 2016 poz. 2183 zał. 4;dwie strefy okresowe - druga w wierszu 8b
+8b;PTAKI (AVES);GRZEBIĄCE (GALLIFORMES);głuszec;Tetrao urogallus;-;obszar, na którym ptaki przebywają w okresie zimowym, wraz z obszarem w promieniu do 200 m od niego;01.12-01.03;Dz.U. 2016 poz. 2183 zał. 4;druga strefa okresowa pozycji 8
+9;PTAKI (AVES);PELIKANOWE (PELECANIFORMES);bocian czarny;Ciconia nigra;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;15.03-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+10;PTAKI (AVES);PELIKANOWE (PELECANIFORMES);ślepowron;Nycticorax nycticorax;kolonia lęgowa;-;-;Dz.U. 2016 poz. 2183 zał. 4;
+11;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);rybołów;Pandion haliaetus;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;01.03-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+12;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);gadożer;Circaetus gallicus;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;01.03-30.09;Dz.U. 2016 poz. 2183 zał. 4;
+13;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);orlik krzykliwy;Clanga pomarina;obszar w promieniu do 100 m od gniazda;obszar w promieniu do 500 m od gniazda;01.03-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+14;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);orlik grubodzioby;Clanga clanga;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;01.03-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+15;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);orzeł przedni;Aquila chrysaetos;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;01.01-15.08;Dz.U. 2016 poz. 2183 zał. 4;
+16;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);orzełek;Hieraaetus pennatus;obszar w promieniu do 100 m od gniazda;obszar w promieniu do 500 m od gniazda;01.02-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+17;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);bielik;Haliaeetus albicilla;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;01.01-31.07;Dz.U. 2016 poz. 2183 zał. 4;
+18;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);kania ruda;Milvus milvus;obszar w promieniu do 100 m od gniazda;obszar w promieniu do 500 m od gniazda;01.03-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+19;PTAKI (AVES);SZPONIASTE (ACCIPITRIFORMES);kania czarna;Milvus migrans;obszar w promieniu do 100 m od gniazda;obszar w promieniu do 500 m od gniazda;01.03-31.08;Dz.U. 2016 poz. 2183 zał. 4;
+20;PTAKI (AVES);SOWY (STRIGIFORMES);puchacz;Bubo bubo;obszar w promieniu do 200 m od gniazda lub miejsca regularnego przebywania;obszar w promieniu do 500 m od gniazda lub miejsca regularnego przebywania;01.01-31.07;Dz.U. 2016 poz. 2183 zał. 4;
+21;PTAKI (AVES);SOWY (STRIGIFORMES);sóweczka;Glaucidium passerinum;obszar w promieniu do 50 m od gniazda;-;-;Dz.U. 2016 poz. 2183 zał. 4;
+22;PTAKI (AVES);SOWY (STRIGIFORMES);puszczyk mszarny;Strix nebulosa;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;01.01-31.07;Dz.U. 2016 poz. 2183 zał. 4;
+23;PTAKI (AVES);SOWY (STRIGIFORMES);włochatka;Aegolius funereus;obszar w promieniu do 50 m od gniazda;-;-;Dz.U. 2016 poz. 2183 zał. 4;
+24;PTAKI (AVES);KRASKOWE (CORACIIFORMES);kraska;Coracias garrulus;obszar w promieniu do 50 m od gniazda;-;-;Dz.U. 2016 poz. 2183 zał. 4;
+25;PTAKI (AVES);SOKOŁOWE (FALCONIFORMES);raróg;Falco cherrug;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;01.01-31.07;Dz.U. 2016 poz. 2183 zał. 4;
+26;PTAKI (AVES);SOKOŁOWE (FALCONIFORMES);sokół wędrowny;Falco peregrinus;obszar w promieniu do 200 m od gniazda;obszar w promieniu do 500 m od gniazda;01.01-31.07;Dz.U. 2016 poz. 2183 zał. 4;
+27;GADY (REPTILIA);ŁUSKONOŚNE (SQUAMATA);gniewosz plamisty;Coronella austriaca;miejsca rozrodu i regularnego przebywania oraz obszar w promieniu do 100 m;-;-;Dz.U. 2016 poz. 2183 zał. 4;
+28;GADY (REPTILIA);ŁUSKONOŚNE (SQUAMATA);wąż Eskulapa;Zamenis longissimus;miejsca rozrodu i regularnego przebywania oraz obszar w promieniu do 200 m;miejsca rozrodu i regularnego przebywania oraz obszar w promieniu do 300 m;01.04-30.09;Dz.U. 2016 poz. 2183 zał. 4;
+29;GADY (REPTILIA);ŻÓŁWIE (TESTUDINATA);żółw błotny;Emys orbicularis;miejsca rozrodu i regularnego przebywania oraz obszar w promieniu do 200 m;miejsca rozrodu i regularnego przebywania oraz obszar w promieniu do 500 m;15.03-31.10;Dz.U. 2016 poz. 2183 zał. 4;
+30;OWADY (INSECTA);WAŻKI (ODONATA);iglica mała;Nehalennia speciosa;miejsca rozrodu i regularnego przebywania oraz obszar w promieniu do 100 m;-;-;Dz.U. 2016 poz. 2183 zał. 4;
