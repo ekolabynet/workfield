@@ -136,7 +136,10 @@ ApplicationWindow {
     ToolBar {
     id: mainToolBar
     visible: !legendScreen.visible && !qfieldSettings.visible && !qfieldLocalDataPickerScreen.visible && !qfieldCloudScreen.visible && !welcomeScreen.visible && !aboutDialog.visible && !codeReader.visible && !sketcher.visible
-    height: visible ? 64 + mainWindow.sceneTopMargin : 0
+    // WorkField 22.08: wysokosc z tresci, nie na sztywno — kolumna ma trzy
+    // wiersze (tytul, warstwa, uklad wspolrzednych) i przy 64 px trzeci
+    // wychodzil poza belke na mape.
+    height: visible ? Math.max(64, belkaKolumna.implicitHeight + 16) + mainWindow.sceneTopMargin : 0
     topPadding: mainWindow.sceneTopMargin
     Material.background: Theme.mainColor
 
@@ -157,6 +160,8 @@ ApplicationWindow {
       }
 
       ColumnLayout {
+        id: belkaKolumna
+
         Layout.fillWidth: true
         Layout.leftMargin: 8
         Layout.rightMargin: 8
@@ -2638,7 +2643,10 @@ ApplicationWindow {
       visible: !screenLocker.enabled && (Qt.platform.os === "android" || Qt.platform.os === "ios")
       width: childrenRect.width
       height: childrenRect.height
-      topPadding: mainWindow.sceneTopMargin + 4
+      // WorkField 22.08: na Androidzie okno ma ExpandedClientAreaHint, wiec
+      // mapa siega pod belke terenowa. Odstep bierzemy z jej faktycznej
+      // wysokosci, zeby nadazyl za zmiana liczby wierszy w naglowku.
+      topPadding: (mainWindow.header ? mainWindow.header.height : mainWindow.sceneTopMargin) + 4
       leftPadding: mainWindow.sceneLeftMargin + 4
       spacing: 4
 
