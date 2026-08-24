@@ -77,13 +77,28 @@ Tag powstaje ZAWSZE razem z bumpem — wydanie bez taga to wydanie widmo
 - `addins` (i całe publiczne repo): wyłącznie treści z licencją pozwalającą
   na redystrybucję (CC BY itp.), z atrybucją w NOTICE.md. Kanałem prywatnym
   (NextCloud) podróżują warstwy z klauzulą **NC** (FungalRoot, KSIB, TRY)
-  i treści zastrzeżone (fitosocjologia z atlas-roslin.pl) — NC jest
-  sprzeczne z GPL. Liczby Zarzyckiego zostają publicznie: ochrona sui
+  — NC jest sprzeczne z GPL. Liczby Zarzyckiego zostają publicznie: ochrona sui
   generis wydania z 2002 wygasła z końcem 2017 (art. 10 ust. 2 ustawy
   o ochronie baz danych). Rozbiór: `taxonomy/docs/LICENCJE_audyt.md`.
   Kanał prywatny chodzi przez konta serwisowe NextClouda: `wf_desktop`
   publikuje bibliotekę (maska 5 — bez nadpisywania), telefony czytają ją
   z prawem odczytu i piszą wyłącznie do własnych katalogów zwrotów.
+- **atlas-roslin.pl — mamy pisemną zgodę autora.** Marek Snowarski,
+  23.08.2026: dane o klasyfikacji gatunkowej i syntaksonomicznej z części
+  dostępnej **bez logowania** (indeksy nazw, gatunki charakterystyczne
+  i wyróżniające, hierarchia jednostek) mogą jechać z aplikacją. Fitosocjologia
+  z Atlasu przestaje więc być treścią zastrzeżoną i **nie musi już podróżować
+  kanałem prywatnym**.
+
+  **Warunek jest wiążący: link do strony Atlasu w KAŻDYM oknie**, które te
+  dane pokazuje. To nie ozdoba — to jest cena zgody. Nowy ekran bez linku
+  łamie ją, więc przy dokładaniu ekranu sprawdzić link tak samo, jak sprawdza
+  się wpis w `CMakeLists.txt` przy nowym pliku QML. Najbezpieczniej wstawiać
+  go **z jednego miejsca**, nie powtarzać w każdym ekranie.
+
+  Zgoda **nie** obejmuje zdjęć ani części płatnej. Zakres i pełne brzmienie:
+  `NOTICE.md`, sekcja „Atlas roślin Polski". Korespondencja — kanał prywatny,
+  nigdy repo (zawiera adresy).
   Opis: `docs/KANAL_NC.md`, wysyłka: `skrypty/wyslij_do_nc.sh`.
 - `taxonomy/` — nazwy gatunków i przypisane im prawo: warstwy prawne jako
   CSV, skrypty budujące słownik `TAKSONY`, rejestr `taxonomy/WERSJE.md`.

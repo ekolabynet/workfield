@@ -155,9 +155,41 @@ files are build outputs, produced at release time.
 - **Wikidata** — CC0 (Polish vernacular names)
 - **Polish legal acts** (Dz.U.) — not subject to copyright under art. 4 of the
   Polish Copyright Act; thresholds, fee groups, protected and invasive species
+- **Atlas roślin Polski / atlas-roslin.pl** (Marek Snowarski) — used **with
+  the author's written permission**, granted by e-mail on 23 August 2026.
+  Scope and conditions are described below.
 - **Own work** — the trait matrix, abbreviations, Polish name corrections and
   the mapping of statutory Polish names to scientific names
 
 Deliberately not redistributed here: IUCN Red List data (redistribution and
 commercial use are prohibited by its terms), and any CC BY-NC source, which is
 incompatible with GPL. Full breakdown: `taxonomy/docs/LICENCJE_audyt.md`.
+
+### Atlas roślin Polski (atlas-roslin.pl) — permission and its conditions
+
+Marek Snowarski, the author of *Atlas roślin Polski* (atlas-roslin.pl, ©
+2002–2026), gave written permission on **23 August 2026** for WorkField to use
+classification data from the freely accessible part of the atlas.
+
+**Scope**, as stated in the request the permission refers to:
+
+- indexes of scientific and Polish plant names,
+- characteristic and differential species of syntaxa (`Ch`/`D`, with rank),
+- the hierarchy of syntaxonomic units,
+- used to inform about species recorded in the field, and to compute mean
+  habitat indicator values for a species record and averages within a plot.
+
+**Condition, and it is binding:** every screen that presents these data
+carries a **link to the corresponding page of the atlas**. This is not a
+courtesy — it is the term on which the permission was given. Any new screen
+using this data must carry the link as well.
+
+**Not covered:** photographs and other material explicitly under copyright,
+and the paid part of the atlas. Indicator values after Zarzycki come from a
+different source and are listed separately above — this permission does not
+extend to them.
+
+The permission concerns redistribution within WorkField, which is a public
+GPLv2 application; the repository address was part of the request, so its
+public nature was explicit. Correspondence is archived outside this
+repository.
