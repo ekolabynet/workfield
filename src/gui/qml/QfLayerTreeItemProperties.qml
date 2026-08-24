@@ -121,6 +121,11 @@ QfPopup {
   }
 
   Page {
+    // WorkField 23.08.2026 — Page rysowal WLASNE tlo ze stylu Material,
+    // nieprzezroczyste i niezalezne od motywu, tuz nad tlem QfPopup, ktore
+    // juz bralo QfTheme.mainBackgroundColor. Skutek: panele wtyczek i paska
+    // wyszukiwania zostawaly jasne, kiedy reszta aplikacji byla ciemna.
+    background: null
     id: popupContent
     width: parent.width
     height: parent.height
@@ -193,6 +198,74 @@ QfPopup {
           text: qsTr('This layer is invalid. This might be due to a network issue, a missing file or a misconfiguration of the project.')
           font: QfTheme.tipFont
           color: QfTheme.errorColor
+        }
+
+        /**
+         * WorkField 23.08.2026 — SKAD ta warstwa bierze dane.
+         *
+         * Odkad "Dodaj z pliku" importuje do bazy projektu, pytanie "czy ta
+         * warstwa siedzi juz w data.gpkg, czy nadal wisi na pliku z karty"
+         * pada przy kazdym zleceniu — a odpowiedz byla wylacznie w QGIS-ie
+         * na komputerze, czyli w terenie nie bylo jej wcale. Warstwa wisząca
+         * na pliku spoza projektu znika po wyjeciu karty i nie jedzie ze
+         * zwrotem; to jest ostrzezenie, nie ozdoba, stad barwa.
+         *
+         * Sciezke da sie zaznaczyc myszka ORAZ skopiowac przyciskiem —
+         * na telefonie zaznaczanie jest niewykonalne, na komputerze
+         * przycisk bywa zbedny.
+         */
+        ColumnLayout {
+          id: zrodloDanych
+
+          property var opis: index !== undefined ? NarzedziaProjektu.zrodloWarstwy(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer)) : null
+
+          Layout.fillWidth: true
+          Layout.bottomMargin: visible ? 8 : 0
+          spacing: 1
+          visible: opis !== null && opis.ok === true
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: 4
+
+            Text {
+              Layout.fillWidth: true
+              text: !zrodloDanych.opis ? "" : zrodloDanych.opis.wBazieProjektu ? qsTr("Dane: baza projektu") : zrodloDanych.opis.istnieje ? qsTr("Dane: osobny plik") : qsTr("Dane: źródło zdalne")
+              font: QfTheme.tipFont
+              color: zrodloDanych.opis && zrodloDanych.opis.istnieje && !zrodloDanych.opis.wBazieProjektu ? QfTheme.warningColor : QfTheme.mainTextColor
+              elide: Text.ElideRight
+            }
+
+            QfToolButton {
+              round: true
+              bgcolor: "transparent"
+              iconSource: QfTheme.getThemeVectorIcon("ic_copy_black_24dp")
+              iconColor: QfTheme.mainTextColor
+              onClicked: {
+                platformUtilities.copyTextToClipboard(zrodloDanych.opis.pelny);
+                displayToast(qsTr("Skopiowano ścieżkę"));
+              }
+            }
+          }
+
+          TextEdit {
+            Layout.fillWidth: true
+            text: !zrodloDanych.opis ? "" : zrodloDanych.opis.plik !== "" ? zrodloDanych.opis.plik : zrodloDanych.opis.pelny
+            readOnly: true
+            selectByMouse: true
+            wrapMode: TextEdit.WrapAnywhere
+            font: QfTheme.tinyFont
+            color: QfTheme.secondaryTextColor
+          }
+
+          Text {
+            Layout.fillWidth: true
+            visible: zrodloDanych.opis && zrodloDanych.opis.warstwa !== ""
+            text: qsTr("tabela: %1").arg(zrodloDanych.opis ? zrodloDanych.opis.warstwa : "")
+            font: QfTheme.tinyFont
+            color: QfTheme.secondaryTextColor
+            elide: Text.ElideRight
+          }
         }
 
         CheckBox {

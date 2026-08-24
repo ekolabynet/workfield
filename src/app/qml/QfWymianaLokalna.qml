@@ -79,6 +79,46 @@ Popup {
   }
 
   /**
+   * WorkField 23.08.2026 — WYŚLIJ MIGAWKĘ.
+   *
+   * "Wynieś projekt" kopiuje CAŁY katalog razem z DCIM — cztery gigabajty,
+   * raz na wyjazd. Migawka to sama baza: 2-3 MB, więc wolno ją robić kilka
+   * razy dziennie. Rachunek z claude/DANE_workflow.md: 2,5 MB razy sześć =
+   * 15 MB na dzień, czyli nic.
+   *
+   * Kopia jest ZAPIECZĘTOWANA po stronie C++: dziennik WAL wchodzi do pliku
+   * przed kopiowaniem, kopia sprawdza sama siebie, a obok ląduje suma md5.
+   * Kopia, która nie przejdzie sprawdzenia, jest kasowana — lepiej brak
+   * migawki niż migawka, której nie da się odtworzyć.
+   *
+   * Nazwa niesie czas, więc historia jest append-only i kolizja jest
+   * niemożliwa. Nic nigdy nie jest nadpisywane.
+   */
+  function wyslijMigawke() {
+    if (projectDir === "") {
+      stan = qsTr("Najpierw otwórz projekt.");
+      return;
+    }
+
+    const baza = NarzedziaProjektu.plikDanych(qgisProject);
+    if (baza === "") {
+      stan = qsTr("Projekt nie ma pliku z danymi — nie ma z czego robić migawki.");
+      displayToast(stan, "warning");
+      return;
+    }
+
+    const wynik = NarzedziaProjektu.migawkaBazy(baza, doWyslania);
+    if (!wynik.ok) {
+      stan = wynik.blad !== undefined ? wynik.blad : qsTr("Migawka się nie udała.");
+      displayToast(stan, "error");
+      return;
+    }
+
+    stan = qsTr("Migawka: %1 (%2)").arg(wynik.nazwa).arg(FileUtils.representFileSize(wynik.bajty));
+    displayToast(stan);
+  }
+
+  /**
    * Wnosi to, co leży w przychodzacych: katalog kopiujemy, paczkę rozpakowujemy.
    * Projekt trafia do Imported Projects i jest gotowy do otwarcia.
    */
@@ -184,6 +224,14 @@ Popup {
       columns: 2
       columnSpacing: 6
       rowSpacing: 6
+
+      Button {
+        Layout.fillWidth: true
+        enabled: wymiana.projectDir !== ""
+        text: qsTr("Wyślij migawkę bazy")
+        font: wymiana.t.tipFont
+        onClicked: wymiana.wyslijMigawke()
+      }
 
       Button {
         Layout.fillWidth: true

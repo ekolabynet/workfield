@@ -58,10 +58,25 @@ Popup {
   // Bez konta widać tylko publiczną pulę (token z adresu udostępnienia).
   // Z kontem wchodzimy zwykłym WebDAV-em i widać wszystko, do czego serwer
   // dopuszcza użytkownika — o dostępie decydują uprawnienia, nie kod aplikacji.
-  readonly property string chmuraSerwer: settings.value("workfield/cloud-url", "https://ekolaby.net/cloud")
+  //
+  // WorkField 23.08.2026 — TE TRZY BYLY `readonly` I ZAMROZONE.
+  // `settings.value()` to funkcja C++: silnik QML nie widzi, co ona czyta,
+  // wiec wiazanie liczylo sie raz, przy tworzeniu galerii, i nie zmienialo
+  // sie NIGDY. Kto wpisal dane logowania w Ustawieniach po otwarciu galerii
+  // choc raz, ten do konca sesji wysylal je z pustym loginem — bez zadnego
+  // komunikatu, bo pusty login to poprawny ciag znakow. Znalezione sitem
+  // `skrypty/sito_wiazania.py`.
+  property string chmuraSerwer: settings.value("workfield/cloud-url", "https://ekolaby.net/cloud")
   readonly property string chmuraToken: "sDoGaZ627ATqZHp"
-  readonly property string chmuraLogin: settings.value("workfield/cloud-user", "")
-  readonly property string chmuraHaslo: settings.value("workfield/cloud-pass", "")
+  property string chmuraLogin: settings.value("workfield/cloud-user", "")
+  property string chmuraHaslo: settings.value("workfield/cloud-pass", "")
+
+  //! Odczyt ustawien chmury w chwili otwarcia — patrz komentarz wyzej.
+  function odswiezChmure() {
+    chmuraSerwer = settings.value("workfield/cloud-url", "https://ekolaby.net/cloud");
+    chmuraLogin = settings.value("workfield/cloud-user", "");
+    chmuraHaslo = settings.value("workfield/cloud-pass", "");
+  }
   readonly property bool chmuraKonto: chmuraLogin !== "" && chmuraHaslo !== ""
   //! katalog szablonów na serwerze przy dostępie z kontem
   readonly property string chmuraKorzen: "WorkField/szablony/"
@@ -215,6 +230,7 @@ Popup {
   }
 
   onOpened: {
+    odswiezChmure();
     filesPage.browsePath = startowyKatalog !== "" ? startowyKatalog : projectDir;
     galleryTabs.currentIndex = startowaZakladka;
     rebuildPhotos();

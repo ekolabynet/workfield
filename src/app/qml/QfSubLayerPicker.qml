@@ -98,7 +98,13 @@ Popup {
 
             Text {
               Layout.fillWidth: true
-              text: modelData.geometry + " · " + modelData.featureCount + " " + qsTr("obiektów")
+              // WorkField 23.08.2026 — druga polowa naprawy "-2 obiektów".
+              // Nawet po dolozeniu liczenia w querySublayers czesc zrodel
+              // policzyc sie nie da. Wtedy mowimy, ze nie wiemy, zamiast
+              // pokazywac ujemna liczbe obiektow.
+              text: modelData.featureCount < 0
+                    ? modelData.geometry + " · " + qsTr("liczba obiektów nieznana")
+                    : modelData.geometry + " · " + qsTr("obiektów: %1").arg(modelData.featureCount)
               font: t.tinyFont
               color: t.secondaryTextColor
               elide: Text.ElideRight

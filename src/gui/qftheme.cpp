@@ -20,6 +20,7 @@ email                : kaustuv@opengis.ch
 #include <QApplication>
 #include <QFile>
 #include <QFont>
+#include <QFontDatabase>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
@@ -32,6 +33,12 @@ QfTheme::QfTheme( QObject *parent )
 {
   mFontScale = std::clamp( QSettings().value( QStringLiteral( "fontScale" ), 1.0 ).toReal(), 0.2, 5.0 );
   mAppearance = QSettings().value( QStringLiteral( "appearance" ), QStringLiteral( "system" ) ).toString();
+
+  // WorkField: wlasny wyglad interfejsu. Wczytany PRZED loadFromJson(),
+  // bo nadpisania barw naklada applyAppearance() na koncu.
+  mRodzinaCzcionki = QSettings().value( QStringLiteral( "WorkField/rodzinaCzcionki" ) ).toString();
+  mRozmiarCzcionki = QSettings().value( QStringLiteral( "WorkField/rozmiarCzcionki" ), 0.0 ).toReal();
+  mBarwyWlasne = QSettings().value( QStringLiteral( "WorkField/barwyWlasne" ) ).toMap();
 
   loadFromJson();
   applyAppearance();
@@ -161,6 +168,13 @@ void QfTheme::applyAppearance( const QVariantMap &extraColors, BaseAppearance ba
   if ( !extraColors.isEmpty() )
   {
     applyColors( extraColors );
+  }
+
+  // WorkField: nadpisania uzytkownika ida NA KONCU — inaczej przelaczenie
+  // jasny/ciemny cicho kasowaloby wybrane barwy i wygladaloby na awarie.
+  if ( !mBarwyWlasne.isEmpty() )
+  {
+    applyColors( mBarwyWlasne );
   }
 
   QPalette palette = qApp->palette();
@@ -491,6 +505,74 @@ void QfTheme::setFontScale( qreal scale )
   emit fontScaleChanged();
 }
 
+void QfTheme::ustawRodzineCzcionki( const QString &rodzina )
+{
+  if ( mRodzinaCzcionki == rodzina )
+  {
+    return;
+  }
+
+  mRodzinaCzcionki = rodzina;
+  QSettings().setValue( QStringLiteral( "WorkField/rodzinaCzcionki" ), rodzina );
+  emit fontScaleChanged();
+}
+
+void QfTheme::ustawRozmiarCzcionki( qreal punkty )
+{
+  punkty = punkty <= 0.0 ? 0.0 : std::clamp( punkty, 6.0, 40.0 );
+  if ( qFuzzyCompare( mRozmiarCzcionki + 1.0, punkty + 1.0 ) )
+  {
+    return;
+  }
+
+  mRozmiarCzcionki = punkty;
+  QSettings().setValue( QStringLiteral( "WorkField/rozmiarCzcionki" ), punkty );
+  emit fontScaleChanged();
+}
+
+QStringList QfTheme::dostepneCzcionki() const
+{
+  return QFontDatabase::families();
+}
+
+void QfTheme::ustawBarweWlasna( const QString &nazwaWlasnosci, const QColor &barwa )
+{
+  // Nazwa musi byc zapisywalna wlasnoscia QfTheme — inaczej zapamietalibysmy
+  // wpis, ktorego applyColors() i tak zawsze pominie.
+  const QMetaObject *meta = &QfTheme::staticMetaObject;
+  const int idx = meta->indexOfProperty( qPrintable( nazwaWlasnosci ) );
+  if ( idx < 0 || !meta->property( idx ).isWritable() )
+  {
+    return;
+  }
+
+  if ( !barwa.isValid() )
+  {
+    return;
+  }
+
+  mBarwyWlasne.insert( nazwaWlasnosci, barwa.name( QColor::HexArgb ) );
+  QSettings().setValue( QStringLiteral( "WorkField/barwyWlasne" ), mBarwyWlasne );
+  applyColors( QVariantMap { { nazwaWlasnosci, barwa } } );
+}
+
+bool QfTheme::barwaNadpisana( const QString &nazwaWlasnosci ) const
+{
+  return mBarwyWlasne.contains( nazwaWlasnosci );
+}
+
+void QfTheme::przywrocBarwyMotywu()
+{
+  if ( mBarwyWlasne.isEmpty() )
+  {
+    return;
+  }
+
+  mBarwyWlasne.clear();
+  QSettings().remove( QStringLiteral( "WorkField/barwyWlasne" ) );
+  applyAppearance();
+}
+
 void QfTheme::setToolButtonSize( int size )
 {
   if ( mToolButtonSize == size )
@@ -529,7 +611,14 @@ void QfTheme::setUkladAkcji( int uklad )
 QFont QfTheme::makeFont( qreal scaleFactor, bool bold ) const
 {
   QFont font;
-  font.setPointSizeF( mSystemFontPointSize * mFontScale * scaleFactor );
+  // WorkField: rodzina i rozmiar podstawowy moga pochodzic od uzytkownika.
+  // Pusta rodzina i zero to "zostaw systemowe" — brak wyboru nie jest wyborem.
+  if ( !mRodzinaCzcionki.isEmpty() )
+  {
+    font.setFamily( mRodzinaCzcionki );
+  }
+  const qreal podstawa = mRozmiarCzcionki > 0.0 ? mRozmiarCzcionki : mSystemFontPointSize;
+  font.setPointSizeF( podstawa * mFontScale * scaleFactor );
   font.setBold( bold );
   font.setWeight( bold ? QFont::Bold : QFont::Normal );
   return font;

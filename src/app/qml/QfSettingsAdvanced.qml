@@ -21,7 +21,7 @@ ColumnLayout {
     rowSpacing: 5
 
     Label {
-      text: qsTr('Advanced')
+      text: qsTr('Zaawansowane')
       font: Theme.strongFont
       color: Theme.mainTextColor
       wrapMode: Text.WordWrap

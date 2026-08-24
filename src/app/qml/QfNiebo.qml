@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
 import Theme
+import "QfNieboGwiazdy.js" as Gwiazdy
 
 /**
  * WorkField 22.08.2026 — panel "Niebo".
@@ -27,6 +28,10 @@ Popup {
       "nisko": 0
     })
   property int maska: settings.valueInt('WorkField/maskaElewacji', 0)
+  property bool gwiazdy: settings.valueBool('WorkField/nieboGwiazdy', true)
+
+  //! Gwiazdy licza sie z czasu i pozycji — bez pozycji nie ma czego liczyc.
+  readonly property bool pozycjaZnana: posInfo && posInfo.latitudeValid && posInfo.longitudeValid
 
   parent: mainWindow.contentItem
   width: Math.min(mainWindow.width - 24, 560)
@@ -132,6 +137,57 @@ Popup {
           ctx.lineTo(cx, cy + R);
           ctx.stroke();
 
+          // ── gwiazdozbiory ──────────────────────────────────────
+          // Rysowane POD satelitami i blado: to jest tlo do orientacji,
+          // a nie dana pomiarowa. Wykres jest w azymucie od polnocy
+          // GEOGRAFICZNEJ (tak podaje GSV), wiec obraz zgadza sie z niebem
+          // bez udzialu kompasu — magnetometr myli sie o 5-15 stopni i tutaj
+          // nie bierze udzialu wcale.
+          if (niebo.gwiazdy && niebo.pozycjaZnana) {
+            const teraz = new Date();
+            const punkty = Gwiazdy.pozycje(niebo.posInfo.latitude, niebo.posInfo.longitude, teraz, cx, cy, R);
+
+            ctx.save();
+            ctx.strokeStyle = Theme.mainTextColor;
+            ctx.globalAlpha = 0.22;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (const para of Gwiazdy.LINIE) {
+              const a = punkty[para[0]];
+              const b = punkty[para[1]];
+              if (!a || !b)
+                continue;
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+            }
+            ctx.stroke();
+
+            ctx.globalAlpha = 0.75;
+            ctx.fillStyle = Theme.mainTextColor;
+            for (const g of punkty) {
+              if (!g)
+                continue;
+              // promien z wielkosci gwiazdowej: Wega (0,03) grubsza od
+              // Megrez (3,3), tak jak na niebie
+              const rg = Math.max(1, 3.2 - 0.55 * g.jasnosc);
+              ctx.beginPath();
+              ctx.arc(g.x, g.y, rg, 0, 2 * Math.PI);
+              ctx.fill();
+            }
+
+            // nazwy tylko dla najjasniejszych — inaczej kopula robi sie
+            // nieczytelna akurat tam, gdzie potrzebne sa satelity
+            ctx.globalAlpha = 0.5;
+            ctx.font = "10px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            for (const g of punkty) {
+              if (g && g.jasnosc < 1.0)
+                ctx.fillText(g.nazwa, g.x, g.y - 5);
+            }
+            ctx.restore();
+          }
+
           // maska elewacji — przerywany okrag; ponizej niego odbiornik
           // satelitow nie uzywa, wiec puste miejsce tam nie jest problemem
           if (niebo.maska > 0) {
@@ -227,6 +283,28 @@ Popup {
         }
       }
     }
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: niebo.pozycjaZnana ? qsTr("Gwiazdozbiory") : qsTr("Gwiazdozbiory — czekam na pozycję")
+        font: Theme.tipFont
+        color: Theme.secondaryTextColor
+      }
+
+      QfPrzelacznikMaly {
+        checked: niebo.gwiazdy
+        enabled: niebo.pozycjaZnana
+        onPrzelaczono: {
+          niebo.gwiazdy = !niebo.gwiazdy;
+          settings.setValue('WorkField/nieboGwiazdy', niebo.gwiazdy);
+          kopula.requestPaint();
+        }
+      }
+    }
+
     // ── slupki SNR ──────────────────────────────────────────
     Text {
       Layout.fillWidth: true
@@ -238,7 +316,10 @@ Popup {
 
     ScrollView {
       Layout.fillWidth: true
-      Layout.preferredHeight: 112
+      // Bez satelitow slupkow nie ma, a sam obszar zostawal jako pusty pas
+      // miedzy maska a opisem. Wysokosc zero, nie ukrycie samych slupkow.
+      visible: niebo.satelity.length > 0
+      Layout.preferredHeight: visible ? 112 : 0
       clip: true
 
       Row {
@@ -317,6 +398,69 @@ Popup {
         for (const k in licz)
           czesci.push(k + " " + licz[k]);
         return czesci.length > 0 ? qsTr("W rozwiązaniu: ") + czesci.join("  ·  ") : qsTr("Żaden satelita nie wchodzi jeszcze do rozwiązania.");
+      }
+    }
+
+    // ── dziennik ────────────────────────────────────────────
+    // WorkField 23.08.2026, krok 0 z NIEBO_logowanie_plan.md.
+    // Migawka nieba idzie do pliku ZAWSZE przy zapisie obiektu — tego nie da
+    // sie tu wylaczyc, bo to jest odpowiedz na pytanie "dlaczego TEN pomiar
+    // ma taka dokladnosc" i bez niej pomiar zostaje bez wyjasnienia.
+    // Przelacznik dotyczy tylko zapisu rytmicznego, ktory rosnie z czasem.
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: wierszeDziennika.implicitHeight + 12
+      color: Qt.rgba(1, 1, 1, 0.05)
+      radius: 4
+
+      ColumnLayout {
+        id: wierszeDziennika
+        anchors.fill: parent
+        anchors.margins: 6
+        spacing: 4
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 8
+
+          Text {
+            Layout.fillWidth: true
+            text: qsTr("Zapis rytmiczny")
+            font: Theme.tipFont
+            color: Theme.mainTextColor
+          }
+
+          Repeater {
+            model: [5, 10, 30]
+
+            Button {
+              text: modelData + " s"
+              font.pointSize: Theme.tinyFont.pointSize
+              enabled: NieboDziennik.rytm
+              highlighted: NieboDziennik.okres === modelData
+              onClicked: NieboDziennik.okres = modelData
+            }
+          }
+
+          QfPrzelacznikMaly {
+            checked: NieboDziennik.rytm
+            onPrzelaczono: NieboDziennik.rytm = !NieboDziennik.rytm
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+          font: Theme.tipFont
+          color: NieboDziennik.przeszkoda !== "" ? "#EF5350" : Theme.secondaryTextColor
+          text: {
+            if (NieboDziennik.przeszkoda !== "")
+              return NieboDziennik.przeszkoda;
+            if (NieboDziennik.idSesji === "")
+              return qsTr("Dziennik gotowy — pierwszy zapis założy sesję.");
+            return qsTr("Sesja %1 · %2 epok · %3 wierszy → %4").arg(NieboDziennik.idSesji).arg(NieboDziennik.epoki).arg(NieboDziennik.wiersze).arg(NieboDziennik.baza.split('/').pop());
+          }
+        }
       }
     }
 

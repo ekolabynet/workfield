@@ -152,7 +152,7 @@ Page {
           font.pointSize: 24
           font.bold: true
           color: Theme.mainOverlayColor
-          text: appName
+          text: Qfield.name
           wrapMode: Text.WordWrap
         }
 
@@ -267,7 +267,7 @@ Page {
               Layout.margins: 6
               Layout.topMargin: 12
               Layout.maximumWidth: feedbackView.width - 12
-              text: qsTr("Hey there, how do you like your experience with %1 so far?").arg(appName)
+              text: qsTr("Hey there, how do you like your experience with %1 so far?").arg(Qfield.name)
               font: Theme.defaultFont
               color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter
@@ -453,7 +453,7 @@ Page {
               Layout.margins: 6
               Layout.topMargin: 12
               Layout.maximumWidth: collectionView.width - 12
-              text: qsTr("To improve stability for everyone, %1 collects and sends anonymized metrics.").arg(appName)
+              text: qsTr("To improve stability for everyone, %1 collects and sends anonymized metrics.").arg(Qfield.name)
               font: Theme.defaultFont
               color: Theme.mainOverlayColor
               horizontalAlignment: Text.AlignHCenter

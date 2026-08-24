@@ -60,13 +60,40 @@ class ProcesyStudio : public QObject
                                            const QString &nazwa,
                                            const QString &korzen = QString() ) const;
 
+    /**
+     * WorkField 23.08.2026 — SPIS TABEL Z LICZBAMI WIERSZY.
+     *
+     * Powstal dla okna "Zamien na szablon", bo dotychczasowa regula czyszczenia
+     * byla LISTA DOZWOLONYCH (`FITO_%`, `ZAL_%`, `NIEBO_%`) i zawodzila przez
+     * NIEDOCZYSZCZENIE, po cichu: projekt zbudowany z przepisu ma warstwy
+     * `platy`, `gatunki`, `zdjecia_fito`, `platy_zalazki`, `tyczenie`, ktorych
+     * zaden z tych wzorcow nie lapie. Szablon wywozil komplet danych terenowych,
+     * a okno mowilo "tabele FITO_* zostana wyczyszczone" — zdanie prawdziwe
+     * i bezuzyteczne, bo w takim projekcie nie ma ani jednej tabeli FITO_.
+     *
+     * Naprawa nie polega na dopisaniu wzorcow. Czlowiek ma ZOBACZYC liste
+     * z liczbami wierszy i zdecydowac, zanim cokolwiek zniknie.
+     *
+     * Zwraca liste map: tabela, wierszy, geometria (bool), proponowane (bool).
+     * `proponowane` to podpowiedz, nie decyzja: TRUE dla wszystkiego poza
+     * warstwami odniesienia i podkladami.
+     */
+    Q_INVOKABLE QVariantList spisTabel( const QString &gpkg ) const;
+
+    //! Wszystkie pliki GPKG projektu — spisTabel() trzeba wolac dla kazdego.
+    Q_INVOKABLE QStringList plikiGpkg( const QString &sciezkaProjektu ) const;
+
     //! "Zamien na szablon": kopiuje projekt do <korzen>/szablony/<nazwa>
     //! z pominieciem czesci terenowej (DCIM, foto_tagi.gpkg, zdjecia,
-    //! metryki, smieci edytora) i czysci tabele FITO_* we wszystkich GPKG
-    //! kopii. Oryginal nietkniety. Zwraca { ok, sciezka|blad, wyczyszczono }.
+    //! metryki, smieci edytora) i czysci tabele WSKAZANE przez czlowieka
+    //! w \a tabeleDoWyczyszczenia. Pusta lista = nie czysci nic; wywolanie
+    //! bez tego argumentu zostaje przy starej regule wzorcow, zeby nie zepsuc
+    //! istniejacych wywolan. Oryginal nietkniety.
+    //! Zwraca { ok, sciezka|blad, wyczyszczono }.
     Q_INVOKABLE QVariantMap zamienNaSzablon( const QString &sciezkaProjektu,
                                              const QString &korzen,
-                                             const QString &nazwa ) const;
+                                             const QString &nazwa,
+                                             const QStringList &tabeleDoWyczyszczenia = QStringList() ) const;
 
     //! Zapisuje styl warstwy do <katalogProjektu>/styles/<nazwa>.qml.
     //! Zwraca sciezke pliku albo "BLAD: ...".

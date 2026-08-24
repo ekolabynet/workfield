@@ -14,17 +14,6 @@ Page {
 
   signal finished
 
-  readonly property var categoryTitles: ({
-      "mapCanvas": qsTr("Obszar mapy"),
-      "digitizing": qsTr("Digitalizacja i edycja"),
-      "interface": qsTr("Interfejs"),
-      "positioning": qsTr("Lokalizacja"),
-      "network": qsTr("Sieć"),
-      "workfieldCloud": qsTr("Chmura WorkField"),
-      "advanced": qsTr("Zaawansowane"),
-      "variables": qsTr("Zmienne")
-    })
-
   property var networkSettingsItem: null
   property var positioningModelItem: null
   property var positioningComboItem: null
@@ -367,11 +356,35 @@ Page {
     Component {
       id: listItem
 
+      // WorkField 23.08.2026 — CALY WIERSZ jest celem palca i CALY WIERSZ
+      // zmienia tlo, gdy ustawienie jest wlaczone.
+      //
+      // Przedtem klikalna byla wylacznie etykieta tytulu: objasnienie pod nia
+      // (gdy wlaczone) bylo martwe, a stan dalo sie odczytac tylko z kolka
+      // 22 px po prawej. W rekawicy i w slonecu to za malo — dlatego wlaczone
+      // ustawienie ma teraz tlo w kolorze marki, widoczne katem oka.
+      //
+      // MouseArea siedzi POD trescia (zadeklarowana pierwsza), zeby wlasna
+      // MouseArea przelacznika nadal lapala swoje klikniecia.
       Rectangle {
+        id: wiersz
         width: parent ? parent.width - 16 : undefined
         height: isVisible ? line.height : 0
-        color: "transparent"
+        radius: 4
+        color: registry[settingAlias] ? Qt.rgba(QfTheme.mainColor.r, QfTheme.mainColor.g, QfTheme.mainColor.b, obszarWiersza.pressed ? 0.55 : 0.35) : obszarWiersza.pressed ? Qt.rgba(1, 1, 1, 0.10) : "transparent"
         clip: true
+
+        Behavior on color {
+          ColorAnimation {
+            duration: 120
+          }
+        }
+
+        MouseArea {
+          id: obszarWiersza
+          anchors.fill: parent
+          onClicked: toggle.toggle()
+        }
 
         Row {
           id: line
@@ -387,14 +400,12 @@ Page {
               padding: 6
               leftPadding: 12
               text: title
-              font: QfTheme.defaultFont
+              // tipFont, nie defaultFont — wiersz ustawienia ma byc taki sam
+              // jak pozycja menu w szufladzie, a nie o klase wiekszy
+              font: QfTheme.tipFont
               color: QfTheme.mainTextColor
               elide: Text.ElideRight
               maximumLineCount: 1
-              MouseArea {
-                anchors.fill: parent
-                onClicked: toggle.toggle()
-              }
             }
 
             Label {
@@ -413,24 +424,152 @@ Page {
 
           QfPrzelacznikMaly {
             id: toggle
+            // `Layout.*` w zwyklym Row nic nie robilo — Row nie jest Layoutem.
+            // Odsuniecie od prawej robi teraz rightMargin samego Row przez
+            // szerokosc Column, a wysrodkowanie pionowe `anchors`.
+            anchors.verticalCenter: parent.verticalCenter
             checked: registry[settingAlias]
-            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-            Layout.rightMargin: 8
             onPrzelaczono: registry[settingAlias] = !checked
           }
         }
       }
     }
 
-    StackView {
-      id: settingsStack
-      Layout.fillHeight: true
+    // WorkField 23.08.2026 — KONIEC ZE STOSEM EKRANOW.
+    //
+    // Bylo: ekran z indeksem kategorii -> push -> ekran kategorii -> pop.
+    // Na komputerze kazde klikniecie zabieralo cale okno, a powrot wymagal
+    // trafienia w strzalke w rogu. Piotr nazwal to mechanizmem toksycznym
+    // i mial racje: to jest nawigacja telefonu wstawiona w okno.
+    //
+    // Jest: dwa panele obok siebie, jak w lewej szufladzie — kategorie po
+    // lewej (te same QfPozycjaMenu, te same ikony Breeze), tresc po prawej.
+    // Nic nie znika, wszystko widac naraz, nie ma czego cofac.
+    RowLayout {
       Layout.fillWidth: true
-      clip: true
+      Layout.fillHeight: true
+      spacing: 0
 
-      initialItem: QfSettingsIndex {
-        t: Theme
-        onCategorySelected: categoryId => page.openCategory(categoryId)
+      Rectangle {
+        id: szynaKategorii
+
+        // WorkField 23.08.2026 — na telefonie ten panel zjadal polowe
+        // szerokosci i zaslanial wpisy ustawien.
+        //
+        // NIE chowamy go calkiem, chociaz kategorie sa takze w prawej
+        // szufladzie: kto otworzyl ustawienia zebatka, a nie z szuflady,
+        // zostalby uwieziony w jednej kategorii bez zadnego sposobu na
+        // zmiane — i bez zadnego objawu, ze cos jest nie tak. Zostaje
+        // szyna z samymi ikonami, 46 px zamiast 200, nazwa w dymku.
+        readonly property bool wasko: page.width < 520
+
+        Layout.preferredWidth: wasko ? 46 : 200
+        Layout.fillHeight: true
+        color: Qt.rgba(0, 0, 0, 0.20)
+
+        ColumnLayout {
+          anchors.fill: parent
+          anchors.margins: szynaKategorii.wasko ? 3 : 6
+          spacing: 2
+
+          Repeater {
+            model: page.kategorie
+
+            QfPozycjaMenu {
+              Layout.fillWidth: true
+              text: modelData.nazwa
+              ikona: modelData.ikona
+              tylkoIkona: szynaKategorii.wasko
+              wybrana: page.kategoria === modelData.id
+              onClicked: page.kategoria = modelData.id
+            }
+          }
+
+          Item {
+            Layout.fillHeight: true
+          }
+        }
+      }
+
+      Rectangle {
+        Layout.preferredWidth: 1
+        Layout.fillHeight: true
+        color: Theme.controlBorderColor
+      }
+
+      ScrollView {
+        id: panelTresci
+
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        topPadding: 5
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.vertical: QfScrollBar {}
+        contentWidth: availableWidth
+        clip: true
+
+        ColumnLayout {
+          width: panelTresci.availableWidth
+
+          QfSettingsMapCanvas {
+            visible: page.kategoria === "mapaRysowanie"
+            Layout.fillWidth: true
+            settingsPage: page
+            settingsRegistry: registry
+            settingsModel: canvasSettingsModel
+            rowDelegate: listItem
+          }
+          QfSettingsDigitizing {
+            // Trzy wpisy nie zasluguja na wlasna kategorie — jada razem z mapa.
+            visible: page.kategoria === "mapaRysowanie"
+            Layout.fillWidth: true
+            settingsPage: page
+            settingsRegistry: registry
+            settingsModel: digitizingEditingSettingsModel
+            rowDelegate: listItem
+          }
+          QfSettingsInterface {
+            visible: page.kategoria === "interface"
+            Layout.fillWidth: true
+            settingsPage: page
+            settingsRegistry: registry
+            settingsModel: interfaceSettingsModel
+            rowDelegate: listItem
+            onOpenLocatorSettings: {
+              locatorSettings.open();
+              locatorSettings.focus = true;
+            }
+            onOpenPluginManager: pluginManagerSettings.open()
+          }
+          QfCloudSettings {
+            visible: page.kategoria === "chmuraSiec"
+            Layout.fillWidth: true
+            settingsPage: page
+          }
+          SettingsNetwork {
+            id: networkSettings
+            Component.onCompleted: page.networkSettingsItem = networkSettings
+            // Siec to samo proxy, ruszane raz na rok — nie ma z czego robic
+            // osobnej kategorii. Doklejona pod chmure.
+            visible: page.kategoria === "chmuraSiec"
+            Layout.fillWidth: true
+            settingsPage: page
+          }
+          QfSettingsAdvanced {
+            visible: page.kategoria === "advanced"
+            Layout.fillWidth: true
+            settingsPage: page
+            settingsRegistry: registry
+            settingsModel: advancedSettingsModel
+            rowDelegate: listItem
+          }
+          Loader {
+            active: page.kategoria === "positioning"
+            Layout.fillWidth: true
+            Layout.preferredHeight: panelTresci.height
+            sourceComponent: positioningPage
+          }
+        }
       }
     }
   }
@@ -1127,7 +1266,12 @@ Page {
 
               MouseArea {
                 anchors.fill: parent
-                onClicked: accuracyIndicator.toggle()
+                // WorkField 23.08.2026 — bylo `accuracyIndicator.toggle()`.
+                // Klikniecie w TE etykiete wylaczalo nadrzedny wskaznik
+                // dokladnosci, przez co caly wiersz natychmiast znikal
+                // (`visible: accuracyIndicator.checked` wyzej). Wygladalo to
+                // jak zniknieta opcja, nie jak przelaczenie czegos innego.
+                onClicked: accuracyRequirement.toggle()
               }
             }
 
@@ -1565,95 +1709,67 @@ Page {
   // uzytkownika w menu, ktorego juz nigdzie nie ma.
   property bool wprostZSzuflady: false
 
-  function openCategory(id) {
-    settingsStack.push(categoryPage, {
-      "categoryId": id
-    });
-  }
-
-  Component {
-    id: categoryPage
-    Item {
-      property string categoryId
-      ScrollView {
-        anchors.fill: parent
-        topPadding: 5
-        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-        ScrollBar.vertical: QfScrollBar {}
-        contentWidth: availableWidth
-        clip: true
-
-        ColumnLayout {
-          width: settingsStack.width
-
-          QfSettingsMapCanvas {
-            visible: categoryId === "mapCanvas"
-            Layout.fillWidth: true
-            settingsPage: page
-            settingsRegistry: registry
-            settingsModel: canvasSettingsModel
-            rowDelegate: listItem
-          }
-          QfSettingsDigitizing {
-            visible: categoryId === "digitizing"
-            Layout.fillWidth: true
-            settingsPage: page
-            settingsRegistry: registry
-            settingsModel: digitizingEditingSettingsModel
-            rowDelegate: listItem
-          }
-          QfSettingsInterface {
-            visible: categoryId === "interface"
-            Layout.fillWidth: true
-            settingsPage: page
-            settingsRegistry: registry
-            settingsModel: interfaceSettingsModel
-            rowDelegate: listItem
-            onOpenLocatorSettings: {
-              locatorSettings.open();
-              locatorSettings.focus = true;
-            }
-            onOpenPluginManager: pluginManagerSettings.open()
-          }
-          QfCloudSettings {
-            visible: categoryId === "workfieldCloud"
-            Layout.fillWidth: true
-            settingsPage: page
-          }
-          SettingsNetwork {
-            id: networkSettings
-            Component.onCompleted: page.networkSettingsItem = networkSettings
-            visible: categoryId === "network"
-            Layout.fillWidth: true
-            settingsPage: page
-          }
-          QfSettingsAdvanced {
-            visible: categoryId === "advanced"
-            Layout.fillWidth: true
-            settingsPage: page
-            settingsRegistry: registry
-            settingsModel: advancedSettingsModel
-            rowDelegate: listItem
-          }
-          Loader {
-            active: categoryId === "positioning"
-            Layout.fillWidth: true
-            Layout.preferredHeight: settingsStack.height
-            sourceComponent: positioningPage
-          }
-          Loader {
-            active: categoryId === "variables"
-            Layout.fillWidth: true
-            Layout.preferredHeight: settingsStack.height
-            sourceComponent: variablesPage
-          }
-        }
-      }
+  //! Kategorie ustawien — jedna lista, jedno miejsce. Etykiety ZGODNE
+  //! z prawa szuflada; kategorie zbyt male zostaly polaczone.
+  readonly property var kategorie: [
+    {
+      "id": "positioning",
+      "nazwa": qsTr("Pozycja"),
+      "ikona": "ic_location_white_24dp"
+    },
+    {
+      "id": "mapaRysowanie",
+      "nazwa": qsTr("Mapa i rysowanie"),
+      "ikona": "wfg_warstwy"
+    },
+    {
+      "id": "interface",
+      "nazwa": qsTr("Wygląd"),
+      "ikona": "wfg_stylizacja"
+    },
+    {
+      "id": "chmuraSiec",
+      "nazwa": qsTr("Chmura i sieć"),
+      "ikona": "wfg_chmura"
+    },
+    {
+      "id": "advanced",
+      "nazwa": qsTr("Zaawansowane"),
+      "ikona": "wfg_ustawienia"
     }
+  ]
+
+  //! Ktora kategoria jest pokazana. Domyslnie Pozycja — w terenie zaglada sie
+  //! tam najczesciej.
+  property string kategoria: "positioning"
+
+  /**
+   * Stare identyfikatory kategorii wolaja jeszcze inne miejsca w aplikacji
+   * (prawa szuflada, diagnostyka GNSS). Tlumaczymy je tutaj, zamiast szukac
+   * po repozytorium — jedno miejsce, ktore wie o polaczeniu kategorii.
+   *
+   * "variables" swiadomie NIE ma odpowiednika: edytor zmiennych projektu
+   * zostal wycofany z listy (decyzja 23.08 — albo od nowa, albo wcale).
+   * Komponent `variablesPage` zostaje w pliku, gotowy do powrotu.
+   */
+  function openCategory(id) {
+    const mapa = {
+      "mapCanvas": "mapaRysowanie",
+      "digitizing": "mapaRysowanie",
+      "workfieldCloud": "chmuraSiec",
+      "network": "chmuraSiec",
+      "positioning": "positioning",
+      "interface": "interface",
+      "advanced": "advanced"
+    };
+    page.kategoria = mapa[id] !== undefined ? mapa[id] : "positioning";
   }
 
   header: QfPageHeader {
-    title: settingsStack.depth > 1 && settingsStack.currentItem && settingsStack.currentItem.categoryId ? page.categoryTitles[settingsStack.currentItem.categoryId] : qsTr("%1 Settings").arg(appName)
+    // `appName` bylo wlasnoscia kontekstu, ktora juz nie istnieje — w dzienniku
+    // siedzialo "ReferenceError: appName is not defined" przy kazdym otwarciu.
+    // Qfield.name jest singletonem z org.qfield.core i zawsze odpowiada.
+    title: qsTr("Ustawienia %1").arg(Qfield.name)
 
     showBackButton: true
     showApplyButton: false
@@ -1661,18 +1777,9 @@ Page {
 
     topMargin: mainWindow.sceneTopMargin
 
+    // Bez stosu ekranow "wstecz" znaczy jedno: zamknij ustawienia.
     onFinished: {
-      if (settingsStack.depth > 1) {
-        settingsStack.pop();
-        if (page.wprostZSzuflady) {
-          page.wprostZSzuflady = false;
-          parent.finished();
-          if (variableEditorItem)
-            variableEditorItem.apply();
-          applyProxySettings();
-        }
-        return;
-      }
+      page.wprostZSzuflady = false;
       parent.finished();
       if (variableEditorItem)
         variableEditorItem.apply();

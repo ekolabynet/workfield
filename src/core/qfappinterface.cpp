@@ -1135,6 +1135,47 @@ bool QfAppInterface::clipMergeRasters( const QStringList &inputPaths, double xmi
   return true;
 }
 
+int QfAppInterface::usunArkuszeDem( const QString &typ, const QStringList &nazwy )
+{
+  static const QStringList dozwoloneTypy = { QStringLiteral( "NMT" ), QStringLiteral( "NMPT" ), QStringLiteral( "CHM" ) };
+  if ( !dozwoloneTypy.contains( typ ) )
+    return 0;
+
+  const QString dom = QgsProject::instance()->homePath();
+  if ( dom.isEmpty() )
+    return 0;
+
+  const QDir katalog( dom + QLatin1Char( '/' ) + typ );
+  if ( !katalog.exists() )
+    return 0;
+
+  // Mozaika i produkty pochodne zostaja — kasujemy wylacznie surowe arkusze.
+  static const QStringList dozwoloneRozszerzenia = {
+    QStringLiteral( "asc" ), QStringLiteral( "tif" ), QStringLiteral( "tiff" ),
+    QStringLiteral( "zip" ), QStringLiteral( "xml" ), QStringLiteral( "prj" ) };
+
+  int usuniete = 0;
+  for ( const QString &nazwa : nazwy )
+  {
+    if ( nazwa.isEmpty() || nazwa.contains( QLatin1Char( '/' ) ) || nazwa.contains( QLatin1Char( '\\' ) )
+         || nazwa.contains( QLatin1String( ".." ) ) )
+      continue;
+
+    // Nazwa zaczynajaca sie od "NMT_"/"NMPT_"/"CHM_" to nasz wlasny wynik.
+    if ( nazwa.startsWith( typ + QLatin1Char( '_' ), Qt::CaseInsensitive ) )
+      continue;
+
+    const QFileInfo plik( katalog.filePath( nazwa ) );
+    if ( !plik.isFile() || !dozwoloneRozszerzenia.contains( plik.suffix().toLower() ) )
+      continue;
+
+    if ( QFile::remove( plik.absoluteFilePath() ) )
+      usuniete++;
+  }
+
+  return usuniete;
+}
+
 bool QfAppInterface::addXyzBasemap( const QString &name, const QString &url, int zmax )
 {
   const QString uri = QStringLiteral( "type=xyz&url=%1&zmin=0&zmax=%2" ).arg( QString( QUrl::toPercentEncoding( url ) ), QString::number( zmax ) );

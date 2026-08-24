@@ -8,12 +8,18 @@
 
 #include "narzedziaprojektu.h"
 
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
+
+#include <sqlite3.h>
 
 #include <qgscoordinatereferencesystem.h>
+#include <qgsproject.h>
+#include <qgsvectorlayer.h>
 #include <qgsprojectmetadata.h>
 
 #include <qgsabstractgeometry.h>
@@ -34,7 +40,14 @@
 #include <qgssnappingconfig.h>
 #include <qgswkbtypes.h>
 
+// CSLAddString i CSLDestroy siedza w cpl_string.h. Do 23.08.2026 dojezdzaly tu
+// przypadkiem, wciagane przez naglowki QGIS-a — w qfappinterface.cpp dziala to
+// nadal, bo ten plik wciaga pol biblioteki. Tutaj przestalo dzialac w chwili,
+// gdy doszedl import warstwy. Naglowek, z ktorego bierzemy nazwe, wlaczamy sami.
+#include <cpl_conv.h>
+#include <cpl_string.h>
 #include <gdal.h>
+#include <gdal_utils.h>
 #include <ogr_api.h>
 
 NarzedziaProjektu::NarzedziaProjektu( QObject *parent )
@@ -1477,4 +1490,327 @@ QVariantMap NarzedziaProjektu::splitParts( QgsVectorLayer *layer, QgsFeatureId f
                                                 ? tr( "Rozdzielono na %1 obiektów. Załączniki zostały przy pierwszym." ).arg( parts.size() )
                                                 : tr( "Rozdzielenie częściowe: powstało %1 z %2 obiektów." ).arg( created.size() + 1 ).arg( parts.size() ) );
   return result;
+}
+
+// ---------------------------------------------------------------- migawka
+
+QString NarzedziaProjektu::plikDanych( QgsProject *projekt ) const
+{
+  if ( !projekt )
+    return QString();
+
+  QHash<QString, int> licznik;
+  QString zNazwy;
+
+  const auto warstwy = projekt->mapLayers();
+  for ( auto it = warstwy.constBegin(); it != warstwy.constEnd(); ++it )
+  {
+    QgsVectorLayer *wektor = qobject_cast<QgsVectorLayer *>( it.value() );
+    if ( !wektor || wektor->providerType() != QLatin1String( "ogr" ) )
+      continue;
+
+    const QString plik = wektor->source().section( QLatin1Char( '|' ), 0, 0 );
+    if ( !plik.endsWith( QLatin1String( ".gpkg" ), Qt::CaseInsensitive ) )
+      continue;
+
+    const QString nazwa = QFileInfo( plik ).fileName().toLower();
+    if ( nazwa == QLatin1String( "data.gpkg" ) )
+      return plik;
+    if ( nazwa == QLatin1String( "dane.gpkg" ) && zNazwy.isEmpty() )
+      zNazwy = plik;
+
+    // podklady i slownik nie sa danymi nieodtwarzalnymi
+    if ( nazwa == QLatin1String( "support.gpkg" ) || nazwa.startsWith( QLatin1String( "wf_wskazniki" ) ) )
+      continue;
+
+    licznik[plik] += 1;
+  }
+
+  if ( !zNazwy.isEmpty() )
+    return zNazwy;
+
+  QString najlepszy;
+  int najwiecej = 0;
+  for ( auto it = licznik.constBegin(); it != licznik.constEnd(); ++it )
+  {
+    if ( it.value() > najwiecej )
+    {
+      najwiecej = it.value();
+      najlepszy = it.key();
+    }
+  }
+  return najlepszy;
+}
+
+QVariantMap NarzedziaProjektu::migawkaBazy( const QString &gpkg, const QString &katalogDocelowy ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+
+  if ( gpkg.isEmpty() || !QFile::exists( gpkg ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie ma pliku z danymi." ) );
+    return wynik;
+  }
+
+  // 1. Dziennik WAL do pliku glownego. Bez tego kopia gubi najswiezsze
+  //    transakcje — te, ktore uzytkownik wlasnie zapisal i ktore uwaza
+  //    za bezpieczne.
+  {
+    sqlite3 *baza = nullptr;
+    if ( sqlite3_open( gpkg.toUtf8().constData(), &baza ) == SQLITE_OK )
+    {
+      sqlite3_busy_timeout( baza, 5000 );
+      sqlite3_exec( baza, "PRAGMA wal_checkpoint(TRUNCATE)", nullptr, nullptr, nullptr );
+    }
+    if ( baza )
+      sqlite3_close( baza );
+  }
+
+  const QString katalog = katalogDocelowy.isEmpty()
+                            ? QFileInfo( gpkg ).absolutePath()
+                            : katalogDocelowy;
+  if ( !QDir().mkpath( katalog ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie da się utworzyć katalogu %1" ).arg( katalog ) );
+    return wynik;
+  }
+
+  const QString podstawa = QFileInfo( gpkg ).completeBaseName();
+  const QString znacznik = QDateTime::currentDateTime().toString( QStringLiteral( "yyyy-MM-dd_HHmm" ) );
+  QString nazwa = QStringLiteral( "%1_%2.gpkg" ).arg( podstawa, znacznik );
+  QString cel = katalog + QLatin1Char( '/' ) + nazwa;
+
+  // Nazwa niesie czas, wiec kolizja znaczy dwie migawki w tej samej minucie.
+  // Nie nadpisujemy: historia migawek jest append-only (claude/DANE_workflow.md).
+  int kolejna = 2;
+  while ( QFile::exists( cel ) )
+  {
+    nazwa = QStringLiteral( "%1_%2_%3.gpkg" ).arg( podstawa, znacznik ).arg( kolejna++ );
+    cel = katalog + QLatin1Char( '/' ) + nazwa;
+  }
+
+  if ( !QFile::copy( gpkg, cel ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Kopiowanie nie powiodło się." ) );
+    return wynik;
+  }
+
+  // 2. Migawka sprawdza SAMA SIEBIE. Kopia zrobiona w trakcie zapisu bywa
+  //    rozdarta i wyglada normalnie do chwili, w ktorej jest potrzebna.
+  bool zdrowa = false;
+  {
+    sqlite3 *baza = nullptr;
+    if ( sqlite3_open_v2( cel.toUtf8().constData(), &baza, SQLITE_OPEN_READONLY, nullptr ) == SQLITE_OK )
+    {
+      sqlite3_stmt *zapytanie = nullptr;
+      if ( sqlite3_prepare_v2( baza, "PRAGMA quick_check", -1, &zapytanie, nullptr ) == SQLITE_OK
+           && sqlite3_step( zapytanie ) == SQLITE_ROW )
+      {
+        const QString odpowiedz = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( zapytanie, 0 ) ) );
+        zdrowa = odpowiedz.compare( QLatin1String( "ok" ), Qt::CaseInsensitive ) == 0;
+      }
+      sqlite3_finalize( zapytanie );
+    }
+    if ( baza )
+      sqlite3_close( baza );
+  }
+
+  if ( !zdrowa )
+  {
+    QFile::remove( cel );
+    wynik.insert( QStringLiteral( "blad" ), tr( "Kopia nie przeszła sprawdzenia i została skasowana. Spróbuj ponownie, gdy nic się nie zapisuje." ) );
+    return wynik;
+  }
+
+  // 3. Suma kontrolna obok pliku — po drugiej stronie widac, czy dojechalo
+  //    w calosci, bez otwierania bazy.
+  QString suma;
+  {
+    QFile plik( cel );
+    if ( plik.open( QIODevice::ReadOnly ) )
+    {
+      QCryptographicHash skrot( QCryptographicHash::Md5 );
+      if ( skrot.addData( &plik ) )
+        suma = QString::fromLatin1( skrot.result().toHex() );
+      plik.close();
+    }
+  }
+
+  if ( !suma.isEmpty() )
+  {
+    QFile opis( cel + QStringLiteral( ".md5" ) );
+    if ( opis.open( QIODevice::WriteOnly | QIODevice::Text ) )
+    {
+      opis.write( QStringLiteral( "%1  %2\n" ).arg( suma, nazwa ).toUtf8() );
+      opis.close();
+    }
+  }
+
+  wynik.insert( QStringLiteral( "ok" ), true );
+  wynik.insert( QStringLiteral( "sciezka" ), cel );
+  wynik.insert( QStringLiteral( "nazwa" ), nazwa );
+  wynik.insert( QStringLiteral( "md5" ), suma );
+  wynik.insert( QStringLiteral( "bajty" ), QFileInfo( cel ).size() );
+  return wynik;
+}
+
+QVariantMap NarzedziaProjektu::importujWarstwe( const QString &zrodloUri,
+                                                const QString &celGpkg,
+                                                const QString &nazwaDocelowa ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+
+  if ( zrodloUri.isEmpty() || celGpkg.isEmpty() || nazwaDocelowa.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Brak źródła albo celu." ) );
+    return wynik;
+  }
+
+  // Adres warstwy OGR bywa postaci "/a/b.gpkg|layername=x". GDALOpenEx tego
+  // sufiksu nie rozumie — rozdzielamy sami.
+  const QString plikZrodla = zrodloUri.section( QLatin1Char( '|' ), 0, 0 );
+  QString warstwaZrodlowa;
+  for ( const QString &czesc : zrodloUri.split( QLatin1Char( '|' ), Qt::SkipEmptyParts ) )
+  {
+    if ( czesc.startsWith( QLatin1String( "layername=" ) ) )
+      warstwaZrodlowa = czesc.mid( 10 );
+  }
+
+  if ( !QFile::exists( plikZrodla ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie ma pliku %1" ).arg( plikZrodla ) );
+    return wynik;
+  }
+
+  GDALAllRegister();
+
+  // NIE NADPISUJEMY. Warstwa o tej nazwie w celu znaczy, ze ktos juz cos tam
+  // ma — podmiana bylaby cicha utrata danych, a to jest dokladnie ten rodzaj
+  // bledu, ktorego pilnujemy w calym obiegu.
+  if ( QFile::exists( celGpkg ) )
+  {
+    GDALDatasetH cel = GDALOpenEx( celGpkg.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr );
+    if ( cel )
+    {
+      const bool zajete = GDALDatasetGetLayerByName( cel, nazwaDocelowa.toUtf8().constData() ) != nullptr;
+      GDALClose( cel );
+      if ( zajete )
+      {
+        wynik.insert( QStringLiteral( "blad" ), tr( "W bazie jest już warstwa „%1”. Zmień nazwę." ).arg( nazwaDocelowa ) );
+        return wynik;
+      }
+    }
+  }
+
+  GDALDatasetH zrodlo = GDALOpenEx( plikZrodla.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr );
+  if ( !zrodlo )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie da się otworzyć %1 jako danych wektorowych." ).arg( QFileInfo( plikZrodla ).fileName() ) );
+    return wynik;
+  }
+
+  char **argv = nullptr;
+  argv = CSLAddString( argv, "-f" );
+  argv = CSLAddString( argv, "GPKG" );
+  argv = CSLAddString( argv, "-nln" );
+  argv = CSLAddString( argv, nazwaDocelowa.toUtf8().constData() );
+  if ( QFile::exists( celGpkg ) )
+    argv = CSLAddString( argv, "-update" );
+  if ( !warstwaZrodlowa.isEmpty() )
+    argv = CSLAddString( argv, warstwaZrodlowa.toUtf8().constData() );
+
+  GDALVectorTranslateOptions *opcje = GDALVectorTranslateOptionsNew( argv, nullptr );
+  CSLDestroy( argv );
+  if ( !opcje )
+  {
+    GDALClose( zrodlo );
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie da się przygotować importu." ) );
+    return wynik;
+  }
+
+  int bladUzycia = FALSE;
+  GDALDatasetH wyjscie = GDALVectorTranslate( celGpkg.toUtf8().constData(), nullptr,
+                                              1, &zrodlo, opcje, &bladUzycia );
+  GDALVectorTranslateOptionsFree( opcje );
+  GDALClose( zrodlo );
+  if ( wyjscie )
+    GDALClose( wyjscie );
+
+  // SPRAWDZAMY PO FAKCIE, a nie z wartosci zwracanej: interesuje nas, czy
+  // warstwa jest w pliku i ile ma obiektow. Liczbe oddajemy, zeby dalo sie
+  // ja porownac z oryginalem zamiast uwierzyc na slowo.
+  qint64 obiektow = -1;
+  GDALDatasetH sprawdzenie = GDALOpenEx( celGpkg.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr );
+  if ( sprawdzenie )
+  {
+    OGRLayerH warstwa = GDALDatasetGetLayerByName( sprawdzenie, nazwaDocelowa.toUtf8().constData() );
+    if ( warstwa )
+      obiektow = OGR_L_GetFeatureCount( warstwa, TRUE );
+    GDALClose( sprawdzenie );
+  }
+
+  if ( obiektow < 0 )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Import się nie udał — w bazie nie ma warstwy „%1”." ).arg( nazwaDocelowa ) );
+    return wynik;
+  }
+
+  wynik.insert( QStringLiteral( "ok" ), true );
+  wynik.insert( QStringLiteral( "nazwa" ), nazwaDocelowa );
+  wynik.insert( QStringLiteral( "obiektow" ), obiektow );
+  wynik.insert( QStringLiteral( "gpkg" ), celGpkg );
+  return wynik;
+}
+
+QVariantMap NarzedziaProjektu::zrodloWarstwy( QgsMapLayer *warstwa ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+  wynik.insert( QStringLiteral( "plik" ), QString() );
+  wynik.insert( QStringLiteral( "warstwa" ), QString() );
+  wynik.insert( QStringLiteral( "pelny" ), QString() );
+  wynik.insert( QStringLiteral( "istnieje" ), false );
+  wynik.insert( QStringLiteral( "wBazieProjektu" ), false );
+
+  if ( !warstwa )
+    return wynik;
+
+  const QString zrodlo = warstwa->source();
+  if ( zrodlo.isEmpty() )
+    return wynik;
+
+  wynik.insert( QStringLiteral( "ok" ), true );
+  wynik.insert( QStringLiteral( "pelny" ), zrodlo );
+
+  const QString plik = zrodlo.section( QLatin1Char( '|' ), 0, 0 );
+
+  QString nazwaTabeli;
+  const QStringList czesci = zrodlo.split( QLatin1Char( '|' ), Qt::SkipEmptyParts );
+  for ( const QString &czesc : czesci )
+  {
+    if ( czesc.startsWith( QLatin1String( "layername=" ) ) )
+      nazwaTabeli = czesc.mid( 10 );
+  }
+  wynik.insert( QStringLiteral( "warstwa" ), nazwaTabeli );
+
+  // Sprawdzamy ISTNIENIE, a nie ksztalt napisu: adres WMS-a albo PostGIS-a
+  // tez wyglada jak tekst ze sciezka w srodku, a sciezka nie jest.
+  const QFileInfo info( plik );
+  if ( !info.exists() || !info.isFile() )
+    return wynik;
+
+  wynik.insert( QStringLiteral( "istnieje" ), true );
+  wynik.insert( QStringLiteral( "plik" ), QDir::toNativeSeparators( info.absoluteFilePath() ) );
+
+  const QString dane = plikDanych( QgsProject::instance() );
+  if ( !dane.isEmpty() )
+  {
+    const QString a = info.canonicalFilePath();
+    const QString b = QFileInfo( dane ).canonicalFilePath();
+    wynik.insert( QStringLiteral( "wBazieProjektu" ), !a.isEmpty() && a == b );
+  }
+
+  return wynik;
 }

@@ -29,6 +29,9 @@ QfPopup {
   }
 
   Page {
+    // WorkField 23.08.2026 — jak w pozostalych panelach: tlo rysuje QfPopup,
+    // ktore czyta motyw. Page dokladal nad nim swoje, ze stylu Material.
+    background: null
     id: page
 
     Keys.onReleased: event => {

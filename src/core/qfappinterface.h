@@ -133,6 +133,19 @@ class QfAppInterface : public QObject
     //! Clips and merges \a inputPaths rasters into one mosaic at \a outputPath, cut to the given EPSG:2180 extent.
     Q_INVOKABLE bool clipMergeRasters( const QStringList &inputPaths, double xmin, double ymin, double xmax, double ymax, const QString &outputPath );
 
+    /**
+     * WorkField: usuwa arkusze zrodlowe DEM po zlozeniu mozaiki.
+     *
+     * \a typ to wylacznie "NMT", "NMPT" albo "CHM"; \a nazwy to GOLE NAZWY
+     * PLIKOW w katalogu <projekt>/<typ>, bez sciezki. Nazwa ze sciezka albo
+     * z ".." jest pomijana, wiec z QML nie da sie tym skasowac niczego poza
+     * tym katalogiem. FileUtils.deleteFiles() sie tu nie nadaje — dopuszcza
+     * tylko pdf/png/jpg/mp4, a arkusze to .asc, .tif i .zip.
+     *
+     * Zwraca liczbe faktycznie usunietych plikow.
+     */
+    Q_INVOKABLE int usunArkuszeDem( const QString &typ, const QStringList &nazwy );
+
     //! Adds an XYZ basemap layer at the bottom of the layer tree.
     Q_INVOKABLE bool addXyzBasemap( const QString &name, const QString &url, int zmax );
 

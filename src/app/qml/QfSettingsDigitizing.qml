@@ -22,7 +22,7 @@ ColumnLayout {
     rowSpacing: 5
 
     Label {
-      text: qsTr('Digitizing & Editing')
+      text: qsTr('Digitalizacja i edycja')
       font: Theme.strongFont
       color: Theme.mainTextColor
       wrapMode: Text.WordWrap

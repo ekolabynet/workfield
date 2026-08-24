@@ -10,6 +10,22 @@ import org.qfield.gui
 Page {
   id: messageLog
 
+  /**
+   * WorkField 23.08.2026 — CZWARTA ODSLONA TEGO SAMEGO WZORCA.
+   *
+   * `Page` bez wlasnego tla bierze je ZE STYLU, a styl pulpitowy
+   * (org.kde.desktop) rysuje jasny prostokat. Napisy i strzalka powrotu sa
+   * w barwie motywu, czyli jasne — i znikaja. Tak wlasnie "okna nie dalo sie
+   * zamknac": przycisk byl na miejscu, tylko bialy na bialym.
+   *
+   * Trzy poprzednie odslony: szuflady, panele w QfPopup, Material.theme
+   * liczony z nazwy motywu zamiast z jasnosci tla.
+   */
+  background: Rectangle {
+    color: QfTheme.mainBackgroundColor
+  }
+
+
   property alias model: table.model
   property int unreadMessagesCount: 0
   property bool unreadMessages: false

@@ -108,8 +108,25 @@ ApplicationWindow {
   leftPadding: 0
   rightPadding: 0
 
-  Material.theme: QfTheme.darkTheme ? Material.Dark : Material.Light
+  // WorkField 23.08.2026 — styl Material idzie za FAKTYCZNYM tlem, nie za
+  // nazwa motywu.
+  //
+  // Powod: "Motyw: Jasny" plus wlasna ciemna barwa tla dawaly Material w
+  // trybie jasnym — a on rysuje wtedy ciemne napisy i biale plaszczyzny.
+  // Stad czarne etykiety przy polach wyboru i biale zakladki w panelu wtyczek
+  // na ciemnym tle. Kontrolka, ktora sama sobie dobiera barwy, musi patrzec
+  // na to, na czym lezy.
+  Material.theme: QfTheme.mainBackgroundColor.hslLightness < 0.5 ? Material.Dark : Material.Light
   Material.accent: QfTheme.mainColor
+  // Barwa napisow z ustawien ma dosiegnac takze tego, co rysuje Material
+  // sam z siebie: etykiet pol wyboru, zakladek, pozycji list rozwijanych.
+  Material.foreground: QfTheme.mainTextColor
+  // WorkField 23.08.2026 — TO JEST POWOD, dla ktorego barwa tla dzialala
+  // "niejednolicie". Szuflady, okna i listy nie brały tla z motywu, tylko ze
+  // stylu Material, ktory ma wlasna palete. Zmieniala sie wiec tylko ta
+  // czesc interfejsu, ktora rysuje wlasny Rectangle z Theme.
+  // Jedno wiazanie na oknie schodzi na wszystkie kontrolki potomne.
+  Material.background: QfTheme.mainBackgroundColor
 
   // WorkField: na komputerze nagłówkiem okna jest chrom Studia (menu,
   // pasek stanu); belka dotykowa QFielda zostaje na telefonie
@@ -158,7 +175,10 @@ ApplicationWindow {
       Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: wierszGorny.implicitHeight + 8
-        color: Theme.mainColor
+        // WorkField 23.08.2026 — ciemny teal (#00463c), ten sam co tlo
+        // przyciskow na mapie. mainColor (#00695c) byl jasniejszy i belka
+        // odcinala sie od reszty interfejsu zamiast do niej nalezec.
+        color: Theme.toolButtonBackgroundColor
         radius: 6
 
       RowLayout {
@@ -192,7 +212,7 @@ ApplicationWindow {
         Layout.fillWidth: true
         Layout.preferredHeight: wierszDolny.implicitHeight + 8
         Layout.topMargin: 3
-        color: Theme.mainColor
+        color: Theme.toolButtonBackgroundColor
         radius: 6
 
       RowLayout {
@@ -276,6 +296,49 @@ ApplicationWindow {
 
   // WorkField 22.08: wejscie prosto w sekcje ustawien, z pominieciem ekranu
   // z indeksem — jego role przejela zakladka Ustawienia w prawej szufladzie.
+  /**
+   * WorkField 23.08.2026 — WEJSCIE I WYJSCIE JEDNYM PRZYCISKIEM.
+   *
+   * Przyciski "Close 3D view" i "Close measure tool" siedza w `mainMenuBar`,
+   * ktory jest widoczny WYLACZNIE na Androidzie i iOS. Na komputerze wlaczenie
+   * widoku 3D bylo wiec podrozą w jedna strone: nie bylo czym wyjsc.
+   *
+   * Sygnaly `toggle3DView` i `toggleMeasurementTool` mimo nazwy tylko WLACZAJA
+   * (`activate3DMode`, `activateMeasurementMode`) — druga polowe przelacznika
+   * dokladamy tutaj, w jednym miejscu dla wszystkich wywolan.
+   */
+  function przelaczWidok3D() {
+    if (stateMachine.state === '3d') {
+      if (mapCanvas3DLoader.item && mapCanvas3DLoader.item.playClosingAnimation) {
+        mapCanvas3DLoader.item.playClosingAnimation(function () {
+          mainWindow.close3DView();
+        });
+      } else {
+        mainWindow.close3DView();
+      }
+      return;
+    }
+    activate3DMode();
+  }
+
+  function przelaczPomiar() {
+    if (stateMachine.state === 'measure') {
+      mainWindow.closeMeasureTool();
+      return;
+    }
+    if (featureListForm.state === "ProcessingAlgorithmForm") {
+      cancelAlgorithmDialog.visible = true;
+      return;
+    }
+    activateMeasurementMode();
+  }
+
+  //! WorkField 23.08.2026 — pasek wyszukiwania wyszedl z ustawien do Narzedzi
+  function pokazUstawieniaLokalizatora() {
+    locatorSettings.open();
+    locatorSettings.focus = true;
+  }
+
   function pokazUstawienia(kategoria) {
     qfieldSettings.visible = true;
     if (kategoria) {
@@ -368,9 +431,41 @@ ApplicationWindow {
     }
   }
 
+  /**
+   * WorkField 24.08.2026 — BARWY NAPISOW NA KONTROLKACH, W JEDNYM MIEJSCU.
+   *
+   * Piotr: "niektore napisy na przyciskach sa ciemne na ciemnym tle".
+   * To ta sama choroba co tlo paneli, tylko od strony pierwszego planu:
+   * styl pulpitowy (org.kde.desktop) NIE CZYTA `Material.foreground`. Bierze
+   * barwy z PALETY, a paleta byla domyslna, czyli dobrana pod jasne tlo.
+   * Stad ciemnoszary napis "Odswiez" na ciemnym panelu.
+   *
+   * Poprawiamy w palecie okna, bo paleta dziedziczy sie w dol na wszystkie
+   * kontrolki — tak samo jak `Material.background` zwiazane wyzej. Latanie
+   * pojedynczych przyciskow zostawiloby setke pozostalych.
+   *
+   * `base` i `text` zostaja NIETKNIETE swiadomie: to role pol tekstowych,
+   * ktore dzisiaj wygladaja dobrze (biale pole, ciemny napis). Zmiana jednej
+   * bez drugiej dalaby jasny napis na bialym tle — czyli dokladnie ten blad,
+   * ktory naprawiamy, tylko w druga strone.
+   */
   palette {
     link: QfTheme.mainColor
     linkVisited: QfTheme.mainColor
+
+    // napis na zwyklym i plaskim przycisku — to bylo zle widoczne
+    buttonText: QfTheme.mainTextColor
+    button: QfTheme.controlBackgroundColor
+    // etykiety poza polami tekstowymi
+    windowText: QfTheme.mainTextColor
+    // `highlighted: true` — bez tego styl rysowal bialy prostokat
+    highlight: QfTheme.mainColor
+    highlightedText: QfTheme.mainOverlayColor
+    // wygaszony przycisk ma byc czytelny jako WYGASZONY, a nie niewidoczny
+    disabled {
+      buttonText: QfTheme.mainTextDisabledColor
+      windowText: QfTheme.mainTextDisabledColor
+    }
   }
 
   Connections {
@@ -635,6 +730,11 @@ ApplicationWindow {
   QfPositioning {
     id: positionSource
     objectName: "positionSource"
+
+    // WorkField 23.08.2026 — dziennik nieba. Jedyne miejsce, w ktorym
+    // NieboDziennik dowiaduje sie, skad brac satelity. Reszte (kiedy pisac,
+    // gdzie pisac) zalatwia sam, po stronie C++.
+    Component.onCompleted: NieboDziennik.podepnij(positionSource)
 
     serviceMode: trackings.count > 0// && (platformUtilities.capabilities & QfPlatformUtilities.PositioningService)
     deviceId: positioningSettings.positioningDevice
@@ -2526,18 +2626,59 @@ ApplicationWindow {
       mapSettings: mapCanvas.mapSettings
       anchors.left: parent.left
       anchors.bottom: parent.bottom
-      anchors.leftMargin: mainWindow.sceneLeftMargin + 8
+      // WorkField 23.08.2026 — ten sam odstep co reszta lewej kolumny.
+      // Podzialka stala 4 px dalej niz kazda ikona nad nia; przy jednej
+      // pionowej linii widac to od razu.
+      anchors.leftMargin: mainWindow.sceneLeftMargin + 4
       anchors.bottomMargin: 10
     }
 
+    /**
+     * WorkField 23.08.2026 — LEWA KOLUMNA NARZEDZI WYROWNANA DO DOLU.
+     *
+     * Pytanie Piotra brzmialo "do dolu??? do srodka???". Do dolu, i to nie
+     * z gustu: telefon trzyma sie jedna reka, a kciuk siega dolu ekranu,
+     * nie gory. Srodek lewej krawedzi to miejsce, w ktore sie PATRZY
+     * i w ktore sie TAPIE przy rysowaniu — ikona tam stojaca zabiera mape.
+     *
+     * Gora zostaje nawigacja (hamburger, wyszukiwarka, ustawienia geometrii),
+     * bo wyszukiwarka rozwija sie w prawo z gornej belki i nie ma jak stac
+     * gdzie indziej. Dol to narzedzia: wtyczki, zebatka, GNSS, podzialka.
+     * Podzial przebiega wzdluz ZNACZENIA, a nie wzdluz przypadku.
+     *
+     * Zebatka i wtyczki w JEDNEJ kolumnie, a nie kotwiczone jedna do drugiej,
+     * bo Column pomija dzieci niewidoczne. Zebatki nie ma na komputerze
+     * (`visible` ograniczone do Androida i iOS) — przy kotwicach zostawilaby
+     * po sobie dziure wysokosci przycisku. To ta sama pulapka, ktora dzis rano
+     * posadzila zebatke na ikonie ustawien geometrii.
+     */
     Column {
-      id: pluginsToolbar
-      objectName: "pluginsToolbar"
+      id: lewaKolumnaNarzedzi
 
-      anchors.right: locatorItem.right
-      anchors.top: locatorItem.top
-      anchors.topMargin: QfTheme.toolButtonSize + 4
-      spacing: 4
+      anchors.left: parent.left
+      anchors.leftMargin: mainWindow.sceneLeftMargin + 4
+      anchors.bottom: locationToolbar.top
+      anchors.bottomMargin: 8
+      spacing: 6
+
+      Column {
+        id: pluginsToolbar
+        objectName: "pluginsToolbar"
+        spacing: 6
+      }
+
+      // WorkField 22.08: prawa szuflada (dane) jako okragla zebatka.
+      QfToolButton {
+        id: zebatkaButton
+
+        visible: !screenLocker.enabled && (Qt.platform.os === "android" || Qt.platform.os === "ios")
+        round: true
+        iconSource: QfTheme.getThemeVectorIcon("ic_settings_white_24dp")
+        iconColor: QfTheme.toolButtonColor
+        bgcolor: dataDrawer.opened ? QfTheme.mainColor : QfTheme.toolButtonBackgroundColor
+
+        onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
+      }
     }
 
     Column {
@@ -2645,25 +2786,6 @@ ApplicationWindow {
       source: locatorItem
     }
 
-    // WorkField 22.08: prawa szuflada (dane) jako okragla zebatka pod belka,
-    // symetrycznie do hamburgera po lewej. Zastapila ikone "polki" w belce.
-    QfToolButton {
-      id: zebatkaButton
-
-      visible: !screenLocker.enabled && (Qt.platform.os === "android" || Qt.platform.os === "ios")
-      round: true
-      iconSource: QfTheme.getThemeVectorIcon("ic_settings_white_24dp")
-      iconColor: QfTheme.toolButtonColor
-      bgcolor: dataDrawer.opened ? QfTheme.mainColor : QfTheme.toolButtonBackgroundColor
-
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.rightMargin: mainWindow.sceneRightMargin + 4
-      anchors.topMargin: (mainWindow.header ? mainWindow.header.height : mainWindow.sceneTopMargin) + 4
-
-      onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
-    }
-
     /* The main menu */
     Row {
       id: mainMenuBar
@@ -2766,6 +2888,10 @@ ApplicationWindow {
         objectName: "digitizingDrawer"
         name: "digitizingDrawer"
         round: true
+        // WorkField 23.08.2026 — rozwija sie W PRAWO, nie w dol. Pasek stoi
+        // przy lewej krawedzi pod hamburgerem; rozwiniety w dol zachodzil na
+        // przyciski GNSS w lewym dolnym rogu. W prawo idzie w pustke mapy.
+        direction: QfToolButtonDrawer.Direction.Right
         bgcolor: QfTheme.toolButtonBackgroundColor
         iconSource: QfTheme.getThemeVectorIcon('ic_digitizing_settings_black_24dp')
         iconColor: QfTheme.toolButtonColor
@@ -3202,6 +3328,8 @@ ApplicationWindow {
       QfToolButtonDrawer {
         name: "3dDrawer"
         round: true
+        // jak digitizingDrawer — ten sam pasek, ten sam kierunek
+        direction: QfToolButtonDrawer.Direction.Right
         collapsed: false
         bgcolor: QfTheme.toolButtonBackgroundColor
         iconSource: QfTheme.getThemeVectorIcon('ic_3d_settings_white_24dp')
@@ -4177,113 +4305,17 @@ ApplicationWindow {
       height: visible ? undefined : 0
     }
 
-    MenuItem {
-      text: qsTr("Bookmarks")
-
-      font: QfTheme.defaultFont
-      icon.source: QfTheme.getThemeVectorIcon("ic_bookmark_black_24dp")
-      height: 48
-      leftPadding: QfTheme.menuItemLeftPadding
-
-      onTriggered: {
-        mainMenu.close();
-        dashBoard.close();
-        bookmarkList.show();
-        highlighted = false;
-      }
-    }
-
-    MenuItem {
-      text: qsTr("Plugin Manager")
-
-      font: QfTheme.defaultFont
-      icon.source: QfTheme.getThemeVectorIcon("ic_plugin_black_24dp")
-      height: 48
-      leftPadding: QfTheme.menuItemLeftPadding
-
-      onTriggered: {
-        dashBoard.close();
-        pluginManagerSettings.open();
-      }
-    }
-
-    MenuItem {
-      text: qsTr("Settings")
-
-      font: QfTheme.defaultFont
-      icon.source: QfTheme.getThemeVectorIcon("ic_tune_white_24dp")
-      height: 48
-      leftPadding: QfTheme.menuItemLeftPadding
-
-      onTriggered: {
-        dashBoard.close();
-        qfieldSettings.reset();
-        qfieldSettings.visible = true;
-        highlighted = false;
-      }
-    }
-
-    MenuItem {
-      text: qsTr("Message Log")
-
-      font: QfTheme.defaultFont
-      height: 48
-      icon.source: QfTheme.getThemeVectorIcon("ic_message_log_black_24dp")
-      leftPadding: QfTheme.menuItemLeftPadding
-
-      onTriggered: {
-        dashBoard.close();
-        messageLog.visible = true;
-        highlighted = false;
-      }
-
-      QfBadge {
-        width: 16
-        height: width
-        topMargin: 5
-        rightMargin: 5
-        alignment: QfBadge.Alignment.TopRight
-        visible: messageLog.unreadMessages
-        color: QfTheme.mainColor
-        badgeText.text: messageLog.unreadMessagesCount >= 10 ? "+" : messageLog.unreadMessagesCount
-        badgeText.color: QfTheme.light
-        border.color: "transparent"
-      }
-    }
-
-    MenuItem {
-      text: qsTr("Lock Screen")
-
-      font: QfTheme.defaultFont
-      icon.source: QfTheme.getThemeVectorIcon("ic_lock_black_24dp")
-      height: 48
-      leftPadding: QfTheme.menuItemLeftPadding
-
-      onTriggered: {
-        mainMenu.close();
-        dashBoard.close();
-        screenLocker.enabled = true;
-      }
-    }
-
-    MenuSeparator {
-      width: parent.width
-    }
-
-    MenuItem {
-      text: qsTr("About %1").arg(Qfield.name)
-
-      font: QfTheme.defaultFont
-      icon.source: Qfield.name === "QField" ? QfTheme.getThemeVectorIcon("ic_qfield_black_24dp") : ""
-      height: 48
-      leftPadding: Qfield.name === "QField" ? QfTheme.menuItemLeftPadding : QfTheme.menuItemIconlessLeftPadding
-
-      onTriggered: {
-        dashBoard.close();
-        aboutDialog.visible = true;
-        highlighted = false;
-      }
-    }
+    // WorkField 23.08.2026 — SZESC POZYCJI STAD ZNIKA.
+    //
+    // Zakladki, Wtyczki, Ustawienia, Dziennik, Zablokuj ekran i O programie
+    // maja swoje miejsce w prawej szufladzie, na poziomie pierwszym i z
+    // nazwami po polsku. Tutaj byly drugim wejsciem do tego samego, ukrytym
+    // pod dlugim przytrzymaniem ikony menu — czyli miejscem, o ktorym trzeba
+    // pamietac przy kazdej zmianie i ktorego nikt nie znajdzie sam.
+    //
+    // Zostaje Cofnij/Ponow i Czujniki, bo TYCH nie ma nigdzie indziej.
+    // To nie jest stan docelowy, tylko uczciwie nazwany dlug: cofniecie
+    // ostatniego zapisu nie powinno mieszkac w gescie, ktorego nie widac.
   }
 
   QfMenu {
@@ -6055,14 +6087,244 @@ ApplicationWindow {
     id: subLayerPicker
     t: Theme
 
+    // WorkField 23.08.2026 — decyzja z 21.08 wreszcie wykonana.
+    //
+    // "Dodaj z pliku" PODPINALO plik tam, gdzie lezy. Stad siedem plikow GPKG
+    // w katalogu jednego zlecenia (20.08) i stad warstwa, ktora znika po
+    // wyjeciu karty albo po skopiowaniu samego katalogu projektu.
+    //
+    // Teraz pytamy raz i wprost, bo to jest pytanie o KLASE DANYCH, a nie
+    // o wygode: dane robocze sa nieodtwarzalne i musza wrocic ze zwrotem,
+    // podklad sciaga sie ponownie (claude/DANE_workflow.md).
     onLayersChosen: uris => {
-      let added = 0;
-      for (let i = 0; i < uris.length; i++) {
-        const vl = LayerUtils.loadVectorLayer(uris[i].uri, uris[i].name, uris[i].provider);
-        if (vl && vl.isValid && ProjectUtils.addMapLayer(qgisProject, vl))
-          added++;
+      dialogImportuWarstw.uris = uris;
+      dialogImportuWarstw.open();
+    }
+  }
+
+  /**
+   * Import wybranych warstw do bazy projektu albo podpiecie ich w miejscu.
+   */
+  function importujWarstwyDoBazy(uris) {
+    // WorkField 23.08.2026 — ekran wyboru pliku ZNIKA, kiedy wybor zostal
+    // dokonany. Zostawal otwarty nad mapa i przykrywal ja az do restartu.
+    qfieldLocalDataPickerScreen.visible = false;
+
+    const baza = NarzedziaProjektu.plikDanych(qgisProject);
+    if (baza === "") {
+      displayToast(qsTr("Projekt nie ma pliku z danymi — podpinam w miejscu."), "warning");
+      podepnijWarstwyWMiejscu(uris);
+      return;
+    }
+
+    let dodane = 0;
+    const bledy = [];
+    const udane = [];
+    for (const u of uris) {
+      const w = NarzedziaProjektu.importujWarstwe(u.uri, baza, u.name);
+      if (!w.ok) {
+        bledy.push(u.name + ": " + w.blad);
+        continue;
       }
-      displayToast(added > 0 ? qsTr("Dodano warstw: %1").arg(added) : qsTr("Nie udało się dodać warstw"));
+      const vl = LayerUtils.loadVectorLayer(baza + "|layername=" + u.name, u.name, "ogr");
+      if (vl && vl.isValid && ProjectUtils.addMapLayer(qgisProject, vl)) {
+        dodane++;
+        udane.push(qsTr("%1 — obiektów: %2").arg(u.name).arg(w.obiektow));
+      } else {
+        bledy.push(u.name + ": " + qsTr("zaimportowana, ale nie weszła do projektu"));
+      }
+    }
+
+    // WorkField 23.08.2026 — WYNIK NA EKRANIE, NIE W TOASCIE.
+    //
+    // Import jest jedyna czynnoscia w calym obiegu, ktora KOPIUJE dane miedzy
+    // plikami. Jesli sie nie uda, powod musi da sie przeczytac — a toast
+    // gasnie po dwoch sekundach i nie ma go gdzie odzyskac. Liczbe obiektow
+    // pokazujemy razem z nazwa, zeby dalo sie ja porownac z oryginalem
+    // ZANIM ktos skasuje plik zrodlowy.
+    wynikImportu.wiersze = udane.concat(bledy.map(function (b) { return "\u26a0 " + b; }));
+    wynikImportu.udanych = dodane;
+    wynikImportu.bledow = bledy.length;
+    wynikImportu.gpkg = FileUtils.fileName(baza);
+    wynikImportu.open();
+
+  }
+
+  function podepnijWarstwyWMiejscu(uris) {
+    qfieldLocalDataPickerScreen.visible = false;
+
+    let dodane = 0;
+    for (const u of uris) {
+      const vl = LayerUtils.loadVectorLayer(u.uri, u.name, u.provider);
+      if (vl && vl.isValid && ProjectUtils.addMapLayer(qgisProject, vl))
+        dodane++;
+    }
+    displayToast(dodane > 0 ? qsTr("Podpięto warstw: %1").arg(dodane) : qsTr("Nie udało się dodać warstw"), dodane > 0 ? "info" : "error");
+  }
+
+  /**
+   * WorkField 23.08.2026 — co dokladnie sie zaimportowalo, i co nie.
+   *
+   * Osobne okno, a nie toast, bo import KOPIUJE dane miedzy plikami: jest to
+   * ta jedna czynnosc, po ktorej ktos moze skasowac oryginal. Liczba obiektow
+   * przy nazwie jest po to, zeby dalo sie ja porownac z tym, co bylo — zanim
+   * skasuje.
+   */
+  Popup {
+    id: wynikImportu
+
+    property var wiersze: []
+    property int udanych: 0
+    property int bledow: 0
+    property string gpkg: ""
+
+    parent: mainWindow.contentItem
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(460, mainWindow.width - 32)
+    modal: true
+
+    ColumnLayout {
+      width: parent.width
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: wynikImportu.bledow === 0
+              ? qsTr("Zaimportowano do %1").arg(wynikImportu.gpkg)
+              : wynikImportu.udanych === 0
+                ? qsTr("Import się nie udał")
+                : qsTr("Zaimportowano częściowo do %1").arg(wynikImportu.gpkg)
+        font: QfTheme.strongTipFont
+        color: wynikImportu.bledow === 0 ? QfTheme.mainTextColor : QfTheme.warningColor
+        wrapMode: Text.WordWrap
+      }
+
+      Repeater {
+        model: wynikImportu.wiersze
+
+        Text {
+          Layout.fillWidth: true
+          text: modelData
+          font: QfTheme.tipFont
+          color: QfTheme.mainTextColor
+          wrapMode: Text.WordWrap
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        visible: wynikImportu.udanych > 0
+        text: qsTr("Porównaj liczby z oryginałem, zanim go skasujesz.")
+        font: QfTheme.tinyFont
+        color: QfTheme.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+
+        Item {
+          Layout.fillWidth: true
+        }
+        Button {
+          flat: true
+          text: qsTr("Zamknij")
+          onClicked: wynikImportu.close()
+        }
+      }
+    }
+  }
+
+  Popup {
+    id: dialogImportuWarstw
+
+    property var uris: []
+
+    /**
+     * WorkField 23.08.2026 — TO SAMO WIAZANIE NA WYWOLANIU FUNKCJI, TRZECI RAZ.
+     *
+     * Bylo: `readonly property string bazaProjektu: NarzedziaProjektu.plikDanych(qgisProject)`.
+     * Wiazanie QML przelicza sie, gdy zmieni sie WLASCIWOSC, od ktorej zalezy.
+     * `plikDanych()` jest funkcja — nie ma zadnego sygnalu zmiany, wiec liczylo
+     * sie RAZ, przy tworzeniu okna, czyli przy starcie aplikacji, zanim
+     * jakikolwiek projekt byl wczytany. Wynik: pusto na zawsze, przycisk
+     * "Importuj do bazy" wygaszony w projekcie, ktory ma dane.gpkg z osmioma
+     * warstwami.
+     *
+     * Ten sam ksztalt bledu co `highlighted: settings.valueInt(...)` przy masce
+     * elewacji. Regula, ktorej brakowalo w sitach: WYWOLANIE FUNKCJI PO PRAWEJ
+     * STRONIE DWUKROPKA TO NIE JEST WIAZANIE, tylko jednorazowe przypisanie.
+     * Liczymy w chwili otwarcia okna, kiedy wiadomo, co jest wczytane.
+     */
+    property string bazaProjektu: ""
+
+    onAboutToShow: {
+      bazaProjektu = NarzedziaProjektu.plikDanych(qgisProject);
+    }
+
+    parent: mainWindow.contentItem
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(460, mainWindow.width - 32)
+    modal: true
+
+    ColumnLayout {
+      width: parent.width
+      spacing: 10
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Dodać %1 warstw(y) do projektu").arg(dialogImportuWarstw.uris.length)
+        font: QfTheme.strongTipFont
+        color: QfTheme.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: dialogImportuWarstw.bazaProjektu !== ""
+              ? qsTr("Import kopiuje dane do %1 — warstwa jedzie razem z projektem i wraca ze zwrotem. Podpięcie zostawia plik tam, gdzie leży: zniknie po wyjęciu karty albo po skopiowaniu samego katalogu.").arg(FileUtils.fileName(dialogImportuWarstw.bazaProjektu))
+              : qsTr("Projekt nie ma pliku z danymi, więc zostaje samo podpięcie.")
+        font: QfTheme.tipFont
+        color: QfTheme.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Button {
+          flat: true
+          text: qsTr("Anuluj")
+          onClicked: dialogImportuWarstw.close()
+        }
+
+        Item {
+          Layout.fillWidth: true
+        }
+
+        Button {
+          text: qsTr("Tylko podepnij")
+          font: QfTheme.tipFont
+          onClicked: {
+            dialogImportuWarstw.close();
+            mainWindow.podepnijWarstwyWMiejscu(dialogImportuWarstw.uris);
+          }
+        }
+
+        Button {
+          text: qsTr("Importuj do bazy")
+          font: QfTheme.tipFont
+          highlighted: true
+          enabled: dialogImportuWarstw.bazaProjektu !== ""
+          onClicked: {
+            dialogImportuWarstw.close();
+            mainWindow.importujWarstwyDoBazy(dialogImportuWarstw.uris);
+          }
+        }
+      }
     }
   }
 
@@ -6072,11 +6334,43 @@ ApplicationWindow {
   }
 
 
+  // WorkField 23.08.2026 — przyciemnienie pod oknem ustawien. Zadeklarowane
+  // TUZ PRZED nimi, wiec rysuje sie pod nimi i nad mapa, bez zabawy w `z`.
+  // MouseArea lyka klikniecia, zeby przez uchylone okno nie dalo sie rysowac
+  // po mapie.
+  Rectangle {
+    anchors.fill: parent
+    visible: qfieldSettings.visible && qfieldSettings.wOknie
+    color: "#99000000"
+
+    MouseArea {
+      anchors.fill: parent
+    }
+  }
+
   QfSettings {
     id: qfieldSettings
     objectName: "qfieldSettings"
 
-    anchors.fill: parent
+    // Na komputerze ustawienia sa OKNEM, nie ekranem. Peloekranowe przejmowanie
+    // calej aplikacji na zmiane jednego przelacznika bylo glowna pretensja
+    // do tego menu (23.08) — i slusznie: to jest nawigacja telefonu wstawiona
+    // w okno z myszka. Na telefonie zostaje pelny ekran, bo tam ma sens.
+    readonly property bool wOknie: !(Qt.platform.os === "android" || Qt.platform.os === "ios")
+
+    width: wOknie ? Math.min(mainWindow.width - 80, 1040) : parent.width
+    height: wOknie ? Math.min(mainWindow.height - 80, 720) : parent.height
+    x: wOknie ? (parent.width - width) / 2 : 0
+    y: wOknie ? (parent.height - height) / 2 : 0
+
+    background: Rectangle {
+      // Ta sama barwa co szuflady — jedna wartosc dla calego interfejsu,
+      // ustawialna w Wygladzie.
+      color: Theme.mainBackgroundColor
+      radius: qfieldSettings.wOknie ? 8 : 0
+      border.color: Theme.controlBorderColor
+      border.width: qfieldSettings.wOknie ? 1 : 0
+    }
 
     onFinished: {
       visible = false;

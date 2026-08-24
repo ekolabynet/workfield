@@ -103,6 +103,14 @@ class QFIELD_GUI_EXPORT QfTheme final : public QObject
 
     Q_PROPERTY( qreal fontScale READ fontScale WRITE setFontScale NOTIFY fontScaleChanged )
 
+    // WorkField 23.08.2026 — wyglad interfejsu ustawiany przez uzytkownika.
+    // Motyw z theme.json zostaje podkladem; te trzy rzeczy sa nadpisaniem,
+    // ktore przezywa restart i przezywa przelaczenie jasny/ciemny.
+    //! Rodzina czcionki interfejsu; pusty napis = czcionka systemowa
+    Q_PROPERTY( QString rodzinaCzcionki READ rodzinaCzcionki WRITE ustawRodzineCzcionki NOTIFY fontScaleChanged )
+    //! Rozmiar podstawowy w punktach; 0 = rozmiar systemowy
+    Q_PROPERTY( qreal rozmiarCzcionki READ rozmiarCzcionki WRITE ustawRozmiarCzcionki NOTIFY fontScaleChanged )
+
     Q_PROPERTY( QFont defaultFont READ defaultFont NOTIFY fontScaleChanged )
     Q_PROPERTY( QFont tinyFont READ tinyFont NOTIFY fontScaleChanged )
     Q_PROPERTY( QFont tipFont READ tipFont NOTIFY fontScaleChanged )
@@ -305,6 +313,29 @@ class QFIELD_GUI_EXPORT QfTheme final : public QObject
     qreal fontScale() const { return mFontScale; }
     void setFontScale( qreal scale );
 
+    QString rodzinaCzcionki() const { return mRodzinaCzcionki; }
+    void ustawRodzineCzcionki( const QString &rodzina );
+
+    qreal rozmiarCzcionki() const { return mRozmiarCzcionki; }
+    void ustawRozmiarCzcionki( qreal punkty );
+
+    //! Lista rodzin czcionek zainstalowanych w systemie, do wyboru w ustawieniach
+    Q_INVOKABLE QStringList dostepneCzcionki() const;
+
+    /**
+     * Nadpisuje jedna barwe motywu i ZAPAMIETUJE ja. \a nazwaWlasnosci to nazwa
+     * wlasnosci QfTheme, np. "mainTextColor" albo "mainBackgroundColor".
+     * Nadpisania sa nakladane po kazdym wczytaniu motywu, wiec nie gina przy
+     * przelaczeniu jasny/ciemny.
+     */
+    Q_INVOKABLE void ustawBarweWlasna( const QString &nazwaWlasnosci, const QColor &barwa );
+
+    //! Czy dana barwa jest dzis nadpisana przez uzytkownika
+    Q_INVOKABLE bool barwaNadpisana( const QString &nazwaWlasnosci ) const;
+
+    //! Kasuje wszystkie nadpisania barw i wraca do motywu z pliku
+    Q_INVOKABLE void przywrocBarwyMotywu();
+
     QFont defaultFont() const { return makeFont( 1.0, false ); }
     QFont tinyFont() const { return makeFont( 0.75, false ); }
     QFont tipFont() const { return makeFont( 0.875, false ); }
@@ -439,6 +470,9 @@ class QFIELD_GUI_EXPORT QfTheme final : public QObject
     int mGestosc = 1;
     int mUkladAkcji = 0;
     qreal mSystemFontPointSize = 14.0;
+    QString mRodzinaCzcionki;
+    qreal mRozmiarCzcionki = 0.0;
+    QVariantMap mBarwyWlasne;
     qreal mScreenPpi = 160.0;
 };
 

@@ -282,8 +282,87 @@ class NarzedziaProjektu : public QObject
     /**
      * Kopia zapasowa pliku obok oryginalu, z sufiksem .bak_RRRRMMDD_GGMMSS.
      * Zwraca sciezke kopii albo pusty string. Kopiujemy, nie przenosimy.
+     *
+     * UWAGA: to jest zwykle kopiowanie pliku i NIE nadaje sie na migawke
+     * bazy. Otwarty GPKG ma dziennik `-wal`; kopia samego `.gpkg` gubi
+     * najswiezsze transakcje albo wychodzi rozdarta. Do wysylki sluzy
+     * migawkaBazy() ponizej. Ta funkcja zostaje dla plikow tekstowych
+     * i dla kopii przed doposazeniem.
      */
     Q_INVOKABLE QString kopiaZapasowa( const QString &sciezka ) const;
+
+    /**
+     * ZAPIECZETOWANA migawka bazy GeoPackage — do wysylki i do zwrotu.
+     *
+     * Trzy rzeczy, ktorych kopiaZapasowa() nie robi, a bez ktorych migawka
+     * jest tylko plikiem o zbiegu okolicznosci podobnym do bazy:
+     *
+     *  1. `PRAGMA wal_checkpoint(TRUNCATE)` PRZED kopiowaniem — dziennik
+     *     wchodzi do pliku glownego, wiec kopia niesie wszystko, co zapisane.
+     *  2. Kopia POZA katalog projektu. Cztery pliki `.bak_*` w katalogu, ktory
+     *     jedzie w teren, to nie kopia zapasowa tylko balast (pulapka nr 6
+     *     z 21.08).
+     *  3. `PRAGMA quick_check` NA KOPII plus suma md5 obok. Migawka, ktora
+     *     sama siebie nie sprawdza, mowi "udalo sie" rowniez wtedy, gdy nie.
+     *     Kopia, ktora nie przejdzie sprawdzenia, jest kasowana — lepiej
+     *     brak migawki niz migawka, ktorej nie da sie odtworzyc.
+     *
+     * Zwraca mape: ok, sciezka, nazwa, md5, bajty, blad.
+     */
+    Q_INVOKABLE QVariantMap migawkaBazy( const QString &gpkg, const QString &katalogDocelowy ) const;
+
+    /**
+     * IMPORT warstwy wektorowej DO bazy projektu — decyzja z 21.08.2026.
+     *
+     * "Dodaj z pliku" na Androidzie PODPINA plik tam, gdzie lezy, zamiast go
+     * zaimportowac. Stad siedem plikow GPKG w katalogu jednego zlecenia
+     * (notatka z 20.08) i stad warstwa, ktora znika po wyjeciu karty albo po
+     * skopiowaniu samego katalogu projektu. Regula:
+     *
+     *   dane robocze  -> data.gpkg  (nieodtwarzalne, wracaja ze zwrotem)
+     *   podklady      -> zostaja podpiete albo ida do support.gpkg
+     *
+     * \a zrodloUri moze byc sciezka albo sciezka z sufiksem "|layername=x".
+     *
+     * NIE NADPISUJE: gdy w celu jest juz warstwa o tej nazwie, zwraca blad
+     * zamiast podmienic dane. Po skopiowaniu SPRAWDZA, czy warstwa naprawde
+     * powstala i ile ma obiektow — liczba wraca w wyniku, zeby dalo sie ja
+     * porownac z oryginalem, a nie tylko uwierzyc.
+     *
+     * Zwraca mape: ok, nazwa, obiektow, blad.
+     */
+    Q_INVOKABLE QVariantMap importujWarstwe( const QString &zrodloUri,
+                                             const QString &celGpkg,
+                                             const QString &nazwaDocelowa ) const;
+
+    /**
+     * SKAD warstwa naprawde bierze dane — do pokazania czlowiekowi.
+     *
+     * Odkad "Dodaj z pliku" importuje do bazy projektu, pytanie "czy ta
+     * warstwa siedzi juz w data.gpkg, czy nadal wisi na pliku z karty"
+     * pada przy kazdym zleceniu. Dotad odpowiedz byla wylacznie w QGIS-ie
+     * na komputerze, wiec w terenie nie bylo jej wcale.
+     *
+     * Adres wektorowy OGR ma postac "/a/b.gpkg|layername=x"; rozdzielamy go,
+     * zeby dalo sie osobno pokazac plik i osobno tabele. Zrodla nieplikowe
+     * (WMS, XYZ, PostGIS) nie maja sciezki — wtedy `plik` jest pusty
+     * i pokazuje sie caly adres z `pelny`.
+     *
+     * Zwraca mape: ok, plik, warstwa, pelny, istnieje, wBazieProjektu.
+     */
+    Q_INVOKABLE QVariantMap zrodloWarstwy( QgsMapLayer *warstwa ) const;
+
+    /**
+     * Plik z danymi projektu — ten GPKG, do ktorego wolno pisac dane
+     * nieodtwarzalne. Regula z claude/DANE_workflow.md: nazwa "data.gpkg"
+     * (albo "dane.gpkg" w starszych projektach), a gdy takiej nie ma —
+     * ten plik, w ktorym siedzi najwiecej warstw. `support.gpkg`
+     * i `wf_wskazniki.gpkg` sa wykluczone, bo to podklady i slownik.
+     *
+     * JEDNO miejsce, w ktorym ta regula jest zapisana. Woła ja takze
+     * NieboDziennik.
+     */
+    Q_INVOKABLE QString plikDanych( QgsProject *projekt ) const;
 
     //! Zapisuje plik projektu na dysk (opakowanie na QgsProject::write).
     Q_INVOKABLE bool zapiszProjekt( QgsProject *projekt ) const;

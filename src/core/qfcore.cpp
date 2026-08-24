@@ -104,6 +104,9 @@
 #include "utils/qfstringutils.h"
 #include "utils/qfurlutils.h"
 #include "utils/narzedziaprojektu.h"
+#include "utils/spisplikow.h"
+#include "utils/kopiezapasowe.h"
+#include "utils/niebodziennik.h"
 #include "utils/nieboutils.h"
 #include "utils/zalacznikiutils.h"
 
@@ -343,7 +346,18 @@ namespace QfCore
     // WorkField: nasze singletony. Rejestrujemy w org.qfield.core, bo klasy
     // leza w src/core; pliki importujace org.qfield widza je przez przekierowanie.
     REGISTER_SINGLETON( "org.qfield.core", NarzedziaProjektu, "NarzedziaProjektu" );
+    REGISTER_SINGLETON( "org.qfield.core", SpisPlikow, "SpisPlikow" );
+    REGISTER_SINGLETON( "org.qfield.core", KopieZapasowe, "KopieZapasowe" );
     REGISTER_SINGLETON( "org.qfield.core", NieboUtils, "NieboUtils" );
+    // Dziennik ma jedna instancje na proces, bo slucha sygnalow warstw poza
+    // QML-em. Dlatego wlasna lambda zamiast REGISTER_SINGLETON, ktory tworzy
+    // nowy obiekt — dwa dzienniki pisalyby te same epoki dwa razy.
+    qmlRegisterSingletonType<NieboDziennik>( "org.qfield.core", 1, 0, "NieboDziennik", []( QQmlEngine *engine, QJSEngine *scriptEngine ) -> QObject * {
+      Q_UNUSED( engine );
+      Q_UNUSED( scriptEngine );
+      QQmlEngine::setObjectOwnership( NieboDziennik::instancja(), QQmlEngine::CppOwnership );
+      return NieboDziennik::instancja();
+    } );
     REGISTER_SINGLETON( "org.qfield.core", ZalacznikiUtils, "ZalacznikiUtils" );
     qmlRegisterUncreatableType<QfAbstractGnssReceiver>( "org.qfield.core", 1, 0, "AbstractGnssReceiver", "" );
     qmlRegisterUncreatableType<QfAppInterface>( "org.qfield.core", 1, 0, "AppInterface", "AppInterface is only provided by the environment and cannot be created ad-hoc" );

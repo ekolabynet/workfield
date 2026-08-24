@@ -325,32 +325,53 @@ namespace
     return true;
   }
 
-  //! czysci tabele FITO_* i ZAL_* w jednym GPKG; zwraca liczbe wyczyszczonych
-  int wyczyscFito( const QString &sciezka )
+  //! Czysci WSKAZANE tabele w jednym GPKG; zwraca liczbe wyczyszczonych.
+  //! Pusta lista `tylko` = stara regula wzorcow (zgodnosc wstecz).
+  int wyczyscTabele( const QString &sciezka, const QStringList &tylko )
   {
     sqlite3 *baza = nullptr;
     if ( sqlite3_open( sciezka.toUtf8().constData(), &baza ) != SQLITE_OK )
       return 0;
+
     QStringList tabele;
-    sqlite3_stmt *zapytanie = nullptr;
-    if ( sqlite3_prepare_v2( baza,
-           "SELECT table_name FROM gpkg_contents "
-           "WHERE table_name LIKE 'FITO\\_%' ESCAPE '\\' "
-           "OR table_name LIKE 'ZAL\\_%' ESCAPE '\\'",
-           -1, &zapytanie, nullptr ) == SQLITE_OK )
+    if ( !tylko.isEmpty() )
     {
-      while ( sqlite3_step( zapytanie ) == SQLITE_ROW )
-        tabele << QString::fromUtf8( reinterpret_cast<const char *>(
-          sqlite3_column_text( zapytanie, 0 ) ) );
+      // Czlowiek wskazal, co ma zniknac. Bierzemy TYLKO to, co naprawde jest
+      // w tym pliku — lista przychodzi ze spisu wszystkich plikow projektu.
+      sqlite3_stmt *zapytanie = nullptr;
+      if ( sqlite3_prepare_v2( baza, "SELECT table_name FROM gpkg_contents", -1, &zapytanie, nullptr ) == SQLITE_OK )
+      {
+        while ( sqlite3_step( zapytanie ) == SQLITE_ROW )
+        {
+          const QString t = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( zapytanie, 0 ) ) );
+          if ( tylko.contains( t ) )
+            tabele << t;
+        }
+      }
+      sqlite3_finalize( zapytanie );
     }
-    sqlite3_finalize( zapytanie );
+    else
+    {
+      // Stara regula — zostaje wylacznie dla wywolan bez listy.
+      sqlite3_stmt *zapytanie = nullptr;
+      if ( sqlite3_prepare_v2( baza,
+             "SELECT table_name FROM gpkg_contents "
+             "WHERE table_name LIKE 'FITO\\_%' ESCAPE '\\' "
+             "OR table_name LIKE 'ZAL\\_%' ESCAPE '\\' "
+             "OR table_name LIKE 'NIEBO\\_%' ESCAPE '\\'",
+             -1, &zapytanie, nullptr ) == SQLITE_OK )
+      {
+        while ( sqlite3_step( zapytanie ) == SQLITE_ROW )
+          tabele << QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( zapytanie, 0 ) ) );
+      }
+      sqlite3_finalize( zapytanie );
+    }
+
     int wyczyszczone = 0;
     for ( const QString &t : tabele )
     {
-      const QByteArray usun =
-        QStringLiteral( "DELETE FROM \"%1\"" ).arg( t ).toUtf8();
-      if ( sqlite3_exec( baza, usun.constData(), nullptr, nullptr, nullptr )
-           == SQLITE_OK )
+      const QByteArray usun = QStringLiteral( "DELETE FROM \"%1\"" ).arg( t ).toUtf8();
+      if ( sqlite3_exec( baza, usun.constData(), nullptr, nullptr, nullptr ) == SQLITE_OK )
         wyczyszczone++;
       const QByteArray licznik = QStringLiteral(
         "UPDATE gpkg_ogr_contents SET feature_count=0 WHERE table_name='%1'" )
@@ -364,7 +385,8 @@ namespace
 
 QVariantMap ProcesyStudio::zamienNaSzablon( const QString &sciezkaProjektu,
                                             const QString &korzen,
-                                            const QString &nazwa ) const
+                                            const QString &nazwa,
+                                            const QStringList &tabeleDoWyczyszczenia ) const
 {
   QVariantMap wynik;
   wynik["ok"] = false;
@@ -391,7 +413,7 @@ QVariantMap ProcesyStudio::zamienNaSzablon( const QString &sciezkaProjektu,
   QDirIterator it( cel, QStringList() << QStringLiteral( "*.gpkg" ),
                    QDir::Files, QDirIterator::Subdirectories );
   while ( it.hasNext() )
-    wyczyszczone += wyczyscFito( it.next() );
+    wyczyszczone += wyczyscTabele( it.next(), tabeleDoWyczyszczenia );
   wynik["ok"] = true;
   wynik["sciezka"] = cel;
   wynik["wyczyszczono"] = wyczyszczone;
@@ -465,4 +487,104 @@ QVariantMap ProcesyStudio::nowyZSzablonu( const QString &szablon, const QString 
   w[QStringLiteral( "ok" )] = true;
   w[QStringLiteral( "sciezka" )] = docelowa;
   return w;
+}
+
+// ------------------------------------------------------- spis tabel projektu
+
+QStringList ProcesyStudio::plikiGpkg( const QString &sciezkaProjektu ) const
+{
+  QStringList wynik;
+  QDirIterator it( sciezkaProjektu, QStringList() << QStringLiteral( "*.gpkg" ),
+                   QDir::Files, QDirIterator::Subdirectories );
+  while ( it.hasNext() )
+    wynik << it.next();
+  wynik.sort();
+  return wynik;
+}
+
+QVariantList ProcesyStudio::spisTabel( const QString &gpkg ) const
+{
+  QVariantList wynik;
+
+  sqlite3 *baza = nullptr;
+  if ( sqlite3_open_v2( gpkg.toUtf8().constData(), &baza, SQLITE_OPEN_READONLY, nullptr ) != SQLITE_OK )
+  {
+    if ( baza )
+      sqlite3_close( baza );
+    return wynik;
+  }
+
+  // Podpowiedz, NIE decyzja: to zostawiamy w spokoju, bo jest odtwarzalne
+  // albo wspolne dla wszystkich zlecen. Reszta jest proponowana do
+  // wyczyszczenia — regula zawodzi wtedy przez ZA DUZO, co widac od razu
+  // na liscie, zamiast przez za malo, czego nie widac wcale.
+  static const QStringList przedrostkiOdniesienia = {
+    QStringLiteral( "ref_" ), QStringLiteral( "podklad_" ),
+    QStringLiteral( "temp_" ), QStringLiteral( "wf_" ),
+    QStringLiteral( "gugik_" )
+  };
+  static const QStringList nazwyOdniesienia = {
+    QStringLiteral( "slownik" ), QStringLiteral( "granica_opracowania" ),
+    QStringLiteral( "toposektory" )
+  };
+
+  QStringList tabele;
+  QStringList rodzaje;
+  sqlite3_stmt *zapytanie = nullptr;
+  if ( sqlite3_prepare_v2( baza, "SELECT table_name, data_type FROM gpkg_contents ORDER BY table_name",
+                           -1, &zapytanie, nullptr )
+       == SQLITE_OK )
+  {
+    while ( sqlite3_step( zapytanie ) == SQLITE_ROW )
+    {
+      tabele << QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( zapytanie, 0 ) ) );
+      rodzaje << QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( zapytanie, 1 ) ) );
+    }
+  }
+  sqlite3_finalize( zapytanie );
+
+  for ( int i = 0; i < tabele.size(); ++i )
+  {
+    const QString &t = tabele.at( i );
+
+    // Liczymy NAPRAWDE, a nie z gpkg_ogr_contents: tamten licznik utrzymuja
+    // wyzwalacze GDAL-a, ktorych nasze wlasne tabele nie maja, i pokazalby
+    // zero przy pelnej tabeli. Liczba wierszy jest tu jedyna rzecza, na
+    // ktorej czlowiek oprze decyzje — nie wolno jej zmyslic.
+    qint64 wierszy = -1;
+    const QByteArray policz = QStringLiteral( "SELECT COUNT(*) FROM \"%1\"" ).arg( t ).toUtf8();
+    sqlite3_stmt *licz = nullptr;
+    if ( sqlite3_prepare_v2( baza, policz.constData(), -1, &licz, nullptr ) == SQLITE_OK
+         && sqlite3_step( licz ) == SQLITE_ROW )
+    {
+      wierszy = sqlite3_column_int64( licz, 0 );
+    }
+    sqlite3_finalize( licz );
+
+    const QString maly = t.toLower();
+    bool odniesienie = nazwyOdniesienia.contains( maly );
+    if ( !odniesienie )
+    {
+      for ( const QString &p : przedrostkiOdniesienia )
+      {
+        if ( maly.startsWith( p ) )
+        {
+          odniesienie = true;
+          break;
+        }
+      }
+    }
+
+    QVariantMap wpis;
+    wpis.insert( QStringLiteral( "tabela" ), t );
+    wpis.insert( QStringLiteral( "wierszy" ), wierszy );
+    wpis.insert( QStringLiteral( "geometria" ), rodzaje.at( i ) == QLatin1String( "features" ) );
+    wpis.insert( QStringLiteral( "odniesienie" ), odniesienie );
+    wpis.insert( QStringLiteral( "proponowane" ), !odniesienie && wierszy != 0 );
+    wpis.insert( QStringLiteral( "plik" ), QFileInfo( gpkg ).fileName() );
+    wynik.append( wpis );
+  }
+
+  sqlite3_close( baza );
+  return wynik;
 }

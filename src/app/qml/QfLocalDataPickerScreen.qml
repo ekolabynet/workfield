@@ -12,6 +12,22 @@ import org.qfield.gui
 Page {
   id: qfieldLocalDataPickerScreen
 
+  /**
+   * WorkField 23.08.2026 — CZWARTA ODSLONA TEGO SAMEGO WZORCA.
+   *
+   * `Page` bez wlasnego tla bierze je ZE STYLU, a styl pulpitowy
+   * (org.kde.desktop) rysuje jasny prostokat. Napisy i strzalka powrotu sa
+   * w barwie motywu, czyli jasne — i znikaja. Tak wlasnie "okna nie dalo sie
+   * zamknac": przycisk byl na miejscu, tylko bialy na bialym.
+   *
+   * Trzy poprzednie odslony: szuflady, panele w QfPopup, Material.theme
+   * liczony z nazwy motywu zamiast z jasnosci tla.
+   */
+  background: Rectangle {
+    color: QfTheme.mainBackgroundColor
+  }
+
+
   property bool openedOnce: false
   property bool projectFolderView: false
   property bool pickerMode: false
@@ -402,8 +418,19 @@ Page {
               return;
             const item = table.itemAt(table.contentX + mouse.x, table.contentY + mouse.y);
             if (item && item.itemMenuLoadable) {
-              pressedItem = item.children[0].children[2].children[0];
-              pressedItem.color = "#5a8725";
+              // WorkField 23.08.2026 — lancuch indeksow w cudze dziecko.
+              // Gdy delegat ma inny ksztalt, konczy sie to `undefined`
+              // i bledem "Cannot assign [undefined] to QQuickItem*" w logu
+              // przy KAZDYM nacisnieciu. Podswietlenie jest ozdoba; brak
+              // podswietlenia jest lepszy niz linia bledu.
+              const galaz = item.children[0];
+              const podswietlany = galaz && galaz.children.length > 2 && galaz.children[2].children.length > 0
+                                   ? galaz.children[2].children[0]
+                                   : null;
+              if (podswietlany) {
+                pressedItem = podswietlany;
+                pressedItem.color = "#5a8725";
+              }
             }
           }
           onCanceled: {

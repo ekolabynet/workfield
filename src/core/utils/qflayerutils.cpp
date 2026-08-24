@@ -1040,17 +1040,33 @@ QVariantList QfLayerUtils::vectorSubLayers( const QString &filePath )
   if ( !probe.isValid() && probe.dataProvider() == nullptr )
     return result;
 
-  const QList<QgsProviderSublayerDetails> details = QgsProviderRegistry::instance()->querySublayers( filePath, Qgis::SublayerQueryFlag::ResolveGeometryType );
+  // WorkField 23.08.2026 — CountFeatures DOLOZONE.
+  //
+  // Samo ResolveGeometryType nie liczy obiektow, a `detail.featureCount()`
+  // zwraca wtedy WARTOSC UMOWNA: Qgis::FeatureCountState::Uncounted, czyli
+  // -2. Okno "Wybierz warstwy" wypisywalo ja jak zwykla liczbe i kazda
+  // warstwa — pusta, z dwoma obiektami czy z dwustoma — meldowala
+  // "-2 obiektow". Liczba, ktora nie jest liczba, jest gorsza od jej braku:
+  // wyglada na odczyt z pliku, wiec nikt jej nie kwestionuje.
+  const QList<QgsProviderSublayerDetails> details = QgsProviderRegistry::instance()->querySublayers(
+    filePath,
+    Qgis::SublayerQueryFlag::ResolveGeometryType | Qgis::SublayerQueryFlag::CountFeatures );
 
   for ( const QgsProviderSublayerDetails &detail : details )
   {
     if ( detail.type() != Qgis::LayerType::Vector )
       continue;
 
+    // Nawet z CountFeatures czesc dostawcow nie umie policzyc (strumienie,
+    // widoki, uszkodzone pliki). Wartosci umowne sprowadzamy do JEDNEJ,
+    // zeby warstwa wyzej miala co sprawdzic zamiast zgadywac, ktory
+    // ujemny numer co znaczy.
+    const long long liczba = static_cast<long long>( detail.featureCount() );
+
     QVariantMap entry;
     entry.insert( QStringLiteral( "name" ), detail.name() );
     entry.insert( QStringLiteral( "geometry" ), QgsWkbTypes::displayString( detail.wkbType() ) );
-    entry.insert( QStringLiteral( "featureCount" ), static_cast<qlonglong>( detail.featureCount() ) );
+    entry.insert( QStringLiteral( "featureCount" ), static_cast<qlonglong>( liczba < 0 ? -1 : liczba ) );
     entry.insert( QStringLiteral( "uri" ), detail.uri() );
     entry.insert( QStringLiteral( "provider" ), detail.providerKey() );
     result.append( entry );

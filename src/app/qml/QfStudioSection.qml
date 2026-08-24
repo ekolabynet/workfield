@@ -53,58 +53,8 @@ ColumnLayout {
   }
 
 
-  //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
-  component QfPozycjaMenu: Button {
-    id: pozycja
-
-    // WorkField 18.08.2026: wlasne tlo NIE jest kosmetyka. Styl pulpitowy
-    // rysuje ramke RAZEM Z NAPISEM w delegacie `background`, wiec sam
-    // `contentItem` nie zastepowal napisu, tylko dokladal drugi obok
-    // (zrzut z 18.08: kazda pozycja menu widoczna dwa razy, z przesunieciem).
-    // Pusty background zabiera stylowi miejsce na jego napis.
-    background: Rectangle {
-      color: pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
-      radius: 4
-    }
-
-    property string ikona: ""
-
-    flat: true
-    Layout.fillWidth: true
-    implicitHeight: 34
-    font.pointSize: Theme.tinyFont.pointSize
-
-    contentItem: RowLayout {
-      spacing: 10
-
-      Image {
-        id: obrazIkony
-        source: pozycja.ikona !== "" ? Theme.getThemeVectorIcon(pozycja.ikona) : ""
-        sourceSize: Qt.size(22, 22)
-        visible: false
-      }
-      ColorOverlay {
-        // MultiEffect.colorization BARWI, ZACHOWUJAC JASNOSC — ciemna ikona
-        // Breeze zostawala ciemna takze w ciemnym motywie (17.08.2026).
-        // ColorOverlay zamienia piksele na podany kolor, zachowujac alfe.
-        Layout.leftMargin: 6
-        Layout.preferredWidth: 22
-        Layout.preferredHeight: 22
-        source: obrazIkony
-        visible: obrazIkony.status === Image.Ready
-        color: pozycja.enabled ? Theme.mainTextColor : Theme.secondaryTextColor
-      }
-      Text {
-        Layout.fillWidth: true
-        text: pozycja.text
-        font: pozycja.font
-        color: pozycja.enabled ? Theme.mainTextColor : Theme.secondaryTextColor
-        elide: Text.ElideRight
-        horizontalAlignment: Text.AlignLeft
-        verticalAlignment: Text.AlignVCenter
-      }
-    }
-  }
+  // WorkField 23.08.2026 — druga kopia QfPozycjaMenu, usunieta z tego samego
+  // powodu co w QfMainDrawer.qml. Jedna definicja: src/app/qml/QfPozycjaMenu.qml.
 
   ProcesyStudio {
     id: procesy
@@ -700,17 +650,81 @@ ColumnLayout {
 
 
   // ── dialog: Zamień na szablon ─────────────────────────────────
+  //
+  // WorkField 23.08.2026 — PRZEBUDOWANY, bo poprzednia wersja mogla wywiezc
+  // dane terenowe w szablonie.
+  //
+  // Regula czyszczenia byla LISTA DOZWOLONYCH: `FITO_%`, `ZAL_%`, `NIEBO_%`.
+  // Projekt zbudowany z przepisu `platy_roslinnosci.json` ma warstwy `platy`,
+  // `zdjecia_fito`, `gatunki`, `platy_zalazki`, `tyczenie` — zadnego z tych
+  // wzorcow nie lapia. Osiem warstw w przepisie, trzy czyszczone. Okno mowilo
+  // "tabele FITO_* zostana wyczyszczone": zdanie prawdziwe i bezuzyteczne,
+  // bo w takim projekcie nie ma ANI JEDNEJ tabeli FITO_.
+  //
+  // Nie dopisujemy wzorcow — to by tylko przesunelo ten sam blad na nastepny
+  // przepis. Czlowiek WIDZI liste z liczbami wierszy i decyduje przed
+  // wykonaniem. Podpowiedz zawodzi wtedy przez zaznaczenie za duzo, co widac
+  // od razu, a nie przez niedoczyszczenie, ktorego nie widac wcale.
   Popup {
     id: dialogSzablonu
 
     parent: mainWindow.contentItem
     x: (mainWindow.width - width) / 2
     y: (mainWindow.height - height) / 2
-    width: Math.min(420, mainWindow.width - 32)
+    width: Math.min(560, mainWindow.width - 32)
+    height: Math.min(620, mainWindow.height - 48)
     modal: true
 
+    //! [{ tabela, wierszy, plik, proponowane, odniesienie }]
+    property var tabele: []
+
+    /**
+     * Zaznaczenia trzymane POZA delegatami: nazwa tabeli -> bool.
+     *
+     * ListView tworzy delegaty leniwie i kasuje te poza ekranem. Gdyby stan
+     * siedzial w delegacie, odznaczenie tabeli, ktora potem wyjechala poza
+     * widok, przepadloby BEZ SLADU — i szablon wywiozlby dane mimo decyzji
+     * czlowieka. Dokladnie ten rodzaj cichej porazki, ktory naprawiamy.
+     */
+    property var zaznaczenia: ({})
+
+    function zaznaczone(nazwa) {
+      return zaznaczenia[nazwa] === true;
+    }
+
+    function przelacz(nazwa) {
+      const z = zaznaczenia;
+      z[nazwa] = !z[nazwa];
+      zaznaczenia = z;
+    }
+
+    onOpened: {
+      const zebrane = [];
+      if (studio.celSzablonu) {
+        for (const plik of procesy.plikiGpkg(studio.celSzablonu.sciezka)) {
+          for (const wpis of procesy.spisTabel(plik))
+            zebrane.push(wpis);
+        }
+      }
+      tabele = zebrane;
+
+      const wstepne = {};
+      for (const wpis of zebrane)
+        wstepne[wpis.tabela] = wpis.proponowane === true;
+      zaznaczenia = wstepne;
+    }
+
+    //! Nazwy zaznaczone do wyczyszczenia — z mapy, nie z delegatow.
+    function wybrane() {
+      const lista = [];
+      for (const wpis of tabele)
+        if (zaznaczenia[wpis.tabela] === true)
+          lista.push(wpis.tabela);
+      return lista;
+    }
+
     ColumnLayout {
-      width: parent.width
+      anchors.fill: parent
       spacing: 8
 
       Text {
@@ -718,23 +732,103 @@ ColumnLayout {
         font: Theme.strongTipFont
         color: Theme.mainTextColor
       }
+
       Text {
         Layout.fillWidth: true
         text: studio.celSzablonu
-              ? qsTr("Kopia %1 trafi do szablonów bez części terenowej:\nbez DCIM, zdjęć i foto_tagi; tabele FITO_* zostaną wyczyszczone.\nOryginał pozostanie nietknięty.").arg(studio.celSzablonu.nazwa)
+              ? qsTr("Kopia %1 trafi do szablonów bez części terenowej: bez DCIM, zdjęć i foto_tagi. Oryginał pozostanie nietknięty.").arg(studio.celSzablonu.nazwa)
               : ""
         font: Theme.tinyFont
         color: Theme.secondaryTextColor
         wrapMode: Text.WordWrap
       }
+
       TextField {
         id: poleNazwySzablonu
         Layout.fillWidth: true
         placeholderText: qsTr("nazwa szablonu")
       }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Zaznacz tabele do wyczyszczenia w kopii:")
+        font: Theme.tipFont
+        color: Theme.mainTextColor
+      }
+
+      ListView {
+        id: listaTabel
+
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        model: dialogSzablonu.tabele
+        spacing: 1
+
+        delegate: Rectangle {
+          id: wierszTabeli
+
+          required property var modelData
+
+          readonly property bool zaznaczony: dialogSzablonu.zaznaczone(modelData.tabela)
+
+          width: ListView.view.width
+          height: 30
+          radius: 3
+          color: zaznaczony ? Qt.rgba(Theme.errorColor.r, Theme.errorColor.g, Theme.errorColor.b, 0.25) : "transparent"
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 6
+            anchors.rightMargin: 6
+            spacing: 8
+
+            QfPrzelacznikMaly {
+              checked: wierszTabeli.zaznaczony
+              onPrzelaczono: dialogSzablonu.przelacz(wierszTabeli.modelData.tabela)
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: wierszTabeli.modelData.tabela
+              font: Theme.tipFont
+              color: Theme.mainTextColor
+              elide: Text.ElideMiddle
+            }
+
+            Text {
+              // Liczba wierszy jest jedyna rzecza, na ktorej opiera sie
+              // decyzja — dlatego liczona naprawde, a nie z licznika GDAL-a.
+              text: wierszTabeli.modelData.wierszy >= 0
+                    ? qsTr("%1 w.").arg(wierszTabeli.modelData.wierszy)
+                    : "?"
+              font: Theme.tinyFont
+              color: wierszTabeli.modelData.wierszy > 0 ? Theme.mainTextColor : Theme.secondaryTextColor
+            }
+
+            Text {
+              text: wierszTabeli.modelData.plik
+              font: Theme.tinyFont
+              color: Theme.secondaryTextColor
+            }
+          }
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        visible: dialogSzablonu.tabele.length === 0
+        text: qsTr("Nie znalazłem żadnej tabeli. Szablon powstanie bez czyszczenia — sprawdź go przed wydaniem.")
+        font: Theme.tinyFont
+        color: Theme.warningColor
+        wrapMode: Text.WordWrap
+      }
+
       RowLayout {
         Layout.fillWidth: true
-        Item { Layout.fillWidth: true }
+        Item {
+          Layout.fillWidth: true
+        }
         Button {
           flat: true
           text: qsTr("Anuluj")
@@ -744,11 +838,15 @@ ColumnLayout {
           text: qsTr("Utwórz szablon")
           enabled: poleNazwySzablonu.text.trim() !== ""
           onClicked: {
+            const doWyczyszczenia = dialogSzablonu.wybrane();
             const w = procesy.zamienNaSzablon(studio.celSzablonu.sciezka,
                                               studio.korzen,
-                                              poleNazwySzablonu.text);
+                                              poleNazwySzablonu.text,
+                                              doWyczyszczenia);
             if (w.ok) {
-              zapis.dopisz(qsTr("Szablon utworzony: %1 (wyczyszczono tabel FITO: %2)").arg(w.sciezka).arg(w.wyczyszczono));
+              zapis.dopisz(qsTr("Szablon utworzony: %1 — wyczyszczono %2 z %3 zaznaczonych tabel").arg(w.sciezka).arg(w.wyczyszczono).arg(doWyczyszczenia.length));
+              if (w.wyczyszczono < doWyczyszczenia.length)
+                zapis.dopisz(qsTr("UWAGA: nie wszystkie zaznaczone tabele zostały wyczyszczone. Sprawdź szablon przed wydaniem."));
               dialogSzablonu.close();
               studio.przeladuj();
             } else {

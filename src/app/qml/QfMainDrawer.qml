@@ -60,6 +60,11 @@ Drawer {
   signal toggle3DView
   signal returnHome
 
+  //! WorkField 23.08.2026 — korzen magazynu wystawiony na zewnatrz.
+  //! Panel spisu potrzebuje tej samej sciezki, ktora widzi zakladka Zlecenia;
+  //! alias, a nie kopia ustawienia, zeby nie bylo dwoch zrodel prawdy.
+  readonly property alias korzenMagazynu: drzewoZlecen.korzen
+
   //! WorkField: sekcja wskazywana przez menu (komputer); -1 = wg zakładek
   property int sekcjaWymuszona: -1
 
@@ -143,58 +148,11 @@ Drawer {
     }
   }
 
-  //! WorkField: pozycja menu panelu — ikona Breeze + etykieta z lewej.
-  component QfPozycjaMenu: Button {
-    id: pozycja
-
-    // WorkField 18.08.2026: wlasne tlo NIE jest kosmetyka. Styl pulpitowy
-    // rysuje ramke RAZEM Z NAPISEM w delegacie `background`, wiec sam
-    // `contentItem` nie zastepowal napisu, tylko dokladal drugi obok
-    // (zrzut z 18.08: kazda pozycja menu widoczna dwa razy, z przesunieciem).
-    // Pusty background zabiera stylowi miejsce na jego napis.
-    background: Rectangle {
-      color: pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
-      radius: 4
-    }
-
-    property string ikona: ""
-
-    flat: true
-    Layout.fillWidth: true
-    implicitHeight: 34
-    font.pointSize: t.tinyFont.pointSize
-
-    contentItem: RowLayout {
-      spacing: 10
-
-      Image {
-        id: obrazIkony
-        source: pozycja.ikona !== "" ? t.getThemeVectorIcon(pozycja.ikona) : ""
-        sourceSize: Qt.size(22, 22)
-        visible: false
-      }
-      ColorOverlay {
-        // MultiEffect.colorization BARWI, ZACHOWUJAC JASNOSC — ciemna ikona
-        // Breeze zostawala ciemna takze w ciemnym motywie (17.08.2026).
-        // ColorOverlay zamienia piksele na podany kolor, zachowujac alfe.
-        Layout.leftMargin: 6
-        Layout.preferredWidth: 22
-        Layout.preferredHeight: 22
-        source: obrazIkony
-        visible: obrazIkony.status === Image.Ready
-        color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor
-      }
-      Text {
-        Layout.fillWidth: true
-        text: pozycja.text
-        font: pozycja.font
-        color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor
-        elide: Text.ElideRight
-        horizontalAlignment: Text.AlignLeft
-        verticalAlignment: Text.AlignVCenter
-      }
-    }
-  }
+  // WorkField 23.08.2026 — komponent QfPozycjaMenu STAL TU JAKO KOPIA i cieniowal
+  // plik QfPozycjaMenu.qml, wyjety 22.08 wlasnie po to, zeby kopii nie bylo.
+  // Skutek: zmiana wygladu w pliku nie robila nic po lewej stronie, a prawa
+  // szuflada wygladala inaczej mimo "wspolnego" komponentu. Kopia usunieta;
+  // od teraz jedna definicja, w src/app/qml/QfPozycjaMenu.qml.
 
   property bool preventFromOpening: overlayFeatureFormDrawer.visible
   property bool allowInteractive: true
@@ -252,6 +210,84 @@ Drawer {
 
     property string pendingType: ""
 
+    /**
+     * WorkField 23.08.2026 — metryczki arkuszy: nazwa pliku → { data, piksel,
+     * uklad, kolor }. Skorowidz GUGiK odpowiada tabelą, z której dotąd braliśmy
+     * wyłącznie adres pliku, wyrzucając resztę wiersza. A tam stoi ROCZNIK
+     * modelu — bez niego wynik horyzontu z NMPT jest liczbą bez daty ważności
+     * (claude/PRZESLONIECIE_nieba.md).
+     */
+    property var opisyPlikow: ({})
+
+    /**
+     * Rozpoznaje pola PO ROLI, nie po nazwie kolumny — bo skorowidze NMT, NMPT
+     * i ortofoto mają różne nagłówki, a data zawsze wygląda jak data.
+     * (Reguła z docs/NAZEWNICTWO.md, złamana raz 22.08 i to wystarczy.)
+     * Gdy odpowiedź nie jest tabelą, zwraca puste pola i nikt nie ucierpi.
+     */
+    function metryczkaZWiersza(wiersz) {
+      const komorki = (wiersz.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi) || []).map(function (c) {
+        return c.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
+      }).filter(function (c) {
+        return c !== "";
+      });
+      const opis = {
+        "data": "",
+        "piksel": "",
+        "uklad": "",
+        "kolor": ""
+      };
+      for (const k of komorki) {
+        if (opis.data === "" && /^\d{4}-\d{2}-\d{2}$/.test(k)) {
+          opis.data = k;
+        } else if (opis.kolor === "" && /^(RGB|CIR|PAN)$/i.test(k)) {
+          opis.kolor = k.toUpperCase();
+        } else if (opis.uklad === "" && /^PL-[0-9A-Za-z:.]+$/.test(k)) {
+          opis.uklad = k;
+        } else if (opis.piksel === "" && /^\d+([.,]\d+)?\s?m?$/.test(k)) {
+          const v = parseFloat(k.replace(",", "."));
+          // rocznik ("2025") i skala ("1:5000") odpadają same: piksel modelu
+          // wysokościowego to ułamki metra do kilku metrów, nigdy tysiące
+          if (v > 0 && v <= 50) {
+            opis.piksel = k;
+          }
+        }
+      }
+      return opis;
+    }
+
+    //! Jedno zdanie o zestawie arkuszy — do dymka i do nazwy warstwy
+    function streszczenieMetryczek(nazwy) {
+      let data = "";
+      let piksel = "";
+      for (const n of nazwy) {
+        const o = opisyPlikow[n];
+        if (!o) {
+          continue;
+        }
+        if (o.data !== "" && o.data > data) {
+          data = o.data;
+        }
+        if (o.piksel !== "") {
+          const v = parseFloat(o.piksel.replace(",", "."));
+          const dotad = piksel === "" ? 1e9 : parseFloat(piksel.replace(",", "."));
+          // najgrubszy piksel w zestawie, bo mozaika jest tak dobra jak
+          // jej najsłabszy arkusz
+          if (v > dotad || piksel === "") {
+            piksel = o.piksel;
+          }
+        }
+      }
+      const czesci = [];
+      if (data !== "") {
+        czesci.push(data);
+      }
+      if (piksel !== "") {
+        czesci.push(piksel.indexOf("m") === -1 ? piksel + " m" : piksel);
+      }
+      return czesci.join(" · ");
+    }
+
     function request(type) {
       pendingType = type;
       demScopeDialog.open();
@@ -277,6 +313,7 @@ Drawer {
       const bufferMeters = Math.max(100, (bx1 - bx0) * 0.1);
       mosaicBbox = { "xmin": bx0 - bufferMeters, "ymin": by0 - bufferMeters, "xmax": bx1 + bufferMeters, "ymax": by1 + bufferMeters };
       activeType = type;
+      opisyPlikow = {};
       displayToast(qsTr("Szukam arkuszy %1 dla obszaru mapy...").arg(type));
       queryService(services, 0, points, type, newestOnly);
     }
@@ -343,6 +380,18 @@ Drawer {
           return;
         }
         const matches = xhr.responseText.match(/https?:\/\/[^"'<>\s]+\.(asc|tif|tiff|zip)/g) || [];
+
+        // Metryczki zbieramy OBOK dotychczasowego szukania adresów, a nie
+        // zamiast niego: gdyby odpowiedź przestała być tabelą, adresy nadal
+        // się znajdą, a metryczki po prostu wyjdą puste.
+        const wiersze = xhr.responseText.split(/<tr[^>]*>/i);
+        for (const w of wiersze) {
+          const trafienie = w.match(/https?:\/\/[^"'<>\s]+\.(asc|tif|tiff|zip)/);
+          if (trafienie) {
+            demDownloader.opisyPlikow[trafienie[0].split("/").pop()] = demDownloader.metryczkaZWiersza(w);
+          }
+        }
+
         for (const u of matches) {
           if (newestOnly) {
             const g = godloFromUrl(u);
@@ -446,17 +495,72 @@ Drawer {
         });
       });
     }
+    /**
+     * WorkField 23.08.2026 — arkusze GUGiK bywaja spakowane. Regula zbierajaca
+     * adresy przyjmuje .zip, pobieranie je zapisuje, a skladanie mozaiki
+     * szukalo tylko .asc i .tif — spakowany arkusz lezal w katalogu i nie
+     * wchodzil do mozaiki. Objaw niemy: mozaika po prostu mniejsza.
+     * Zwraca liste nazw archiwow, ktore udalo sie rozpakowac.
+     */
+    function rozpakujArchiwa(type) {
+      const home = qgisProject.homePath;
+      const archiwa = iface.listFiles(home + "/" + type, "*.zip");
+      const rozpakowane = [];
+      for (const z of archiwa) {
+        if (FileUtils.unzipTo(home + "/" + type + "/" + z, home + "/" + type)) {
+          rozpakowane.push(z);
+        }
+      }
+      if (rozpakowane.length > 0) {
+        displayToast(qsTr("Rozpakowano %1 archiwów %2").arg(rozpakowane.length).arg(type));
+      }
+      return rozpakowane;
+    }
+
+    /**
+     * Zapisuje metryczkę mozaiki obok niej, jako CSV z nagłówkiem.
+     * CSV, a nie JSON, bo ten plik ma się otwierać w arkuszu bez tłumacza.
+     */
+    function zapiszMetryczke(type, areaSafe, nazwy, streszczenie) {
+      const linie = ["plik;data;piksel;uklad;kolor"];
+      for (const n of nazwy) {
+        const o = opisyPlikow[n] || {
+          "data": "",
+          "piksel": "",
+          "uklad": "",
+          "kolor": ""
+        };
+        linie.push([n, o.data, o.piksel, o.uklad, o.kolor].join(";"));
+      }
+      linie.push("");
+      linie.push("# mozaika: " + type + "_" + areaSafe + ".tif");
+      linie.push("# obszar: " + areaName);
+      linie.push("# streszczenie: " + (streszczenie !== "" ? streszczenie : "brak metryczek w skorowidzu"));
+      linie.push("# zlozono: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm"));
+      const sciezka = qgisProject.homePath + "/" + type + "/" + type + "_" + areaSafe + ".metryczka.csv";
+      if (!FileUtils.writeFileContent(sciezka, linie.join("\n") + "\n")) {
+        displayToast(qsTr("Nie udało się zapisać metryczki %1").arg(type), "warning");
+      }
+    }
+
     function mergeMosaic(type) {
       if (!mosaicBbox) {
         return;
       }
       const home = qgisProject.homePath;
+      const archiwa = rozpakujArchiwa(type);
       const names = iface.listFiles(home + "/" + type, "*.asc").concat(iface.listFiles(home + "/" + type, "*.tif"));
+      const arkusze = [];
       const inputs = [];
       for (const n of names) {
-        if (n.indexOf("_obszar") === -1) {
-          inputs.push(home + "/" + type + "/" + n);
+        // Wykluczamy WCZESNIEJSZE MOZAIKI, a nie nazwy zawierajace "_obszar".
+        // Stary warunek szukal malej litery, a plik nazywa sie "NMT_Obszar_1.tif"
+        // — czyli poprzednia mozaika wchodzila jako wsad do nastepnej.
+        if (n.toUpperCase().indexOf(type.toUpperCase() + "_") === 0) {
+          continue;
         }
+        arkusze.push(n);
+        inputs.push(home + "/" + type + "/" + n);
       }
       if (inputs.length === 0) {
         return;
@@ -464,23 +568,44 @@ Drawer {
       displayToast(qsTr("Skladam mozaike %1 z %2 arkuszy...").arg(type).arg(inputs.length));
       const areaSafe = areaName.replace(/[^\w-]/g, "_");
       const outPath = home + "/" + type + "/" + type + "_" + areaSafe + ".tif";
+      const metryczka = streszczenieMetryczek(arkusze);
+
       Qt.callLater(function () {
         if (iface.clipMergeRasters(inputs, mosaicBbox.xmin, mosaicBbox.ymin, mosaicBbox.xmax, mosaicBbox.ymax, outPath)) {
-          if (iface.addRasterLayerToProject(outPath, areaName + " " + type, "EPSG:2180", "", areaName)) {
+          const nazwaWarstwy = metryczka !== "" ? areaName + " " + type + " (" + metryczka + ")" : areaName + " " + type;
+          if (iface.addRasterLayerToProject(outPath, nazwaWarstwy, "EPSG:2180", "", areaName)) {
             displayToast(qsTr("%1 %2 gotowe - jedna warstwa, wspolna skala barw").arg(areaName).arg(type));
             areaCounter++;
           }
+
+          // Metryczka MUSI wylądować w pliku ZANIM skasujemy arkusze — inaczej
+          // za rok zostanie mozaika bez daty, a model wysokościowy bez rocznika
+          // jest systematycznie zbyt optymistyczny i nie da się tego zobaczyć.
+          zapiszMetryczke(type, areaSafe, arkusze, metryczka);
+
+          // Sprzatamy DOPIERO po udanym zlozeniu. Arkusze sa odtwarzalne
+          // (da sie je pobrac ponownie), ale kasowanie ich przed sprawdzeniem
+          // wyniku zamienialoby jeden nieudany warp w utracone pol godziny.
+          const usuniete = iface.usunArkuszeDem(type, arkusze.concat(archiwa));
+          if (usuniete > 0) {
+            displayToast(qsTr("Usunięto %1 arkuszy źródłowych %2 — zostaje mozaika").arg(usuniete).arg(type));
+          }
         } else {
-          displayToast(qsTr("Nie udalo sie zlozyc mozaiki %1").arg(type), "error");
+          displayToast(qsTr("Nie udalo sie zlozyc mozaiki %1 — arkusze zostaja").arg(type), "error");
         }
       });
     }
     function startDownloads(urls, type) {
       const capped = urls.slice(0, 4);
+      const nazwy = capped.map(function (u) {
+        return u.split("/").pop();
+      });
+      const metryczka = streszczenieMetryczek(nazwy);
+      const dopisek = metryczka !== "" ? "  ·  " + metryczka : "";
       if (urls.length > 4) {
-        displayToast(qsTr("Obszar obejmuje %1 arkuszy - pobieram pierwsze 4 (przybliz mape po reszte)").arg(urls.length), "warning");
+        displayToast(qsTr("Obszar obejmuje %1 arkuszy - pobieram pierwsze 4 (przybliz mape po reszte)").arg(urls.length) + dopisek, "warning");
       } else {
-        displayToast(qsTr("Pobieram %1: %2 arkuszy (duze pliki, to potrwa)...").arg(type).arg(capped.length));
+        displayToast(qsTr("Pobieram %1: %2 arkuszy (duze pliki, to potrwa)...").arg(type).arg(capped.length) + dopisek);
       }
       for (const u of capped) {
         const fileName = u.split("/").pop();
@@ -954,7 +1079,13 @@ Drawer {
             if (Qt.platform.os === "android" || Qt.platform.os === "ios")
               photoGallery.openFiles(iface.dataRoot() + "Imported Projects");
             else
-              photoGallery.openFiles(ustawieniaStanu.korzenProjektow + "/wydania");
+              // WorkField 23.08.2026 — bylo `ustawieniaStanu.korzenProjektow`.
+              // Obiekt `ustawieniaStanu` zniknal z tego pliku dawno temu
+              // (istnial jeszcze w f50ae148b), a DWA wywolania zostaly.
+              // Kazde konczylo sie ReferenceError i przerywalo caly handler,
+              // wiec "Otworz projekt" na komputerze nie robilo NIC.
+              // Korzen magazynu wystawia QfStudioSection jako `korzen`.
+              photoGallery.openFiles(drzewoZlecen.korzen + "/wydania");
           }
         }
         QfPozycjaMenu {
@@ -1168,14 +1299,13 @@ Drawer {
           dataDrawer.addExistingRequested();
         }
         }
-        QfPozycjaMenu {
-          text: qsTr("Teren")
-          ikona: "wfg_teren"
-          onClicked: {
-          dashBoard.close();
-          terenSettings.open();
-        }
-        }
+        // WorkField 23.08.2026 — "Teren" stad ZNIKA. Byl w obu szufladach:
+        // dodany po prawej w zakladce "Narzedzia", nieusuniety z lewej.
+        // Zostaje po prawej, bo tam trafil swiadomie i tam jest w towarzystwie
+        // Nieba, edytora i ustawien GNSS. Tutaj byl obcy: sekcja "Dane" mowi
+        // o warstwach i plikach, a ustawienia terenowe nie sa ani jednym,
+        // ani drugim. Dwa wejscia do tego samego okna to nie wygoda, tylko
+        // dwa miejsca, w ktorych trzeba pamietac o zmianie.
         QfPozycjaMenu {
           text: qsTr("Galeria")
           ikona: "wfg_zdjecia"
@@ -1636,7 +1766,9 @@ Drawer {
             // ---- zapis jako szablon: sam przepis, bez danych i bez zdjec
             if (projectNameDialog.mode === "szablon") {
               // korzeniem jest magazyn, nie katalog aplikacji — patrz QfNoweZadanie
-              const korzenSzablonow = NarzedziaProjektu.katalogSzablonow(ustawieniaStanu.korzenProjektow);
+              // to samo martwe odwolanie co przy "Otworz projekt" — przez nie
+              // "Zapisz jako szablon" przerywalo sie w pierwszej linijce
+              const korzenSzablonow = NarzedziaProjektu.katalogSzablonow(drzewoZlecen.korzen);
               if (korzenSzablonow === "") {
                 displayToast(qsTr("Nie znalazłem katalogu szablonów"), "error");
                 return;
@@ -1902,14 +2034,71 @@ Drawer {
         }
       }
 
+      /**
+       * WorkField 23.08.2026 — sciezka projektu do skopiowania.
+       *
+       * Byla tu zwykla etykieta z ElideMiddle: sciezka, ktorej nie da sie ani
+       * zaznaczyc, ani nawet przeczytac w calosci. A jest to dokladnie ten
+       * napis, ktory czlowiek chce wkleic do terminala albo do wiadomosci.
+       * Zaznaczanie myszka dziala na komputerze, przyciski dzialaja wszedzie.
+       */
       Text {
         Layout.fillWidth: true
-        text: qsTr("Folder projektu: %1").arg(FileUtils.absolutePath(projectSection.filePath))
-        font: t.tinyFont
+        Layout.topMargin: 6
+        text: qsTr("Plik projektu:")
+        font: t.tipFont
         color: t.secondaryTextColor
-        elide: Text.ElideMiddle
-        wrapMode: Text.WrapAnywhere
-        maximumLineCount: 2
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 4
+
+        TextEdit {
+          Layout.fillWidth: true
+          text: projectSection.filePath
+          readOnly: true
+          selectByMouse: true
+          wrapMode: TextEdit.WrapAnywhere
+          font: t.tinyFont
+          color: t.mainTextColor
+        }
+
+        QfToolButton {
+          Layout.alignment: Qt.AlignTop
+          round: true
+          bgcolor: "transparent"
+          iconSource: t.getThemeVectorIcon("ic_copy_black_24dp")
+          iconColor: t.mainTextColor
+          onClicked: {
+            platformUtilities.copyTextToClipboard(projectSection.filePath);
+            displayToast(qsTr("Skopiowano ścieżkę projektu"));
+          }
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 4
+
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("Folder: %1").arg(FileUtils.absolutePath(projectSection.filePath))
+          font: t.tinyFont
+          color: t.secondaryTextColor
+          elide: Text.ElideMiddle
+        }
+
+        QfToolButton {
+          round: true
+          bgcolor: "transparent"
+          iconSource: t.getThemeVectorIcon("ic_copy_black_24dp")
+          iconColor: t.secondaryTextColor
+          onClicked: {
+            platformUtilities.copyTextToClipboard(FileUtils.absolutePath(projectSection.filePath));
+            displayToast(qsTr("Skopiowano ścieżkę folderu"));
+          }
+        }
       }
 
       Text {

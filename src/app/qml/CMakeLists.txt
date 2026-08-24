@@ -44,10 +44,14 @@ set(QFIELD_APP_QML_FILES
     QfNaprawaProjektu.qml
     QfNewLayerDialog.qml
     QfNiebo.qml
+    QfSpisPanel.qml
+    QfKopiaPanel.qml
+    QfNieboGwiazdy.js
     QfNoweZadanie.qml
     QfNowyProjekt.qml
     QfPanelAkcji.qml
     QfPhotoGallery.qml
+    QfPodgladStylu.qml
     QfPozycjaMenu.qml
     QfPrzelacznikMaly.qml
     QfPrzepis.qml

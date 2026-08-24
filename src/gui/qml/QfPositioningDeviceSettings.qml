@@ -97,6 +97,11 @@ QfPopup {
   }
 
   Page {
+    // WorkField 23.08.2026 — Page rysowal WLASNE tlo ze stylu Material,
+    // nieprzezroczyste i niezalezne od motywu, tuz nad tlem QfPopup, ktore
+    // juz bralo QfTheme.mainBackgroundColor. Skutek: panele wtyczek i paska
+    // wyszukiwania zostawaly jasne, kiedy reszta aplikacji byla ciemna.
+    background: null
     id: page
     width: parent.width
     height: parent.height

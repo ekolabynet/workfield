@@ -23,9 +23,28 @@ Button {
   property var t: Theme
   property string ikona: ""
 
+  //! WorkField 23.08.2026 — stan "to jest ta, na ktorej jestes". Material
+  //! `highlighted` nie daje sie zobaczyc w stylu pulpitowym (sprawdzone na
+  //! zrzucie z 23.08), wiec zaznaczenie rysujemy sami, w tle komponentu.
+  property bool wybrana: false
+
+  //! WorkField 23.08.2026 — na waskim ekranie zostaje sama ikona. Nazwa
+  //! wraca w dymku, zeby nie trzeba bylo zgadywac, co znaczy obrazek.
+  property bool tylkoIkona: false
+
+  ToolTip.text: pozycja.text
+  ToolTip.delay: 400
+  ToolTip.visible: pozycja.tylkoIkona && pozycja.hovered && pozycja.text !== ""
+
   background: Rectangle {
-    color: pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+    color: pozycja.wybrana ? Qt.rgba(pozycja.t.mainColor.r, pozycja.t.mainColor.g, pozycja.t.mainColor.b, 0.45) : pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
     radius: 4
+
+    Behavior on color {
+      ColorAnimation {
+        duration: 120
+      }
+    }
   }
 
   flat: true
@@ -47,7 +66,8 @@ Button {
       // MultiEffect.colorization BARWI, ZACHOWUJĄC JASNOŚĆ — ciemna ikona
       // Breeze zostawała ciemna także w ciemnym motywie (17.08.2026).
       // ColorOverlay zamienia piksele na podany kolor, zachowując alfę.
-      Layout.leftMargin: 6
+      Layout.leftMargin: pozycja.tylkoIkona ? 0 : 6
+      Layout.alignment: pozycja.tylkoIkona ? Qt.AlignHCenter | Qt.AlignVCenter : Qt.AlignVCenter
       Layout.preferredWidth: 22
       Layout.preferredHeight: 22
       source: obrazIkony
@@ -57,6 +77,7 @@ Button {
 
     Text {
       Layout.fillWidth: true
+      visible: !pozycja.tylkoIkona
       text: pozycja.text
       font: pozycja.font
       color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor

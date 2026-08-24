@@ -172,22 +172,85 @@ ToolBar {
       Layout.fillWidth: true
     }
 
-    Text {
-      text: {
-        const czesci = [];
-        if (mainWindow.projectTitle !== "")
-          czesci.push(mainWindow.projectTitle);
-        if (dashBoard.activeLayer)
-          czesci.push(dashBoard.activeLayer.name);
-        else
-          czesci.push(qsTr("brak aktywnej warstwy"));
-        return czesci.join("  ·  ");
+    // WorkField 23.08.2026 — zakladki PRAWEJ szuflady, po prawej stronie
+    // belki. Bliznaczo do zakladek lewej szuflady po lewej: ta sama forma,
+    // to samo podswietlenie. Belka staje sie mapa obu szuflad naraz.
+    Repeater {
+      model: [
+        {
+          "nazwa": qsTr("Narzędzia"),
+          "ikona": "wfg_sprzet",
+          "zakladka": 0
+        },
+        {
+          "nazwa": qsTr("Algorytmy"),
+          "ikona": "wfg_zbuduj",
+          "zakladka": 1
+        },
+        {
+          "nazwa": qsTr("Ustawienia"),
+          "ikona": "wfg_ustawienia",
+          "zakladka": 2
+        }
+      ]
+
+      delegate: Item {
+        id: zakladkaPrawa
+
+        required property var modelData
+
+        readonly property bool aktywna: dataDrawer.opened && dataDrawer.zakladkaAktywna === modelData.zakladka
+
+        Layout.preferredWidth: trescPrawej.implicitWidth + 22
+        Layout.fillHeight: true
+
+        Rectangle {
+          anchors.fill: parent
+          color: "white"
+          opacity: zakladkaPrawa.aktywna ? 0.22 : (obszarPrawej.containsMouse ? 0.12 : 0)
+        }
+
+        RowLayout {
+          id: trescPrawej
+          anchors.centerIn: parent
+          spacing: 6
+
+          Image {
+            id: ikonaPrawej
+            Layout.preferredWidth: 15
+            Layout.preferredHeight: 15
+            fillMode: Image.PreserveAspectFit
+            sourceSize.width: 15
+            sourceSize.height: 15
+            source: Theme.getThemeVectorIcon(zakladkaPrawa.modelData.ikona)
+            visible: false
+          }
+          ColorOverlay {
+            Layout.preferredWidth: 15
+            Layout.preferredHeight: 15
+            source: ikonaPrawej
+            visible: ikonaPrawej.status === Image.Ready
+            color: "white"
+          }
+          Text {
+            text: zakladkaPrawa.modelData.nazwa
+            font: Theme.tipFont
+            color: "white"
+          }
+        }
+
+        MouseArea {
+          id: obszarPrawej
+          anchors.fill: parent
+          hoverEnabled: true
+          onClicked: {
+            if (zakladkaPrawa.aktywna)
+              dataDrawer.close();
+            else
+              dataDrawer.otworzZakladke(zakladkaPrawa.modelData.zakladka);
+          }
+        }
       }
-      font: Theme.tinyFont
-      color: "white"
-      opacity: 0.8
-      elide: Text.ElideMiddle
-      Layout.maximumWidth: 420
     }
 
     Text {
@@ -198,5 +261,30 @@ ToolBar {
       color: "white"
       opacity: 0.8
     }
+  }
+
+  // Tytul projektu NA SRODKU belki — poza RowLayoutem, bo srodek belki to
+  // srodek belki, a nie miejsce, ktore zostalo po zakladkach. Tekst nie lapie
+  // klikniec, wiec nie zaslania niczego funkcjonalnie; przy waskim oknie
+  // chowa sie sam, zamiast wchodzic pod zakladki.
+  Text {
+    anchors.centerIn: parent
+    width: Math.min(implicitWidth, chrom.width - 720)
+    visible: width > 60
+    horizontalAlignment: Text.AlignHCenter
+    text: {
+      const czesci = [];
+      if (mainWindow.projectTitle !== "")
+        czesci.push(mainWindow.projectTitle);
+      if (dashBoard.activeLayer)
+        czesci.push(dashBoard.activeLayer.name);
+      else
+        czesci.push(qsTr("brak aktywnej warstwy"));
+      return czesci.join("  ·  ");
+    }
+    font: Theme.tipFont
+    color: "white"
+    opacity: 0.85
+    elide: Text.ElideMiddle
   }
 }

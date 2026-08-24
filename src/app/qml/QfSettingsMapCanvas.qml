@@ -21,7 +21,7 @@ ColumnLayout {
     rowSpacing: 5
 
     Label {
-      text: qsTr('Map Canvas')
+      text: qsTr('Obszar mapy')
       font: Theme.strongFont
       color: Theme.mainTextColor
       wrapMode: Text.WordWrap
