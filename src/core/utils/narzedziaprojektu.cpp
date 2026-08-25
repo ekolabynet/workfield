@@ -1661,6 +1661,23 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   pomiar.insert( QStringLiteral( "jednostka" ), jednostkaSlownie( snap.units() ) );
   pomiar.insert( QStringLiteral( "przeciecia" ), snap.intersectionSnapping() );
   pomiar.insert( QStringLiteral( "wlasnyObiekt" ), snap.selfSnapping() );
+  pomiar.insert( QStringLiteral( "edycjaTopologiczna" ), projekt->topologicalEditing() );
+
+  // W trybie "ustawienia per warstwa" wartosc GLOBALNA jest ignorowana.
+  // Ostrzezenie czytajace ja przy tym trybie krzyczy o czyms, czego nie ma —
+  // a narzedzie, ktore straszy bez powodu, uczy ludzi je ignorowac.
+  Qgis::SnappingTypes typyObowiazujace = snap.typeFlag();
+  if ( snap.mode() == Qgis::SnappingMode::AdvancedConfiguration )
+  {
+    typyObowiazujace = Qgis::SnappingTypes();
+    const auto ustawieniaWarstw = snap.individualLayerSettings();
+    for ( auto it = ustawieniaWarstw.constBegin(); it != ustawieniaWarstw.constEnd(); ++it )
+    {
+      if ( it.value().enabled() )
+        typyObowiazujace |= it.value().typeFlag();
+    }
+    pomiar.insert( QStringLiteral( "typObowiazujacy" ), typySlownie( typyObowiazujace ) );
+  }
 
   const int trybNakladania = projekt->readNumEntry( QStringLiteral( "Digitizing" ),
                                                     QStringLiteral( "/AvoidIntersectionsMode" ), 0 );
@@ -1678,11 +1695,29 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   // Zestawienie USTAWIENIA z DANYMI — sam zrzut stanu nie złapałby awarii
   // z 25.08, bo type=3 jest poprawnym ustawieniem. Dopiero razem z rozmiarem
   // najmniejszego obiektu widać, że coś jest nie tak.
-  if ( ( snap.typeFlag() & Qgis::SnappingType::Segment ) && najmniejszaObwiednia >= 0
-       && najmniejszaObwiednia < 2.0 )
+  if ( snap.enabled() && ( typyObowiazujace & Qgis::SnappingType::Segment )
+       && najmniejszaObwiednia >= 0 && najmniejszaObwiednia < 2.0 )
     ostrzez( QStringLiteral( "uwaga" ),
              tr( "przyciąganie łapie segment, a najmniejszy obiekt ma %1 m (%2) — "
                  "przy takich rozmiarach wierzchołki zlepiają się w jeden punkt" )
+               .arg( najmniejszaObwiednia, 0, 'f', 1 ).arg( najmniejszyObiekt ) );
+
+  // Edycja topologiczna przy malych obiektach. TO odpowiedzialoby na pytanie
+  // z 25.08 w sekunde: przy VertexMove wszystkie wierzcholki znalezione
+  // w promieniu laduja w JEDNYM punkcie (qffeaturemodel.cpp:1489-1494),
+  // wiec przy malym placie obrys zwija sie do zera.
+  //
+  // Promien bierze sie z GLOBALNYCH ustawien QGIS-a, nie z tolerancji
+  // przyciagania w projekcie — mowimy o tym wprost, zeby nikt nie szukal
+  // tam, gdzie nie ma czego znalezc.
+  if ( projekt->topologicalEditing() && najmniejszaObwiednia >= 0
+       && najmniejszaObwiednia < 5.0 )
+    ostrzez( QStringLiteral( "uwaga" ),
+             tr( "edycja topologiczna WŁĄCZONA, a najmniejszy obiekt ma %1 m (%2). "
+                 "Przy przesuwaniu wierzchołka wszystkie sąsiednie w promieniu "
+                 "trafiają w ten sam punkt — obrys małego obiektu zwija się do zera. "
+                 "Działa też przy TWORZENIU, nie tylko przy poprawianiu. "
+                 "Promień jest ustawieniem aplikacji, nie projektu." )
                .arg( najmniejszaObwiednia, 0, 'f', 1 ).arg( najmniejszyObiekt ) );
 
   if ( najmniejszaObwiednia >= 0 && najmniejszaObwiednia < 0.5 )
