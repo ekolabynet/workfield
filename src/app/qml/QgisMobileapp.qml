@@ -187,8 +187,11 @@ ApplicationWindow {
         anchors.margins: 4
         spacing: 10
 
+        // Nazwa projektu USTĘPUJE miejsca ołówkowi: było 0.4, jest 0.28.
+        // W terenie człowiek wie, w którym parku stoi — nazwa projektu jest
+        // informacyjna, a nazwa warstwy i ołówek są robocze.
         Text {
-          Layout.preferredWidth: parent.width * 0.4
+          Layout.preferredWidth: parent.width * 0.28
           visible: mainWindow.projectTitle !== ""
           text: mainWindow.projectTitle
           color: Theme.mainOverlayColor
@@ -198,12 +201,31 @@ ApplicationWindow {
         }
 
         Text {
+          id: nazwaWarstwyMob
           Layout.fillWidth: true
           text: dashBoard.activeLayer ? dashBoard.activeLayer.name : qsTr("Brak aktywnej warstwy")
           color: Theme.mainOverlayColor
           font.pointSize: Theme.tipFont.pointSize
           font.bold: true
           elide: Text.ElideRight
+
+          // Tapnięcie w nazwę = wybór warstwy, bez otwierania szuflady.
+          MouseArea {
+            anchors.fill: parent
+            // Cel dotykowy sięga poza sam tekst — nazwa bywa krótka
+            // („platy"), a palec w rękawicy nie jest precyzyjny.
+            anchors.topMargin: -10
+            anchors.bottomMargin: -10
+            onClicked: {
+              // Aplikacja świadomie blokuje zmianę warstwy w trakcie
+              // rysowania (allowActiveLayerChange). Szanujemy to.
+              if (!dashBoard.allowActiveLayerChange) {
+                displayToast(qsTr("Najpierw zakończ rysowany obiekt"), "warning");
+                return;
+              }
+              wybierakWarstwMobilny.otworz();
+            }
+          }
         }
 
         // Wskaźnik otwartej sesji edycji — wspólny komponent, bo ta sama
@@ -211,6 +233,29 @@ ApplicationWindow {
         QfZnacznikEdycji {
           Layout.alignment: Qt.AlignVCenter
           warstwa: dashBoard.activeLayer
+        }
+
+        // Ołówek: przełącza rysowanie. Ta sama funkcja, którą wołają
+        // szuflada i belka biurkowa — dashBoard.przelaczRysowanie().
+        //
+        // 44 px, nie 26 jak na biurku: pod palcem w rękawicy mniejszy cel
+        // jest nietrafialny. Tyle samo mają kafle paska szybkiego przechwytu.
+        QfToolButton {
+          Layout.alignment: Qt.AlignVCenter
+          width: 44
+          height: 44
+          padding: 0
+          round: true
+
+          readonly property bool rysujemy: stateMachine.state === "digitize"
+          readonly property bool mozna: dashBoard.activeLayer && !dashBoard.activeLayer.readOnly
+
+          iconSource: Theme.getThemeVectorIcon("ic_create_white_24dp")
+          bgcolor: rysujemy ? "#00E676" : "transparent"
+          iconColor: rysujemy ? "#062E12" : Theme.mainOverlayColor
+          opacity: !mozna ? 0.3 : rysujemy ? 1.0 : 0.85
+
+          onClicked: dashBoard.przelaczRysowanie(dashBoard.activeLayer)
         }
       }
       }
@@ -6869,6 +6914,84 @@ ApplicationWindow {
       cursorShape: enabled ? Qt.SizeFDiagCursor : Qt.ArrowCursor
       onPressed: mouse => {
         mainWindow.startSystemResize(Qt.RightEdge | Qt.BottomEdge);
+      }
+    }
+  }
+
+  // Wybór aktywnej warstwy z górnej belki — wersja terenowa.
+  //
+  // Arkusz z wierszami po 48 px, nie Menu: pozycje menu biurkowego są pod
+  // palcem za małe. Lista FILTROWANA przez warstwyRobocze() — w projekcie
+  // ZZW jest 19 warstw, roboczych dziesięć; reszta to podkłady, słownik
+  // i tabele ZAL_.
+  Dialog {
+    id: wybierakWarstwMobilny
+
+    parent: mainWindow.contentItem
+    modal: true
+    standardButtons: Dialog.Cancel
+    title: qsTr("Warstwa robocza")
+
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(mainWindow.width - 40, 420)
+
+    function otworz() {
+      listaWarstwMob.clear();
+      const warstwy = NarzedziaProjektu.warstwyRobocze(qgisProject);
+      for (let i = 0; i < warstwy.length; i++)
+        listaWarstwMob.append(warstwy[i]);
+      if (listaWarstwMob.count === 0) {
+        displayToast(qsTr("Projekt nie ma warstw roboczych"), "warning");
+        return;
+      }
+      open();
+    }
+
+    ListModel {
+      id: listaWarstwMob
+    }
+
+    contentItem: ListView {
+      implicitHeight: Math.min(contentHeight, mainWindow.height * 0.6)
+      clip: true
+      model: listaWarstwMob
+
+      delegate: ItemDelegate {
+        width: ListView.view.width
+        height: 48
+
+        // Warstwa właśnie aktywna — żeby nie szukać jej wzrokiem na liście.
+        readonly property bool biezaca: dashBoard.activeLayer
+                                        && dashBoard.activeLayer.name === model.nazwa
+
+        contentItem: Row {
+          spacing: 10
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: model.nazwa
+            font.pointSize: Theme.tipFont.pointSize
+            font.bold: biezaca
+            color: Theme.mainTextColor
+          }
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            // Typ geometrii w nawiasie, bo „platy" i „platy_zalazki" łatwo
+            // pomylić, a różnią się właśnie typem.
+            text: "(" + model.geometria + ")"
+            font.pointSize: Theme.tinyFont.pointSize
+            color: Theme.secondaryTextColor
+          }
+        }
+
+        onClicked: {
+          const w = NarzedziaProjektu.warstwaPoNazwie(qgisProject, model.nazwa);
+          if (w)
+            dashBoard.activeLayer = w;
+          else
+            displayToast(qsTr("Nie znalazłem warstwy %1").arg(model.nazwa), "warning");
+          wybierakWarstwMobilny.close();
+        }
       }
     }
   }
