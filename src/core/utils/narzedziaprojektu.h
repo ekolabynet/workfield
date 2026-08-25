@@ -362,6 +362,20 @@ class NarzedziaProjektu : public QObject
      * JEDNO miejsce, w ktorym ta regula jest zapisana. Woła ja takze
      * NieboDziennik.
      */
+    /**
+     * Zrzut stanu ŻYWEGO projektu — co aplikacja naprawdę widzi.
+     *
+     * Zwraca mapę z sekcjami: `warstwy`, `pomiar`, `dane`, `ostrzezenia`.
+     * Wartości opisowe są **słownie**, nie liczbowo: `type=3` nic nie mówi
+     * człowiekowi w rękawicach, a to właśnie ta liczba kosztowała dzień
+     * terenu 25.08.2026.
+     *
+     * W C++, bo dwie potrzebne tu rzeczy są z QML niewidoczne:
+     * `QgsVectorLayer::isEditable()` nie jest Q_INVOKABLE, a
+     * `QgsSnappingConfig` nie ma odpowiednika w QML.
+     */
+    Q_INVOKABLE QVariantMap stanProjektu( QgsProject *projekt ) const;
+
     Q_INVOKABLE QString plikDanych( QgsProject *projekt ) const;
 
     //! Zapisuje plik projektu na dysk (opakowanie na QgsProject::write).

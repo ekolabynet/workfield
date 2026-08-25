@@ -1494,6 +1494,226 @@ QVariantMap NarzedziaProjektu::splitParts( QgsVectorLayer *layer, QgsFeatureId f
 
 // ---------------------------------------------------------------- migawka
 
+namespace
+{
+  //! `type=3` nic nie mowi. "wierzcholek i segment" mowi wszystko.
+  QString typySlownie( Qgis::SnappingTypes typy )
+  {
+    QStringList czesci;
+    if ( typy & Qgis::SnappingType::Vertex )
+      czesci << QObject::tr( "wierzchołek" );
+    if ( typy & Qgis::SnappingType::Segment )
+      czesci << QObject::tr( "segment" );
+    if ( typy & Qgis::SnappingType::Area )
+      czesci << QObject::tr( "obszar" );
+    if ( typy & Qgis::SnappingType::Centroid )
+      czesci << QObject::tr( "środek ciężkości" );
+    if ( typy & Qgis::SnappingType::MiddleOfSegment )
+      czesci << QObject::tr( "środek segmentu" );
+    if ( typy & Qgis::SnappingType::LineEndpoint )
+      czesci << QObject::tr( "koniec linii" );
+    return czesci.isEmpty() ? QObject::tr( "nic" ) : czesci.join( QStringLiteral( " + " ) );
+  }
+
+  QString trybSlownie( Qgis::SnappingMode tryb )
+  {
+    switch ( tryb )
+    {
+      case Qgis::SnappingMode::ActiveLayer:
+        return QObject::tr( "warstwa aktywna" );
+      case Qgis::SnappingMode::AllLayers:
+        return QObject::tr( "wszystkie warstwy" );
+      case Qgis::SnappingMode::AdvancedConfiguration:
+        return QObject::tr( "ustawienia per warstwa" );
+    }
+    return QObject::tr( "nieznany" );
+  }
+
+  QString jednostkaSlownie( Qgis::MapToolUnit jednostka )
+  {
+    switch ( jednostka )
+    {
+      case Qgis::MapToolUnit::Layer:
+        return QObject::tr( "jednostki warstwy" );
+      case Qgis::MapToolUnit::Project:
+        return QObject::tr( "jednostki mapy" );
+      case Qgis::MapToolUnit::Pixels:
+        return QObject::tr( "piksele ekranu" );
+    }
+    return QObject::tr( "nieznane" );
+  }
+
+  QString geometriaSlownie( Qgis::GeometryType typ )
+  {
+    switch ( typ )
+    {
+      case Qgis::GeometryType::Point:
+        return QObject::tr( "punkt" );
+      case Qgis::GeometryType::Line:
+        return QObject::tr( "linia" );
+      case Qgis::GeometryType::Polygon:
+        return QObject::tr( "poligon" );
+      case Qgis::GeometryType::Unknown:
+        return QObject::tr( "nieznana" );
+      case Qgis::GeometryType::Null:
+        return QObject::tr( "tabela" );
+    }
+    return QObject::tr( "nieznana" );
+  }
+}
+
+QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
+{
+  QVariantMap wynik;
+  if ( !projekt )
+    return wynik;
+
+  QVariantList warstwy;
+  QVariantList ostrzezenia;
+
+  auto ostrzez = [&ostrzezenia]( const QString &waga, const QString &tekst ) {
+    QVariantMap o;
+    o.insert( QStringLiteral( "waga" ), waga );
+    o.insert( QStringLiteral( "opis" ), tekst );
+    ostrzezenia.append( o );
+  };
+
+  const QString katalog = QFileInfo( projekt->fileName() ).absolutePath();
+  double najmniejszaObwiednia = -1.0;
+  QString najmniejszyObiekt;
+
+  const auto mapaWarstw = projekt->mapLayers();
+  for ( auto it = mapaWarstw.constBegin(); it != mapaWarstw.constEnd(); ++it )
+  {
+    QgsVectorLayer *wektor = qobject_cast<QgsVectorLayer *>( it.value() );
+    if ( !wektor )
+      continue;
+
+    QVariantMap w;
+    w.insert( QStringLiteral( "nazwa" ), wektor->name() );
+    w.insert( QStringLiteral( "geometria" ), geometriaSlownie( wektor->geometryType() ) );
+    w.insert( QStringLiteral( "obiektow" ), static_cast<qlonglong>( wektor->featureCount() ) );
+
+    // isEditable() NIE jest Q_INVOKABLE — z QML tego nie widać. Stąd cała
+    // ta klasa: to jest odpowiedź na wskaźnik edycji na górnej belce.
+    w.insert( QStringLiteral( "edytowalna" ), wektor->isEditable() );
+    w.insert( QStringLiteral( "wEdycji" ), wektor->isEditable() && wektor->isModified() );
+
+    const QString zrodlo = wektor->source().section( QLatin1Char( '|' ), 0, 0 );
+    const QString tabela = wektor->source().contains( QLatin1String( "layername=" ) )
+                             ? wektor->source().section( QLatin1String( "layername=" ), 1, 1 ).section( QLatin1Char( '|' ), 0, 0 )
+                             : QString();
+    w.insert( QStringLiteral( "plik" ), QFileInfo( zrodlo ).fileName() );
+    w.insert( QStringLiteral( "tabela" ), tabela );
+
+    // Warstwa wskazująca poza katalog projektu nie pojedzie ze zleceniem —
+    // na telefonie będzie pusta i nikt tego nie zauważy przed wyjazdem.
+    const bool wKatalogu = !katalog.isEmpty()
+                           && QFileInfo( zrodlo ).absolutePath().startsWith( katalog );
+    w.insert( QStringLiteral( "wKatalogu" ), wKatalogu || zrodlo.isEmpty() );
+    if ( !zrodlo.isEmpty() && !wKatalogu && wektor->providerType() == QLatin1String( "ogr" ) )
+      ostrzez( QStringLiteral( "uwaga" ),
+               tr( "warstwa „%1” wskazuje poza katalog projektu — nie pojedzie w teren" )
+                 .arg( wektor->name() ) );
+
+    // Obiekty zwinięte do punktu i puste geometrie. Liczone Z DANYCH,
+    // bo z samych ustawień tego nie widać.
+    if ( wektor->geometryType() == Qgis::GeometryType::Polygon )
+    {
+      int puste = 0;
+      QgsFeature obiekt;
+      QgsFeatureIterator iterator = wektor->getFeatures();
+      while ( iterator.nextFeature( obiekt ) )
+      {
+        const QgsGeometry geom = obiekt.geometry();
+        if ( geom.isNull() )
+          continue;
+        if ( geom.isEmpty() )
+        {
+          ++puste;
+          continue;
+        }
+        const QgsRectangle obw = geom.boundingBox();
+        const double bok = std::max( obw.width(), obw.height() );
+        if ( najmniejszaObwiednia < 0 || bok < najmniejszaObwiednia )
+        {
+          najmniejszaObwiednia = bok;
+          najmniejszyObiekt = QStringLiteral( "%1 / fid %2" ).arg( wektor->name() ).arg( obiekt.id() );
+        }
+      }
+      if ( puste > 0 )
+        ostrzez( QStringLiteral( "brak" ),
+                 tr( "„%1”: %2 obiektów z PUSTĄ geometrią — istnieją, "
+                     "ale nie widać ich na mapie i nie da się ich zaznaczyć" )
+                   .arg( wektor->name() ).arg( puste ) );
+    }
+
+    warstwy.append( w );
+  }
+
+  // --------------------------------------------------------------- pomiar
+  const QgsSnappingConfig snap = projekt->snappingConfig();
+  QVariantMap pomiar;
+  pomiar.insert( QStringLiteral( "przyciaganieWlaczone" ), snap.enabled() );
+  pomiar.insert( QStringLiteral( "tryb" ), trybSlownie( snap.mode() ) );
+  pomiar.insert( QStringLiteral( "typ" ), typySlownie( snap.typeFlag() ) );
+  pomiar.insert( QStringLiteral( "tolerancja" ), snap.tolerance() );
+  pomiar.insert( QStringLiteral( "jednostka" ), jednostkaSlownie( snap.units() ) );
+  pomiar.insert( QStringLiteral( "przeciecia" ), snap.intersectionSnapping() );
+  pomiar.insert( QStringLiteral( "wlasnyObiekt" ), snap.selfSnapping() );
+
+  const int trybNakladania = projekt->readNumEntry( QStringLiteral( "Digitizing" ),
+                                                    QStringLiteral( "/AvoidIntersectionsMode" ), 0 );
+  const QStringList listaNakladania = projekt->readListEntry( QStringLiteral( "Digitizing" ),
+                                                              QStringLiteral( "/AvoidIntersectionsList" ) );
+  QStringList nazwyNakladania;
+  for ( const QString &id : listaNakladania )
+  {
+    if ( QgsMapLayer *w = projekt->mapLayer( id ) )
+      nazwyNakladania << w->name();
+  }
+  pomiar.insert( QStringLiteral( "unikanieNakladania" ), trybNakladania == 2 );
+  pomiar.insert( QStringLiteral( "warstwyNakladania" ), nazwyNakladania );
+
+  // Zestawienie USTAWIENIA z DANYMI — sam zrzut stanu nie złapałby awarii
+  // z 25.08, bo type=3 jest poprawnym ustawieniem. Dopiero razem z rozmiarem
+  // najmniejszego obiektu widać, że coś jest nie tak.
+  if ( ( snap.typeFlag() & Qgis::SnappingType::Segment ) && najmniejszaObwiednia >= 0
+       && najmniejszaObwiednia < 2.0 )
+    ostrzez( QStringLiteral( "uwaga" ),
+             tr( "przyciąganie łapie segment, a najmniejszy obiekt ma %1 m (%2) — "
+                 "przy takich rozmiarach wierzchołki zlepiają się w jeden punkt" )
+               .arg( najmniejszaObwiednia, 0, 'f', 1 ).arg( najmniejszyObiekt ) );
+
+  if ( najmniejszaObwiednia >= 0 && najmniejszaObwiednia < 0.5 )
+    ostrzez( QStringLiteral( "brak" ),
+             tr( "obiekt o obwiedni %1 m (%2) — to nie jest płat, tylko zlepione wierzchołki" )
+               .arg( najmniejszaObwiednia, 0, 'f', 2 ).arg( najmniejszyObiekt ) );
+
+  // ----------------------------------------------------------------- dane
+  QVariantMap dane;
+  const QString plik = plikDanych( projekt );
+  dane.insert( QStringLiteral( "plikDanych" ), QFileInfo( plik ).fileName() );
+  dane.insert( QStringLiteral( "katalog" ), katalog );
+
+  const bool maWskazniki = !katalog.isEmpty()
+                           && QFileInfo::exists( katalog + QStringLiteral( "/wf_wskazniki.gpkg" ) );
+  dane.insert( QStringLiteral( "wskazniki" ), maWskazniki );
+  if ( !maWskazniki )
+    ostrzez( QStringLiteral( "brak" ),
+             tr( "brak wf_wskazniki.gpkg — metadane gatunków i podpowiadanie nie zadziałają" ) );
+
+  if ( plik.isEmpty() )
+    ostrzez( QStringLiteral( "brak" ),
+             tr( "projekt nie ma pliku z danymi — dziennik Nieba nie ma dokąd pisać" ) );
+
+  wynik.insert( QStringLiteral( "warstwy" ), warstwy );
+  wynik.insert( QStringLiteral( "pomiar" ), pomiar );
+  wynik.insert( QStringLiteral( "dane" ), dane );
+  wynik.insert( QStringLiteral( "ostrzezenia" ), ostrzezenia );
+  return wynik;
+}
+
 QString NarzedziaProjektu::plikDanych( QgsProject *projekt ) const
 {
   if ( !projekt )
