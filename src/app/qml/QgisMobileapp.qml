@@ -205,6 +205,13 @@ ApplicationWindow {
           font.bold: true
           elide: Text.ElideRight
         }
+
+        // Wskaźnik otwartej sesji edycji — wspólny komponent, bo ta sama
+        // plakietka jest też na belce biurkowej (QfDesktopChrome).
+        QfZnacznikEdycji {
+          Layout.alignment: Qt.AlignVCenter
+          warstwa: dashBoard.activeLayer
+        }
       }
       }
 

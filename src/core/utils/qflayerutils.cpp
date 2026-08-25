@@ -15,6 +15,8 @@
  ***************************************************************************/
 
 #include "qflayerutils.h"
+
+#include <qgsvectorlayereditbuffer.h>
 #include <QDomDocument>
 #include <QUrlQuery>
 #include <qgsblockingnetworkrequest.h>
@@ -762,6 +764,39 @@ static QgsSymbol *singleSymbolOf( QgsVectorLayer *layer )
 bool QfLayerUtils::hasSimpleSymbology( QgsVectorLayer *layer )
 {
   return singleSymbolOf( layer ) != nullptr;
+}
+
+QVariantMap QfLayerUtils::stanEdycji( QgsVectorLayer *layer )
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "wEdycji" ), false );
+  wynik.insert( QStringLiteral( "zmian" ), 0 );
+  wynik.insert( QStringLiteral( "edytowalna" ), false );
+
+  if ( !layer )
+    return wynik;
+
+  wynik.insert( QStringLiteral( "edytowalna" ), layer->supportsEditing() );
+
+  const bool wEdycji = layer->isEditable();
+  wynik.insert( QStringLiteral( "wEdycji" ), wEdycji );
+  if ( !wEdycji )
+    return wynik;
+
+  // Liczba zmian w buforze. Rozróżnienie „sesja otwarta, ale pusta" od
+  // „sesja otwarta ze zmianami" jest tu istotą: 20.08.2026 sesja wisiała
+  // otwarta BEZ zmian i właśnie dlatego nic nie wyglądało podejrzanie,
+  // a każdy kolejny zapis się odbijał.
+  int zmian = 0;
+  if ( QgsVectorLayerEditBuffer *bufor = layer->editBuffer() )
+  {
+    zmian = bufor->addedFeatures().count()
+            + bufor->changedGeometries().count()
+            + bufor->changedAttributeValues().count()
+            + bufor->deletedFeatureIds().count();
+  }
+  wynik.insert( QStringLiteral( "zmian" ), zmian );
+  return wynik;
 }
 
 QColor QfLayerUtils::symbolColor( QgsVectorLayer *layer )

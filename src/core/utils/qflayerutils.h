@@ -171,6 +171,18 @@ class QfLayerUtils : public QObject
      * Returns the fill/marker color of a single-symbol renderer, or an invalid
      * color if the layer uses a different renderer type.
      */
+    /**
+     * Stan sesji edycji warstwy — dla wskaźnika na górnej belce.
+     *
+     * Zwraca mapę: `wEdycji` (bool), `zmian` (int), `edytowalna` (bool).
+     *
+     * W C++, bo `QgsVectorLayer::isEditable()` i `isModified()` są zwykłymi
+     * metodami publicznymi — z QML ich nie widać. Sygnały `editingStarted`,
+     * `editingStopped` i `layerModified` są za to dostępne, więc QML słucha
+     * ich i pyta o stan przez ten czasownik.
+     */
+    static Q_INVOKABLE QVariantMap stanEdycji( QgsVectorLayer *layer );
+
     static Q_INVOKABLE QColor symbolColor( QgsVectorLayer *layer );
 
     /**

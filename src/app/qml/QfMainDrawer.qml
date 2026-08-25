@@ -98,6 +98,47 @@ Drawer {
     return false;
   }
 
+  /**
+   * Przełącza rysowanie na warstwie — JEDNO miejsce z tym zachowaniem.
+   *
+   * Wołane i ze szuflady, i z ołówka na górnej belce. Gdyby belka miała
+   * własną kopię, oba przyciski rozjechałyby się przy pierwszej zmianie —
+   * i wyglądałyby przy tym identycznie, więc nikt by nie zauważył.
+   *
+   * Zwraca true, gdy tryb się zmienił.
+   */
+  function przelaczRysowanie(warstwa, nazwa) {
+    if (!warstwa) {
+      displayToast(qsTr("Najpierw wybierz warstwę"), "warning");
+      return false;
+    }
+    if (warstwa.readOnly) {
+      displayToast(qsTr("Warstwa tylko do odczytu"), "warning");
+      return false;
+    }
+
+    const juz = dashBoard.activeLayer === warstwa && stateMachine.state === "digitize";
+    dashBoard.activeLayer = warstwa;
+    stateMachine.state = juz ? "browse" : "digitize";
+    displayToast(juz ? qsTr("Przeglądanie")
+                     : qsTr("Rysowanie: %1").arg(nazwa || warstwa.name));
+
+    if (!juz) {
+      // WorkField: zasada domyślna dociągania — rysowana warstwa przyciąga
+      // sama do siebie; tryb "wszystkie warstwy" sprowadzamy do "aktywnej",
+      // a w trybie magnesów sami dopisujemy rysowaną warstwę.
+      if (qgisProject.snappingConfig.mode === Qgis.SnappingMode.AllLayers) {
+        let cfgO = qgisProject.snappingConfig;
+        cfgO.mode = Qgis.SnappingMode.ActiveLayer;
+        qgisProject.snappingConfig = cfgO;
+      } else if (qgisProject.snappingConfig.mode === Qgis.SnappingMode.AdvancedConfiguration) {
+        dashBoard.ustawMagnesWarstwy(warstwa, true);
+      }
+      dashBoard.close();
+    }
+    return true;
+  }
+
   // tap magnesa w wierszu warstwy: pierwszy raz przełącza projekt
   // w tryb magnesów i chroni rysowaną warstwę, potem zwykły przełącznik
   function przelaczMagnesWarstwy(warstwa, nazwa) {
@@ -1464,30 +1505,9 @@ Drawer {
             iconColor: rysujemy ? "#062E12" : isCurrent ? t.mainOverlayColor : t.secondaryTextColor
             opacity: !isWritable ? 0.25 : rysujemy ? 1.0 : isCurrent ? 0.9 : 0.55
 
-            onClicked: {
-              if (!isWritable) {
-                displayToast(qsTr("Warstwa tylko do odczytu"), "warning");
-                return;
-              }
-              const juz = isCurrent && stateMachine.state === "digitize";
-              dashBoard.activeLayer = model.VectorLayerPointer;
-              stateMachine.state = juz ? "browse" : "digitize";
-              displayToast(juz ? qsTr("Przeglądanie") : qsTr("Rysowanie: %1").arg(model.Name));
-              if (!juz) {
-                // WorkField: zasada domyślna dociągania — rysowana warstwa
-                // przyciąga sama do siebie; tryb "wszystkie warstwy"
-                // sprowadzamy do "aktywnej", a w trybie magnesów sami
-                // dopisujemy rysowaną warstwę
-                if (qgisProject.snappingConfig.mode === Qgis.SnappingMode.AllLayers) {
-                  let cfgO = qgisProject.snappingConfig;
-                  cfgO.mode = Qgis.SnappingMode.ActiveLayer;
-                  qgisProject.snappingConfig = cfgO;
-                } else if (qgisProject.snappingConfig.mode === Qgis.SnappingMode.AdvancedConfiguration) {
-                  dashBoard.ustawMagnesWarstwy(model.VectorLayerPointer, true);
-                }
-                dashBoard.close();
-              }
-            }
+            // Cała logika mieszka w dashBoard.przelaczRysowanie() — ten sam
+            // kod obsługuje ołówek na górnej belce.
+            onClicked: dashBoard.przelaczRysowanie(model.VectorLayerPointer, model.Name)
           }
 
           Text {

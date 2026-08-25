@@ -267,24 +267,117 @@ ToolBar {
   // srodek belki, a nie miejsce, ktore zostalo po zakladkach. Tekst nie lapie
   // klikniec, wiec nie zaslania niczego funkcjonalnie; przy waskim oknie
   // chowa sie sam, zamiast wchodzic pod zakladki.
-  Text {
+  // Tytul + plakietka edycji w jednym rzedzie na srodku belki. Plakietka
+  // MUSI stac obok tytulu, a nie w rogu: w rogu nikt na nia nie patrzy,
+  // a to jest informacja, ktorej przeoczenie kosztowalo dzien pracy.
+  Row {
     anchors.centerIn: parent
-    width: Math.min(implicitWidth, chrom.width - 720)
-    visible: width > 60
-    horizontalAlignment: Text.AlignHCenter
-    text: {
-      const czesci = [];
-      if (mainWindow.projectTitle !== "")
-        czesci.push(mainWindow.projectTitle);
-      if (dashBoard.activeLayer)
-        czesci.push(dashBoard.activeLayer.name);
-      else
-        czesci.push(qsTr("brak aktywnej warstwy"));
-      return czesci.join("  ·  ");
+    spacing: 8
+
+    Text {
+      id: tytulBelki
+      anchors.verticalCenter: parent.verticalCenter
+      width: Math.min(implicitWidth, chrom.width - 800)
+      visible: width > 60
+      horizontalAlignment: Text.AlignHCenter
+      text: {
+        const czesci = [];
+        if (mainWindow.projectTitle !== "")
+          czesci.push(mainWindow.projectTitle);
+        if (dashBoard.activeLayer)
+          czesci.push(dashBoard.activeLayer.name);
+        else
+          czesci.push(qsTr("brak aktywnej warstwy"));
+        return czesci.join("  ·  ");
+      }
+      font: Theme.tipFont
+      color: "white"
+      opacity: 0.85
+      elide: Text.ElideMiddle
+
+      // Tapnięcie w nazwę = wybór aktywnej warstwy, bez otwierania szuflady.
+      MouseArea {
+        anchors.fill: parent
+        onClicked: {
+          // Aplikacja świadomie blokuje zmianę warstwy w trakcie rysowania
+          // (QgisMobileapp: allowActiveLayerChange). Szanujemy to — inaczej
+          // dałoby się przełączyć warstwę z niedokończonym obrysem na ekranie.
+          if (!dashBoard.allowActiveLayerChange) {
+            displayToast(qsTr("Najpierw zakończ rysowany obiekt"), "warning");
+            return;
+          }
+          wybierakWarstw.otworz();
+        }
+      }
     }
-    font: Theme.tipFont
-    color: "white"
-    opacity: 0.85
-    elide: Text.ElideMiddle
+
+    // Ołówek: przełącza rysowanie na aktywnej warstwie. Ta sama funkcja,
+    // którą woła szuflada — patrz dashBoard.przelaczRysowanie().
+    QfToolButton {
+      anchors.verticalCenter: parent.verticalCenter
+      width: 26
+      height: 26
+      padding: 0
+      round: true
+
+      readonly property bool rysujemy: stateMachine.state === "digitize"
+      readonly property bool mozna: dashBoard.activeLayer && !dashBoard.activeLayer.readOnly
+
+      iconSource: Theme.getThemeVectorIcon("ic_create_white_24dp")
+      bgcolor: rysujemy ? "#00E676" : "transparent"
+      iconColor: rysujemy ? "#062E12" : "white"
+      opacity: !mozna ? 0.3 : rysujemy ? 1.0 : 0.8
+
+      // Wyszarzony, ale MÓWI czemu nie działa. Wyszarzony bez wyjaśnienia
+      // to trzeci stan: widoczny i prowadzący donikąd (zasada z 17.08).
+      onClicked: dashBoard.przelaczRysowanie(dashBoard.activeLayer)
+    }
+
+    QfZnacznikEdycji {
+      anchors.verticalCenter: parent.verticalCenter
+      warstwa: dashBoard.activeLayer
+    }
+  }
+
+  // Wybór aktywnej warstwy z górnej belki — bez otwierania szuflady.
+  //
+  // Lista jest FILTROWANA: w projekcie ZZW jest 19 warstw, a roboczych sześć.
+  // Reszta to podkłady, słownik i tabele ZAL_. Lista z dziewiętnastoma
+  // pozycjami byłaby gorsza niż szuflada, po którą i tak nie chcemy sięgać.
+  Menu {
+    id: wybierakWarstw
+
+    function otworz() {
+      lista.clear();
+      const warstwy = NarzedziaProjektu.warstwyRobocze(qgisProject);
+      for (let i = 0; i < warstwy.length; i++)
+        lista.append(warstwy[i]);
+      if (lista.count === 0) {
+        displayToast(qsTr("Projekt nie ma warstw roboczych"), "warning");
+        return;
+      }
+      popup();
+    }
+
+    ListModel {
+      id: lista
+    }
+
+    Repeater {
+      model: lista
+      MenuItem {
+        // warstwyRobocze() zwraca mapy z kluczami: nazwa, geometria, punktowa.
+        // Geometria w nawiasie, bo w projekcie ZZW sa warstwy o podobnych
+        // nazwach i roznych typach — „platy" i „platy_zalazki".
+        text: model.nazwa + "   (" + model.geometria + ")"
+        onTriggered: {
+          const w = NarzedziaProjektu.warstwaPoNazwie(qgisProject, model.nazwa);
+          if (w)
+            dashBoard.activeLayer = w;
+          else
+            displayToast(qsTr("Nie znalazłem warstwy %1").arg(model.nazwa), "warning");
+        }
+      }
+    }
   }
 }
