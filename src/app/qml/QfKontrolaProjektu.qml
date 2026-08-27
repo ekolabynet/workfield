@@ -49,6 +49,7 @@ Item {
    * do wywołania kiedykolwiek i ile razy się chce.
    */
   function sprawdz() {
+
     const katalog = katalogProjektu();
     const znalezione = [];
 

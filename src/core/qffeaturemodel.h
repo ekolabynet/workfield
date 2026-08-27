@@ -326,6 +326,20 @@ class QfFeatureModel : public QAbstractListModel
 
     void warning( const QString &text );
 
+    /**
+     * Geometria zapisanego obiektu wyszła pusta albo zwinięta do punktu.
+     *
+     * \param powod  `nakladanie` — przycięte przez unikanie nakładania;
+     *                `zlepek` — obwiednia poniżej progu (edycja topologiczna)
+     * \param opis   gotowy tekst dla człowieka, z nazwą winnej warstwy
+     * \param bok    dłuższy bok obwiedni w metrach (0 przy pustej geometrii)
+     *
+     * Sygnał, a nie dialog w miejscu wykrycia: `applyGeometry` jest wołana
+     * z trzynastu miejsc w QML. Kto sygnał odbiera, ten decyduje — formularz
+     * pokazuje pytanie, tracker zapisuje w dzienniku i jedzie dalej.
+     */
+    void geometriaZniszczona( const QString &powod, const QString &opis, double bok );
+
   private:
     QgsFeatureIds applyVertexModelTopography();
     void applyGeometryTopography( const QgsGeometry &geometry );

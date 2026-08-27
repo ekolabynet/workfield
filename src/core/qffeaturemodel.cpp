@@ -982,6 +982,18 @@ bool QfFeatureModel::updateAttributesFromFeature( const QgsFeature &feature )
   return updated;
 }
 
+namespace
+{
+  //! Dłuższy bok obwiedni; -1 gdy geometrii nie ma albo jest pusta.
+  double bokObwiedni( const QgsGeometry &g )
+  {
+    if ( g.isNull() || g.isEmpty() )
+      return -1.0;
+    const QgsRectangle o = g.boundingBox();
+    return std::max( o.width(), o.height() );
+  }
+}
+
 void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEditing )
 {
   if ( ( !fromVertexModel && !mGeometry ) || ( fromVertexModel && !mVertexModel ) )
@@ -1115,7 +1127,37 @@ void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEd
 
           QHash<QgsVectorLayer *, QSet<QgsFeatureId>> ignoredFeature;
           ignoredFeature.insert( mLayer, QSet<QgsFeatureId>() << mFeature.id() );
+
+          // WorkField 25.08.2026 — wynik przycinania BYL WYRZUCANY.
+          // Obiekt przycięty do zera znikał bez słowa; 21.08 kosztowało to
+          // pół dnia terenu, bo `AvoidIntersectionsList` obejmował warstwę
+          // pokrywającą cały teren i NIC nie dawało się narysować.
+          //
+          // Kontrola patrzy na WYNIKOWĄ GEOMETRIĘ, nie na kod powrotu:
+          // z punktu widzenia biblioteki przycięcie do zera to poprawna
+          // operacja, nie błąd.
+          const double przed = bokObwiedni( geometry );
           geometry.avoidIntersectionsV2( intersectionLayers, ignoredFeature );
+          const double po = bokObwiedni( geometry );
+
+          if ( przed > 0 && po < 0 )
+          {
+            QStringList nazwy;
+            for ( QgsVectorLayer *w : std::as_const( intersectionLayers ) )
+            {
+              if ( w && w != mLayer )
+                nazwy << w->name();
+            }
+            const QString gdzie = nazwy.isEmpty()
+                                    ? tr( "innych obiektów tej warstwy" )
+                                    : nazwy.join( QStringLiteral( ", " ) );
+            emit geometriaZniszczona(
+              QStringLiteral( "nakladanie" ),
+              tr( "Unikanie nakładania przycięło obiekt DO ZERA — nachodzi "
+                  "w całości na: %1.\n\nJeśli ta warstwa pokrywa cały teren, "
+                  "nie powinna być w liście unikania nakładania." ).arg( gdzie ),
+              0.0 );
+          }
         }
       }
       break;
@@ -1144,6 +1186,34 @@ void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEd
   if ( requiresEditing )
   {
     mLayer->commitChanges( !wasEditing );
+  }
+
+  // WorkField 25.08.2026 — obiekt zwinięty do punktu.
+  //
+  // Edycja topologiczna przesuwa WSZYSTKIE wierzchołki w promieniu na ten
+  // sam punkt (l. 1489), więc przy małym obiekcie obrys zwija się do zera.
+  // W zwrocie z 25.08: dwa płaty 0,00 × 0,00 m, dwa po 10 cm, jeden 40 cm.
+  //
+  // Sprawdzane NIEZALEŻNIE od unikania nakładania, bo to inna przyczyna
+  // dająca ten sam objaw.
+  if ( QgsWkbTypes::geometryType( geometry.wkbType() ) == Qgis::GeometryType::Polygon )
+  {
+    const double prog = mProject
+                          ? mProject->readDoubleEntry( QStringLiteral( "WorkField" ),
+                                                       QStringLiteral( "/progObwiedni" ), 0.5 )
+                          : 0.5;
+    const double bok = bokObwiedni( geometry );
+    if ( bok >= 0 && bok < prog )
+    {
+      emit geometriaZniszczona(
+        QStringLiteral( "zlepek" ),
+        tr( "Obiekt ma obwiednię %1 m — to nie jest płat, tylko zlepione "
+            "wierzchołki.\n\nNajczęstsza przyczyna: włączona EDYCJA "
+            "TOPOLOGICZNA, która przy małych obiektach ściąga sąsiednie "
+            "wierzchołki w jeden punkt." )
+          .arg( bok, 0, 'f', 2 ),
+        bok );
+    }
   }
 
   mFeature.setGeometry( geometry );
