@@ -242,6 +242,12 @@ ApplicationWindow {
           warstwa: dashBoard.activeLayer
         }
 
+        // Cofnij / przywróć — w terenie potrzebne bardziej niż na biurku,
+        // bo tam awaria kosztuje dzień, a nie pięć minut.
+        QfCofnijPrzywroc {
+          Layout.alignment: Qt.AlignVCenter
+        }
+
         // Ołówek: przełącza rysowanie. Ta sama funkcja, którą wołają
         // szuflada i belka biurkowa — dashBoard.przelaczRysowanie().
         //

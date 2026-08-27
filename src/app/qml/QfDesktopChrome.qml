@@ -337,6 +337,12 @@ ToolBar {
       anchors.verticalCenter: parent.verticalCenter
       warstwa: dashBoard.activeLayer
     }
+
+    // Cofnij / przywróć. Na belce, nie na pasku rysowania: tamten jest
+    // widoczny tylko w trybie digitize, a cofanie potrzebne jest PO zapisie.
+    QfCofnijPrzywroc {
+      anchors.verticalCenter: parent.verticalCenter
+    }
   }
 
   // Wybór aktywnej warstwy z górnej belki — bez otwierania szuflady.

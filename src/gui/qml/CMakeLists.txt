@@ -14,6 +14,7 @@ set(QFIELD_GUI_QML_FILES
     QfCalendarPanel.qml
     QfCamera.qml
     QfCodeReader.qml
+    QfCofnijPrzywroc.qml
     QfCogoOperationPreview.qml
     QfCogoOperationSettings.qml
     QfCogoOperations.qml
