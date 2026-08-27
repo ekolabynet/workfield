@@ -360,28 +360,17 @@ Popup {
 
     // --- warstwy: zwinięte, bo to najdłuższa i najrzadziej potrzebna część
 
-    Button {
+    // QfButton, nie Button: ten pierwszy ma motyw, efekt naciśnięcia
+    // i obsługę stanu wyłączonego. Button bierze wygląd ze stylu
+    // systemowego i na ciemnym tle widać sam tekst.
+    QfButton {
       id: przyciskWarstw
       Layout.fillWidth: true
       visible: stanProjektu.dane.warstwy !== undefined
-
-      // Bez własnego tła przycisk gubi się na ciemnym tle okna: widać sam
-      // tekst, więc nie wygląda na coś, co da się nacisnąć.
-      background: Rectangle {
-        color: przyciskWarstw.down ? Theme.mainColor
-                                   : przyciskWarstw.hovered ? Theme.controlBackgroundColor
-                                                            : "transparent"
-        border.width: 1
-        border.color: Theme.controlBorderColor
-        radius: 4
-      }
-      contentItem: Text {
-        text: przyciskWarstw.text
-        font: Theme.tipFont
-        color: Theme.mainTextColor
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
-      }
+      topPadding: 8
+      bottomPadding: 8
+      leftPadding: 10
+      rightPadding: 10
       text: listaWarstw.visible
             ? qsTr("Ukryj warstwy")
             : qsTr("Pokaż warstwy (%1)").arg(stanProjektu.dane.warstwy !== undefined
@@ -439,9 +428,12 @@ Popup {
     RowLayout {
       Layout.fillWidth: true
       Item { Layout.fillWidth: true }
-      Button {
+      QfButton {
         text: qsTr("Zamknij")
-        flat: true
+        topPadding: 8
+        bottomPadding: 8
+        leftPadding: 10
+        rightPadding: 10
         onClicked: naprawa.close()
       }
     }
