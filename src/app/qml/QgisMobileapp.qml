@@ -3073,7 +3073,22 @@ ApplicationWindow {
 
           onClicked: {
             qgisProject.topologicalEditing = !qgisProject.topologicalEditing;
-            displayToast(qgisProject.topologicalEditing ? qsTr("Topological editing turned on") : qsTr("Topological editing turned off"));
+            if (qgisProject.topologicalEditing) {
+              // WorkField 26.08.2026 — samo „turned on" kosztowało dzień terenu.
+              //
+              // 24.08 przełącznik wciśnięty jednym tapnięciem, 25.08 zniszczone
+              // obrysy pięciu płatów: przy VertexMove wszystkie wierzchołki
+              // znalezione w promieniu lądują w JEDNYM punkcie
+              // (qffeaturemodel.cpp:1489), więc mały obiekt zwija się do zera.
+              //
+              // Dwie rzeczy, które wprowadziły w błąd, mówimy WPROST: nazwa
+              // sugeruje pilnowanie wspólnych granic, a zakres — że działa
+              // tylko przy poprawianiu. Ani jedno, ani drugie.
+              // QML nie skleja sąsiednich literałów jak C++ — trzeba jawnego +.
+              displayToast(qsTr("Edycja topologiczna WŁĄCZONA — przy małych obiektach zlepia sąsiednie wierzchołki w jeden punkt. Działa też przy TWORZENIU, nie tylko przy poprawianiu."), "warning");
+            } else {
+              displayToast(qsTr("Edycja topologiczna wyłączona"));
+            }
           }
         }
 
