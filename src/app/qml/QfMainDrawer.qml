@@ -1244,6 +1244,25 @@ Drawer {
           enabled: projectSection.filePath !== ""
           onClicked: projectPropertiesPopup.open()
         }
+        // WorkField 26.08.2026 — „jak ten projekt jest ustawiony".
+        //
+        // Sąsiaduje z „Właściwościami" świadomie: tamto mówi, CO projekt
+        // zawiera, to — JAK jest ustawiony (przyciąganie, unikanie
+        // nakładania, edycja topologiczna) i czy z danymi jest wszystko
+        // w porządku.
+        //
+        // Wpis RĘCZNY, mimo że akcja jest w rejestrze QfAkcje: szuflada
+        // ma własną listę i nie czyta z rejestru. To dług — patrz handoff.
+        QfPozycjaMenu {
+          text: qsTr("Stan projektu")
+          ikona: "wfg_lupa"
+          enabled: projectSection.filePath !== ""
+          onClicked: {
+            dashBoard.close();
+            if (typeof wfAkcje !== 'undefined' && wfAkcje.stanProjektu)
+              wfAkcje.stanProjektu();
+          }
+        }
         QfPozycjaMenu {
           text: qsTr("Usuń projekt")
           ikona: "wfg_usun"

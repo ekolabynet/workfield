@@ -90,6 +90,13 @@ ApplicationWindow {
     galeriaZdjec: function () { photoGallery.openPhotos(); }
     kontrolaPrzypisan: function () { photoGallery.openPhotos(); }
     panelDanych: function () { dataDrawer.open(); }
+    stanProjektu: function () {
+      // Kontrola najpierw — zrzut ma pokazywac stan BIEZACY, a nie ten
+      // sprzed wczytania projektu. Sama sprawdz() tylko czyta.
+      if (typeof kontrolaProjektu !== 'undefined')
+        kontrolaProjektu.sprawdz();
+      naprawaProjektu.open();
+    }
     ustawieniaTerenowe: function () { terenSettings.open(); }
     ustawieniaAplikacji: function () { qfieldSettings.visible = true; }
     zglosUwage: function () { Qt.openUrlExternally('https://github.com/ekolabynet/workfield/issues'); }

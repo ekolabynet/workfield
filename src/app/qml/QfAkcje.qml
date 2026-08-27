@@ -53,6 +53,7 @@ QtObject {
   property var galeriaZdjec: function () {}
   property var kontrolaPrzypisan: function () {}
   property var panelDanych: function () {}
+  property var stanProjektu: function () {}
   property var ustawieniaTerenowe: function () {}
   property var ustawieniaAplikacji: function () {}
   property var zglosUwage: function () {}
@@ -105,6 +106,13 @@ QtObject {
       grupa: "zarzadzanie", desktop: true, telefon: false, wymagaProjektu: false,
       wykonaj: function () { akcje.ktoCoRobil(); } },
 
+    // Ekran „jak ten projekt jest ustawiony". Dotad dostepny WYLACZNIE
+    // z toastu po wykryciu brakow — czyli nie wtedy, kiedy jest potrzebny.
+    // 25.08.2026: projekt byl „kompletny", toastu nie bylo, a przyczyne
+    // znikajacych obrysow znalezlismy wieczorem, grepujac XML.
+    { id: "stan_projektu", nazwa: qsTr("Stan projektu"), ikona: "wfg_lupa",
+      grupa: "zarzadzanie", desktop: true, telefon: true, wymagaProjektu: true,
+      wykonaj: function () { akcje.stanProjektu(); } },
     { id: "teren", nazwa: qsTr("Ustawienia terenowe"), ikona: "wfg_teren",
       grupa: "zarzadzanie", desktop: true, telefon: false, wymagaProjektu: false,
       wykonaj: function () { akcje.ustawieniaTerenowe(); } },
