@@ -1138,6 +1138,55 @@ Page {
         }
       }
 
+      // WorkField 28.08.2026 — podniesienie formularza nad klawiaturę.
+      //
+      // Ręcznie, bo automatyka zawiodła: keyboardRectangle daje zero,
+      // parent.height się nie zmienia, SafeArea reaguje raz na dwa razy.
+      // Sześć prób, sześć nietrafień — zamiast siódmego domysłu przycisk,
+      // który człowiek naciska, gdy widzi, że pole jest zasłonięte.
+      QfToolButton {
+        id: przyciskPodniesienia
+
+        // Tylko tam, gdzie formularz jest szufladą — w osadzonych
+        // formularzach relacji nie ma czego podnosić.
+        property var szuflada: {
+          let p = form.parent;
+          while (p && p.podniesiony === undefined)
+            p = p.parent;
+          return p;
+        }
+
+        Layout.alignment: Qt.AlignTop | Qt.AlignRight
+        visible: szuflada !== null && szuflada !== undefined
+        width: QfTheme.toolButtonSize
+        height: QfTheme.toolButtonSize
+        round: true
+        roundborder: true
+
+        // Znak zamiast ikony: w motywie nie ma strzalek, a rysowanie
+        // wlasnego SVG dla jednego przycisku to praca bez wartosci.
+        // Trojkat jest przy tym czytelniejszy w rekawicy niz cienka kreska.
+        bgcolor: szuflada && szuflada.podniesiony ? QfTheme.mainColor : "transparent"
+        borderColor: QfTheme.mainBackgroundColor
+
+        Text {
+          anchors.centerIn: parent
+          text: przyciskPodniesienia.szuflada && przyciskPodniesienia.szuflada.podniesiony
+                ? "\u25BC" : "\u25B2"
+          color: QfTheme.mainTextColor
+          font.pointSize: QfTheme.tipFont.pointSize
+        }
+
+        onClicked: {
+          if (!szuflada)
+            return;
+          szuflada.podniesiony = !szuflada.podniesiony;
+          displayToast(szuflada.podniesiony
+                       ? qsTr("Formularz podniesiony nad klawiaturę")
+                       : qsTr("Formularz opuszczony"));
+        }
+      }
+
       Text {
         id: titleLabel
 

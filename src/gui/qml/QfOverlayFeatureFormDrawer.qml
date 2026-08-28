@@ -48,63 +48,50 @@ Drawer {
 
   property real lastHeight
 
-  // WorkField 28.08.2026 — formularz maksymalizowal sie sam po pojawieniu
-  // klawiatury i tracil gorny pasek z przyciskami.
-  //
-  // Dwie usterki w jednym wyrazeniu:
-  //
-  // 1. `height >= 0.95 * parent.height` porownuje wysokosc ze ZMIENIAJACA
-  //    SIE wartoscia. Android zmniejsza okno przy klawiaturze, wiec
-  //    dotychczasowa wysokosc nagle „przekracza 95%" — szuflada uznaje sie
-  //    za pelnoekranowa i maksymalizuje. Po schowaniu klawiatury lastHeight
-  //    trzyma juz pelna wartosc i okno zostaje na gorze.
-  //
-  //    Stad `wysokoscBazowa`: wysokosc okna SPRZED klawiatury, ktora nie
-  //    drga przy jej pojawianiu i chowaniu.
-  //
-  // 2. Galaz pelnoekranowa zwracala `parent.height` BEZ odjecia
-  //    sceneTopMargin, choc galaz przeciagania odejmowala. Dlatego przy
-  //    maksymalizacji naglowek wchodzil pod pasek systemowy — razem
-  //    z przyciskiem zapisu i uchwytem.
-
-  //! Wysokosc okna sprzed pojawienia sie klawiatury.
-  property real wysokoscBazowa: parent ? parent.height : 0
-
-  Connections {
-    target: Qt.inputMethod
-    function onVisibleChanged() {
-      // Zapamietujemy tylko wtedy, gdy klawiatura ZNIKA — wtedy okno ma
-      // znowu pelna wysokosc. Przy pojawieniu zostawiamy stara wartosc.
-      if (!Qt.inputMethod.visible && overlayFeatureFormDrawer.parent)
-        overlayFeatureFormDrawer.wysokoscBazowa = overlayFeatureFormDrawer.parent.height;
-    }
-  }
-
   height: {
-    const dostepna = parent.height - mainWindow.sceneTopMargin;
     if (dragHeightAdjustment != 0) {
-      return Math.min(lastHeight - dragHeightAdjustment, dostepna);
-    } else if (overlayFeatureFormDrawer.fullScreenView || parent.width >= parent.height || height >= 0.95 * wysokoscBazowa) {
-      lastHeight = dostepna;
-      return dostepna;
+      return Math.min(lastHeight - dragHeightAdjustment, parent.height - mainWindow.sceneTopMargin);
+    // WorkField 28.08.2026 — dwie zmiany, obie sprawdzone w logu:
+    //
+    // 1. Warunek `height >= 0.95 * parent.height` SAM SIĘ PODTRZYMYWAŁ:
+    //    raz ustawiona pełna wysokość zawsze go spełnia, więc szuflada
+    //    nie miała jak wrócić. Usunięty.
+    // 2. `parent.height / 2` zamienione na 65% — przy połowie okna
+    //    z formularza zostawał pasek na trzy linijki.
+    //
+    // Zmierzone: szuflada spadła z 796 na 517 przy oknie 832.
+    //
+    // Czego to NIE rozwiązuje: pole niżej w formularzu nadal chowa się pod
+    // klawiaturą, bo `keyboardRectangle` na tym urządzeniu daje zero
+    // i formularz nie ma jak się przewinąć. Patrz handoff 28.08.
+    } else if (overlayFeatureFormDrawer.fullScreenView || parent.width >= parent.height) {
+      lastHeight = parent.height - mainWindow.sceneTopMargin;
+      return lastHeight;
     } else {
-      // WorkField 28.08.2026 — bylo `parent.height / 2`, czyli polowa okna.
-      // Przy wysunietej klawiaturze z tej polowy zostawal pasek na trzy
-      // linijki: widac naglowek i zakladki, samego pola juz nie.
-      //
-      // Dwie zmiany:
-      //  * 0.65 zamiast 0.5 — bo 65% zostawia miejsce na tresc,
-      //  * odjecie wysokosci klawiatury, zeby 65% liczylo sie z tego,
-      //    co WIDAC, a nie z calego okna.
-      const klawiatura = Qt.inputMethod.visible && Qt.inputMethod.keyboardRectangle
-                         ? Qt.inputMethod.keyboardRectangle.height / (Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1)
-                         : 0;
-      const widoczna = Math.max(200, dostepna - klawiatura);
-      const newHeight = Math.min(Math.max(200, widoczna * 0.65 + klawiatura), dostepna);
+      const newHeight = Math.min(Math.max(200, parent.height * 0.65), parent.height - mainWindow.sceneTopMargin);
       lastHeight = newHeight;
       return newHeight;
     }
   }
+
+  // WorkField 28.08.2026 — RĘCZNE podniesienie formularza nad klawiaturę.
+  //
+  // Automatyka zawiodła: `keyboardRectangle` daje zero, `parent.height`
+  // się nie zmienia, `SafeArea.margins.bottom` reaguje raz na dwa razy.
+  // Sześć prób wykrycia klawiatury, sześć nietrafień — patrz handoff 28.08.
+  //
+  // Zamiast siódmego domysłu: przycisk. Człowiek widzi, czy pole jest
+  // zasłonięte, i podnosi formularz sam. Przewidywalne i pod jego kontrolą.
+  //
+  // 320 px to typowa wysokość klawiatury na telefonie w pionie; wartość
+  // z ustawień terenowych, gdyby trzeba było ją dobrać.
+  property bool podniesiony: false
+  readonly property real podniesienieOWysokosc:
+    settings ? settings.valueInt("WorkField/podniesienieFormularza", 320) : 320
+
+  y: podniesiony && edge === Qt.BottomEdge
+     ? Math.max(mainWindow.sceneTopMargin, parent.height - height - podniesienieOWysokosc)
+     : undefined
 
   topPadding: 0
   leftPadding: 0
@@ -124,6 +111,9 @@ Drawer {
   }
 
   onClosed: {
+    // Wracamy do stanu spoczynkowego — inaczej następny obiekt otwierałby
+    // się podniesiony bez powodu.
+    podniesiony = false;
     if (!digitizingToolbar.geometryRequested) {
       if (!overlayFeatureForm.isSaved) {
         overlayFeatureForm.confirm();
