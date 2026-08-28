@@ -57,7 +57,8 @@ QfEditorWidgetBase {
         Qt.callLater(topItem.scrollCaretIntoView, textField);
     }
     leftPadding: isEditing ? 10 : 0
-    visible: (config['IsMultiline'] === undefined || config['IsMultiline'] == false) && isEditing
+    visible: (config['IsMultiline'] === undefined || config['IsMultiline'] == false)
+             && isEditing && !topItem.dlugaTresc
     enabled: isEditable
     anchors.left: parent.left
     anchors.right: parent.right
@@ -127,7 +128,7 @@ QfEditorWidgetBase {
     property real sufit: Math.max(120, mainWindow.height * 0.5)
 
     height: {
-      if (config['IsMultiline'] !== true)
+      if (config['IsMultiline'] !== true && !topItem.dlugaTresc)
         return 0;
       return Math.min(implicitHeight, sufit);
     }
@@ -143,7 +144,7 @@ QfEditorWidgetBase {
       boundsBehavior: Flickable.StopAtBounds
       z: -1
     }
-    visible: config['IsMultiline'] === true && isEditing
+    visible: (config['IsMultiline'] === true || topItem.dlugaTresc) && isEditing
     enabled: isEditable
     anchors.left: parent.left
     anchors.right: parent.right
@@ -167,6 +168,21 @@ QfEditorWidgetBase {
   // The enclosing Flickable is found by walking up the parent chain, so this
   // works in the feature form, in embedded relation forms and anywhere else
   // a text widget is placed inside a scrollable view.
+  // WorkField 28.08.2026 — powyzej tego progu pole jednoliniowe USTEPUJE
+  // miejsca wieloliniowemu.
+  //
+  // `TextField` z `wrapMode: Wrap` rosnie z trescia i przy dlugim opisie
+  // zajmowal cala szuflade — kursor na koncu ladowal pod jej krawedzia.
+  //
+  // ZMIERZONE na piatce obiektow PZE: dziala przy 149, 393, 502 i 516
+  // znakach, NIE dziala przy 829. Po skasowaniu polowy tekstu w obiekcie
+  // 13 zaczelo dzialac.
+  //
+  // TextArea ma przewijanie z natury, wiec zamiast dorabiac je do
+  // TextField — oddajemy jej pole.
+  readonly property bool dlugaTresc: !isNull && value !== undefined
+                                     && String(value).length > 200
+
   function scrollCaretIntoView(editor) {
     if (!editor || !editor.activeFocus)
       return;
