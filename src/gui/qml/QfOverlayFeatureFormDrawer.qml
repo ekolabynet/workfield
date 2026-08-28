@@ -88,7 +88,19 @@ Drawer {
       lastHeight = dostepna;
       return dostepna;
     } else {
-      const newHeight = Math.min(Math.max(200, parent.height / 2), dostepna);
+      // WorkField 28.08.2026 — bylo `parent.height / 2`, czyli polowa okna.
+      // Przy wysunietej klawiaturze z tej polowy zostawal pasek na trzy
+      // linijki: widac naglowek i zakladki, samego pola juz nie.
+      //
+      // Dwie zmiany:
+      //  * 0.65 zamiast 0.5 — bo 65% zostawia miejsce na tresc,
+      //  * odjecie wysokosci klawiatury, zeby 65% liczylo sie z tego,
+      //    co WIDAC, a nie z calego okna.
+      const klawiatura = Qt.inputMethod.visible && Qt.inputMethod.keyboardRectangle
+                         ? Qt.inputMethod.keyboardRectangle.height / (Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1)
+                         : 0;
+      const widoczna = Math.max(200, dostepna - klawiatura);
+      const newHeight = Math.min(Math.max(200, widoczna * 0.65 + klawiatura), dostepna);
       lastHeight = newHeight;
       return newHeight;
     }
