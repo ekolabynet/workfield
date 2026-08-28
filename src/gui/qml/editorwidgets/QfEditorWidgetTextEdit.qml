@@ -110,7 +110,39 @@ QfEditorWidgetBase {
         Qt.callLater(topItem.scrollCaretIntoView, textArea);
     }
     leftPadding: isEditing ? 10 : 0
-    height: config['IsMultiline'] === true ? undefined : 0
+
+    // WorkField 28.08.2026 — pole ROSLO BEZ KONCA.
+    //
+    // `height: undefined` znaczy „wysokosc z tresci", wiec przy dlugim
+    // opisie TextArea rozpychalo zawartosc formularza. Szuflada widziala
+    // wtedy `height >= 0.95 * parent.height`, uznawala sie za pelnoekranowa
+    // i MAKSYMALIZOWALA — zabierajac gorny pasek z przyciskiem zapisu
+    // i uchwytem. Nie bylo jak wyjsc.
+    //
+    // Klawiatura tylko przyspieszala: zmniejszala okno, wiec prog 95%
+    // wypadal wczesniej. Stad wrazenie, ze winna jest klawiatura.
+    //
+    // Teraz pole ma SUFIT (polowa wysokosci okna) i przewija sie w srodku.
+    // Piszesz dowolnie duzo, formularz zostaje na miejscu.
+    property real sufit: Math.max(120, mainWindow.height * 0.5)
+
+    height: {
+      if (config['IsMultiline'] !== true)
+        return 0;
+      return Math.min(implicitHeight, sufit);
+    }
+
+    // Bez tego dlugi tekst po prostu znikalby pod krawedzia pola.
+    // TextArea sam nie przewija — musi siedziec w Flickable.
+    Flickable {
+      anchors.fill: parent
+      contentWidth: parent.width
+      contentHeight: textArea.implicitHeight
+      clip: true
+      interactive: textArea.implicitHeight > textArea.sufit
+      boundsBehavior: Flickable.StopAtBounds
+      z: -1
+    }
     visible: config['IsMultiline'] === true && isEditing
     enabled: isEditable
     anchors.left: parent.left
