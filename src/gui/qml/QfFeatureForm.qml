@@ -1307,21 +1307,144 @@ Page {
     id: cancelDialog
     parent: mainWindow.contentItem
     z: 10000 // 1000s are embedded feature forms, user a higher value to insure the dialog will always show above embedded feature forms
-    title: qsTr("Cancel")
+    title: qsTr("Wyjście z formularza")
+
+    // Escape (na telefonie: wstecz systemowy) domyślnie woła reject()
+    // i zamyka dialog BEZ DECYZJI — a formularz zostaje zamknięty tak,
+    // jakby decyzja zapadła. Przy dwóch przyciskach było to bezpieczne,
+    // bo reject znaczyło „Cancel". Teraz nie ma czego odrzucić, więc
+    // wyłączamy i obsługujemy sami: Escape = „Wstecz".
+    closePolicy: Popup.NoAutoClose
+
+    // Gdyby coś jednak zamknęło dialog inną drogą — NIE zamykaj formularza.
+    // Decyzja o utracie pracy zapada wyłącznie przyciskiem.
+    onRejected: cancelDialog.close()
+
+    // WorkField 28.08.2026 — było DWA przyciski, a „OK" kasowało wszystko.
+    // Przycisk, którego nazwa mówi „zgadzam się", a działanie znaczy
+    // „wyrzuć moją pracę". Po godzinie wpisywania w terenie to strata
+    // danych z jednego tapnięcia — i nie było żadnej drogi „zapisz i wyjdź".
+    //
+    // Kolejność nie jest przypadkowa: bezpieczne po lewej, niszczące po
+    // prawej i z dala od kciuka. Domyślny jest ZAPIS, więc przypadkowe
+    // potwierdzenie prowadzi do zachowania pracy, nie do jej utraty.
+    standardButtons: Dialog.Cancel | Dialog.Save | Dialog.Discard
+
+    // WorkField 28.08.2026 — WŁASNA stopka, nie standardButtons.
+    //
+    // Poprzednia wersja ustawiała kolory przez Material.background, a żeby
+    // wymusić kolejność — buttonRole na ActionRole. I to był błąd: zmiana
+    // roli ODBIERA przyciskom powiązanie z sygnałami accepted/discarded.
+    // Wyglądały poprawnie i nie robiły nic.
+    //
+    // Własna stopka woła funkcje wprost. Nie ma pośrednika, więc nie ma
+    // czego zepsuć — i kolejność jest ta, którą się napisze.
+    //
+    // Kolor niesie znaczenie: czerwony = tracisz pracę, pomarańczowy =
+    // nic się nie dzieje, zielony = zachowane. Niszczące po lewej,
+    // zachowujące po prawej, neutralne pośrodku — w zasięgu kciuka.
+    footer: Row {
+      spacing: 8
+      padding: 16
+      layoutDirection: Qt.LeftToRight
+
+      Button {
+        text: qsTr("Porzuć zmiany")
+        implicitHeight: 40
+        padding: 14
+        contentItem: Text {
+          text: parent.text
+          color: "white"
+          font: QfTheme.defaultFont
+          horizontalAlignment: Text.AlignHCenter
+          verticalAlignment: Text.AlignVCenter
+        }
+        background: Rectangle {
+          color: parent.down ? "#8e1f1f" : "#c62828"
+          radius: 4
+        }
+        onClicked: {
+          cancelDialog.close();
+          form.cancel();
+        }
+      }
+
+      Button {
+        text: qsTr("Wstecz")
+        implicitHeight: 40
+        padding: 14
+        contentItem: Text {
+          text: parent.text
+          color: "white"
+          font: QfTheme.defaultFont
+          horizontalAlignment: Text.AlignHCenter
+          verticalAlignment: Text.AlignVCenter
+        }
+        background: Rectangle {
+          color: parent.down ? "#b35300" : "#ef6c00"
+          radius: 4
+        }
+        onClicked: cancelDialog.close()
+      }
+
+      Button {
+        text: qsTr("Zapisz i wyjdź")
+        implicitHeight: 40
+        padding: 14
+        contentItem: Text {
+          text: parent.text
+          color: "white"
+          font: QfTheme.defaultFont
+          horizontalAlignment: Text.AlignHCenter
+          verticalAlignment: Text.AlignVCenter
+        }
+        background: Rectangle {
+          color: parent.down ? "#1b5e20" : "#2e7d32"
+          radius: 4
+        }
+        onClicked: {
+          if (form.save()) {
+            cancelDialog.close();
+            form.cancel();
+            return;
+          }
+          // save() odmawia przy niespełnionych ograniczeniach twardych
+          // (QfFeatureForm.qml:1019). Zostajemy w dialogu i MÓWIMY dlaczego.
+          displayToast(qsTr("Nie mogę zapisać: brakuje wymaganych pól."), "warning");
+        }
+      }
+    }
+
     Label {
       width: parent.width
       wrapMode: Text.WordWrap
       text: {
         if (setupOnly) {
-          return qsTr("You are about to cancel the feature setup, proceed?");
+          return qsTr("Przerwać zakładanie obiektu?");
         } else if (form.state === 'Add') {
-          return qsTr("You are about to dismiss the new feature, proceed?");
+          return qsTr("Nowy obiekt nie został jeszcze zapisany.");
         }
-        return qsTr("You are about to leave editing state, any changes will be lost. Proceed?");
+        return qsTr("Masz niezapisane zmiany.");
       }
     }
+
+    // Save = zachowaj i wyjdź.
     onAccepted: {
+      if (form.save()) {
+        form.cancel();
+        return;
+      }
+      // save() zwraca false przy niespełnionych ograniczeniach twardych
+      // (QfFeatureForm.qml:1019). Wracamy do formularza i MÓWIMY dlaczego —
+      // ciche zamknięcie udawałoby, że zapis się udał.
+      displayToast(qsTr("Nie mogę zapisać: brakuje wymaganych pól. Uzupełnij je albo porzuć zmiany."), "warning");
+    }
+
+    // Discard = porzuć. Ta sama czynność, którą wcześniej robiło „OK" —
+    // ale teraz nazwana tym, czym jest.
+    onDiscarded: {
       form.cancel();
+      cancelDialog.close();
     }
   }
 }
