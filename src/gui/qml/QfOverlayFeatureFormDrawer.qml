@@ -48,14 +48,47 @@ Drawer {
 
   property real lastHeight
 
+  // WorkField 28.08.2026 — formularz maksymalizowal sie sam po pojawieniu
+  // klawiatury i tracil gorny pasek z przyciskami.
+  //
+  // Dwie usterki w jednym wyrazeniu:
+  //
+  // 1. `height >= 0.95 * parent.height` porownuje wysokosc ze ZMIENIAJACA
+  //    SIE wartoscia. Android zmniejsza okno przy klawiaturze, wiec
+  //    dotychczasowa wysokosc nagle „przekracza 95%" — szuflada uznaje sie
+  //    za pelnoekranowa i maksymalizuje. Po schowaniu klawiatury lastHeight
+  //    trzyma juz pelna wartosc i okno zostaje na gorze.
+  //
+  //    Stad `wysokoscBazowa`: wysokosc okna SPRZED klawiatury, ktora nie
+  //    drga przy jej pojawianiu i chowaniu.
+  //
+  // 2. Galaz pelnoekranowa zwracala `parent.height` BEZ odjecia
+  //    sceneTopMargin, choc galaz przeciagania odejmowala. Dlatego przy
+  //    maksymalizacji naglowek wchodzil pod pasek systemowy — razem
+  //    z przyciskiem zapisu i uchwytem.
+
+  //! Wysokosc okna sprzed pojawienia sie klawiatury.
+  property real wysokoscBazowa: parent ? parent.height : 0
+
+  Connections {
+    target: Qt.inputMethod
+    function onVisibleChanged() {
+      // Zapamietujemy tylko wtedy, gdy klawiatura ZNIKA — wtedy okno ma
+      // znowu pelna wysokosc. Przy pojawieniu zostawiamy stara wartosc.
+      if (!Qt.inputMethod.visible && overlayFeatureFormDrawer.parent)
+        overlayFeatureFormDrawer.wysokoscBazowa = overlayFeatureFormDrawer.parent.height;
+    }
+  }
+
   height: {
+    const dostepna = parent.height - mainWindow.sceneTopMargin;
     if (dragHeightAdjustment != 0) {
-      return Math.min(lastHeight - dragHeightAdjustment, parent.height - mainWindow.sceneTopMargin);
-    } else if (overlayFeatureFormDrawer.fullScreenView || parent.width >= parent.height || height >= 0.95 * parent.height) {
-      lastHeight = parent.height;
-      return parent.height;
+      return Math.min(lastHeight - dragHeightAdjustment, dostepna);
+    } else if (overlayFeatureFormDrawer.fullScreenView || parent.width >= parent.height || height >= 0.95 * wysokoscBazowa) {
+      lastHeight = dostepna;
+      return dostepna;
     } else {
-      const newHeight = Math.min(Math.max(200, parent.height / 2), parent.height);
+      const newHeight = Math.min(Math.max(200, parent.height / 2), dostepna);
       lastHeight = newHeight;
       return newHeight;
     }
