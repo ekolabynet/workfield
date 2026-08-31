@@ -100,12 +100,67 @@ QfEditorWidgetBase {
     }
   }
 
+  // WorkField 31.08.2026 — TextArea NIE PRZEWIJA SIE SAMA.
+  //
+  // Wczoraj wlozylem Flickable DO SRODKA TextArei — czyli odwrotnie, niz
+  // trzeba. Wysokosc byla ograniczona, ale tekst ponizej krawedzi po prostu
+  // znikal, a kursor schodzil poza pole i nie bylo widac, co sie pisze.
+  //
+  // TextArea przewija sie WYLACZNIE wewnatrz Flickable, ktory jest jej
+  // rodzicem. Stad ten uklad.
+  //
+  // Po co w ogole: spis gatunkowy wpisuje sie jednym ciagiem, bo przez
+  // zakladke relacji jeden gatunek to 20 sekund (warstwa, +, zdjecie,
+  // tabela, nazwa, warstwa, pokrycie) zamiast trzech. Przy stu gatunkach
+  // w placie to godzina zamiast pieciu minut. Parser i tak rozbiera tekst
+  // pozniej — pole ma tylko pozwolic go wpisac.
+  Flickable {
+    id: przewijaczTekstu
+
+    property real sufit: {
+      let f = topItem.parent;
+      while (f && f.height === undefined)
+        f = f.parent;
+      const bazowa = f && f.height > 0 ? f.height : 400;
+      return Math.max(120, bazowa * 0.45);
+    }
+
+    anchors.left: parent.left
+    anchors.right: parent.right
+    height: textArea.visible ? Math.min(textArea.implicitHeight, sufit) : 0
+    visible: textArea.visible
+    contentWidth: width
+    contentHeight: textArea.implicitHeight
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+    flickableDirection: Flickable.VerticalFlick
+
+    // Kursor ma zostac widoczny takze wtedy, gdy tekst jest dluzszy niz pole.
+    // Bez tego czlowiek pisze w ciemno — dokladnie objaw z 31.08.
+    function zaKursorem() {
+      if (contentHeight <= height)
+        return;
+      const r = textArea.cursorRectangle;
+      if (r.y + r.height > contentY + height)
+        contentY = Math.min(r.y + r.height - height + 8, contentHeight - height);
+      else if (r.y < contentY)
+        contentY = Math.max(0, r.y - 8);
+    }
+
   TextArea {
     id: textArea
 
+    width: przewijaczTekstu.width
+
     // WorkField: caret above the keyboard (patch 31) — this is the variant
     // the UWAGI field uses, so this is the one that matters in the field.
-    onCursorRectangleChanged: topItem.scrollCaretIntoView(textArea)
+    // Dwa poziomy przewijania: przewijaczTekstu trzyma kursor w widocznej
+    // czesci POLA, scrollCaretIntoView przesuwa caly FORMULARZ tak, zeby
+    // pole bylo nad klawiatura. Jedno bez drugiego nie wystarcza.
+    onCursorRectangleChanged: {
+      przewijaczTekstu.zaKursorem();
+      topItem.scrollCaretIntoView(textArea);
+    }
     onActiveFocusChanged: {
       if (activeFocus)
         Qt.callLater(topItem.scrollCaretIntoView, textArea);
@@ -133,17 +188,6 @@ QfEditorWidgetBase {
       return Math.min(implicitHeight, sufit);
     }
 
-    // Bez tego dlugi tekst po prostu znikalby pod krawedzia pola.
-    // TextArea sam nie przewija — musi siedziec w Flickable.
-    Flickable {
-      anchors.fill: parent
-      contentWidth: parent.width
-      contentHeight: textArea.implicitHeight
-      clip: true
-      interactive: textArea.implicitHeight > textArea.sufit
-      boundsBehavior: Flickable.StopAtBounds
-      z: -1
-    }
     visible: (config['IsMultiline'] === true || topItem.dlugaTresc) && isEditing
     enabled: isEditable
     anchors.left: parent.left
@@ -162,6 +206,7 @@ QfEditorWidgetBase {
     }
 
     background.visible: enabled || (!isEditable && isEditing)
+  }
   }
 
   // WorkField: keep the caret above the on-screen keyboard while typing.
