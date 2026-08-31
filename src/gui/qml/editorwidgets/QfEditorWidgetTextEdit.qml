@@ -220,6 +220,7 @@ QfEditorWidgetBase {
 
   Component.onCompleted: {
     menu.addItem(copyTextItem);
+    menu.addItem(cutTextItem);
     menu.addItem(pasteTextItem);
     menu.addItem(separatorItem);
     menu.addItem(scanCodeItem);
@@ -243,6 +244,40 @@ QfEditorWidgetBase {
       }
     }
 
+    // WorkField 31.08.2026 — „Wytnij".
+    //
+    // Menu mialo tylko kopiowanie i wklejanie, a menu kontekstowe Androida
+    // przy formularzu chowa sie poza ekranem — wiec nie bylo jak przeniesc
+    // tekstu z pola do pola. Piotr wpisal spis gatunkowy w OPIS_PŁATU
+    // zamiast w ZAPIS_SUROWY_GATUNKI i nie mial jak go stamtad zabrac.
+    //
+    // Bierze ZAZNACZENIE, jesli jest; cale pole, jesli go nie ma. Bo
+    // w rekawicy zaznaczanie palcem jest uciazliwe, a w formularzu czesciej
+    // chce sie zabrac calosc niz fragment.
+    MenuItem {
+      id: cutTextItem
+      text: qsTr('Wytnij tekst')
+      font: QfTheme.defaultFont
+      icon.source: QfTheme.getThemeVectorIcon("ic_copy_black_24dp")
+      height: 48
+      leftPadding: QfTheme.menuItemLeftPadding
+      enabled: isEditable && !isNull && value !== undefined && String(value) !== ''
+      onTriggered: {
+        const edytor = textArea.visible ? textArea : textField;
+        const zaznaczone = edytor.selectedText;
+        if (zaznaczone !== '') {
+          platformUtilities.copyTextToClipboard(zaznaczone);
+          edytor.remove(edytor.selectionStart, edytor.selectionEnd);
+        } else {
+          platformUtilities.copyTextToClipboard(String(value));
+          edytor.text = '';
+        }
+        // Bez tego wartosc zostaje w modelu, choc pole jest juz puste.
+        commitValue(edytor.text);
+        displayToast(zaznaczone !== '' ? qsTr('Wycięto zaznaczenie')
+                                       : qsTr('Wycięto całą zawartość'));
+      }
+    }
     MenuItem {
       id: pasteTextItem
       text: qsTr('Paste Text')

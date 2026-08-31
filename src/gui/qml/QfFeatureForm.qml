@@ -230,7 +230,23 @@ Page {
             // WorkField: keyboardInset is read back by TextEdit.qml, which
             // needs to know how much of this Flickable is actually covered.
             property real keyboardInset: form.keyboardInset
-            bottomMargin: form.bottomMargin + (form.model.isWizard ? wizardNavigationContainer.height : 0) + keyboardInset
+            // WorkField 31.08.2026 — ZAPAS na kursor przy koncu tekstu.
+            //
+            // `scrollCaretIntoView` (latka 31) chce przewinac tak, zeby kursor
+            // mial margines jednej linii nad krawedzia:
+            //     target = caretBottom + margin - visibleHeight
+            // ...po czym przycina to do:
+            //     maxY = contentHeight + bottomMargin - height
+            //
+            // Bez zapasu maxY to DOKLADNIE koniec tresci, wiec kursor na
+            // ostatniej linii ladowal na samej krawedzi — widac bylo pol
+            // linii albo nic. Przy krotszym tekscie problemu nie ma, bo
+            // kursor jest w srodku i target nie siega maxY. Stad wrazenie,
+            // ze wina jest klawiatura albo dlugosc pola.
+            //
+            // Upstream ma ten sam kod — to niedopatrzenie latki 31, ktora
+            // dodala przewijanie, ale nie dala mu DOKAD przewinac.
+            bottomMargin: form.bottomMargin + (form.model.isWizard ? wizardNavigationContainer.height : 0) + keyboardInset + 120
             clip: true
             ScrollBar.vertical: QfScrollBar {}
             boundsBehavior: Flickable.StopAtBounds
