@@ -228,7 +228,7 @@ QfEditorWidgetBase {
     anchors.left: parent.left
     // Do przycisku Pl@ntNet, nie do aparatu: przycisk stoi miedzy tekstem
     // a aparatem, wiec bez tego tekst wchodzilby pod ikone.
-    anchors.right: przyciskPlantNet.visible ? przyciskPlantNet.left : cameraButton.left
+    anchors.right: cameraButton.left
     color: {
       if ((!isEditable && isEditing) || isNull || isEmpty) {
         return QfTheme.mainTextDisabledColor;
@@ -602,12 +602,21 @@ QfEditorWidgetBase {
     readonly property bool maZdjecie: !isNull && value !== undefined
                                       && String(value) !== ""
 
+    // PRZY ZDJĘCIU, w lewym górnym rogu — nie w rzędzie z aparatem.
+    //
+    // `sketchButton` (linia ~481) siedzi w PRAWYM górnym rogu obrazu
+    // (`image.top` + `image.right`). Listek w rzędzie ikon wypadał
+    // wizualnie w tym samym miejscu i oba się nakładały.
+    //
+    // Teraz oba są przy zdjęciu, po przeciwnych stronach: rozpoznanie
+    // po lewej, szkic po prawej. Widać, że oba dotyczą tego obrazu,
+    // a nie widgetu jako całości.
     width: visible ? QfTheme.toolButtonSize : 0
     height: QfTheme.toolButtonSize
-    visible: documentViewer == QfEditorWidgetExternalResource.DocumentImage
-             && isEnabled && maZdjecie
-    anchors.right: cameraButton.left
-    anchors.top: parent.top
+    visible: image.source !== '' && image.status === Image.Ready && isEnabled
+    anchors.top: image.top
+    anchors.left: image.left
+    round: true
     // wfg_lupa — wlasna ikona motywu WorkField, nie systemowa
     iconSource: QfTheme.getThemeVectorIcon("wfg_listek")
     iconColor: QfTheme.mainTextColor
