@@ -106,6 +106,12 @@ Page {
 
   function wpiszGatunek(lacina) {
     const m = form.model ? form.model.featureModel : null;
+    console.log("GATUNEK: lacina =", lacina,
+                "| model =", (form.model ? "jest" : "BRAK"),
+                "| featureModel =", (m ? "jest" : "BRAK"),
+                "| ustawAtrybut =", (m ? typeof m.ustawAtrybut : "-"),
+                "| warstwa =", (m && m.currentLayer ? m.currentLayer.name : "BRAK"),
+                "| zapamietane =", String(settings.value(kluczPolaGatunku(), "(puste)")));
     if (!m || m.ustawAtrybut === undefined) {
       displayToast(qsTr("Nie mogę zapisać nazwy — brak dostępu do pól obiektu"), "warning");
       return;
@@ -122,16 +128,24 @@ Page {
     }
 
     // Pola do wyboru: tekstowe, bez systemowych i identyfikatorów.
+    // Nazwa ZAWSZE trafia do schowka — nawet gdyby dalej coś zawiodło,
+    // człowiek ma ją pod ręką i wklei ręcznie. Wynik rozpoznania jest
+    // zbyt cenny, żeby przepaść przy potknięciu interfejsu.
+    platformUtilities.copyTextToClipboard(lacina);
+
+    // Pola przez LayerUtils.layerFields(), NIE przez `warstwa.fields.at(i)`.
+    // Ta druga droga rzucała wyjątkiem, który QML połyka po cichu —
+    // funkcja kończyła się w środku, lista pól nigdy się nie pokazywała
+    // i wyglądało to jak „nic się nie dzieje". (Zmierzone: count = 16,
+    // ale pętla nie doszła do końca.)
     const kandydaci = [];
     const w = m.currentLayer;
-    if (w) {
-      const f = w.fields;
-      for (let i = 0; i < f.count; i++) {
-        const n = f.at(i).name;
-        if (n === "fid" || n === "geom" || n.startsWith("ID_"))
-          continue;
-        kandydaci.push(n);
-      }
+    const pola = w ? LayerUtils.layerFields(w) : [];
+    for (let i = 0; i < pola.length; i++) {
+      const n = pola[i].name !== undefined ? String(pola[i].name) : String(pola[i]);
+      if (n === "fid" || n === "geom" || n.startsWith("ID_"))
+        continue;
+      kandydaci.push(n);
     }
     if (kandydaci.length === 0) {
       displayToast(qsTr("Warstwa nie ma pola, do którego można wpisać nazwę"), "warning");
@@ -1057,6 +1071,23 @@ Page {
               if (widget === 'RelationEditor') {
                 return 'editorwidgets/relationeditors/' + (RelationEditorWidget || 'relation_editor') + '.qml';
               }
+              // WorkField 02.09.2026 — dlugi tekst do OSOBNEGO widgetu.
+              //
+              // `TextEdit` z wielolinia rosnie razem z trescia i po 600-800
+              // znakach kursor schodzi pod krawedz — nie widac, co sie pisze.
+              // Dziewiec prob naprawy w miejscu nie zdjelo problemu
+              // (patrz claude/KURSOR_dlugi_tekst.md).
+              //
+              // Nowego TYPU widgetu nie da sie dodac: nazwa pliku bierze sie
+              // wprost z typu ustawionego w QGIS, a jego listy nie rozszerzymy.
+              // Wiec przekierowujemy TextEdit z wlaczona wielolinia —
+              // w projekcie nie zmienia sie nic.
+              //
+              // Gdy plik sie nie wczyta, linia 1083 wraca do TextEdit,
+              // wiec pole nie zniknie nawet przy bledzie.
+              if (widget === 'TextEdit' && config && config['IsMultiline'] === true) {
+                return 'editorwidgets/QfEditorWidgetLongText.qml';
+              }
               return 'editorwidgets/QfEditorWidget' + (widget || 'TextEdit') + '.qml';
             }
 
@@ -1257,6 +1288,13 @@ Page {
     }
     return isSuccess;
   }
+
+  //! Wyjście nastąpiło PO UDANYM ZAPISIE, nie przez porzucenie zmian.
+  //! `cancel()` sprząta stan formularza także wtedy — a odbiorca sygnału
+  //! `cancelled()` mówi wprost „Changes discarded"
+  //! (QfOverlayFeatureFormDrawer.qml:181). Bez tego znacznika komunikat
+  //! kłamie: zmiany SĄ zapisane, a człowiek czyta, że przepadły.
+  property bool wyjscieZZapisem: false
 
   function cancel() {
     if (form.state === 'Add' && featureCreated) {
@@ -1659,7 +1697,9 @@ Page {
         onClicked: {
           if (form.save()) {
             cancelDialog.close();
+            form.wyjscieZZapisem = true;
             form.cancel();
+            form.wyjscieZZapisem = false;
             return;
           }
           // save() odmawia przy niespełnionych ograniczeniach twardych
