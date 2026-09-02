@@ -37,6 +37,18 @@ Item {
   signal requestGeometry(var item, var layer)
 
   /**
+   * Widget prosi o rozpoznanie gatunku ze zdjęcia.
+   *
+   * Widget nie może zapisać do cudzego pola — ma tylko
+   * `valueChangeRequested` na własną wartość. Więc zgłasza zadanie,
+   * a formularz je wykonuje: pyta Pl@ntNet, pokazuje kandydatów i wpisuje
+   * wybraną nazwę do pola wskazanego przez człowieka.
+   *
+   * Ten sam wzorzec co `requestGeometry` i `requestBarcode`.
+   */
+  signal requestSpeciesName(string sciezkaZdjecia)
+
+  /**
    * This signal is emitted when an editor widget is requesting a barcode value. The
    * decoded barcode value will be returned as a string through calling a requestedBarcodeReceived(string) function
    * attached to editor widget which signaled the request. The corresponding

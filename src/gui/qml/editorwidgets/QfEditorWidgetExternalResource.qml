@@ -588,6 +588,32 @@ QfEditorWidgetBase {
     }
   }
 
+  // WorkField 01.09.2026 — rozpoznanie gatunku ze zdjęcia.
+  //
+  // Sam przycisk: widget nie umie zapisać do cudzego pola, więc tylko
+  // zgłasza zadanie. Resztę robi formularz (QfFeatureForm).
+  QfToolButton {
+    id: przyciskPlantNet
+
+    // Bez zdjęcia nie ma czego rozpoznawać, a przycisk prowadzący donikąd
+    // to trzeci stan — więc go wtedy nie ma.
+    readonly property bool maZdjecie: !isNull && value !== undefined
+                                      && String(value) !== ""
+
+    width: visible ? QfTheme.toolButtonSize : 0
+    height: QfTheme.toolButtonSize
+    visible: documentViewer == QfEditorWidgetExternalResource.DocumentImage
+             && isEnabled && maZdjecie
+    anchors.right: cameraButton.left
+    anchors.top: parent.top
+    // wfg_lupa — wlasna ikona motywu WorkField, nie systemowa
+    iconSource: QfTheme.getThemeVectorIcon("wfg_lupa")
+    iconColor: QfTheme.mainTextColor
+    bgcolor: "transparent"
+
+    onClicked: requestSpeciesName(prefixToRelativePath + value)
+  }
+
   QfToolButton {
     id: cameraButton
     width: visible ? QfTheme.toolButtonSize : 0

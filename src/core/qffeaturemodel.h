@@ -230,6 +230,22 @@ class QfFeatureModel : public QAbstractListModel
      */
     Q_INVOKABLE bool updateAttributesFromFeature( const QgsFeature &feature );
 
+    /**
+     * Ustawia wartość pola po NAZWIE.
+     *
+     * Model ma role `AttributeName` i `AttributeValue`, więc dane są
+     * dostępne — brakowało tylko drogi z QML. Bez tego trzeba by zgadywać
+     * numery ról (`Qt.UserRole + 2`), co działa do pierwszej zmiany w enumie.
+     *
+     * Potrzebne, bo widget edycyjny umie zmienić tylko WŁASNĄ wartość
+     * (`valueChangeRequested`), a rozpoznanie gatunku ze zdjęcia musi trafić
+     * do innego pola niż to, przy którym stoi przycisk.
+     *
+     * \returns false gdy pola nie ma — wołający MA to sprawdzić i powiedzieć
+     *          człowiekowi, zamiast milczeć.
+     */
+    Q_INVOKABLE bool ustawAtrybut( const QString &nazwa, const QVariant &wartosc );
+
     QVector<bool> rememberedAttributes() const;
 
     /**

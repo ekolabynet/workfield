@@ -76,6 +76,188 @@ Page {
   property double rightMargin: 0.0
   property double bottomMargin: 0.0
 
+  // ------------------------------------------------ rozpoznanie gatunku
+  //
+  // Silnik (QfPlantNet) wydzielony z galerii, żeby nie pisać go drugi raz.
+  // Tutaj: uruchomienie, lista kandydatów i zapis do pola.
+
+  QfPlantNet {
+    id: silnikGatunku
+
+    onGotowe: kandydaci => {
+      listaGatunkow.wyniki = kandydaci;
+      listaGatunkow.open();
+    }
+    onBlad: tekst => displayToast(tekst, "warning")
+  }
+
+  function rozpoznajGatunek(sciezka) {
+    displayToast(qsTr("Rozpoznaję gatunek…"));
+    silnikGatunku.identyfikuj(sciezka);
+  }
+
+  //! Klucz ustawienia z nazwą warstwy — `gatunki` i `zdjecia_fito` mogą
+  //! mieć różne pola docelowe.
+  function kluczPolaGatunku() {
+    const w = form.model && form.model.featureModel && form.model.featureModel.currentLayer
+            ? form.model.featureModel.currentLayer.name : "?";
+    return "WorkFieldPlantNet/poleGatunku/" + w;
+  }
+
+  function wpiszGatunek(lacina) {
+    const m = form.model ? form.model.featureModel : null;
+    if (!m || m.ustawAtrybut === undefined) {
+      displayToast(qsTr("Nie mogę zapisać nazwy — brak dostępu do pól obiektu"), "warning");
+      return;
+    }
+
+    const zapamietane = String(settings.value(kluczPolaGatunku(), ""));
+    if (zapamietane !== "") {
+      if (m.ustawAtrybut(zapamietane, lacina)) {
+        displayToast(qsTr("%1 → %2").arg(lacina).arg(zapamietane));
+        return;
+      }
+      // Pole zniknęło ze schematu — pytamy od nowa, zamiast milczeć.
+      settings.setValue(kluczPolaGatunku(), "");
+    }
+
+    // Pola do wyboru: tekstowe, bez systemowych i identyfikatorów.
+    const kandydaci = [];
+    const w = m.currentLayer;
+    if (w) {
+      const f = w.fields;
+      for (let i = 0; i < f.count; i++) {
+        const n = f.at(i).name;
+        if (n === "fid" || n === "geom" || n.startsWith("ID_"))
+          continue;
+        kandydaci.push(n);
+      }
+    }
+    if (kandydaci.length === 0) {
+      displayToast(qsTr("Warstwa nie ma pola, do którego można wpisać nazwę"), "warning");
+      return;
+    }
+    wyborPolaGatunku.lacina = lacina;
+    wyborPolaGatunku.pola = kandydaci;
+    wyborPolaGatunku.open();
+  }
+
+  // Lista kandydatów. NIE wpisujemy najlepszego automatycznie: przy trawach
+  // pierwszy bywa nietrafny, a nazwa wpisana bez sprawdzenia wygląda jak
+  // oznaczenie i nikt jej już nie zweryfikuje.
+  QfDialog {
+    id: listaGatunkow
+
+    property var wyniki: []
+
+    parent: mainWindow.contentItem
+    z: 10000
+    modal: true
+    title: qsTr("Co to za gatunek?")
+    standardButtons: Dialog.Cancel
+    width: Math.min(mainWindow.width - 40, 460)
+
+    background: Rectangle {
+      color: QfTheme.mainBackgroundColor
+      radius: 6
+      border.width: 1
+      border.color: QfTheme.controlBorderColor
+    }
+
+    contentItem: ListView {
+      implicitHeight: Math.min(contentHeight, mainWindow.height * 0.55)
+      clip: true
+      model: listaGatunkow.wyniki
+
+      delegate: ItemDelegate {
+        required property var modelData
+        width: ListView.view.width
+        height: 58
+
+        contentItem: Column {
+          spacing: 2
+          Row {
+            spacing: 8
+            Text {
+              // Procent PRZED nazwą: od razu widać, czy to pewne
+              // rozpoznanie, czy zgadywanie.
+              text: modelData.score + "%"
+              font.bold: true
+              font.pointSize: QfTheme.tipFont.pointSize
+              color: modelData.score >= 50 ? QfTheme.mainColor
+                     : modelData.score >= 20 ? QfTheme.warningColor
+                                             : QfTheme.secondaryTextColor
+            }
+            Text {
+              text: modelData.lacina
+              font.italic: true
+              font.pointSize: QfTheme.tipFont.pointSize
+              color: QfTheme.mainTextColor
+            }
+          }
+          Text {
+            text: modelData.ludowa
+            visible: text !== ""
+            font.pointSize: QfTheme.tinyFont.pointSize
+            color: QfTheme.secondaryTextColor
+          }
+        }
+
+        onClicked: {
+          listaGatunkow.close();
+          form.wpiszGatunek(modelData.lacina);
+        }
+      }
+    }
+  }
+
+  // Pytamy RAZ na warstwę. Ustawienie zapamiętane W APLIKACJI, nie
+  // w projekcie — bo projekt przy każdym wydaniu jedzie z biura
+  // i nadpisałby wybór zrobiony w terenie.
+  QfDialog {
+    id: wyborPolaGatunku
+
+    property string lacina: ""
+    property var pola: []
+
+    parent: mainWindow.contentItem
+    z: 10000
+    modal: true
+    title: qsTr("Do którego pola wpisać nazwę?")
+    standardButtons: Dialog.Cancel
+    width: Math.min(mainWindow.width - 40, 420)
+
+    background: Rectangle {
+      color: QfTheme.mainBackgroundColor
+      radius: 6
+      border.width: 1
+      border.color: QfTheme.controlBorderColor
+    }
+
+    contentItem: ListView {
+      implicitHeight: Math.min(contentHeight, mainWindow.height * 0.5)
+      clip: true
+      model: wyborPolaGatunku.pola
+
+      delegate: ItemDelegate {
+        required property var modelData
+        width: ListView.view.width
+        height: 48
+        contentItem: Text {
+          text: modelData
+          color: QfTheme.mainTextColor
+          font.pointSize: QfTheme.tipFont.pointSize
+          verticalAlignment: Text.AlignVCenter
+        }
+        onClicked: {
+          settings.setValue(form.kluczPolaGatunku(), modelData);
+          wyborPolaGatunku.close();
+          form.wpiszGatunek(wyborPolaGatunku.lacina);
+        }
+      }
+    }
+  }
+
   function requestCancel() {
     if (!qfieldSettings.autoSave) {
       cancelDialog.open();
@@ -916,6 +1098,13 @@ Page {
             function onRequestBarcode(item) {
               form.codeReader.barcodeRequestedItem = item;
               form.codeReader.open();
+            }
+
+            // WorkField 01.09.2026 — rozpoznanie gatunku ze zdjęcia.
+            // Widget zgłasza, formularz wykonuje: tylko on ma dostęp do
+            // wszystkich pól obiektu.
+            function onRequestSpeciesName(sciezkaZdjecia) {
+              form.rozpoznajGatunek(sciezkaZdjecia);
             }
 
             function onRequestJumpToPoint(center, scale, handleMargins) {

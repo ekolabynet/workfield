@@ -867,6 +867,24 @@ void QfFeatureModel::resetFeatureId()
   mFeature.setId( FID_NULL );
 }
 
+bool QfFeatureModel::ustawAtrybut( const QString &nazwa, const QVariant &wartosc )
+{
+  if ( !mLayer )
+    return false;
+
+  const int indeks = mLayer->fields().lookupField( nazwa );
+  if ( indeks < 0 )
+    return false;
+
+  // Przez setData, nie przez mFeature.setAttribute — model musi wiedzieć
+  // o zmianie, żeby formularz ją pokazał i żeby trafiła do zapisu.
+  const QModelIndex idx = index( indeks, 0 );
+  if ( !idx.isValid() )
+    return false;
+
+  return setData( idx, wartosc, AttributeValue );
+}
+
 void QfFeatureModel::resetAttributes( bool partialReset )
 {
   if ( !mLayer )
