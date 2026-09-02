@@ -56,6 +56,7 @@ set(QFIELD_GUI_QML_FILES
     QfOverlayFeatureFormDrawer.qml
     QfPageHeader.qml
     QfPaneDrawer.qml
+    QfPlantNet.qml
     QfPopup.qml
     QfPositioningDeviceSettings.qml
     QfPositioningInformationView.qml

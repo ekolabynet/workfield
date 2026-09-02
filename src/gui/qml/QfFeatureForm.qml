@@ -246,7 +246,7 @@ Page {
             //
             // Upstream ma ten sam kod — to niedopatrzenie latki 31, ktora
             // dodala przewijanie, ale nie dala mu DOKAD przewinac.
-            bottomMargin: form.bottomMargin + (form.model.isWizard ? wizardNavigationContainer.height : 0) + keyboardInset + 120
+            bottomMargin: form.bottomMargin + (form.model.isWizard ? wizardNavigationContainer.height : 0) + keyboardInset + Math.max(200, form.height * 0.5)
             clip: true
             ScrollBar.vertical: QfScrollBar {}
             boundsBehavior: Flickable.StopAtBounds
