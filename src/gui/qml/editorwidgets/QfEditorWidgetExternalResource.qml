@@ -226,7 +226,9 @@ QfEditorWidgetBase {
     visible: isVisible
 
     anchors.left: parent.left
-    anchors.right: cameraButton.left
+    // Do przycisku Pl@ntNet, nie do aparatu: przycisk stoi miedzy tekstem
+    // a aparatem, wiec bez tego tekst wchodzilby pod ikone.
+    anchors.right: przyciskPlantNet.visible ? przyciskPlantNet.left : cameraButton.left
     color: {
       if ((!isEditable && isEditing) || isNull || isEmpty) {
         return QfTheme.mainTextDisabledColor;
@@ -607,7 +609,7 @@ QfEditorWidgetBase {
     anchors.right: cameraButton.left
     anchors.top: parent.top
     // wfg_lupa — wlasna ikona motywu WorkField, nie systemowa
-    iconSource: QfTheme.getThemeVectorIcon("wfg_lupa")
+    iconSource: QfTheme.getThemeVectorIcon("wfg_listek")
     iconColor: QfTheme.mainTextColor
     bgcolor: "transparent"
 
