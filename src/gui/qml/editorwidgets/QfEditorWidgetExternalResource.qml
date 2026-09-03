@@ -479,6 +479,40 @@ QfEditorWidgetBase {
       }
     }
 
+    // WorkField 01.09.2026 — rozpoznanie gatunku ze zdjęcia.
+    //
+    // Sam przycisk: widget nie umie zapisać do cudzego pola, więc tylko
+    // zgłasza zadanie. Resztę robi formularz (QfFeatureForm).
+    QfToolButton {
+      id: przyciskPlantNet
+
+      // Bez zdjęcia nie ma czego rozpoznawać, a przycisk prowadzący donikąd
+      // to trzeci stan — więc go wtedy nie ma.
+      readonly property bool maZdjecie: !isNull && value !== undefined
+                                        && String(value) !== ""
+
+      // PRZY ZDJĘCIU, w lewym górnym rogu — nie w rzędzie z aparatem.
+      //
+      // `sketchButton` (linia ~481) siedzi w PRAWYM górnym rogu obrazu
+      // (`image.top` + `image.right`). Listek w rzędzie ikon wypadał
+      // wizualnie w tym samym miejscu i oba się nakładały.
+      //
+      // Teraz oba są przy zdjęciu, po przeciwnych stronach: rozpoznanie
+      // po lewej, szkic po prawej. Widać, że oba dotyczą tego obrazu,
+      // a nie widgetu jako całości.
+      width: visible ? QfTheme.toolButtonSize : 0
+      height: QfTheme.toolButtonSize
+      visible: image.source !== '' && image.status === Image.Ready && isEnabled
+      anchors.top: image.top
+      anchors.left: image.left
+      round: true
+      // wfg_lupa — wlasna ikona motywu WorkField, nie systemowa
+      iconSource: QfTheme.getThemeVectorIcon("wfg_listek")
+      iconColor: QfTheme.mainTextColor
+      bgcolor: "transparent"
+
+      onClicked: requestSpeciesName(prefixToRelativePath + value)
+    }
     QfToolButton {
       id: sketchButton
       anchors.top: image.top
@@ -588,41 +622,6 @@ QfEditorWidgetBase {
         font: durationLabel.font
       }
     }
-  }
-
-  // WorkField 01.09.2026 — rozpoznanie gatunku ze zdjęcia.
-  //
-  // Sam przycisk: widget nie umie zapisać do cudzego pola, więc tylko
-  // zgłasza zadanie. Resztę robi formularz (QfFeatureForm).
-  QfToolButton {
-    id: przyciskPlantNet
-
-    // Bez zdjęcia nie ma czego rozpoznawać, a przycisk prowadzący donikąd
-    // to trzeci stan — więc go wtedy nie ma.
-    readonly property bool maZdjecie: !isNull && value !== undefined
-                                      && String(value) !== ""
-
-    // PRZY ZDJĘCIU, w lewym górnym rogu — nie w rzędzie z aparatem.
-    //
-    // `sketchButton` (linia ~481) siedzi w PRAWYM górnym rogu obrazu
-    // (`image.top` + `image.right`). Listek w rzędzie ikon wypadał
-    // wizualnie w tym samym miejscu i oba się nakładały.
-    //
-    // Teraz oba są przy zdjęciu, po przeciwnych stronach: rozpoznanie
-    // po lewej, szkic po prawej. Widać, że oba dotyczą tego obrazu,
-    // a nie widgetu jako całości.
-    width: visible ? QfTheme.toolButtonSize : 0
-    height: QfTheme.toolButtonSize
-    visible: image.source !== '' && image.status === Image.Ready && isEnabled
-    anchors.top: image.top
-    anchors.left: image.left
-    round: true
-    // wfg_lupa — wlasna ikona motywu WorkField, nie systemowa
-    iconSource: QfTheme.getThemeVectorIcon("wfg_listek")
-    iconColor: QfTheme.mainTextColor
-    bgcolor: "transparent"
-
-    onClicked: requestSpeciesName(prefixToRelativePath + value)
   }
 
   QfToolButton {

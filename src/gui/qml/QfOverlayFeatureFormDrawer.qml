@@ -48,6 +48,14 @@ Drawer {
 
   property real lastHeight
 
+  // Zapis lastHeight POZA wyrazeniem liczacym height. Wewnatrz dawal
+  // „Binding loop detected": pierwsza galaz CZYTA lastHeight, dwie
+  // pozostale je ZAPISUJA — czyli height zalezy od siebie samego.
+  onHeightChanged: {
+    if (dragHeightAdjustment === 0)
+      lastHeight = height;
+  }
+
   height: {
     if (dragHeightAdjustment != 0) {
       return Math.min(lastHeight - dragHeightAdjustment, parent.height - mainWindow.sceneTopMargin);
@@ -65,11 +73,9 @@ Drawer {
     // klawiaturą, bo `keyboardRectangle` na tym urządzeniu daje zero
     // i formularz nie ma jak się przewinąć. Patrz handoff 28.08.
     } else if (overlayFeatureFormDrawer.fullScreenView || parent.width >= parent.height) {
-      lastHeight = parent.height - mainWindow.sceneTopMargin;
-      return lastHeight;
+      return parent.height - mainWindow.sceneTopMargin;
     } else {
       const newHeight = Math.min(Math.max(200, parent.height * 0.65), parent.height - mainWindow.sceneTopMargin);
-      lastHeight = newHeight;
       return newHeight;
     }
   }
@@ -89,9 +95,12 @@ Drawer {
   readonly property real podniesienieOWysokosc:
     settings ? settings.valueInt("WorkField/podniesienieFormularza", 320) : 320
 
+  // `undefined` NIE JEST liczba — QML zglaszal „Unable to assign
+  // [undefined] to double" przy kazdym otwarciu formularza. Gdy nie
+  // podnosimy, zostawiamy wartosc, ktora Drawer wyliczy sam.
   y: podniesiony && edge === Qt.BottomEdge
      ? Math.max(mainWindow.sceneTopMargin, parent.height - height - podniesienieOWysokosc)
-     : undefined
+     : (edge === Qt.BottomEdge ? parent.height - height : 0)
 
   topPadding: 0
   leftPadding: 0
@@ -178,7 +187,12 @@ Drawer {
     }
 
     onCancelled: {
-      displayToast(qsTr("Changes discarded"));
+      // „Zapisz i wyjdź" woła cancel() PO udanym zapisie, żeby zamknąć
+      // formularz — i wtedy ten komunikat kłamał: zmiany są w bazie,
+      // a człowiek czytał, że przepadły. Zgłoszone z terenu 02.09.2026.
+      displayToast(overlayFeatureForm.wyjscieZZapisem
+                   ? qsTr("Zapisano")
+                   : qsTr("Zmiany odrzucone"));
       //close drawer if still open
       if (overlayFeatureFormDrawer.position > 0) {
         overlayFeatureForm.isSaved = true; //because never changed

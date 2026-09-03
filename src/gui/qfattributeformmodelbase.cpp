@@ -668,7 +668,18 @@ void QfAttributeFormModelBase::buildForm( QgsAttributeEditorContainer *container
         item->setData( "relation", QfAttributeFormModel::ElementType );
         item->setData( "RelationEditor", QfAttributeFormModel::EditorWidget );
         QString relationWidgetType = editorRelation->relationWidgetTypeId();
-        if ( relationWidgetType != QLatin1String( "ordered_relation_editor" ) )
+        // WorkField 03.09.2026 — domysl aplikacji NIE WYGRYWA z jawnym
+        // ustawieniem projektu.
+        //
+        // Bylo: chronione tylko `ordered_relation_editor`, a kazda inna
+        // nazwa byla nadpisywana galeria, gdy warstwa ma pole
+        // ExternalResource. `FITO_SPIS_GATUNKOWY` ma `FOTO`, wiec wlasny
+        // edytor `pietra_relation_editor` ginal — projekt mowil jedno,
+        // aplikacja robila drugie.
+        //
+        // Galeria jako DOMYSLNA przy zalacznikach ma sens. Galeria wbrew
+        // temu, co ktos wpisal — nie.
+        if ( relationWidgetType.isEmpty() )
         {
           QgsVectorLayer *referencingLayer = relation.referencingLayer();
           if ( referencingLayer )

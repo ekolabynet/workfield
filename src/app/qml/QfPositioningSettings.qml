@@ -32,6 +32,15 @@ Settings {
   property bool preciseViewAutoRotate: false
   property int preciseViewRotationSource: QfPositioningPreciseView.RotationSource.Compass
 
+  //! Prog odswiezania mapy przy podazaniu za pozycja, w procentach ekranu.
+  //!
+  //! Bylo 50 na sztywno (pol ekranu) i przy inwentaryzacji wygladalo jak
+  //! stanie w miejscu — czlowiek przechodzil caly plat, zanim mapa drgnela.
+  //!
+  //! Nizej = mapa nadaza scislej, wyzej = rzadsze rysowanie i dluzsza
+  //! bateria. Zakres uzyteczny 2-50.
+  property int progOdswiezaniaMapy: 10
+
   property bool accuracyIndicator: false
   property real accuracyBad: 5.0
   property real accuracyExcellent: 1.0

@@ -3688,7 +3688,22 @@ ApplicationWindow {
             gnssButton.followActiveSkipExtentChanged = true;
             mapCanvas.mapSettings.setCenter(positionSource.projectedPosition, true);
           }
-          const triggerRecenter = Math.abs(Math.abs(mapCanvasMap.mapCanvasWrapper.scale) - 1) > 0.25 || Math.abs(mapCanvasMap.mapCanvasWrapper.x) > (mainWindow.width / 2) || Math.abs(mapCanvasMap.mapCanvasWrapper.y) > (mainWindow.height / 2);
+          // WorkField 03.09.2026 — PROG ODSWIEZANIA.
+          //
+          // Bylo `/ 2`, czyli mapa przerysowywala sie dopiero po przesunieciu
+          // o POL EKRANU. Plotno jest przy podazaniu zamrozone
+          // (`freeze('follow')`), wiec nie odswieza sie samo — i wygladalo to
+          // jak stanie w miejscu: wskaznik sie ruszal, wspolrzedne rosly,
+          // podklad stal.
+          //
+          // Przy inwentaryzacji pol ekranu to kilkadziesiat metrow — czlowiek
+          // przechodzi caly plat, zanim mapa drgnie.
+          //
+          // Domyslnie 10%. Wyzej = rzadsze rysowanie i dluzsza bateria,
+          // nizej = mapa nadaza scislej. Ograniczenie 2-50 chroni przed
+          // wartoscia, ktora zatrzymalaby mape na dobre.
+          const udzialProgu = Math.min(50, Math.max(2, positioningSettings.progOdswiezaniaMapy || 10)) / 100;
+          const triggerRecenter = Math.abs(Math.abs(mapCanvasMap.mapCanvasWrapper.scale) - 1) > 0.25 || Math.abs(mapCanvasMap.mapCanvasWrapper.x) > (mainWindow.width * udzialProgu) || Math.abs(mapCanvasMap.mapCanvasWrapper.y) > (mainWindow.height * udzialProgu);
           if (triggerRecenter || forceRecenter) {
             if (positionSource.positionInformation.directionValid) {
               // Prioritize preview quadrants based on movement direction

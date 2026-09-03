@@ -110,6 +110,7 @@ set(QFIELD_GUI_QML_FILES
     editorwidgets/QfEditorWidgetValueMap.qml
     editorwidgets/QfEditorWidgetValueRelation.qml
     editorwidgets/QfRelationEditorBase.qml
+    editorwidgets/relationeditors/pietra_relation_editor.qml
     editorwidgets/relationeditors/gallery_relation_editor.qml
     editorwidgets/relationeditors/ordered_relation_editor.qml
     editorwidgets/relationeditors/relation_editor.qml
