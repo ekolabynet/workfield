@@ -17,10 +17,13 @@
 
 #include "qfexpressioncontextutils.h"
 #include "qffeaturemodel.h"
+#include "utils/qffileutils.h"
 #include "qflayerutils.h"
 #include "qfvertexmodel.h"
 #include "qgsquickmapsettings.h"
 
+#include <QDateTime>
+#include <QSettings>
 #include <QJSValue>
 #include <QMutex>
 #include <qgscurvepolygon.h>
@@ -1417,6 +1420,39 @@ bool QfFeatureModel::commit( bool stopEditing )
   }
   else
   {
+    // WorkField 07.09.2026 — kopia bazy po udanym zapisie.
+    //
+    // Tego dnia przepadly opisy kilkunastu platow z calego dnia terenu.
+    // Probowalismy najpierw wpiac sie w `save()` w QML, ale zapis idzie
+    // rozna droga — formularzem, QuickCapture, edycja geometrii — i tamto
+    // wolanie nie padalo.
+    //
+    // `commit()` jest wspolne dla wszystkich drog. Kopia robi sie tu,
+    // niezaleznie od tego, kto zapisal.
+    //
+    // Odstep pilnuje sama QfFileUtils::kopiaBazy przez nazwe z minuta:
+    // druga kopia w tej samej minucie zwraca istniejaca. Rzadszy odstep
+    // ustawia sie w WorkField/odstepKopii — patrz nizej.
+    static QMap<QString, QDateTime> ostatnia;
+    const QString sciezka = mLayer->source().split( '|' ).at( 0 );
+    if ( sciezka.endsWith( QLatin1String( ".gpkg" ), Qt::CaseInsensitive ) )
+    {
+      QSettings ustawienia;
+      const int odstep = ustawienia.value( QStringLiteral( "WorkField/odstepKopii" ), 10 ).toInt();
+      const QDateTime teraz = QDateTime::currentDateTime();
+      if ( !ostatnia.contains( sciezka )
+           || ostatnia.value( sciezka ).secsTo( teraz ) >= odstep * 60 )
+      {
+        const int ile = ustawienia.value( QStringLiteral( "WorkField/ileKopii" ), 10 ).toInt();
+        const QString kopia = QfFileUtils::kopiaBazy( sciezka, ile );
+        if ( !kopia.isEmpty() )
+        {
+          ostatnia[sciezka] = teraz;
+          QgsMessageLog::logMessage( tr( "Kopia bazy: %1" ).arg( kopia ),
+                                     QStringLiteral( "WorkField" ), Qgis::Info );
+        }
+      }
+    }
     return true;
   }
 }
