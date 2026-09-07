@@ -147,6 +147,20 @@ class QFIELD_CORE_EXPORT QfFileUtils : public QObject
     Q_INVOKABLE static QString fileEtag( const QString &fileName, int partSize = 8 * 1024 * 1024 );
 
     /**
+     * Spójna kopia bazy GeoPackage do podkatalogu `kopie/` obok niej.
+     *
+     * `VACUUM INTO` — sposób SQLite na kopię DZIAŁAJĄCEJ bazy. Zwykłe
+     * skopiowanie pliku dałoby kopię bez ostatnich zmian, bo te siedzą
+     * w dzienniku `-wal`. Dokładnie to przepadło 07.09.2026: dziennik
+     * usunięto przed pobraniem zwrotu i zniknęła praca całego dnia.
+     *
+     * Starsze niż `ileZachowac` są kasowane.
+     *
+     * \returns ścieżka do kopii albo pusty napis.
+     */
+    Q_INVOKABLE static QString kopiaBazy( const QString &sciezkaBazy, int ileZachowac = 10 );
+
+    /**
      * Unzip a zip file in an output directory.
      * \param zip The zip filename
      * \param dir The output directory

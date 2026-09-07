@@ -21,6 +21,7 @@
 #include "qgsmessagelog.h"
 
 #include <QDebug>
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
@@ -30,6 +31,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QStandardPaths>
+#include <sqlite3.h>
 #include <qgis.h>
 #include <qgsapplication.h>
 #include <qgsexiftools.h>
@@ -306,6 +308,61 @@ QByteArray QfFileUtils::fileChecksum( const QString &fileName, const QCryptograp
     return hash.result();
 
   return QByteArray();
+}
+
+QString QfFileUtils::kopiaBazy( const QString &sciezkaBazy, int ileZachowac )
+{
+  const QFileInfo info( sciezkaBazy );
+  if ( !info.exists() )
+    return QString();
+
+  QDir katalog( info.absolutePath() );
+  if ( !katalog.exists( QStringLiteral( "kopie" ) ) && !katalog.mkdir( QStringLiteral( "kopie" ) ) )
+    return QString();
+
+  const QString znacznik = QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmm" ) );
+  const QString cel = katalog.absoluteFilePath(
+    QStringLiteral( "kopie/%1_%2.gpkg" ).arg( info.completeBaseName(), znacznik ) );
+
+  // Kopia z tej samej minuty juz jest.
+  if ( QFile::exists( cel ) )
+    return cel;
+
+  sqlite3 *db = nullptr;
+  if ( sqlite3_open_v2( sciezkaBazy.toUtf8().constData(), &db, SQLITE_OPEN_READWRITE, nullptr ) != SQLITE_OK )
+  {
+    if ( db )
+      sqlite3_close( db );
+    return QString();
+  }
+
+  // VACUUM INTO scala dziennik i zapisuje spojny plik — bez tego kopia
+  // nie mialaby ostatnich zmian.
+  QString celSql = cel;
+  celSql.replace( QLatin1String( "'" ), QLatin1String( "''" ) );
+  const QString sql = QStringLiteral( "VACUUM INTO '%1'" ).arg( celSql );
+  char *blad = nullptr;
+  const int wynik = sqlite3_exec( db, sql.toUtf8().constData(), nullptr, nullptr, &blad );
+  const QString tresc = blad ? QString::fromUtf8( blad ) : QString();
+  if ( blad )
+    sqlite3_free( blad );
+  sqlite3_close( db );
+
+  if ( wynik != SQLITE_OK )
+  {
+    QgsMessageLog::logMessage( QStringLiteral( "Kopia nie powiodla sie: %1" ).arg( tresc ),
+                               QStringLiteral( "WorkField" ), Qgis::Warning );
+    QFile::remove( cel );
+    return QString();
+  }
+
+  QDir kopie( katalog.absoluteFilePath( QStringLiteral( "kopie" ) ) );
+  const QFileInfoList lista = kopie.entryInfoList( QStringList() << QStringLiteral( "*.gpkg" ),
+                                                   QDir::Files, QDir::Time );
+  for ( int i = ileZachowac; i < lista.size(); ++i )
+    QFile::remove( lista.at( i ).absoluteFilePath() );
+
+  return cel;
 }
 
 QString QfFileUtils::fileEtag( const QString &fileName, int partSize )

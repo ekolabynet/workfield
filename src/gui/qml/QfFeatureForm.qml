@@ -1252,6 +1252,39 @@ Page {
     confirmed();
   }
 
+  //! Kiedy ostatnio zrobiono kopie — zeby nie robic jej przy kazdym zapisie.
+  property double ostatniaKopia: 0
+
+  /**
+   * Kopia bazy po udanym zapisie, nie czesciej niz co 10 minut.
+   *
+   * 07.09.2026 przepadly opisy kilkunastu platow z calego dnia terenu.
+   * Trzy zabezpieczenia zawiodly naraz, bo zadnego nie bylo.
+   *
+   * Bez ograniczenia czasowego piecdziesiat zapisow w godzine dawaloby
+   * piecdziesiat kopii po 16 MB. Dziesiec minut to kompromis: przy awarii
+   * traci sie najwyzej kilka obiektow, a nie caly dzien.
+   */
+  function zrobKopie() {
+    const teraz = Date.now();
+    const odstep = (settings ? settings.valueInt("WorkField/odstepKopii", 10) : 10) * 60000;
+    if (teraz - ostatniaKopia < odstep)
+      return;
+    const w = model && model.featureModel ? model.featureModel.currentLayer : null;
+    if (!w)
+      return;
+    const zrodlo = String(w.source).split("|")[0];
+    if (!zrodlo.endsWith(".gpkg"))
+      return;
+    console.log("KOPIA: warstwa", w.name, "| zrodlo", zrodlo,
+                "| FileUtils", typeof FileUtils,
+                "| kopiaBazy", (typeof FileUtils !== 'undefined' ? typeof FileUtils.kopiaBazy : "-"));
+    const c = FileUtils.kopiaBazy(zrodlo, settings ? settings.valueInt("WorkField/ileKopii", 10) : 10);
+    console.log("KOPIA: wynik", c);
+    if (c !== "")
+      ostatniaKopia = teraz;
+  }
+
   function save() {
     if (!model.constraintsHardValid) {
       return false;
@@ -1282,6 +1315,8 @@ Page {
     if (isSuccess) {
       // WorkField: silne potwierdzenie zapisu obiektu — wyczuwalne w rekawicy
       haptyka(80);
+      // Kopia bazy — nie czesciej niz co 10 minut, patrz zrobKopie().
+      Qt.callLater(zrobKopie);
     }
     if (!isSuccess && !errorPushed) {
       displayToast(qsTr('Unable to save changes'), 'error');
