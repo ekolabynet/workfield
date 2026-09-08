@@ -161,6 +161,26 @@ class QFIELD_CORE_EXPORT QfFileUtils : public QObject
     Q_INVOKABLE static QString kopiaBazy( const QString &sciezkaBazy, int ileZachowac = 10 );
 
     /**
+     * Wykonuje polecenie SQL na bazie GeoPackage i zwraca wynik.
+     *
+     * Otwiera drzwi do tabel technicznych formatu (`rtree_*`,
+     * `gpkg_contents`, `gpkg_extensions`), których QML nie widzi — bo to
+     * nie są warstwy mapy. Bez tego naprawa indeksu przestrzennego czy
+     * rejestracja tabeli wymaga komputera.
+     *
+     * **Robi kopię bazy przed każdym poleceniem zmieniającym.** Kopia
+     * z tej samej minuty nie powtarza się, więc seria poleceń kosztuje
+     * jedną.
+     *
+     * Odmawia `ATTACH` — dołączenie innej bazy pozwoliłoby pisać poza
+     * wskazaną ścieżką.
+     *
+     * \returns lista wierszy jako mapy nazwa→wartość. Przy błędzie
+     *          jednoelementowa lista z kluczem `blad`.
+     */
+    Q_INVOKABLE static QVariantList zapytanieSql( const QString &sciezkaBazy, const QString &sql );
+
+    /**
      * Unzip a zip file in an output directory.
      * \param zip The zip filename
      * \param dir The output directory

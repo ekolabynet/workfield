@@ -28,6 +28,7 @@
 #include <QImage>
 #include <QImageReader>
 #include <QMimeDatabase>
+#include <QRegularExpression>
 #include <QPainter>
 #include <QPainterPath>
 #include <QStandardPaths>
@@ -308,6 +309,121 @@ QByteArray QfFileUtils::fileChecksum( const QString &fileName, const QCryptograp
     return hash.result();
 
   return QByteArray();
+}
+
+QVariantList QfFileUtils::zapytanieSql( const QString &sciezkaBazy, const QString &sql )
+{
+  QVariantList wynik;
+  auto blad = [&wynik]( const QString &tresc ) {
+    QVariantMap m;
+    m[QStringLiteral( "blad" )] = tresc;
+    wynik.append( m );
+    return wynik;
+  };
+
+  if ( !QFile::exists( sciezkaBazy ) )
+    return blad( QStringLiteral( "Nie ma pliku: %1" ).arg( sciezkaBazy ) );
+
+  const QString oczyszczony = sql.trimmed();
+  if ( oczyszczony.isEmpty() )
+    return blad( QStringLiteral( "Puste polecenie" ) );
+
+  // ATTACH pozwolilby dolaczyc inna baze i pisac poza wskazana sciezka —
+  // czyli ominac jedyne ograniczenie, jakie ten czasownik ma.
+  if ( oczyszczony.contains( QRegularExpression( QStringLiteral( "\\\\bATTACH\\\\b" ),
+                                                 QRegularExpression::CaseInsensitiveOption ) ) )
+    return blad( QStringLiteral( "ATTACH nie jest dozwolone" ) );
+
+  // Kopia przed kazdym poleceniem, ktore moze cokolwiek zmienic.
+  // `kopiaBazy` sama pomija powtorke z tej samej minuty, wiec seria
+  // polecen kosztuje jedna kopie.
+  static const QRegularExpression zmieniajace(
+    QStringLiteral( "^\\\\s*(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|VACUUM|PRAGMA)" ),
+    QRegularExpression::CaseInsensitiveOption );
+  if ( zmieniajace.match( oczyszczony ).hasMatch() )
+  {
+    const QString kopia = kopiaBazy( sciezkaBazy );
+    if ( kopia.isEmpty() )
+      QgsMessageLog::logMessage( QStringLiteral( "SQL: nie udalo sie zrobic kopii przed zmiana" ),
+                                 QStringLiteral( "WorkField" ), Qgis::Warning );
+  }
+
+  sqlite3 *db = nullptr;
+  if ( sqlite3_open_v2( sciezkaBazy.toUtf8().constData(), &db, SQLITE_OPEN_READWRITE, nullptr ) != SQLITE_OK )
+  {
+    const QString t = db ? QString::fromUtf8( sqlite3_errmsg( db ) ) : QStringLiteral( "?" );
+    if ( db )
+      sqlite3_close( db );
+    return blad( QStringLiteral( "Nie moge otworzyc bazy: %1" ).arg( t ) );
+  }
+
+  sqlite3_stmt *stmt = nullptr;
+  if ( sqlite3_prepare_v2( db, oczyszczony.toUtf8().constData(), -1, &stmt, nullptr ) != SQLITE_OK )
+  {
+    const QString t = QString::fromUtf8( sqlite3_errmsg( db ) );
+    sqlite3_close( db );
+    return blad( t );
+  }
+
+  int krok = 0;
+  int wierszy = 0;
+  while ( ( krok = sqlite3_step( stmt ) ) == SQLITE_ROW )
+  {
+    QVariantMap w;
+    const int kolumn = sqlite3_column_count( stmt );
+    for ( int i = 0; i < kolumn; ++i )
+    {
+      const QString nazwa = QString::fromUtf8( sqlite3_column_name( stmt, i ) );
+      switch ( sqlite3_column_type( stmt, i ) )
+      {
+        case SQLITE_INTEGER:
+          w[nazwa] = static_cast<qlonglong>( sqlite3_column_int64( stmt, i ) );
+          break;
+        case SQLITE_FLOAT:
+          w[nazwa] = sqlite3_column_double( stmt, i );
+          break;
+        case SQLITE_NULL:
+          w[nazwa] = QVariant();
+          break;
+        case SQLITE_BLOB:
+          // Geometrie potrafia miec megabajty — pokazujemy rozmiar,
+          // nie zawartosc. Konsola ma sluzyc do naprawy, nie do ogladania
+          // wspolrzednych.
+          w[nazwa] = QStringLiteral( "<%1 B>" ).arg( sqlite3_column_bytes( stmt, i ) );
+          break;
+        default:
+          w[nazwa] = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( stmt, i ) ) );
+      }
+    }
+    wynik.append( w );
+    // Zabezpieczenie przed wypisaniem calej tabeli na telefonie.
+    if ( ++wierszy >= 500 )
+    {
+      QVariantMap m;
+      m[QStringLiteral( "uwaga" )] = QStringLiteral( "obcięte na 500 wierszach" );
+      wynik.append( m );
+      break;
+    }
+  }
+
+  const bool ok = ( krok == SQLITE_DONE || krok == SQLITE_ROW );
+  const QString tresc = ok ? QString() : QString::fromUtf8( sqlite3_errmsg( db ) );
+  const int zmienione = sqlite3_changes( db );
+  sqlite3_finalize( stmt );
+  sqlite3_close( db );
+
+  if ( !ok )
+    return blad( tresc );
+
+  // Polecenia bez wynikow (UPDATE, DELETE) nie zwracaja wierszy — bez tego
+  // czlowiek nie wiedzialby, czy cokolwiek sie stalo.
+  if ( wynik.isEmpty() )
+  {
+    QVariantMap m;
+    m[QStringLiteral( "zmienionych" )] = zmienione;
+    wynik.append( m );
+  }
+  return wynik;
 }
 
 QString QfFileUtils::kopiaBazy( const QString &sciezkaBazy, int ileZachowac )
