@@ -101,6 +101,10 @@ Drawer {
       dataDrawer.close();
       textEditor.open();
       return;
+    case "pliki":
+      // WorkField 09.09.2026 — bez dataDrawer.close(), patrz "spis" nizej.
+      menedzerPlikow.otworz();
+      return;
     case "kopia":
       panelKopii.open();
       return;
@@ -231,6 +235,7 @@ Drawer {
             { "naglowek": qsTr("Teren i pliki") },
             { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
             { "label": qsTr("Klawisze szybkiego zapisu"), "action": "klawisze", "ikona": "wfg_zapisz" },
+            { "label": qsTr("Pliki aplikacji"), "action": "pliki", "ikona": "wfg_przeglad" },
             { "label": qsTr("Edytor plików projektu"), "action": "editor", "ikona": "wfg_wlasciwosci" },
             { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad" },
             { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka" },

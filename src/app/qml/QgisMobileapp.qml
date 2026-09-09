@@ -6174,6 +6174,10 @@ ApplicationWindow {
     id: terenSettings
   }
 
+  QfMenedzerPlikow {
+    id: menedzerPlikow
+  }
+
   QfTextEditor {
     id: textEditor
   }

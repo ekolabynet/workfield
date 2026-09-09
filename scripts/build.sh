@@ -8,12 +8,13 @@ SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"/..
 # versionCode), nazwa tylko wyswietlana. Wpisanie "0.9.2 - Ancient Ash" do
 # APP_VERSION_STR dawalo APP_VERSION="v0.9.2 - Ancient Ash" (zepsuty link do
 # wydania) i dzialalo w awk tylko przez przypadek koercji.
-export APP_VERSION_NUM="${APP_VERSION_NUM:-0.10.0}"
-export APP_CODENAME="${APP_CODENAME:-Cyber Cedar}"
+export APP_VERSION_NUM="${APP_VERSION_NUM:-0.11.0.b35}"
+export APP_CODENAME="${APP_CODENAME:-Digital Dogwood}"
 # APP_VERSION (CPack, link do wydania w oknie "O programie") z tego samego zrodla
 export APP_VERSION=${APP_VERSION:-v$APP_VERSION_NUM}
 # versionCode = major*10000 + minor*100 + patch: rosnie takze przy 0.10.x i 1.0.0
-export APK_VERSION_CODE=${APK_VERSION_CODE:-$(echo "$APP_VERSION_NUM" | awk -F. '{print $1*10000 + $2*100 + $3}')}
+export APK_VERSION_CODE=${APK_VERSION_CODE:-1135} # bN gubi sie w awk
+export APK_VERSION_CODE_STARE=${APK_VERSION_CODE_STARE:-$(echo "$APP_VERSION_NUM" | awk -F. '{print $1*10000 + $2*100 + $3}')}
 # to widzi czlowiek w oknie "O programie"
 export APP_VERSION_STR="${APP_VERSION_STR:-$APP_VERSION_NUM - $APP_CODENAME}"
 
