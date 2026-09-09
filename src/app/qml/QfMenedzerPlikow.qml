@@ -47,6 +47,8 @@ Popup {
   property string schowek: ""
   property string schowekTryb: "" // "kopiuj" | "wytnij"
   property bool schowekKatalog: false
+  property var historia: []
+  property int wHistorii: -1
   property string komunikat: ""
   property bool blad: false
 
@@ -61,19 +63,38 @@ Popup {
     } catch (e) {
       k = "";
     }
+    // appDataDirs() wskazuje na `files/QField/` — o poziom za gleboko.
+    // Korzeniem jest `files`, bo jego dziecmi sa i `Imported Projects`
+    // (zlecenia, zdjecia, kopie), i `QField` (auth, fonts, proj, plugins).
+    // Zwraca DWA katalogi: pamiec wewnetrzna i karte SD.
     if (k === "" && platformUtilities.appDataDirs !== undefined) {
       var d = platformUtilities.appDataDirs();
       if (d && d.length > 0)
-        k = String(d[0]).replace(/\/$/, "");
+        k = String(d[0]).replace(/\/+$/, "").replace(/\/QField$/, "");
     }
-    if (k === "" && qgisProject && qgisProject.homePath !== "")
-      k = qgisProject.homePath;
+    if (k === "" && qgisProject && qgisProject.homePath !== "") {
+      var m = String(qgisProject.homePath).match(/^(.*\/files)\//);
+      k = m ? m[1] : qgisProject.homePath;
+    }
     return k;
+  }
+
+  function idzDo(nowa) {
+    if (nowa === sciezka)
+      return;
+    historia = historia.slice(0, wHistorii + 1);
+    historia.push(nowa);
+    wHistorii = historia.length - 1;
+    sciezka = nowa;
   }
 
   function otworz() {
     korzen = domyslnyKorzen();
-    sciezka = korzen;
+    // Start w katalogu otwartego projektu — tam sie pracuje. Korzen jest
+    // wyzej, wiec "W gore" prowadzi do pozostalych zlecen.
+    sciezka = qgisProject && qgisProject.homePath !== "" ? qgisProject.homePath : korzen;
+    historia = [sciezka];
+    wHistorii = 0;
     komunikat = "";
     blad = false;
     open();
@@ -111,29 +132,41 @@ Popup {
   }
 
   function tekstowy(n) {
-    return /\.(json|txt|md|csv|qml|log|xml)$/i.test(n);
+    // .qgs to zwykly XML — kopie projektu maja byc do obejrzenia.
+    // .qgz odpada: to zip. .gpkg tez: binarna baza.
+    return /\.(json|txt|md|csv|qml|log|xml|qgs)$/i.test(n);
+  }
+
+  /** FileUtils.readFileContent czyta TYLKO z katalogu otwartego projektu
+      (bariera bezpieczenstwa QFielda, log: "outside project directory").
+      Poza nim edycja jest niemozliwa — wiec nie pokazujemy jej w menu. */
+  function edytowalny(nazwa, pelna) {
+    return tekstowy(nazwa) && qgisProject && qgisProject.homePath !== "" && String(pelna).indexOf(qgisProject.homePath + "/") === 0;
   }
 
   /** Pliki, ktorych aplikacja uzywa TERAZ. Odmowa, nie ostrzezenie. */
   function zablokowany(nazwa, pelna) {
     if (!qgisProject || qgisProject.homePath === "")
       return "";
-    if (String(pelna).indexOf(qgisProject.homePath) !== 0)
+    // TYLKO pliki lezace WPROST w katalogu projektu. Kopie w `kopie/`,
+    // zdjecia w `DCIM/` i stare wydania nie sa w uzyciu — pierwsza wersja
+    // lapala je wzorcem `*.gpkg` i blokowala wszystko.
+    if (String(pelna) !== qgisProject.homePath + "/" + nazwa)
       return "";
-    if (/-(wal|shm)$/i.test(nazwa))
-      return qsTr("dziennik otwartej bazy");
-    if (/\.gpkg$/i.test(nazwa))
+    if (/^dane\.gpkg(-wal|-shm)?$/i.test(nazwa))
       return qsTr("baza otwartego projektu");
-    if (/\.qgs$/i.test(nazwa))
+    if (/^projekt\.qgs$/i.test(nazwa))
       return qsTr("plik otwartego projektu");
     return "";
   }
 
+
   function powiedz(t, jestBlad) {
     komunikat = t;
     blad = jestBlad === true;
-    plikiModel.folder = "";
-    plikiModel.folder = "file://" + sciezka;
+    // NIE przestawiac plikiModel.folder — to zrywa wiazanie z `sciezka`
+    // na stale i po pierwszym komunikacie lista przestaje reagowac.
+    // FolderListModel sam obserwuje katalog.
   }
 
   // --- czasowniki -----------------------------------------------------
@@ -192,13 +225,26 @@ Popup {
 
   function edytujKopie(nazwa, pelna) {
     var roboczy = pelna + ".roboczy";
-    if (!FileUtils.copyRecursively(pelna, roboczy, null, false)) {
+    var tresc = "";
+    try {
+      tresc = FileUtils.readFileContent(pelna);
+    } catch (e) {
+      powiedz(qsTr("Nie udalo sie odczytac pliku."), true);
+      return;
+    }
+    if (tresc === undefined || tresc === null) {
+      powiedz(qsTr("Plik pusty albo nieczytelny."), true);
+      return;
+    }
+    FileUtils.writeFileContent(roboczy, tresc);
+    if (!FileUtils.fileExists(roboczy)) {
       powiedz(qsTr("Nie udalo sie zrobic kopii roboczej."), true);
       return;
     }
     textEditor.wczytaj(roboczy);
     textEditor.open();
   }
+
 
   function podmien(nazwa, pelna) {
     var oryginal = String(pelna).replace(/\.roboczy$/, "");
@@ -237,9 +283,30 @@ Popup {
       spacing: 8
 
       ToolButton {
-        text: "\u2191"
+        text: qsTr("\u2190 Wstecz")
+        font: Theme.tinyFont
+        enabled: menedzer.wHistorii > 0
+        onClicked: {
+          menedzer.wHistorii--;
+          menedzer.sciezka = menedzer.historia[menedzer.wHistorii];
+        }
+      }
+
+      ToolButton {
+        text: qsTr("Dalej \u2192")
+        font: Theme.tinyFont
+        enabled: menedzer.wHistorii >= 0 && menedzer.wHistorii < menedzer.historia.length - 1
+        onClicked: {
+          menedzer.wHistorii++;
+          menedzer.sciezka = menedzer.historia[menedzer.wHistorii];
+        }
+      }
+
+      ToolButton {
+        text: qsTr("\u2191 W gore")
+        font: Theme.tinyFont
         enabled: menedzer.sciezka !== menedzer.korzen
-        onClicked: menedzer.sciezka = menedzer.rodzic(menedzer.sciezka)
+        onClicked: menedzer.idzDo(menedzer.rodzic(menedzer.sciezka))
       }
 
       Text {
@@ -254,6 +321,12 @@ Popup {
         text: qsTr("%1 poz.").arg(plikiModel.count)
         color: "#B0BEC5"
         font: Theme.tinyFont
+      }
+
+      ToolButton {
+        text: qsTr("Zamknij")
+        font: Theme.tinyFont
+        onClicked: menedzer.close()
       }
     }
 
@@ -346,7 +419,7 @@ Popup {
 
         onClicked: {
           if (fileIsDir)
-            menedzer.sciezka = pelna;
+            menedzer.idzDo(pelna);
           else if (powodBlokady !== "")
             menedzer.powiedz(qsTr("Nietykalne — %1.").arg(powodBlokady), true);
           else
@@ -399,7 +472,7 @@ Popup {
 
     MenuItem {
       text: qsTr("Edytuj kopie")
-      visible: !menu.katalog && menedzer.tekstowy(menu.nazwa)
+      visible: !menu.katalog && menedzer.edytowalny(menu.nazwa, menu.pelna)
       height: visible ? implicitHeight : 0
       onTriggered: menedzer.edytujKopie(menu.nazwa, menu.pelna)
     }
