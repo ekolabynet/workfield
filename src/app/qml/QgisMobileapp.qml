@@ -3868,6 +3868,7 @@ ApplicationWindow {
         QfFeatureModel {
           id: digitizingFeature
           project: qgisProject
+          onGeometriaZniszczona: (powod, opis, bok) => dialogGeometrii.pokaz(powod, opis, bok)
           currentLayer: digitizingToolbar.geometryRequested ? digitizingToolbar.geometryRequestedLayer : dashBoard.activeLayer
           appExpressionContextScopesGenerator: appScopesGenerator
           topSnappingResult: coordinateLocator.topSnappingResult
@@ -6176,6 +6177,42 @@ ApplicationWindow {
 
   QfMenedzerPlikow {
     id: menedzerPlikow
+  }
+
+  // WorkField 09.09.2026 — ODBIORNIK sygnalu `geometriaZniszczona`.
+  // C++ wykrywa to od 25.08 (przyciecie do zera przez unikanie nakladania,
+  // zlepek po edycji topologicznej) i EMITOWAL W PROZNIE: commit d5066311c
+  // odlozyl odbiornik. PZE ma przez to 17 platow z pelnym opisem i bez
+  // ksztaltu — praca zapisana, obiekt niewidoczny na mapie.
+  //
+  // Dialog, nie toast: toast znika po dwoch sekundach, a to jest rzecz,
+  // ktora czlowiek MUSI przeczytac, zanim odejdzie od platu.
+  Dialog {
+    id: dialogGeometrii
+
+    property string powod: ""
+
+    function pokaz(powodSygnalu, opis, bok) {
+      powod = powodSygnalu;
+      trescGeometrii.text = opis;
+      open();
+    }
+
+    parent: mainWindow.contentItem
+    anchors.centerIn: parent
+    width: Math.min(520, mainWindow.width - 32)
+    modal: true
+    closePolicy: Popup.NoAutoClose
+    title: powod === "nakladanie" ? qsTr("Obiekt przyciety do zera") : qsTr("Obiekt bez ksztaltu")
+    standardButtons: Dialog.Ok
+
+    Text {
+      id: trescGeometrii
+      width: parent.width
+      wrapMode: Text.Wrap
+      color: "white"
+      font: Theme.tipFont
+    }
   }
 
   QfTextEditor {

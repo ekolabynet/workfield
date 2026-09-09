@@ -131,6 +131,27 @@ Popup {
     return (b / 1073741824).toFixed(2) + " GB";
   }
 
+  /** Barwa wg typu — orientacja bez czytania rozszerzen. */
+  function barwa(n, katalog, roboczy, zablokowany) {
+    if (katalog)
+      return "#80CBC4";
+    if (zablokowany)
+      return "#78909C";
+    if (roboczy)
+      return "#FFC107";
+    if (/\.(jpg|jpeg|png|heic|webp|tif|tiff)$/i.test(n))
+      return "#CE93D8";          // obrazy
+    if (/\.(gpkg|sqlite|db)$/i.test(n))
+      return "#81C784";          // bazy
+    if (/\.(qgs|qgz|qml)$/i.test(n))
+      return "#64B5F6";          // projekt i style
+    if (/\.(zip|gz|tar|7z)$/i.test(n))
+      return "#EF9A9A";          // archiwa
+    if (/\.(json|txt|md|csv|xml|log)$/i.test(n))
+      return "#FFF59D";          // tekst
+    return "white";
+  }
+
   function tekstowy(n) {
     // .qgs to zwykly XML — kopie projektu maja byc do obejrzenia.
     // .qgz odpada: to zip. .gpkg tez: binarna baza.
@@ -223,7 +244,17 @@ Popup {
     }
   }
 
-  function edytujKopie(nazwa, pelna) {
+  function edytujKopie(nazwa, pelna, potwierdzone) {
+    // Edytor byl pisany do plikow kilkukilobajtowych. `projekt.qgs` ma
+    // pol megabajta i podswietlanie potrafi go zadlawic — pytamy najpierw.
+    var info = FileUtils.getFileInfo(pelna);
+    if (potwierdzone !== true && info && info.fileSize > 204800) {
+      duzyPlik.nazwa = nazwa;
+      duzyPlik.pelna = pelna;
+      duzyPlik.ile = Math.round(info.fileSize / 1024);
+      duzyPlik.open();
+      return;
+    }
     var roboczy = pelna + ".roboczy";
     var tresc = "";
     try {
@@ -401,7 +432,7 @@ Popup {
             Text {
               Layout.fillWidth: true
               text: fileName + (fileIsDir ? "/" : "")
-              color: fileIsDir ? "#80CBC4" : (powodBlokady !== "" ? "#78909C" : (roboczy ? "#FFC107" : "white"))
+              color: menedzer.barwa(fileName, fileIsDir, roboczy, powodBlokady !== "")
               font: Theme.defaultFont
               elide: Text.ElideMiddle
             }
@@ -505,7 +536,14 @@ Popup {
 
     MenuItem {
       text: qsTr("Do kosza")
-      onTriggered: menedzer.doKosza(menu.nazwa, menu.pelna, menu.katalog)
+      onTriggered: {
+        doKoszaPyt.nazwa = menu.nazwa;
+        doKoszaPyt.pelna = menu.pelna;
+        doKoszaPyt.katalog = menu.katalog;
+        var i = FileUtils.getFileInfo(menu.pelna);
+        doKoszaPyt.ile = i && i.fileSize ? Math.round(i.fileSize / 1024) : 0;
+        doKoszaPyt.open();
+      }
     }
   }
 }
