@@ -1126,7 +1126,7 @@ Drawer {
               // Kazde konczylo sie ReferenceError i przerywalo caly handler,
               // wiec "Otworz projekt" na komputerze nie robilo NIC.
               // Korzen magazynu wystawia QfStudioSection jako `korzen`.
-              menedzerPlikow.otworz(drzewoZlecen.korzen + "/wydania");
+              photoGallery.openFiles(drzewoZlecen.korzen + "/wydania");
           }
         }
         QfPozycjaMenu {
@@ -1227,7 +1227,7 @@ Drawer {
             // nasza galeria, zakladka Pliki - jedno narzedzie do ogladania
             // zawartosci zamiast przegladarki QFielda
             dashBoard.close();
-            menedzerPlikow.otworz(qgisProject ? qgisProject.homePath : "");
+            photoGallery.openFiles(qgisProject ? qgisProject.homePath : "");
           }
         }
         QfPozycjaMenu {
@@ -1288,7 +1288,7 @@ Drawer {
           ikona: "wfg_magazyn"
           onClicked: {
             dashBoard.close();
-            menedzerPlikow.otworz(iface.dataRoot());
+            photoGallery.openFiles(iface.dataRoot());
           }
         }
         QfPozycjaMenu {

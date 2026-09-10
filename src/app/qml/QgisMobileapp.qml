@@ -6175,10 +6175,6 @@ ApplicationWindow {
     id: terenSettings
   }
 
-  QfMenedzerPlikow {
-    id: menedzerPlikow
-  }
-
   // WorkField 09.09.2026 — ODBIORNIK sygnalu `geometriaZniszczona`.
   // C++ wykrywa to od 25.08 (przyciecie do zera przez unikanie nakladania,
   // zlepek po edycji topologicznej) i EMITOWAL W PROZNIE: commit d5066311c

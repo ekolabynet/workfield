@@ -99,7 +99,7 @@ Drawer {
       return;
     case "pliki":
       // WorkField 09.09.2026 — bez dataDrawer.close(), patrz "spis" nizej.
-      menedzerPlikow.otworz();
+      photoGallery.openFiles(iface.dataRoot());
       return;
     case "kopia":
       panelKopii.open();

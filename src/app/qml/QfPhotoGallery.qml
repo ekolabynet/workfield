@@ -241,6 +241,162 @@ Popup {
    * Dzieki temu zawartosc projektu i katalogu aplikacji oglada sie jednym
    * narzedziem, zamiast trzema roznymi przegladarkami.
    */
+  // ======================================================================
+  // OPERACJE NA PLIKACH — przeniesione z QfMenedzerPlikow.qml, 10.09.2026
+  // ======================================================================
+  //
+  // Menedzer byl osobnym ekranem przez trzy dni i przez caly ten czas
+  // POWTARZAL to, co ta zakladka juz robila: nawigacje, model katalogu,
+  // pasek "w gore". Unikalne bylo w nim OSIEM POZYCJI MENU. Do tego nie
+  // umial rzeczy najwazniejszej — otworzyc projektu.
+  //
+  // Stad podzial, ktory sam sie narzuca:
+  //     TAPNIECIE otwiera.   PRZYTRZYMANIE daje czynnosci.
+  //
+  // GRANICA, ktorej nie da sie obejsc z QML (sprawdzone 10.09 sondami):
+  //   * `renameFile` i `rmFile` dzialaja TYLKO w katalogu projektu,
+  //   * `copyRecursively` przechodzi z magazynu DO projektu,
+  //   * `createDir` zwraca `true` NIE TWORZAC katalogu — nie ufamy mu,
+  //   * `FileUtils.fileExists` poza projektem zawsze klamie `false`.
+  //
+  // Dlatego czynnosci zmieniajace sa czynne wylacznie w projekcie, a poza
+  // nim wyszarzone Z PODANIEM POWODU. Przycisk widoczny i nieczynny jest
+  // uczciwy; widoczny i milczacy nie jest.
+
+  property string schowek: ""
+  property string schowekTryb: ""      // "kopiuj" | "przenies"
+  property bool schowekKatalog: false
+  property string komunikatPlikow: ""
+  property bool bladPlikow: false
+
+  //! Kosz mieszka W PROJEKCIE, nie w korzeniu aplikacji: tylko tam dziala
+  //! `renameFile`. Jedzie w teren razem z projektem — decyzja Piotra 09.09.
+  readonly property string koszProjektu: projectDir !== "" ? projectDir + "/kosz" : ""
+
+  function powiedzPliki(t, jestBlad) {
+    komunikatPlikow = t;
+    bladPlikow = jestBlad === true;
+  }
+
+  function wProjekcie(sciezka) {
+    return projectDir !== "" && String(sciezka).indexOf(projectDir + "/") === 0;
+  }
+
+  //! Pliki, ktorych aplikacja uzywa TERAZ. Odmowa, nie ostrzezenie.
+  function powodBlokady(nazwa, pelna) {
+    if (projectDir === "" || String(pelna) !== projectDir + "/" + nazwa)
+      return "";
+    if (/^dane\.gpkg(-wal|-shm)?$/i.test(nazwa))
+      return qsTr("baza otwartego projektu");
+    if (/^projekt\.qg[sz]$/i.test(nazwa))
+      return qsTr("plik otwartego projektu");
+    return "";
+  }
+
+  function znacznikCzasu() {
+    const d = new Date();
+    function dw(n) { return ("0" + n).slice(-2); }
+    return "" + d.getFullYear() + dw(d.getMonth() + 1) + dw(d.getDate()) + "_" + dw(d.getHours()) + dw(d.getMinutes());
+  }
+
+  function doKosza(nazwa, pelna) {
+    const powod = powodBlokady(nazwa, pelna);
+    if (powod !== "") {
+      powiedzPliki(qsTr("Nie usunieto — %1.").arg(powod), true);
+      return;
+    }
+    if (!wProjekcie(pelna)) {
+      powiedzPliki(qsTr("Poza katalogiem projektu — magazyn jest tylko do odczytu."), true);
+      return;
+    }
+    // Sciezka zrodlowa siedzi w NAZWIE (`/` → `__`), bo spis w koszu bylby
+    // nieczytelny: `readFileContent` czyta tylko z katalogu projektu.
+    const wzgledna = String(pelna).substring(projectDir.length + 1);
+    const cel = koszProjektu + "/" + znacznikCzasu() + "__" + wzgledna.replace(/\//g, "__");
+    if (platformUtilities.renameFile(pelna, cel, false))
+      powiedzPliki(qsTr("Do kosza: %1").arg(nazwa));
+    else
+      powiedzPliki(qsTr("Nie udalo sie — czy katalog `kosz` istnieje w projekcie?"), true);
+  }
+
+  function przywrocZKosza(nazwa, pelna) {
+    const i = String(nazwa).indexOf("__");
+    if (i < 0) {
+      powiedzPliki(qsTr("Nie wiadomo, skad ten plik pochodzi."), true);
+      return;
+    }
+    const cel = projectDir + "/" + String(nazwa).substring(i + 2).replace(/__/g, "/");
+    if (platformUtilities.renameFile(pelna, cel, false))
+      powiedzPliki(qsTr("Przywrocono: %1").arg(cel.replace(projectDir + "/", "")));
+    else
+      powiedzPliki(qsTr("Nie udalo sie — czy cel juz istnieje?"), true);
+  }
+
+  function wklejTutaj(dokad) {
+    if (schowek === "")
+      return;
+    const cel = dokad + "/" + String(schowek).replace(/\/+$/, "").replace(/^.*\//, "");
+    if (cel === schowek) {
+      powiedzPliki(qsTr("Zrodlo i cel to to samo miejsce."), true);
+      return;
+    }
+    if (schowekTryb === "przenies" && !wProjekcie(schowek)) {
+      powiedzPliki(qsTr("Przeniesc mozna tylko w obrebie projektu. Uzyj Kopiuj."), true);
+      return;
+    }
+    if (!wProjekcie(cel)) {
+      powiedzPliki(qsTr("Wkleic mozna tylko do katalogu projektu."), true);
+      return;
+    }
+    // wipeDestFolder = false — inaczej wklejenie do istniejacego katalogu
+    // CZYSCI go przed kopiowaniem.
+    const ok = schowekTryb === "przenies"
+             ? platformUtilities.renameFile(schowek, cel, false)
+             : FileUtils.copyRecursively(schowek, cel, null, false);
+    if (ok) {
+      powiedzPliki(schowekTryb === "przenies" ? qsTr("Przeniesiono.") : qsTr("Skopiowano."));
+      schowek = "";
+      schowekTryb = "";
+    } else {
+      powiedzPliki(qsTr("Nie udalo sie. Czy plik o tej nazwie juz tu jest?"), true);
+    }
+  }
+
+  //! Edycja idzie na KOPII. Podmiana nie niszczy oryginalu — odklada go
+  //! pod `.poprzednia_RRRRMMDD_GGMM`, wiec jest z czego wrocic.
+  function edytujKopiePliku(nazwa, pelna) {
+    if (!wProjekcie(pelna)) {
+      powiedzPliki(qsTr("Edytowac mozna tylko pliki projektu."), true);
+      return;
+    }
+    const roboczy = pelna + ".roboczy";
+    let tresc = "";
+    try {
+      tresc = FileUtils.readFileContent(pelna);
+    } catch (e) {
+      powiedzPliki(qsTr("Nie udalo sie odczytac pliku."), true);
+      return;
+    }
+    FileUtils.writeFileContent(roboczy, tresc);
+    textEditor.wczytaj(roboczy);
+    textEditor.open();
+  }
+
+  function podmienOryginal(nazwa, pelna) {
+    const oryginal = String(pelna).replace(/\.roboczy$/, "");
+    const odlozony = oryginal + ".poprzednia_" + znacznikCzasu();
+    if (!platformUtilities.renameFile(oryginal, odlozony, false)) {
+      powiedzPliki(qsTr("Nie udalo sie odlozyc oryginalu — nic nie zmieniono."), true);
+      return;
+    }
+    if (platformUtilities.renameFile(pelna, oryginal, false))
+      powiedzPliki(qsTr("Podmieniono. Poprzednia: %1").arg(odlozony.replace(/^.*\//, "")));
+    else {
+      platformUtilities.renameFile(odlozony, oryginal, false);
+      powiedzPliki(qsTr("Podmiana nie doszla — oryginal na miejscu."), true);
+    }
+  }
+
   function openFiles(sciezka) {
     startowyKatalog = sciezka ? sciezka : projectDir;
     startowaZakladka = 1;
@@ -1004,6 +1160,55 @@ Popup {
           }
         }
 
+        // --- komunikat po operacji: bez niego czynnosc milczy
+        Text {
+          Layout.fillWidth: true
+          visible: photoGallery.komunikatPlikow !== ""
+          text: photoGallery.komunikatPlikow
+          color: photoGallery.bladPlikow ? "#EF5350" : "#9CCC65"
+          font: photoGallery.t.tinyFont
+          wrapMode: Text.Wrap
+        }
+
+        // --- schowek: widoczny tylko wtedy, gdy cos w nim jest
+        Rectangle {
+          Layout.fillWidth: true
+          visible: photoGallery.schowek !== ""
+          height: 40
+          radius: 4
+          color: "#33FFC107"
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.margins: 8
+            spacing: 8
+
+            Text {
+              Layout.fillWidth: true
+              text: (photoGallery.schowekTryb === "przenies" ? qsTr("Do przeniesienia: ") : qsTr("Do skopiowania: "))
+                    + String(photoGallery.schowek).replace(/^.*\//, "")
+              color: "#FFC107"
+              font: photoGallery.t.tinyFont
+              elide: Text.ElideMiddle
+            }
+
+            ToolButton {
+              text: qsTr("Wklej tutaj")
+              font: photoGallery.t.tinyFont
+              enabled: photoGallery.wProjekcie(filesPage.browsePath + "/x")
+              onClicked: photoGallery.wklejTutaj(filesPage.browsePath)
+            }
+
+            ToolButton {
+              text: "\u2715"
+              onClicked: {
+                photoGallery.schowek = "";
+                photoGallery.schowekTryb = "";
+              }
+            }
+          }
+        }
+
         ListView {
           id: filesList
           Layout.fillWidth: true
@@ -1105,6 +1310,89 @@ Popup {
                 displayToast(qsTr("Nie wiem, jak otworzyć ten plik"));
               }
             }
+
+            // TAPNIECIE otwiera, PRZYTRZYMANIE daje czynnosci.
+            onPressAndHold: menuPlikow.otworz(fileName, filePath, fileIsDir)
+          }
+        }
+
+        // --- czynnosci na pliku: jedno menu na cala liste, nie na delegat
+        Menu {
+          id: menuPlikow
+
+          property string nazwa: ""
+          property string pelna: ""
+          property bool katalog: false
+          readonly property bool wProj: photoGallery.wProjekcie(pelna)
+          readonly property bool wKoszu: String(pelna).indexOf(photoGallery.koszProjektu + "/") === 0
+          readonly property bool roboczy: /\.roboczy$/.test(nazwa)
+          readonly property string blokada: photoGallery.powodBlokady(nazwa, pelna)
+
+          function otworz(n, p, k) {
+            nazwa = n;
+            pelna = String(p);
+            katalog = k === true;
+            photoGallery.komunikatPlikow = "";
+            popup();
+          }
+
+          MenuItem {
+            text: qsTr("Podmień oryginał")
+            visible: menuPlikow.roboczy
+            height: visible ? implicitHeight : 0
+            onTriggered: photoGallery.podmienOryginal(menuPlikow.nazwa, menuPlikow.pelna)
+          }
+
+          MenuItem {
+            text: qsTr("Przywróć z kosza")
+            visible: menuPlikow.wKoszu
+            height: visible ? implicitHeight : 0
+            onTriggered: photoGallery.przywrocZKosza(menuPlikow.nazwa, menuPlikow.pelna)
+          }
+
+          MenuItem {
+            text: qsTr("Edytuj kopię")
+            visible: !menuPlikow.katalog && /\.(json|txt|md|csv|qml|log|xml|qgs)$/i.test(menuPlikow.nazwa)
+            height: visible ? implicitHeight : 0
+            enabled: menuPlikow.wProj
+            onTriggered: photoGallery.edytujKopiePliku(menuPlikow.nazwa, menuPlikow.pelna)
+          }
+
+          // Kopiuj dziala WSZEDZIE — `copyRecursively` przechodzi
+          // z magazynu do projektu.
+          MenuItem {
+            text: qsTr("Kopiuj")
+            onTriggered: {
+              photoGallery.schowek = menuPlikow.pelna;
+              photoGallery.schowekTryb = "kopiuj";
+              photoGallery.schowekKatalog = menuPlikow.katalog;
+              photoGallery.powiedzPliki(qsTr("W schowku — wejdź, gdzie wkleić."));
+            }
+          }
+
+          MenuItem {
+            text: qsTr("Przenieś")
+            enabled: menuPlikow.wProj && menuPlikow.blokada === ""
+            onTriggered: {
+              photoGallery.schowek = menuPlikow.pelna;
+              photoGallery.schowekTryb = "przenies";
+              photoGallery.schowekKatalog = menuPlikow.katalog;
+              photoGallery.powiedzPliki(qsTr("W schowku — wejdź, gdzie przenieść."));
+            }
+          }
+
+          MenuItem {
+            text: qsTr("Wyślij")
+            visible: !menuPlikow.katalog
+            height: visible ? implicitHeight : 0
+            onTriggered: platformUtilities.sendCompressedFilesTo([menuPlikow.pelna])
+          }
+
+          MenuItem {
+            text: menuPlikow.wProj ? qsTr("Do kosza")
+                                   : qsTr("Do kosza — tylko w projekcie")
+            enabled: menuPlikow.wProj && menuPlikow.blokada === ""
+            onTriggered: photoGallery.doKosza(menuPlikow.nazwa, menuPlikow.pelna)
           }
         }
       }
