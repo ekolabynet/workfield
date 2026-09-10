@@ -84,11 +84,21 @@ Popup {
     sciezka = nowa;
   }
 
-  function otworz() {
+  /**
+   * @param od  opcjonalny katalog startowy. Bez niego — katalog projektu.
+   *
+   * WorkField 10.09.2026: parametr istnieje, bo `photoGallery.openFiles()`
+   * bylo wolane z czterech roznych sciezek. Galeria udawala przegladarke
+   * plikow — mysli miniaturami i rozpoznaje warstwe z nazwy, wiec do `.gpkg`
+   * i `.qgs` sie nie nadaje.
+   */
+  function otworz(od) {
     korzen = domyslnyKorzen();
     // Start w katalogu otwartego projektu — tam sie pracuje. Korzen jest
     // wyzej, wiec "W gore" prowadzi do pozostalych zlecen.
-    sciezka = qgisProject && qgisProject.homePath !== "" ? qgisProject.homePath : korzen;
+    sciezka = (od !== undefined && String(od) !== "")
+              ? String(od).replace(/\/+$/, "")
+              : (qgisProject && qgisProject.homePath !== "" ? qgisProject.homePath : korzen);
     historia = [sciezka];
     wHistorii = 0;
     komunikat = "";
@@ -449,7 +459,10 @@ Popup {
             menedzer.idzDo(pelna);
           else if (powodBlokady !== "")
             menedzer.powiedz(qsTr("Nietykalne — %1.").arg(powodBlokady), true);
-          else
+          else if (/\.(qgs|qgz)$/i.test(fileName)) {
+            menedzer.close();
+            platformUtilities.openProject(pelna);
+          } else
             menu.otworz(fileName, pelna, false, roboczy);
         }
 
@@ -502,6 +515,19 @@ Popup {
       visible: !menu.katalog && menedzer.edytowalny(menu.nazwa, menu.pelna)
       height: visible ? implicitHeight : 0
       onTriggered: menedzer.edytujKopie(menu.nazwa, menu.pelna)
+    }
+
+    // WorkField 10.09.2026 — bez tego "Otworz projekt" prowadzilo do ekranu,
+    // ktory pliki .qgs tylko kopiuje i kasuje. Pozycja PIERWSZA w menu, bo
+    // przy pliku projektu to jedyna czynnosc, ktorej ktokolwiek szuka.
+    MenuItem {
+      text: qsTr("Otworz projekt")
+      visible: !menu.katalog && /\.(qgs|qgz)$/i.test(menu.nazwa)
+      height: visible ? implicitHeight : 0
+      onTriggered: {
+        menedzer.close();
+        platformUtilities.openProject(menu.pelna);
+      }
     }
 
     MenuItem {
