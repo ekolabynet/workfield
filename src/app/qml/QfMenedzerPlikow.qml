@@ -63,15 +63,11 @@ Popup {
     } catch (e) {
       k = "";
     }
-    // appDataDirs() wskazuje na `files/QField/` — o poziom za gleboko.
-    // Korzeniem jest `files`, bo jego dziecmi sa i `Imported Projects`
-    // (zlecenia, zdjecia, kopie), i `QField` (auth, fonts, proj, plugins).
-    // Zwraca DWA katalogi: pamiec wewnetrzna i karte SD.
-    if (k === "" && platformUtilities.appDataDirs !== undefined) {
-      var d = platformUtilities.appDataDirs();
-      if (d && d.length > 0)
-        k = String(d[0]).replace(/\/+$/, "").replace(/\/QField$/, "");
-    }
+    // iface.dataRoot() — baza kanoniczna. NIE appDataDirs(): to katalog
+    // zasobow `.../QField/`, przez ktory szablony i wymiana ladowaly poziom
+    // za gleboko (audyt storage 04.08, wada W1 — patrz qfappinterface.cpp:945).
+    if (k === "" && iface && iface.dataRoot)
+      k = String(iface.dataRoot()).replace(/\/+$/, "");
     if (k === "" && qgisProject && qgisProject.homePath !== "") {
       var m = String(qgisProject.homePath).match(/^(.*\/files)\//);
       k = m ? m[1] : qgisProject.homePath;
