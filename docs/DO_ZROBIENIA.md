@@ -506,3 +506,92 @@ bo handoff jest **relacją z dnia**, nie listą zobowiązań.
 
 > Notatka opisuje, co się wydarzyło. Lista mówi, co jest winne.
 > To dwa różne dokumenty i jeden nie zastąpi drugiego.
+
+---
+
+# Dopisane 11.09.2026
+
+## K. Zdjęcia i obiekty
+
+### K1. Wiązanie zdjęć z obiektami po stożkach widzenia
+Wynika z 09.09: **OpenCamera zapisuje `Yaw`, `Pitch`, `Roll` w `UserComment`**,
+obok GPS i `GPSImgDirection`. Każde zdjęcie wie, gdzie i w którą stronę
+zostało zrobione — więc przypisanie do płatu da się **wyliczyć**, a nie tylko
+zapamiętać.
+
+**Zasada, na której to stoi (rozstrzygnięcie Piotra 11.09):**
+
+> Przeliczenie **PROPONUJE i prosi o zatwierdzenie**. Nie dodaje wierszy,
+> nie kasuje, nie oznacza. Propozycja żyje na ekranie do czasu decyzji.
+
+Odrzucone świadomie: wariant „dodaje i oznacza". Produkowałby wiersze,
+których nikt nie zamawiał, i po miesiącu `ZAL_*` byłoby pełne śmieci ze
+znacznikami. *„Nie kumulujmy nadmiaru nadmiarowości, bo się nią udusimy."*
+
+**Kształt:**
+
+- **Właściwość warstwy** włącza mechanizm — nie wszystkie warstwy chcą zdjęć
+  przypisywanych z EXIF.
+- **Stożki widoczne domyślnie** dla zdjęć leżących w obrębie warstwy i dla już
+  powiązanych. Widać wszystko, zanim cokolwiek trafi do bazy.
+- **Zapis do `ZAL_*` na żądanie**, z potwierdzeniem obiektu.
+- **Po zapisie warstwy** przeliczenie proponuje zmiany. Nic samo.
+- **Wiązanie po `UUID_WIERSZA`, nie po `fid`** — przeżyje przenumerowanie
+  i rozbicie. To pierwsze realne zastosowanie UUID-ów dołożonych 09.09.
+
+**Parametry sprawdzone 09.09** (skrypt stożków, cztery sieroty płatu 316):
+pole **60×45°**, zasięg **8 m**, deklinacja **+6°** (Warszawa), aparat **1,5 m**.
+Przy pełnym polu 97° i zasięgu 25 m stożki zachodzą na trzy–cztery płaty naraz;
+przy tych węższych każdy trafia w jeden.
+
+Rzecz, dla której cała ta robota ma sens: **punkt stania to nie punkt
+fotografowany.** Przy pitchu −41° i aparacie na 1,5 m środek kadru pada ~1,7 m
+przed nogami. Zdjęcie robione z krawędzi płatu do środka ma GPS **poza** płatem
+— dopasowanie po samym punkcie odrzuciłoby je jako „nie w tym płacie".
+Tak było z `zal 34` 09.09: punkt w płacie 467, stożek w 476.
+
+**Zaległość na start: 37 zdjęć luzem** w PTR (bez `plantnet_*`, które są
+plikami roboczymi wtyczki i nie mają mieć wierszy). Rozkład: większość z 7.09,
+czyli z dnia dwóch telefonów i kolizji numerów — wiersze przepadły przy
+scalaniu, pliki jechały z nami przez cztery wydania.
+
+**Zrobione, gdy:** da się otworzyć płat, zobaczyć stożki, zatwierdzić
+przypisanie, a po zmianie geometrii dostać propozycję zamiast cichej zmiany.
+
+### K2. Atlas warstwy
+Panel w lewej szufladzie: **jeden obiekt na ekranie** — miniatura mapy,
+formularz, klikalne miniatury zdjęć, diagramy na żądanie.
+
+Osobna pozycja od K1 celowo: atlas może powstać bez stożków, a stożki bez
+atlasu. Łączenie ich w jedno zadanie zwiększa ryzyko bez żadnego zysku.
+
+### K3. Kasowanie i scalanie płatów zostawia pliki bez wierszy
+Druga strona wady A2. Tam: wiersz `ZAL_` wskazuje na nieistniejącego rodzica.
+Tu: plik leży w `DCIM`, a wiersz zniknął razem z płatem.
+
+Oba objawy ciche, oba wykrywalne dopiero porównaniem bazy z katalogiem.
+
+## L. Kontrola przed wydaniem
+
+### L1. Lista tabel `ZAL_*` wpisana ręcznie w trzech miejscach
+I wszędzie niepełna. 11.09 kontrola sierot pominęła `ZAL_GATUNKI` i pokazała
+84 pliki „luzem" zamiast 57 — czyli **fałszywy alarm na 27 zdjęciach**.
+
+Ten sam mechanizm 09.09 kazał przeoczyć `ZAL_ZDJECIA_FITO` przy planowaniu
+scalenia; tabela wypłynęła dopiero w trakcie.
+
+**Reguła:** tabele `ZAL_*` czytać z `sqlite_master`, nigdy nie wymieniać
+z nazwy.
+
+```sql
+SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'ZAL\_%' ESCAPE '\';
+```
+
+### L2. `plantnet_*` wykluczyć z kontroli sierot
+To pliki robocze wtyczki — zdjęcie idzie do API, wiersz nie powstaje i nie ma
+powstawać. Bez wykluczenia zaciemniają obraz przy każdym wydaniu (9 sztuk
+z samego 11.09).
+
+### L3. Kontrola sierot jako część `obieg.py`
+Dziś liczy się ją ręcznie i trzeba o niej pamiętać. Zero sierot to warunek
+wydania, więc miejsce tego sprawdzenia jest w skrypcie, nie w głowie.
