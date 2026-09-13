@@ -285,7 +285,10 @@ namespace
   {
     const QString nazwa = wzgledna.section( '/', -1 );
     if ( katalog )
-      return nazwa == QLatin1String( "DCIM" ) || nazwa.startsWith( '.' );
+      return nazwa == QLatin1String( "DCIM" )
+             || nazwa == QLatin1String( "kopie" )   // migawki bazy = DANE KLIENTA
+             || nazwa == QLatin1String( "kosz" )    // skasowane, ale nadal dane
+             || nazwa.startsWith( '.' );
     if ( nazwa == QLatin1String( "foto_tagi.gpkg" )
          || nazwa == QLatin1String( "metryka.json" )
          || nazwa == QLatin1String( "metryka_zwrotu.json" ) )
@@ -295,7 +298,11 @@ namespace
            || nazwa.endsWith( QLatin1String( ".mp4" ), Qt::CaseInsensitive )
            || nazwa.endsWith( QLatin1String( ".qgs~" ) )
            || nazwa.endsWith( QLatin1String( ".gpkg-wal" ) )
-           || nazwa.endsWith( QLatin1String( ".gpkg-shm" ) );
+           || nazwa.endsWith( QLatin1String( ".gpkg-shm" ) )
+           || nazwa.endsWith( QLatin1String( ".roboczy" ) )
+           || nazwa.contains( QLatin1String( ".poprzednia_" ) )
+           || nazwa.contains( QLatin1String( ".przed_" ) )
+           || nazwa.contains( QLatin1String( ".bak_" ) );
   }
 
   bool kopiujFiltrowane( const QString &zrodlo, const QString &cel,
@@ -413,7 +420,18 @@ QVariantMap ProcesyStudio::zamienNaSzablon( const QString &sciezkaProjektu,
   QDirIterator it( cel, QStringList() << QStringLiteral( "*.gpkg" ),
                    QDir::Files, QDirIterator::Subdirectories );
   while ( it.hasNext() )
-    wyczyszczone += wyczyscTabele( it.next(), tabeleDoWyczyszczenia );
+  {
+    const QString plik = it.next();
+    wyczyszczone += wyczyscTabele( plik, tabeleDoWyczyszczenia );
+    // Bez VACUUM dane sa usuniete tylko logicznie: strony leza w pliku
+    // i daja sie odczytac. Szablon jedzie do innego klienta.
+    sqlite3 *b = nullptr;
+    if ( sqlite3_open( plik.toUtf8().constData(), &b ) == SQLITE_OK )
+    {
+      sqlite3_exec( b, "VACUUM", nullptr, nullptr, nullptr );
+      sqlite3_close( b );
+    }
+  }
   wynik["ok"] = true;
   wynik["sciezka"] = cel;
   wynik["wyczyszczono"] = wyczyszczone;
@@ -525,7 +543,7 @@ QVariantList ProcesyStudio::spisTabel( const QString &gpkg ) const
   };
   static const QStringList nazwyOdniesienia = {
     QStringLiteral( "slownik" ), QStringLiteral( "granica_opracowania" ),
-    QStringLiteral( "toposektory" )
+    QStringLiteral( "toposektory" ), QStringLiteral( "taksony" )
   };
 
   QStringList tabele;

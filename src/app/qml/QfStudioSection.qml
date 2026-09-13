@@ -736,7 +736,7 @@ ColumnLayout {
       Text {
         Layout.fillWidth: true
         text: studio.celSzablonu
-              ? qsTr("Kopia %1 trafi do szablonów bez części terenowej: bez DCIM, zdjęć i foto_tagi. Oryginał pozostanie nietknięty.").arg(studio.celSzablonu.nazwa)
+              ? qsTr("Kopia %1 trafi do szablonów bez części terenowej: bez DCIM, zdjęć, foto_tagi, katalogu kopii i kosza, bez plików roboczych i dziennika bazy. Oryginał pozostanie nietknięty.").arg(studio.celSzablonu.nazwa)
               : ""
         font: Theme.tinyFont
         color: Theme.secondaryTextColor

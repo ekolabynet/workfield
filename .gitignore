@@ -50,3 +50,11 @@ _*.py
 # wyniki raportow - odtwarzalne; do repo trafiaja dopiero przejrzane
 taxonomy/raporty/
 Task
+
+# kopie robocze — zostaja na dysku, nie w repo
+*.przed_*
+*.bak_*
+*.roboczy
+*.poprzednia_*
+duplikaty.csv
+spis_zdjec_*.tsv
