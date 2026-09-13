@@ -53,6 +53,7 @@
 #include "qfidentifytool.h"
 #include "captureattitude.h"
 #include "stozkiwidzenia.h"
+#include "wyposazenie.h"
 #include "phototagstore.h"
 #include "tabelamodel.h"
 #include "procesystudio.h"
@@ -395,6 +396,7 @@ void QgisMobileapp::initDeclarative( QQmlEngine *engine )
   QfApp::registerQmlTypes();
   qmlRegisterType<CaptureAttitude>( "org.qfield.core", 1, 0, "CaptureAttitude" );
   qmlRegisterType<StozkiWidzenia>( "org.qfield.core", 1, 0, "StozkiWidzenia" );
+  qmlRegisterType<Wyposazenie>( "org.qfield.core", 1, 0, "Wyposazenie" );
   qmlRegisterType<PhotoTagStore>( "org.qfield.core", 1, 0, "PhotoTagStore" );
   qmlRegisterType<TabelaModel>( "org.qfield.core", 1, 0, "TabelaModel" );
   qmlRegisterType<ProcesyStudio>( "org.qfield.core", 1, 0, "ProcesyStudio" );

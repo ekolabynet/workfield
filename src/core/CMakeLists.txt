@@ -125,7 +125,8 @@ set(QFIELD_CORE_SRCS
     phototagstore.cpp
     tabelamodel.cpp
     captureattitude.cpp
-    stozkiwidzenia.cpp)
+    stozkiwidzenia.cpp
+    wyposazenie.cpp)
 
 set(QFIELD_CORE_HDRS
     cogo/qfcogoexecutor.h
@@ -256,7 +257,8 @@ set(QFIELD_CORE_HDRS
     phototagstore.h
     tabelamodel.h
     captureattitude.h
-    stozkiwidzenia.h)
+    stozkiwidzenia.h
+    wyposazenie.h)
 
 if(WITH_BLUETOOTH)
   list(APPEND QFIELD_CORE_SRCS positioning/qfbluetoothdevicemodel.cpp

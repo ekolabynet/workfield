@@ -43,6 +43,21 @@ endif()
 set(RESOURCES_DIR "${CMAKE_SOURCE_DIR}/resources")
 file(TO_CMAKE_PATH "${RESOURCES_DIR}" RESOURCES_DIR)
 
+# WorkField 12.09.2026 — katalog wyposazenia JEDZIE Z APLIKACJA.
+#
+# Inaczej lista modulow w aplikacji rozjezdza sie z ta w repo, tak jak
+# `bump-version.sh` rozjechal sie z `build.sh`. Pakowany z `katalog.json`,
+# wiec nowy modul wchodzi SAM — nie trzeba pamietac o tym pliku.
+set(WYPOSAZENIE_DIR "${CMAKE_SOURCE_DIR}/wyposazenie")
+set(WYPOSAZENIE_QRC "<qresource prefix=\"/wyposazenie\">\n    <file alias=\"katalog.json\">${WYPOSAZENIE_DIR}/katalog.json</file>")
+file(READ "${WYPOSAZENIE_DIR}/katalog.json" _KAT)
+string(REGEX MATCHALL "\"sciezka\"[ \t]*:[ \t]*\"[^\"]+\"" _SCIEZKI "${_KAT}")
+foreach(_S IN LISTS _SCIEZKI)
+  string(REGEX REPLACE ".*\"([^\"]+)\"$" "\\1" _P "${_S}")
+  set(WYPOSAZENIE_QRC "${WYPOSAZENIE_QRC}\n    <file alias=\"${_P}/modul.json\">${WYPOSAZENIE_DIR}/${_P}/modul.json</file>")
+endforeach()
+set(WYPOSAZENIE_QRC "${WYPOSAZENIE_QRC}\n</qresource>")
+
 configure_file(${CMAKE_SOURCE_DIR}/resources/resources.qrc.in
                ${CMAKE_BINARY_DIR}/resources/resources.qrc @ONLY)
 
