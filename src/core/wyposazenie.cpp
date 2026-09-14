@@ -14,7 +14,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <QDateTime>
+#include <QJsonArray>
+
 #include <qgsproject.h>
+#include <qgssnappingconfig.h>
+#include <qgstolerance.h>
 #include <qgsvectorlayer.h>
 
 #include <sqlite3.h>
@@ -195,4 +200,287 @@ QString Wyposazenie::podsumowanie( QgsProject *projekt ) const
 
   czesci << tr( "Zakladanie i aktualizacja modulow odbywa sie w biurze." );
   return czesci.join( QStringLiteral( " " ) );
+}
+
+
+// ==========================================================================
+// ZAKLADANIE MODULOW W TERENIE
+// ==========================================================================
+//
+// Aplikacja umie TRZY typy krokow z siedmiu: `wlasciwosc`,
+// `wlasciwosc_warstwy` i `snapping`. Reszta (`tabele_gpkg`,
+// `warstwa_istnieje`, `kontrola_klawiszy`, `plik_obok`) dotyka struktury
+// bazy albo wymaga decyzji czlowieka — i zostaje w biurze, gdzie jest
+// kopia i widac wynik przed wysylka.
+//
+// MODUL ALBO CALY, ALBO WCALE. Zalozony w polowie i ostemplowany klamalby
+// o swoim stanie, a to gorsze niz brak.
+
+//! Typy krokow, ktore aplikacja wykonuje. Reszta = odmowa.
+static const QStringList UMIEMY = {
+  QStringLiteral( "wlasciwosc" ),
+  QStringLiteral( "wlasciwosc_warstwy" ),
+  QStringLiteral( "snapping" )
+};
+
+QJsonObject Wyposazenie::opisModulu( const QString &modul ) const
+{
+  QFile plik( QStringLiteral( ":/wyposazenie/katalog.json" ) );
+  if ( !plik.open( QIODevice::ReadOnly ) )
+    return QJsonObject();
+  const QJsonObject katalog = QJsonDocument::fromJson( plik.readAll() ).object();
+  plik.close();
+
+  for ( const QJsonValue &v : katalog.value( QStringLiteral( "moduly" ) ).toArray() )
+  {
+    const QJsonObject wpis = v.toObject();
+    if ( wpis.value( QStringLiteral( "id" ) ).toString() != modul )
+      continue;
+    QFile mf( QStringLiteral( ":/wyposazenie/%1/modul.json" )
+                .arg( wpis.value( QStringLiteral( "sciezka" ) ).toString() ) );
+    if ( !mf.open( QIODevice::ReadOnly ) )
+      return QJsonObject();
+    const QJsonObject m = QJsonDocument::fromJson( mf.readAll() ).object();
+    mf.close();
+    return m;
+  }
+  return QJsonObject();
+}
+
+QString Wyposazenie::mozeZalozyc( const QString &modul ) const
+{
+  const QJsonObject m = opisModulu( modul );
+  if ( m.isEmpty() )
+    return tr( "nie ma takiego modulu w katalogu" );
+
+  QStringList gdzie;
+  for ( const QJsonValue &g : m.value( QStringLiteral( "gdzie" ) ).toArray() )
+    gdzie << g.toString();
+  if ( !gdzie.contains( QStringLiteral( "teren" ) ) )
+    return tr( "tylko w biurze" );
+
+  const QJsonArray kroki = m.value( QStringLiteral( "kroki" ) ).toArray();
+  if ( kroki.isEmpty() )
+    return tr( "modul nie ma krokow do wykonania" );
+
+  for ( const QJsonValue &k : kroki )
+  {
+    const QString typ = k.toObject().value( QStringLiteral( "typ" ) ).toString();
+    if ( !UMIEMY.contains( typ ) )
+      return tr( "krok \"%1\" wykonuje tylko biuro" ).arg( typ );
+  }
+  return QString();
+}
+
+QString Wyposazenie::wykonajKrok( QgsProject *projekt, const QJsonObject &krok ) const
+{
+  const QString typ = krok.value( QStringLiteral( "typ" ) ).toString();
+  const QString grupa = krok.value( QStringLiteral( "grupa" ) ).toString();
+  const QString klucz = krok.value( QStringLiteral( "klucz" ) ).toString();
+
+  if ( typ == QLatin1String( "wlasciwosc" ) )
+  {
+    const QJsonValue w = krok.value( QStringLiteral( "wartosc" ) );
+    const QString typWartosci =
+      krok.value( QStringLiteral( "typ_wartosci" ) ).toString( QStringLiteral( "int" ) );
+    if ( typWartosci == QLatin1String( "int" ) )
+      projekt->writeEntry( grupa, QStringLiteral( "/" ) + klucz, w.toInt() );
+    else if ( typWartosci == QLatin1String( "double" ) )
+      projekt->writeEntry( grupa, QStringLiteral( "/" ) + klucz, w.toDouble() );
+    else if ( typWartosci == QLatin1String( "bool" ) )
+      projekt->writeEntry( grupa, QStringLiteral( "/" ) + klucz, w.toBool() );
+    else
+      projekt->writeEntry( grupa, QStringLiteral( "/" ) + klucz, w.toString() );
+    return QStringLiteral( "%1/%2 = %3" ).arg( grupa, klucz, w.toVariant().toString() );
+  }
+
+  if ( typ == QLatin1String( "wlasciwosc_warstwy" ) )
+  {
+    // Wybor warstw PRZEPISANY WIERNIE z `wybierz_warstwy` w wyposazenie.py.
+    // Ta lista to pole `AvoidIntersectionsList` — 21.08.2026 wypelnione zle
+    // kosztowalo pol dnia terenu, bo obejmowalo warstwe pokrywajaca caly
+    // teren i kazdy nowy obiekt byl przycinany do zera BEZ KOMUNIKATU.
+    // Rozjazd miedzy ta funkcja a pythonowa byłby wiec drogi.
+    const QJsonObject wybor = krok.value( QStringLiteral( "wybor" ) ).toObject();
+    QStringList geometrie;
+    for ( const QJsonValue &g : wybor.value( QStringLiteral( "geometria" ) ).toArray() )
+      geometrie << g.toString();
+    QStringList pomin;
+    for ( const QJsonValue &g : wybor.value( QStringLiteral( "pomin_nazwy" ) ).toArray() )
+      pomin << g.toString();
+    const bool tylkoEdytowalne =
+      wybor.value( QStringLiteral( "tylko_edytowalne" ) ).toBool( true );
+
+    QStringList idki, nazwy;
+    const auto warstwy = projekt->mapLayers();
+    for ( auto it = warstwy.constBegin(); it != warstwy.constEnd(); ++it )
+    {
+      QgsVectorLayer *w = qobject_cast<QgsVectorLayer *>( it.value() );
+      if ( !w )
+        continue;
+      const QString geom = QgsWkbTypes::displayString(
+        static_cast<Qgis::WkbType>( w->wkbType() ) );
+      bool pasuje = geometrie.isEmpty();
+      for ( const QString &g : geometrie )
+        if ( geom.contains( g, Qt::CaseInsensitive ) )
+          pasuje = true;
+      if ( !pasuje )
+        continue;
+      if ( tylkoEdytowalne && w->readOnly() )
+        continue;
+      if ( pomin.contains( w->name() ) )
+        continue;
+      idki << w->id();
+      nazwy << w->name();
+    }
+    projekt->writeEntry( grupa, QStringLiteral( "/" ) + klucz, idki );
+    return QStringLiteral( "%1/%2 = %3 warstw (%4)" )
+      .arg( grupa, klucz ).arg( idki.size() )
+      .arg( nazwy.isEmpty() ? QStringLiteral( "—" ) : nazwy.join( QStringLiteral( ", " ) ) );
+  }
+
+  if ( typ == QLatin1String( "snapping" ) )
+  {
+    // Python pisze ATRYBUTY XML wprost do <snapping-settings>. Aplikacja
+    // ma QgsSnappingConfig. Mapowanie jest tutaj, JAWNIE — to najbardziej
+    // krucha czesc calej klasy, bo rozjazd nie da znaku, tylko inne
+    // zachowanie przyciagania w terenie niz w biurze:
+    //
+    //     enabled               -> setEnabled
+    //     mode                  -> setMode      1 aktywna, 2 wszystkie, 3 zaawans.
+    //     type                  -> setTypeFlag  flagi: 1 wierzcholek, 2 odcinek, 4 obszar
+    //     tolerance             -> setTolerance
+    //     unit                  -> setUnits     0 warstwa/mapa, 1 piksele, 2 projekt
+    //     intersection-snapping -> setIntersectionSnapping
+    const QJsonObject a = krok.value( QStringLiteral( "atrybuty" ) ).toObject();
+    QgsSnappingConfig cfg = projekt->snappingConfig();
+    QStringList opis;
+    for ( auto it = a.constBegin(); it != a.constEnd(); ++it )
+    {
+      const QString k = it.key();
+      const QString v = it.value().toVariant().toString();
+      opis << QStringLiteral( "%1=%2" ).arg( k, v );
+      if ( k == QLatin1String( "enabled" ) )
+        cfg.setEnabled( v.toInt() != 0 );
+      else if ( k == QLatin1String( "mode" ) )
+        cfg.setMode( static_cast<Qgis::SnappingMode>( v.toInt() ) );
+      else if ( k == QLatin1String( "type" ) )
+        cfg.setTypeFlag( static_cast<Qgis::SnappingTypes>( v.toInt() ) );
+      else if ( k == QLatin1String( "tolerance" ) )
+        cfg.setTolerance( v.toDouble() );
+      else if ( k == QLatin1String( "unit" ) )
+        cfg.setUnits( static_cast<Qgis::MapToolUnit>( v.toInt() ) );
+      else if ( k == QLatin1String( "intersection-snapping" ) )
+        cfg.setIntersectionSnapping( v.toInt() != 0 );
+      else
+        return QString();  // nieznany atrybut — nie zgadujemy
+    }
+    projekt->setSnappingConfig( cfg );
+    return QStringLiteral( "przyciaganie: " ) + opis.join( QStringLiteral( ", " ) );
+  }
+
+  return QString();
+}
+
+bool Wyposazenie::ostempluj( QgsProject *projekt, const QString &modul, int wersja ) const
+{
+  const QString baza = bazaProjektu( projekt );
+  if ( baza.isEmpty() )
+    return false;
+
+  sqlite3 *db = nullptr;
+  if ( sqlite3_open( baza.toUtf8().constData(), &db ) != SQLITE_OK )
+  {
+    if ( db )
+      sqlite3_close( db );
+    return false;
+  }
+  sqlite3_exec( db,
+                "CREATE TABLE IF NOT EXISTS WF_WYPOSAZENIE ("
+                "modul TEXT PRIMARY KEY, wersja INTEGER NOT NULL, "
+                "data TEXT NOT NULL, zrodlo TEXT, przez TEXT)",
+                nullptr, nullptr, nullptr );
+
+  // `przez` odroznia teren od biura — przy pozniejszej diagnozie bedzie
+  // wiadomo, gdzie modul zalozono.
+  const QString sql = QStringLiteral(
+    "INSERT INTO WF_WYPOSAZENIE (modul, wersja, data, zrodlo, przez) "
+    "VALUES ('%1', %2, '%3', 'katalog w aplikacji', 'teren') "
+    "ON CONFLICT(modul) DO UPDATE SET wersja=excluded.wersja, "
+    "data=excluded.data, zrodlo=excluded.zrodlo, przez=excluded.przez" )
+    .arg( QString( modul ).replace( '\'', QLatin1String( "''" ) ) )
+    .arg( wersja )
+    .arg( QDateTime::currentDateTime().toString( Qt::ISODate ) );
+
+  const bool ok = sqlite3_exec( db, sql.toUtf8().constData(),
+                                nullptr, nullptr, nullptr ) == SQLITE_OK;
+  sqlite3_close( db );
+  return ok;
+}
+
+QVariantMap Wyposazenie::zaloz( QgsProject *projekt, const QString &modul ) const
+{
+  QVariantMap w;
+  w[QStringLiteral( "ok" )] = false;
+
+  const QString powod = mozeZalozyc( modul );
+  if ( !powod.isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie zakladam — %1." ).arg( powod );
+    return w;
+  }
+  if ( !projekt || projekt->fileName().isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie ma otwartego projektu." );
+    return w;
+  }
+
+  // Kopia ZAWSZE, tak samo jak w biurze. `projekt.qgs` to pol megabajta,
+  // wiec jest tania — a bez niej nie ma z czego wrocic.
+  const QString znacznik =
+    QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmmss" ) );
+  const QString kopia = projekt->fileName() + QStringLiteral( ".przed_" ) + znacznik;
+  if ( !QFile::copy( projekt->fileName(), kopia ) )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie udalo sie zrobic kopii projektu — nic nie zmieniam." );
+    return w;
+  }
+  w[QStringLiteral( "kopia" )] = kopia;
+
+  const QJsonObject m = opisModulu( modul );
+  QStringList zrobione;
+  for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
+  {
+    const QString opis = wykonajKrok( projekt, k.toObject() );
+    if ( opis.isEmpty() )
+    {
+      w[QStringLiteral( "opis" )] =
+        tr( "Krok sie nie powiodl — projekt NIE zapisany, kopia: %1" ).arg( kopia );
+      return w;
+    }
+    zrobione << opis;
+  }
+
+  if ( !projekt->write() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie udalo sie zapisac projektu." );
+    return w;
+  }
+
+  // Stempel DOPIERO po komplecie krokow i po udanym zapisie.
+  const int wersja = m.value( QStringLiteral( "wersja" ) ).toInt();
+  if ( !ostempluj( projekt, modul, wersja ) )
+  {
+    w[QStringLiteral( "opis" )] =
+      tr( "Kroki wykonane i zapisane, ale STEMPEL SIE NIE ZAPISAL — "
+          "aplikacja bedzie nadal mowic, ze modulu brak." );
+    return w;
+  }
+
+  w[QStringLiteral( "ok" )] = true;
+  w[QStringLiteral( "opis" )] = tr( "%1 v%2: %3" )
+                                 .arg( m.value( QStringLiteral( "nazwa" ) ).toString() )
+                                 .arg( wersja )
+                                 .arg( zrobione.join( QStringLiteral( "; " ) ) );
+  return w;
 }

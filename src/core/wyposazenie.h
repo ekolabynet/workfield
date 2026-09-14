@@ -11,8 +11,10 @@
 #ifndef WYPOSAZENIE_H
 #define WYPOSAZENIE_H
 
+#include <QJsonObject>
 #include <QObject>
 #include <QVariantList>
+#include <QVariantMap>
 
 class QgsProject;
 
@@ -88,9 +90,47 @@ class Wyposazenie : public QObject
     //! Czy jest cokolwiek do powiedzenia (brak albo starszy albo nowszy).
     Q_INVOKABLE bool cosNieGra( QgsProject *projekt ) const;
 
+    /**
+     * Czy TEN modul wolno zalozyc z aplikacji.
+     *
+     * Pusty ciag = wolno. Inaczej POWOD ODMOWY, gotowy do pokazania
+     * czlowiekowi — bo przycisk nieczynny i milczacy jest gorszy od braku
+     * przycisku.
+     *
+     * Odmawiamy, gdy modul nie ma `"gdzie": ["teren"]` albo gdy ktorykolwiek
+     * z jego krokow jest typu, ktorego aplikacja nie umie wykonac. W CALOSCI,
+     * nigdy w czesci: modul zalozony w polowie i ostemplowany bylby gorszy
+     * od niezalozonego, bo klamalby o swoim stanie.
+     */
+    Q_INVOKABLE QString mozeZalozyc( const QString &modul ) const;
+
+    /**
+     * Zaklada modul w projekcie i stempluje.
+     *
+     * Kolejnosc nieprzypadkowa:
+     *   1. sprawdzamy `mozeZalozyc` — odmowa konczy bez tkniecia niczego,
+     *   2. KOPIA `projekt.qgs` obok, ze znacznikiem czasu,
+     *   3. wykonanie wszystkich krokow,
+     *   4. zapis projektu,
+     *   5. stempel — DOPIERO gdy wszystkie kroki przeszly.
+     *
+     * Zwraca mape: `ok` bool, `opis` QString (co zrobiono albo dlaczego nie),
+     * `kopia` QString (sciezka kopii, gdy powstala).
+     */
+    Q_INVOKABLE QVariantMap zaloz( QgsProject *projekt, const QString &modul ) const;
+
   private:
     //! Wersje ze stempla `WF_WYPOSAZENIE` w `dane.gpkg` projektu.
     QVariantMap stempel( QgsProject *projekt ) const;
+
+    //! Tresc `modul.json` z zasobow; pusty obiekt, gdy nie ma.
+    QJsonObject opisModulu( const QString &modul ) const;
+
+    //! Wykonuje jeden krok. Pusty ciag = niepowodzenie.
+    QString wykonajKrok( QgsProject *projekt, const QJsonObject &krok ) const;
+
+    //! Wpisuje wersje do `WF_WYPOSAZENIE`.
+    bool ostempluj( QgsProject *projekt, const QString &modul, int wersja ) const;
 };
 
 #endif // WYPOSAZENIE_H
