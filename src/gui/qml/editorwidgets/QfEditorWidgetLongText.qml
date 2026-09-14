@@ -34,14 +34,22 @@ QfEditorWidgetBase {
     return Math.max(96, bazowa * udzial);
   }
 
-  height: przewijacz.height + 4
+  //! Doraznie zmieniona wysokosc; 0 = bierzemy z ustawien.
+  //! NIE ZAPISUJEMY jej nigdzie: uchwyt jest narzedziem na chwile, a nie
+  //! ustawieniem, o ktorym trzeba pamietac, ze sie je zmienilo.
+  property real wysokoscDorazna: 0
+
+  readonly property real wysokoscTeraz: wysokoscDorazna > 0
+                                        ? wysokoscDorazna : wysokoscPola
+
+  height: przewijacz.height + uchwyt.height + 4
 
   ScrollView {
     id: przewijacz
 
     anchors.left: parent.left
     anchors.right: parent.right
-    height: dlugiTekst.wysokoscPola
+    height: dlugiTekst.wysokoscTeraz
     clip: true
 
     // Pasek pokazuje, ILE tekstu jest poza widokiem — przy spisie
@@ -52,8 +60,8 @@ QfEditorWidgetBase {
     TextArea {
       id: pole
 
-      enabled: isEditable
-      readOnly: !isEditable
+      enabled: isEditable && isEditing
+      readOnly: !isEditable || !isEditing
       wrapMode: TextEdit.Wrap
       font: Theme.defaultFont
       color: (!isEditable && isEditing) ? Theme.mainTextDisabledColor : Theme.mainTextColor
@@ -62,13 +70,10 @@ QfEditorWidgetBase {
 
       text: isNull ? '' : String(value)
 
-      background: Rectangle {
-        visible: pole.enabled || (!isEditable && isEditing)
-        color: "transparent"
-        border.width: 1
-        border.color: pole.activeFocus ? Theme.mainColor : Theme.controlBorderColor
-        radius: 4
-      }
+      // Bez wlasnego tla — obrys rysuje `ramka` NA ZEWNATRZ przewijacza.
+      // Tlo w `TextArea` wedrowalo razem z trescia i rozjezdzalo sie
+      // z polem (14.09.2026).
+      background: null
 
       onTextChanged: {
         if (enabled)
@@ -102,10 +107,76 @@ QfEditorWidgetBase {
     }
   }
 
+  // Ramka POLA, nie tresci. Rysowana na zewnatrz przewijacza, wiec
+  // zostaje na miejscu niezaleznie od tego, jak przewijacz ulozy tekst.
+  Rectangle {
+    id: ramka
+
+    anchors.fill: przewijacz
+    visible: pole.enabled || (!isEditable && isEditing)
+    color: "transparent"
+    border.width: 1
+    border.color: pole.activeFocus ? Theme.mainColor : Theme.controlBorderColor
+    radius: 4
+    z: -1
+  }
+
+  // Uchwyt: przeciagniecie w dol powieksza pole, w gore zmniejsza.
+  // Granice te same co dla wartosci z ustawien — 15-80% formularza.
+  Item {
+    id: uchwyt
+
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: przewijacz.bottom
+    height: isEditing ? 18 : 0
+    visible: isEditing
+
+    Rectangle {
+      anchors.centerIn: parent
+      width: 44
+      height: 4
+      radius: 2
+      color: obszar.ciagne ? Theme.mainColor : Theme.controlBorderColor
+    }
+
+    MouseArea {
+      id: obszar
+
+      anchors.fill: parent
+      cursorShape: Qt.SizeVerCursor
+
+      property real odY: 0
+      property real odWys: 0
+      property bool ciagne: false
+
+      onPressed: mouse => {
+        odY = mouse.y;
+        odWys = dlugiTekst.wysokoscTeraz;
+        ciagne = true;
+      }
+      onReleased: ciagne = false
+      onCanceled: ciagne = false
+      onPositionChanged: mouse => {
+        if (!ciagne)
+          return;
+        const nowa = odWys + (mouse.y - odY);
+        // Ten sam sufit i podloga co przy wartosci z ustawien: pole
+        // wieksze niz 80% formularza zaslania reszte, mniejsze niz 96 px
+        // nie miesci nawet dwoch wierszy.
+        let f = dlugiTekst.parent;
+        while (f && (f.height === undefined || f.height <= 0))
+          f = f.parent;
+        const gorne = f && f.height > 0 ? f.height * 0.8 : 600;
+        dlugiTekst.wysokoscDorazna = Math.min(gorne, Math.max(96, nowa));
+      }
+    }
+  }
+
   //! Ile znaków — przy spisie gatunkowym warto wiedzieć, ile już jest.
   Text {
     anchors.right: parent.right
-    anchors.top: przewijacz.bottom
+    anchors.top: uchwyt.bottom
     text: pole.text.length > 0 ? qsTr("%1 znaków").arg(pole.text.length) : ""
     visible: isEditing && pole.text.length > 200
     color: Theme.secondaryTextColor
