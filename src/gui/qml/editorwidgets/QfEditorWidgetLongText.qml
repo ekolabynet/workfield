@@ -145,6 +145,9 @@ QfEditorWidgetBase {
 
       anchors.fill: parent
       cursorShape: Qt.SizeVerCursor
+      // Bez tego ruch przechwytuje `ScrollView` nad uchwytem: `onPressed`
+      // dochodzi (uchwyt zmienia kolor), a `onPositionChanged` juz nie.
+      preventStealing: true
 
       property real odY: 0
       property real odWys: 0
@@ -154,20 +157,42 @@ QfEditorWidgetBase {
         odY = mouse.y;
         odWys = dlugiTekst.wysokoscTeraz;
         ciagne = true;
+        // Krotkie drgniecie zamiast komunikatu: w rekawicach nie widac,
+        // czy uchwyt zlapal. Drugie przy puszczeniu zamyka gest.
+        if (typeof platformUtilities !== "undefined" && platformUtilities.vibrate)
+          platformUtilities.vibrate(15);
       }
-      onReleased: ciagne = false
+      onReleased: {
+        ciagne = false;
+        if (typeof platformUtilities !== "undefined" && platformUtilities.vibrate)
+          platformUtilities.vibrate(25);
+      }
       onCanceled: ciagne = false
+      // PRZYROSTOWO, nie od punktu chwytu.
+      //
+      // Uchwyt przesuwa sie RAZEM z polem: gdy pole rosnie o `d`, uchwyt
+      // schodzi o `d`, palec zostaje w tym samym miejscu ekranu i `mouse.y`
+      // WRACA do wartosci z chwili chwytu. Liczenie `odWys + (y - odY)`
+      // dawalo wiec zero — pole drgalo i wracalo, a z zewnatrz wygladalo,
+      // jakby uchwyt nie dzialal wcale.
       onPositionChanged: mouse => {
         if (!ciagne)
           return;
-        const nowa = odWys + (mouse.y - odY);
+        const d = mouse.y - odY;
+        if (d === 0)
+          return;
+        const nowa = dlugiTekst.wysokoscTeraz + d;
         // Ten sam sufit i podloga co przy wartosci z ustawien: pole
         // wieksze niz 80% formularza zaslania reszte, mniejsze niz 96 px
         // nie miesci nawet dwoch wierszy.
-        let f = dlugiTekst.parent;
-        while (f && (f.height === undefined || f.height <= 0))
-          f = f.parent;
-        const gorne = f && f.height > 0 ? f.height * 0.8 : 600;
+        // Sufit z WYSOKOSCI OKNA, nie z rodzica.
+        //
+        // Pierwszy rodzic o niezerowej wysokosci to wiersz formularza,
+        // a jego wysokosc zalezy od wysokosci POLA. Liczenie sufitu z niego
+        // bylo sprzezeniem zwrotnym: kazde zdarzenie dociskalo wynik w dol
+        // (94,4 -> 93,1 -> 92,1 -> ...), wiec pole nie roslo, tylko malalo.
+        const gorne = (typeof mainWindow !== "undefined" && mainWindow.height > 0)
+                      ? mainWindow.height * 0.7 : 600;
         dlugiTekst.wysokoscDorazna = Math.min(gorne, Math.max(96, nowa));
       }
     }
