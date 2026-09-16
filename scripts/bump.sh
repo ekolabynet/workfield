@@ -22,7 +22,12 @@ mkdir -p docs/wydania
 # Notatka POWSTAJE SAMA, bo o notatce pisanej osobno zawsze sie zapomina.
 # Pusty szkielet jest sygnalem: jesli zostanie niewypelniony, widac to
 # w repo od razu.
-if [ ! -f "$NOTA" ]; then
+# Nota tylko NA ZADANIE. Przy dwudziestu buildach dziennie repo zapelnia
+# sie plikami, z ktorych kazdy opisuje jedno przekompilowanie — a opis
+# ma sens przy WYDANIU, nie przy kazdej probie.
+#
+#     NOTA=1 ./scripts/bump.sh
+if [ -n "${NOTA_WYDANIA}" ] && [ ! -f "$NOTA" ]; then
   # Nota WYPELNIA SIE SAMA tym, co juz zapisane: commity od poprzedniego
   # bumpa i pliki tkniete od tamtej pory. Pusty szkielet bylby gorszy od
   # braku noty — udawalby, ze cos dokumentuje.
@@ -52,7 +57,7 @@ if [ ! -f "$NOTA" ]; then
   } > "$NOTA"
   git rev-parse HEAD > "$ZNACZNIK" 2>/dev/null
   echo "  nota: $NOTA  (DO WYPELNIENIA)"
-else
+elif [ -f "$NOTA" ]; then
   echo "  nota: $NOTA  (juz jest)"
 fi
 
