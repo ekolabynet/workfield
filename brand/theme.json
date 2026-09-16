@@ -44,7 +44,7 @@
     "groupBoxBackgroundColor": "#f2f0f5",
     "groupBoxSurfaceColor": "#e4e1e8",
     "goodColor": "#00695c",
-    "warningColor": "#ffa500",
+    "warningColor": "#b26a00",
     "errorColor": "#c0392b"
   },
   "fixedColors": {

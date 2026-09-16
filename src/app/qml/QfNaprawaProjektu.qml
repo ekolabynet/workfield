@@ -45,6 +45,13 @@ Popup {
   // przy 480 px tekst lamal sie po dwa slowa. Procent szerokosci okna
   // z ograniczeniem: na biurku szeroko, na telefonie miesci sie w ekranie.
   width: Math.min(mainWindow.width - 32, Math.max(480, mainWindow.width * 0.5))
+  // Bez wysokosci `Popup` rysowal tlo na wysokosci bliskiej zeru, a tresc
+  // lezala wprost na mapie — stad "jasne tlo" i przycisk zamykania poza
+  // ekranem.
+  height: Math.min(mainWindow.height - 48, 900)
+  // Bez marginesu wewnetrznego tresc dotyka krawedzi okna i przycisk
+  // na dole jest przyciety.
+  padding: 12
   modal: true
   focus: true
   closePolicy: Popup.CloseOnEscape
@@ -178,17 +185,41 @@ Popup {
 
   // --------------------------------------------------------------- widok
 
-  ColumnLayout {
-    width: parent.width
-    spacing: 10
+  Text {
+    id: naglowek
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Czego brakuje temu projektowi")
-      font: Theme.strongTipFont
-      color: Theme.mainTextColor
-      wrapMode: Text.WordWrap
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    text: qsTr("Czego brakuje temu projektowi")
+    font: Theme.strongTipFont
+    color: Theme.mainTextColor
+    elide: Text.ElideRight
+  }
+
+  Flickable {
+    id: przewijacz
+
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: naglowek.bottom
+    anchors.bottom: stopka.top
+    anchors.topMargin: 10
+    anchors.bottomMargin: 8
+    contentHeight: tresc.implicitHeight
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+
+    ScrollBar.vertical: ScrollBar {
+      policy: przewijacz.contentHeight > przewijacz.height ? ScrollBar.AlwaysOn
+                                                           : ScrollBar.AlwaysOff
     }
+
+  ColumnLayout {
+    id: tresc
+
+    width: przewijacz.width
+    spacing: 10
 
     Repeater {
       model: naprawa.kontrola ? naprawa.kontrola.braki : []
@@ -425,17 +456,29 @@ Popup {
       wrapMode: Text.WordWrap
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      Item { Layout.fillWidth: true }
-      QfButton {
-        text: qsTr("Zamknij")
-        topPadding: 8
-        bottomPadding: 8
-        leftPadding: 10
-        rightPadding: 10
-        onClicked: naprawa.close()
-      }
+  }
+  }
+
+  // Pasek przyciskow PRZYKLEJONY do dolu. Przy dziesieciu ostrzezeniach
+  // przycisk na koncu przewijanej listy uciekalby poza ekran — a wlasnie
+  // wtedy czlowiek go szuka.
+  RowLayout {
+    id: stopka
+
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    spacing: 8
+
+    Item { Layout.fillWidth: true }
+
+    QfButton {
+      text: qsTr("Zamknij")
+      topPadding: 8
+      bottomPadding: 8
+      leftPadding: 10
+      rightPadding: 10
+      onClicked: naprawa.close()
     }
   }
 
