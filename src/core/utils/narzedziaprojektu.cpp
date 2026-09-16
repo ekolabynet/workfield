@@ -315,6 +315,23 @@ bool NarzedziaProjektu::wlasciwoscWarstwy( QgsMapLayer *warstwa, const QString &
   return true;
 }
 
+QVariantMap NarzedziaProjektu::ustawieniaPrzyciagania( QgsProject *projekt ) const
+{
+  QVariantMap w;
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p )
+    return w;
+
+  const QgsSnappingConfig k = p->snappingConfig();
+  w.insert( QStringLiteral( "wlaczone" ), k.enabled() );
+  w.insert( QStringLiteral( "tryb" ), static_cast<int>( k.mode() ) );
+  w.insert( QStringLiteral( "typ" ), static_cast<int>( k.typeFlag() ) );
+  w.insert( QStringLiteral( "tolerancja" ), k.tolerance() );
+  w.insert( QStringLiteral( "jednostka" ), static_cast<int>( k.units() ) );
+  w.insert( QStringLiteral( "przeciecia" ), k.intersectionSnapping() );
+  return w;
+}
+
 bool NarzedziaProjektu::przyciaganie( QgsProject *projekt, const QVariantMap &ustawienia ) const
 {
   QgsProject *p = projekt ? projekt : QgsProject::instance();

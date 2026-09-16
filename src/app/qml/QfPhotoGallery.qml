@@ -1380,8 +1380,6 @@ Popup {
               }
 
               Button {
-
-              Button {
                 id: przyciskZmien
                 text: qsTr("Zmień")
                 font: photoGallery.t.tinyFont

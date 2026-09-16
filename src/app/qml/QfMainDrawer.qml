@@ -1467,6 +1467,112 @@ Drawer {
           displayToast(cfgM.enabled ? qsTr("Przyciąganie włączone") : qsTr("Przyciąganie wyłączone"));
         }
       }
+
+      // WorkField 16.09.2026 — TOLERANCJA I JEDNOSTKA.
+      //
+      // Zwykle `Text` w `MouseArea`, nie QfToolButton: tamten ma tylko
+      // ikone i podanie mu `text` wywala okno przy starcie.
+      // Stan trzymamy U SIEBIE: `snappingConfig` nie wystawia tolerancji
+      // do QML, a odczyt przez czasownik C++ przy kazdym odswiezeniu
+      // wiazania bylby marnotrawstwem.
+      QtObject {
+        id: snapStan
+
+        property real tolerancja: 12
+        property int jednostka: 1
+
+        function odswiez() {
+          if (!qgisProject || typeof NarzedziaProjektu === "undefined")
+            return;
+          const u = NarzedziaProjektu.ustawieniaPrzyciagania(qgisProject);
+          if (u && u.tolerancja !== undefined) {
+            tolerancja = u.tolerancja;
+            jednostka = u.jednostka;
+          }
+        }
+
+        function zapisz(tol, jedn) {
+          NarzedziaProjektu.przyciaganie(qgisProject,
+                                         { "tolerancja": tol, "jednostka": jedn });
+          // `przyciaganie()` zmienia konfiguracje W PAMIECI. Bez zapisu
+          // pliku ustawienie ginie przy zamknieciu projektu — a wtedy
+          // przelacznik wyglada, jakby dzialal, i nie dziala.
+          NarzedziaProjektu.zapiszProjekt(qgisProject);
+          odswiez();
+        }
+
+        // `Component.onCompleted` odpala sie przy budowie szuflady, a
+        // projekt moze byc wtedy jeszcze nie wczytany — wartosci zostawaly
+        // domyslne (12 px), choc w pliku bylo co innego. Odswiezamy takze
+        // po wczytaniu projektu i przy otwarciu szuflady.
+        Component.onCompleted: odswiez()
+
+        property Connections polaczenia: Connections {
+          target: iface
+          function onLoadProjectEnded(path, name) { snapStan.odswiez(); }
+        }
+      }
+
+      Text {
+        id: snapJednostka
+        visible: snapMaster.wl
+        text: snapStan.jednostka === 2 ? "m" : "px"
+        color: t.mainColor
+        font: t.strongFont
+
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -12
+          onClicked: {
+            // Przy zmianie jednostki dobieramy sensowna wartosc: 12 pikseli
+            // i 0,5 metra to progi, przy ktorych przyciaganie pomaga,
+            // a nie zlepia.
+            if (snapStan.jednostka === 2)
+              snapStan.zapisz(12, 1);      // metry -> piksele
+            else
+              snapStan.zapisz(0.5, 2);     // piksele -> metry mapy
+            displayToast(snapStan.jednostka === 2
+                         ? qsTr("Przyciąganie w metrach — próg nie zmienia się przy oddalaniu mapy")
+                         : qsTr("Przyciąganie w pikselach ekranu"));
+          }
+        }
+      }
+
+      Text {
+        visible: snapMaster.wl
+        text: snapStan.jednostka === 2
+              ? snapStan.tolerancja.toFixed(2)
+              : Math.round(snapStan.tolerancja)
+        color: t.mainTextColor
+        font: t.strongFont
+
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -12
+
+          // Progi dobrane pod TEREN, nie pod ekran: w metrach od 10 cm
+          // (wierzcholek do wierzcholka) do 5 m (granica sasiada widziana
+          // z daleka). W pikselach jak dotad, bo tam nawyk juz jest.
+          readonly property var progiM: [0.1, 0.25, 0.5, 1, 2, 5]
+          readonly property var progiPx: [4, 8, 12, 20, 30]
+
+          onClicked: {
+            const p = snapStan.jednostka === 2 ? progiM : progiPx;
+            let i = 0;
+            for (let j = 0; j < p.length; j++)
+              if (Math.abs(p[j] - snapStan.tolerancja) < Math.abs(p[i] - snapStan.tolerancja))
+                i = j;
+            snapStan.zapisz(p[(i + 1) % p.length], snapStan.jednostka);
+          }
+
+          // Przytrzymanie wraca do domyslnej — zeby dalo sie wyjsc
+          // z eksperymentu jednym gestem, bez liczenia tapniec.
+          onPressAndHold: {
+            snapStan.zapisz(snapStan.jednostka === 2 ? 0.5 : 12, snapStan.jednostka);
+            displayToast(qsTr("Tolerancja domyślna"));
+          }
+        }
+      }
     }
 
     ListView {

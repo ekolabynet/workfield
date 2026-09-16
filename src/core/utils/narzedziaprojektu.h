@@ -122,6 +122,19 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE bool przyciaganie( QgsProject *projekt, const QVariantMap &ustawienia ) const;
 
     /**
+     * Biezace ustawienia przyciagania — para do `przyciaganie()`.
+     *
+     * Te same klucze co przy zapisie: `wlaczone`, `tryb`, `typ`,
+     * `tolerancja`, `jednostka`, `przeciecia`. Jednostka jako LICZBA
+     * (0 warstwa, 1 piksele, 2 mapa), nie slownie — bo wraca do
+     * `przyciaganie()`, ktora chce liczby.
+     *
+     * Osobny czasownik, bo `snappingConfig` nie wystawia tolerancji do
+     * QML, a `stanProjektu` przy okazji przemiata wszystkie warstwy.
+     */
+    Q_INVOKABLE QVariantMap ustawieniaPrzyciagania( QgsProject *projekt ) const;
+
+    /**
      * Unikanie nakladania poligonow. \a tryb: 0 wolno, 1 warstwa aktywna,
      * 2 lista warstw. \a nazwyWarstw pusta przy trybie 2 = wszystkie
      * edytowalne warstwy poligonowe projektu.

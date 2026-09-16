@@ -5465,6 +5465,38 @@ ApplicationWindow {
 
     function onLoadProjectEnded(path, name) {
       mainWindow.refreshProjectTitle();
+
+      // Stan projektu WIE o zlepionych wierzcholkach i o edycji
+      // topologicznej przy malych obiektach — tylko nikt go nie pytal.
+      // Odkladamy na pozniej: przemiata warstwy i liczy obiekty.
+      Qt.callLater(function () {
+        if (typeof NarzedziaProjektu === "undefined" || !qgisProject)
+          return;
+        let o = [];
+        try {
+          const st = NarzedziaProjektu.stanProjektu(qgisProject);
+          o = (st && st.ostrzezenia) ? st.ostrzezenia : [];
+        } catch (e) {
+          return;
+        }
+        if (!o.length)
+          return;
+        // Pierwsze ostrzezenie w calosci: sama liczba nie mowi, czy chodzi
+        // o brakujacy plik, czy o obrys zwiniety do zera.
+        const pierwsze = o[0].opis !== undefined ? o[0].opis : String(o[0]);
+        // Przycisk zamiast dluzszego czasu: ostrzezenie o zwijaniu obrysu
+        // to nie jest komunikat na sekunde, a wydluzony toast i tak znika
+        // zanim sie go przeczyta w rekawicach.
+        displayToast(o.length === 1
+                     ? pierwsze
+                     : qsTr("%1 — i jeszcze %2").arg(pierwsze).arg(o.length - 1),
+                     "warning",
+                     qsTr("Pokaż"),
+                     function () {
+                       if (typeof wfAkcje !== "undefined" && wfAkcje.stanProjektu)
+                         wfAkcje.stanProjektu();
+                     });
+      });
       if (path.indexOf("/templates/") !== -1) {
         templateGuardDialog.templatePath = path;
         templateGuardDialog.open();

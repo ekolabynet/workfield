@@ -58,3 +58,4 @@ Task
 *.poprzednia_*
 duplikaty.csv
 spis_zdjec_*.tsv
+docs/wydania/.ostatni_bump

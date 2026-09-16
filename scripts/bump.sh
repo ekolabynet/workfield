@@ -15,6 +15,9 @@ N=$(grep -oP 'APP_VERSION_NUM:-\d+\.\d+\.\K\d+' scripts/build.sh)
 sed -i "0,/\(APP_VERSION_NUM:-[0-9]\+\.[0-9]\+\.\)$N/s//\1$((N + 1))/" scripts/build.sh
 NUM=$(grep -oP 'APP_VERSION_NUM:-\K[0-9.]+' scripts/build.sh)
 NOTA="docs/wydania/WhatsNew_${NUM//./-}.md"
+# Katalog zaklada sie sam: `git rm` ostatniej noty kasuje go razem
+# z plikami, a wtedy bump pada na przekierowaniu.
+mkdir -p docs/wydania
 
 # Notatka POWSTAJE SAMA, bo o notatce pisanej osobno zawsze sie zapomina.
 # Pusty szkielet jest sygnalem: jesli zostanie niewypelniony, widac to
@@ -23,8 +26,13 @@ if [ ! -f "$NOTA" ]; then
   # Nota WYPELNIA SIE SAMA tym, co juz zapisane: commity od poprzedniego
   # bumpa i pliki tkniete od tamtej pory. Pusty szkielet bylby gorszy od
   # braku noty — udawalby, ze cos dokumentuje.
-  POPRZ=$(git log --oneline -1 --grep="^WorkField 0\.11\." --format=%H 2>/dev/null)
-  [ -z "$POPRZ" ] && POPRZ=$(git log --format=%H -20 2>/dev/null | tail -1)
+  # Punkt odniesienia trzymamy w PLIKU, nie zgadujemy po tresci commitow:
+  # `--grep` nic nie znajdowal (nasze commity nie zaczynaja sie od
+  # "WorkField"), wiec nota brala dwadziescia commitow wstecz i opisywala
+  # tydzien zamiast jednego builda.
+  ZNACZNIK="docs/wydania/.ostatni_bump"
+  POPRZ=$(cat "$ZNACZNIK" 2>/dev/null)
+  git cat-file -e "$POPRZ" 2>/dev/null || POPRZ=$(git log --format=%H -3 2>/dev/null | tail -1)
   {
     echo "# WorkField $NUM"
     echo
@@ -42,6 +50,7 @@ if [ ! -f "$NOTA" ]; then
     echo
     echo "- "
   } > "$NOTA"
+  git rev-parse HEAD > "$ZNACZNIK" 2>/dev/null
   echo "  nota: $NOTA  (DO WYPELNIENIA)"
 else
   echo "  nota: $NOTA  (juz jest)"
