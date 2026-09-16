@@ -101,6 +101,9 @@ Drawer {
       // WorkField 09.09.2026 — bez dataDrawer.close(), patrz "spis" nizej.
       photoGallery.openFiles(iface.dataRoot());
       return;
+    case "wyposazenie":
+      ekranWyposazenia.otworz();
+      return;
     case "kopia":
       panelKopii.open();
       return;
@@ -203,7 +206,25 @@ Drawer {
 
 
       // ── Narzędzia ───────────────────────────────────────────
+      //
+      // WorkField 15.09.2026 — PRZEWIJANIE. Pozycji uzbieralo sie szesnascie
+      // i ostatnie wychodzily pod dolna krawedz ekranu. Dokladalismy je przez
+      // miesiac, nie zabierajac zadnej — a `ColumnLayout` rosnie w
+      // nieskonczonosc i nic o tym nie mowi.
+      Flickable {
+        contentHeight: kolumnaNarzedzi.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar {
+          policy: parent.contentHeight > parent.height ? ScrollBar.AlwaysOn
+                                                       : ScrollBar.AlwaysOff
+        }
+
       ColumnLayout {
+        id: kolumnaNarzedzi
+
+        anchors.left: parent.left
+        anchors.right: parent.right
         spacing: 0
 
         // WorkField 23.08.2026 — zakladka przebudowana z trzech powodow naraz:
@@ -231,6 +252,7 @@ Drawer {
             { "naglowek": qsTr("Teren i pliki") },
             { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
             { "label": qsTr("Klawisze szybkiego zapisu"), "action": "klawisze", "ikona": "wfg_zapisz" },
+            { "label": qsTr("Wyposażenie projektu"), "action": "wyposazenie", "ikona": "wfg_wlasciwosci" },
             { "label": qsTr("Pliki aplikacji"), "action": "pliki", "ikona": "wfg_przeglad" },
             { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad" },
             { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka" },
@@ -248,9 +270,7 @@ Drawer {
           }
         }
 
-        Item {
-          Layout.fillHeight: true
-        }
+      }
       }
 
       // ── Algorytmy ───────────────────────────────────────────

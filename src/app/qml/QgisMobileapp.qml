@@ -6215,6 +6215,10 @@ ApplicationWindow {
     id: textEditor
   }
 
+  QfWyposazenie {
+    id: ekranWyposazenia
+  }
+
   QfSubLayerPicker {
     id: subLayerPicker
     t: Theme

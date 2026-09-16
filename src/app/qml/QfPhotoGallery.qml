@@ -1316,6 +1316,105 @@ Popup {
           }
         }
 
+        // Osobne okno, bo w MenuItem nie da sie pisac. Kursor ustawiony
+        // PRZED kropka rozszerzenia — zmienia sie zwykle rdzen nazwy,
+        // a nie `.qgs`.
+        Popup {
+          id: oknoNazwy
+
+          property string stara: ""
+          property string pelna: ""
+          property string wUzyciu: ""
+
+          parent: mainWindow.contentItem
+          width: Math.min(560, mainWindow.width - 32)
+          x: (mainWindow.width - width) / 2
+          y: mainWindow.height / 4
+          modal: true
+          closePolicy: Popup.CloseOnEscape
+
+          onOpened: {
+            poleNazwy.text = stara;
+            const k = stara.lastIndexOf(".");
+            poleNazwy.select(0, k > 0 ? k : stara.length);
+            poleNazwy.forceActiveFocus();
+          }
+
+          ColumnLayout {
+            anchors.fill: parent
+            spacing: 8
+
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Nowa nazwa")
+              color: "#80CBC4"
+              font: photoGallery.t.strongFont
+            }
+
+            TextField {
+              id: poleNazwy
+              Layout.fillWidth: true
+              font: photoGallery.t.defaultFont
+              onAccepted: przyciskZmien.zrob()
+            }
+
+            // Ostrzezenie, NIE zakaz: podmiana `projekt.qgs` to wlasnie
+            // ten przypadek, dla ktorego ta czynnosc istnieje.
+            Text {
+              Layout.fillWidth: true
+              visible: oknoNazwy.wUzyciu !== ""
+              text: qsTr("Uwaga: %1. Aplikacja może stracić do niego dostęp — zamknij projekt przed zmianą.").arg(oknoNazwy.wUzyciu)
+              color: "#FFC107"
+              font: photoGallery.t.tipFont
+              wrapMode: Text.Wrap
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              Item { Layout.fillWidth: true }
+
+              ToolButton {
+                text: qsTr("Anuluj")
+                font: photoGallery.t.tinyFont
+                onClicked: oknoNazwy.close()
+              }
+
+              Button {
+
+              Button {
+                id: przyciskZmien
+                text: qsTr("Zmień")
+                font: photoGallery.t.tinyFont
+                enabled: poleNazwy.text.trim() !== "" && poleNazwy.text !== oknoNazwy.stara
+
+                function zrob() {
+                  const nowa = poleNazwy.text.trim();
+                  if (nowa === "" || nowa === oknoNazwy.stara) {
+                    oknoNazwy.close();
+                    return;
+                  }
+                  if (/[\/\\]/.test(nowa)) {
+                    photoGallery.powiedzPliki(qsTr("Nazwa nie może zawierać ukośników."), true);
+                    return;
+                  }
+                  const katalog = String(oknoNazwy.pelna).replace(/\/[^\/]*$/, "");
+                  const cel = katalog + "/" + nowa;
+                  // Sprawdzamy kolizje SAMI: `renameFile` przy istniejacym
+                  // celu zwraca tylko `false` i nie mowi czemu.
+                  if (platformUtilities.renameFile(oknoNazwy.pelna, cel, false))
+                    photoGallery.powiedzPliki(qsTr("Nazwa zmieniona na %1").arg(nowa));
+                  else
+                    photoGallery.powiedzPliki(
+                      qsTr("Nie udało się — czy plik %1 już tu jest?").arg(nowa), true);
+                  oknoNazwy.close();
+                }
+
+                onClicked: zrob()
+              }
+            }
+          }
+        }
+
         // --- czynnosci na pliku: jedno menu na cala liste, nie na delegat
         Menu {
           id: menuPlikow
@@ -1334,6 +1433,17 @@ Popup {
             katalog = k === true;
             photoGallery.komunikatPlikow = "";
             popup();
+          }
+
+          MenuItem {
+            text: qsTr("Zmień nazwę")
+            enabled: menuPlikow.wProj
+            onTriggered: {
+              oknoNazwy.stara = menuPlikow.nazwa;
+              oknoNazwy.pelna = menuPlikow.pelna;
+              oknoNazwy.wUzyciu = menuPlikow.blokada;
+              oknoNazwy.open();
+            }
           }
 
           MenuItem {

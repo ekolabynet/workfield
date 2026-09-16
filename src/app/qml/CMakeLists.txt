@@ -64,6 +64,7 @@ set(QFIELD_APP_QML_FILES
     QfStudioSection.qml
     QfSubLayerPicker.qml
     QfTerenSettings.qml
+    QfWyposazenie.qml
     QfTextEditor.qml
     QfWymianaLokalna.qml
     SettingsNetwork.qml

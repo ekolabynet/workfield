@@ -8,7 +8,7 @@ SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"/..
 # versionCode), nazwa tylko wyswietlana. Wpisanie "0.9.2 - Ancient Ash" do
 # APP_VERSION_STR dawalo APP_VERSION="v0.9.2 - Ancient Ash" (zepsuty link do
 # wydania) i dzialalo w awk tylko przez przypadek koercji.
-export APP_VERSION_NUM="${APP_VERSION_NUM:-0.11.63}"
+export APP_VERSION_NUM="${APP_VERSION_NUM:-0.11.73}"
 export APP_CODENAME="${APP_CODENAME:-Digital Dogwood}"
 # APP_VERSION (CPack, link do wydania w oknie "O programie") z tego samego zrodla
 export APP_VERSION=${APP_VERSION:-v$APP_VERSION_NUM}
@@ -43,7 +43,17 @@ else
 	install_qt_arch="android_arm64_v8a"
 fi
 
-DOCKER_BUILDKIT=1 docker build ${SRC_DIR}/.docker/android_dev -t qfield_and_dev
+# Obraz budujemy TYLKO wtedy, gdy go nie ma. Do 16.09.2026 `docker build`
+# szedl przy kazdym uruchomieniu — zwykle trafial w pamiec podreczna, ale
+# gdy ktoras warstwa wygasla, probowal budowac od nowa i caly build zalezal
+# od repozytoriow Ubuntu i Google. Obraz zmienia sie raz na kilka miesiecy.
+#
+# Przebudowa na zadanie:  PRZEBUDUJ_OBRAZ=1 ./scripts/build.sh
+if [ -n "${PRZEBUDUJ_OBRAZ}" ] || ! docker image inspect qfield_and_dev >/dev/null 2>&1; then
+  DOCKER_BUILDKIT=1 docker build ${SRC_DIR}/.docker/android_dev -t qfield_and_dev
+else
+  echo "obraz qfield_and_dev jest — pomijam budowanie (PRZEBUDUJ_OBRAZ=1 wymusza)"
+fi
 
 docker run -it --rm qfield_and_dev env
 docker run -it --rm \
