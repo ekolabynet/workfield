@@ -36,6 +36,15 @@ class QfSnappingUtils : public QgsSnappingUtils
     Q_PROPERTY( QfSnappingResult snappingResult READ snappingResult NOTIFY snappingResultChanged )
     Q_PROPERTY( QPointF inputCoordinate READ inputCoordinate WRITE setInputCoordinate NOTIFY inputCoordinateChanged )
 
+    /**
+     * Ile razy wiekszy prog obowiazuje, gdy wierzcholek JUZ jest zaczepiony.
+     *
+     * 1.0 (domyslnie) = zachowanie bez zmian. 2.0 = lapie z 2 m, puszcza
+     * dopiero po 4 m. Bez tego wierzcholek drga na granicy progu: wchodzi,
+     * przyskakuje, wychodzi, puszcza — przy kazdym drgnieciu reki.
+     */
+    Q_PROPERTY( double mnoznikHisterezy READ mnoznikHisterezy WRITE setMnoznikHisterezy NOTIFY mnoznikHisterezyChanged )
+
   public:
     explicit QfSnappingUtils( QObject *parent = nullptr );
 
@@ -53,6 +62,9 @@ class QfSnappingUtils : public QgsSnappingUtils
 
     QfSnappingResult snappingResult() const;
 
+    double mnoznikHisterezy() const { return mMnoznikHisterezy; }
+    void setMnoznikHisterezy( double mnoznik );
+
     static QgsPoint newPoint( const QgsPoint &snappedPoint, const Qgis::WkbType wkbType );
 
     /**
@@ -67,6 +79,7 @@ class QfSnappingUtils : public QgsSnappingUtils
     void currentLayerChanged();
     void snappingResultChanged();
     void inputCoordinateChanged();
+    void mnoznikHisterezyChanged();
 
     void indexingStarted( int count );
     void indexingProgress( int index );
@@ -90,6 +103,11 @@ class QfSnappingUtils : public QgsSnappingUtils
     int mIndexLayerCount;
     QfSnappingResult mSnappingResult;
     QPointF mInputCoordinate;
+
+    //! 1.0 = bez histerezy. Patrz `mnoznikHisterezy`.
+    double mMnoznikHisterezy = 1.0;
+    //! Czy poprzedni pomiar byl zaczepiony — od tego zalezy, ktory prog.
+    bool mBylZaczepiony = false;
 };
 
 

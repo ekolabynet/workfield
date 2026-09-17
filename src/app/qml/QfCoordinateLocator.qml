@@ -77,6 +77,10 @@ Item {
     enabled: locator.visible
     mapSettings: locator.mapSettings
     config: qgisProject ? qgisProject.snappingConfig : snappingUtils.emptySnappingConfig()
+    // Histereza: lapie z progu projektu, puszcza dopiero po dwukrotnym.
+    // Bez tego wierzcholek drga na granicy — wchodzi w zasieg, przyskakuje,
+    // wychodzi, puszcza, przy kazdym drgnieciu reki.
+    mnoznikHisterezy: 2.0
     // Get the current crosshair location in screen coordinates. If `undefined`, then we use the center of the screen as input point.
     inputCoordinate: sourceLocation === undefined ? Qt.point(locator.width / 2, locator.height / 2) : sourceLocation
 

@@ -72,16 +72,46 @@ QgsPoint QfSnappingUtils::newPoint( const QgsPoint &snappedPoint, const Qgis::Wk
   return newPoint;
 }
 
+void QfSnappingUtils::setMnoznikHisterezy( double mnoznik )
+{
+  // Ponizej 1.0 nie ma sensu: prog puszczenia MNIEJSZY od progu zalapania
+  // dalby drganie zamiast je usunac.
+  const double m = mnoznik < 1.0 ? 1.0 : mnoznik;
+  if ( qFuzzyCompare( m, mMnoznikHisterezy ) )
+    return;
+  mMnoznikHisterezy = m;
+  emit mnoznikHisterezyChanged();
+}
+
 void QfSnappingUtils::snap()
 {
   if ( !mEnabled )
   {
+    mBylZaczepiony = false;
     mSnappingResult = QfSnappingResult();
     emit snappingResultChanged();
     return;
   }
 
+  // HISTEREZA. Gdy poprzedni pomiar byl zaczepiony, mierzymy PODWYZSZONYM
+  // progiem — wierzcholek puszcza dopiero po wiekszym ruchu i nie drga na
+  // granicy. Konfiguracja wraca zaraz po pomiarze, bo podwyzszony prog
+  // zostawiony na stale zaczalby zlepiac sasiadow.
+  const QgsSnappingConfig kfgProjektu = config();
+  const bool zHistereza = mBylZaczepiony && mMnoznikHisterezy > 1.0;
+  if ( zHistereza )
+  {
+    QgsSnappingConfig k = kfgProjektu;
+    k.setTolerance( kfgProjektu.tolerance() * mMnoznikHisterezy );
+    setConfig( k );
+  }
+
   QgsPointLocator::Match match = snapToMap( mapSettings()->screenToCoordinate( mInputCoordinate ) );
+
+  if ( zHistereza )
+    setConfig( kfgProjektu );
+
+  mBylZaczepiony = match.isValid();
   mSnappingResult = QfSnappingResult( match );
 
   //set point containing ZM if we snapped to a point/vertex
