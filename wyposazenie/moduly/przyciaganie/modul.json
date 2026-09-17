@@ -1,21 +1,24 @@
 {
   "id": "przyciaganie",
-  "nazwa": "Przyciąganie włączone",
-  "wersja": 1,
+  "nazwa": "Przyciąganie w metrach",
+  "wersja": 2,
   "rodzaj": "ustawienie",
-  "gdzie": ["biuro", "teren"],
+  "gdzie": [
+    "biuro",
+    "teren"
+  ],
   "odwracalny": true,
-  "opis": "Przyciąganie do wierzchołków i odcinków wszystkich warstw wektorowych, tolerancja 12 px, z przecięciami. Bez tego sąsiadujące płaty nie stykają się po granicy, a w rękawicach nie da się trafić w wierzchołek.",
-  "grunt": "QgsSnappingConfig::readProject — atrybuty elementu <snapping-settings>. mode 2 = AllLayers, type 3 = Vertex|Segment (Qgis::SnappingType: Vertex=1, Segment=2), unit 1 = piksele.",
+  "opis": "Przyciąganie do wierzchołków i odcinków warstwy aktywnej, próg 2 m w jednostkach mapy, z przecięciami. Metry, NIE piksele: przy 12 px próg rośnie razem z oddaleniem mapy i na widoku ogólnym sięga kilkunastu metrów — stąd 28 zlepionych płatów w PTR (16.09.2026). W metrach próg znaczy zawsze to samo.",
+  "grunt": "QgsSnappingConfig::readProject — atrybuty <snapping-settings>. unit 2 = Project (jednostki mapy), unit 1 = piksele ekranu. mode 1 = ActiveLayer, 2 = AllLayers. type 3 = Vertex|Segment. Wartości z PTR po dniu pracy w terenie, 17.09.2026.",
   "kroki": [
     {
       "typ": "snapping",
       "atrybuty": {
         "enabled": 1,
-        "mode": 2,
+        "mode": 1,
         "type": 3,
-        "unit": 1,
-        "tolerance": 12,
+        "unit": 2,
+        "tolerance": 2,
         "intersection-snapping": 1
       },
       "atrybuty_cofniecia": {
