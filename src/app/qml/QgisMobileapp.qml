@@ -362,6 +362,18 @@ ApplicationWindow {
             repeat: true
             onTriggered: ntripAgeIndicator.nowMs = Date.now()
           }
+
+          // Tapniecie w wiek poprawki otwiera diagnostyke GNSS — tam jest
+          // stan NTRIP, liczba satelitow i jakosc pozycji. Do 17.09.2026
+          // trzeba bylo po to wejsc w szuflade i przewinac Narzedzia.
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -10
+            onClicked: {
+              if (typeof dataDrawer !== "undefined")
+                dataDrawer.wykonajNarzedzie("gnssDiag");
+            }
+          }
         }
 
         Text {
@@ -373,6 +385,17 @@ ApplicationWindow {
           font.bold: true
           text: acc < 0 ? qsTr("BRAK") : acc <= 0.03 ? "FIX" : acc <= 0.10 ? "FLOAT+" : acc <= 0.25 ? "FLOAT" : acc <= 0.50 ? "FLOAT-" : "GPS"
           color: acc < 0 ? "#EF5350" : acc <= 0.03 ? "#00E676" : acc <= 0.10 ? "#B2FF59" : acc <= 0.25 ? "#FFEB3B" : acc <= 0.50 ? "#FFA726" : "#EF5350"
+
+          // Tapniecie w jakosc pozycji otwiera ustawienia odbiornika —
+          // stamtad wybiera sie urzadzenie i wlacza NTRIP.
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -10
+            onClicked: {
+              if (typeof dataDrawer !== "undefined")
+                dataDrawer.wykonajNarzedzie("gnssSettings");
+            }
+          }
         }
       }
       }

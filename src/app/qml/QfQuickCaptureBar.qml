@@ -1010,6 +1010,11 @@ Column {
       distancePresets = defs.odleglosci && defs.odleglosci.length > 0 ? defs.odleglosci : [25, 50, 100, 200];
       for (let i = 0; i < defs.klawisze.length; i++) {
         const d = defs.klawisze[i];
+        // Kafel schowany okiem w edytorze — zostaje w pliku, nie wchodzi
+        // na pasek.
+        if (d.ukryty === true) {
+          continue;
+        }
         const l = findLayerByName(d.warstwa);
         if (!l || !layerWritable(l)) {
           continue;

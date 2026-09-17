@@ -133,11 +133,25 @@ Popup {
 
   function zapisz() {
     const dyst = odleglosci.split(",").map(x => parseInt(String(x).trim())).filter(x => !isNaN(x) && x > 0);
-    const ok = quickCaptureBar.saveDefinitions({
-        "wersja": 1,
-        "klawisze": wpisy,
-        "odleglosci": dyst.length > 0 ? dyst : [25, 50, 100, 200]
-      });
+    // Sekcja `ustawienia` (krawedz paska, rozmiar domyslny, odstep, czas
+    // serii) NIE jest edytowana w tym oknie — ale byla tu gubiona przy
+    // kazdym zapisie. Wczytujemy biezaca i oddajemy nietknieta.
+    let ustawieniaPaska = undefined;
+    try {
+      const stare = quickCaptureBar.loadDefinitions();
+      if (stare && stare.ustawienia)
+        ustawieniaPaska = stare.ustawienia;
+    } catch (e) {
+      ustawieniaPaska = undefined;
+    }
+    const dane = {
+      "wersja": 1,
+      "klawisze": wpisy,
+      "odleglosci": dyst.length > 0 ? dyst : [25, 50, 100, 200]
+    };
+    if (ustawieniaPaska !== undefined)
+      dane.ustawienia = ustawieniaPaska;
+    const ok = quickCaptureBar.saveDefinitions(dane);
     if (ok) {
       displayToast(qsTr("Zapisano klawisze projektu"));
       captureSettings.close();
@@ -182,6 +196,9 @@ Popup {
         width: lista.width
         height: 46
         radius: 4
+        // Ukryty kafel widac w edytorze, ale przygaszony — inaczej nie
+        // bylo by wiadomo, czym jest wiersz bez zadnego znaku.
+        opacity: modelData.ukryty === true ? 0.45 : 1.0
         color: "#22FFFFFF"
 
         RowLayout {
@@ -229,6 +246,29 @@ Popup {
           ToolButton {
             text: modelData.zdjecie ? "📷" : "✏"
             onClicked: captureSettings.zmienPole(index, "zdjecie", !modelData.zdjecie)
+          }
+
+          // Srednica kafla. Cztery progi zamiast suwaka — w rekawicach
+          // suwak jest nietrafialny, a cztery rozmiary wystarczaja.
+          ToolButton {
+            text: String(modelData.rozmiar !== undefined ? modelData.rozmiar : 56)
+            font.pointSize: Theme.tinyFont.pointSize
+            onClicked: {
+              const progi = [48, 56, 72, 88];
+              const teraz = modelData.rozmiar !== undefined ? modelData.rozmiar : 56;
+              let i = 0;
+              for (let j = 0; j < progi.length; j++)
+                if (Math.abs(progi[j] - teraz) < Math.abs(progi[i] - teraz))
+                  i = j;
+              captureSettings.zmienPole(index, "rozmiar", progi[(i + 1) % progi.length]);
+            }
+          }
+
+          // Oko: kafel schowany zamiast usunietego. Warstwa uzywana raz
+          // w tygodniu nie musi byc dodawana od nowa za kazdym razem.
+          ToolButton {
+            text: modelData.ukryty === true ? "\u25cb" : "\u25c9"
+            onClicked: captureSettings.zmienPole(index, "ukryty", modelData.ukryty !== true)
           }
 
           ToolButton {
