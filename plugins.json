@@ -2,9 +2,9 @@
   {
     "uuid": "workfield-gugik",
     "name": "WorkField GUGiK",
-    "description": "Pobieranie dzialek i budynkow z uslugi ULDK (GUGiK) tapnieciem w mape (v0.5)",
-    "version": "0.5",
-    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-gugik-v0.5.zip",
+    "description": "Pobieranie dzialek i budynkow z uslugi ULDK (GUGiK) tapnieciem w mape (v0.6)",
+    "version": "0.6",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-gugik-v0.6.zip",
     "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_gugik.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
@@ -12,9 +12,9 @@
   {
     "uuid": "workfield-konsola",
     "name": "WorkField Konsola",
-    "description": "Naprawa bazy i aplikacji z telefonu: SQL, kod QML, style (v0.8)",
-    "version": "0.8",
-    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-konsola-v0.8.zip",
+    "description": "Naprawa bazy i aplikacji z telefonu: SQL, kod QML, style (v0.9)",
+    "version": "0.9",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-konsola-v0.9.zip",
     "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_konsola.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
@@ -22,9 +22,9 @@
   {
     "uuid": "workfield-plantnet",
     "name": "WorkField Pl@ntNet",
-    "description": "Rozpoznawanie gatunkow roslin ze zdjecia przez Pl@ntNet API (v0.13)",
-    "version": "0.13",
-    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-plantnet-v0.13.zip",
+    "description": "Rozpoznawanie gatunkow roslin ze zdjecia przez Pl@ntNet API (v0.14)",
+    "version": "0.14",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-plantnet-v0.14.zip",
     "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_plantnet.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
@@ -32,9 +32,9 @@
   {
     "uuid": "workfield-zrobione",
     "name": "WorkField Zrobione",
-    "description": "Odhaczanie poligonow tapnieciem: NIE / CZESCIOWO / KOMPLET (v0.5)",
-    "version": "0.5",
-    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-zrobione-v0.5.zip",
+    "description": "Odhaczanie poligonow tapnieciem: NIE / CZESCIOWO / KOMPLET (v0.6)",
+    "version": "0.6",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-zrobione-v0.6.zip",
     "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_zrobione.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
