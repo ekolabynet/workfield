@@ -778,11 +778,54 @@ Drawer {
       Layout.margins: 8
       spacing: 8
 
-      Text {
+      ColumnLayout {
         Layout.fillWidth: true
-        text: qsTr("WorkField")
-        font: Theme.strongFont
-        color: Theme.mainTextColor
+        spacing: 0
+
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("WorkField")
+          font: Theme.strongFont
+          color: Theme.mainTextColor
+        }
+
+        // Wersja pod nazwa, mala czcionka. Do 17.09.2026 sprawdzalo sie ja
+        // przez `adb shell dumpsys package` — a naglowek stal pusty.
+        Text {
+          id: wersjaAplikacji
+
+          Layout.fillWidth: true
+          // NIE wiazanie `text: appVersionStr` — ta nazwa nie jest widoczna
+          // przy budowie komponentu (ReferenceError w linii 796), choc dziala
+          // WEWNATRZ funkcji, bo te wykonuja sie pozniej, gdy kontekst jest
+          // juz zbudowany.
+          text: ""
+          font: Theme.tinyFont
+          color: Theme.secondaryTextColor
+          elide: Text.ElideRight
+
+          Component.onCompleted: {
+            try {
+              wersjaAplikacji.text = appVersionStr;
+            } catch (e) {
+              wersjaAplikacji.text = "";
+            }
+          }
+
+          // Nota wydania z GitHuba — `QfChangelogContents` pobiera ja
+          // z API wydan, a `QfChangelog` pokazuje jako Markdown. Oba byly
+          // w aplikacji od zawsze, wolane TYLKO z ekranu "O programie",
+          // do ktorego nikt nie zaglada.
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -6
+            onClicked: {
+              dashBoard.close();
+              if (typeof changelogPopup !== "undefined")
+                changelogPopup.open();
+            }
+          }
+        }
       }
 
       QfToolButton {
@@ -1047,6 +1090,200 @@ Drawer {
               const h = w > 0 ? Math.max(3, (height - 2) * w / aktywnosc.maks) : 1;
               ctx.fillStyle = w > 0 ? t.mainColor : "#d0d0d0";
               ctx.fillRect(i * krok + 1, height - h, Math.max(2, krok - 2), h);
+            }
+          }
+        }
+      }
+
+      // ── wyposazenie i ostrzezenia: jedna linia, szczegoly na zadanie ──
+      QtObject {
+        id: stanWyposazenia
+
+        property int zgodnych: 0
+        property int wszystkich: 0
+        property int ostrzezen: 0
+        property var moduly: []
+        property var uwagi: []
+
+        function odswiez() {
+          if (!qgisProject || qgisProject.homePath === "") {
+            moduly = [];
+            uwagi = [];
+            zgodnych = 0;
+            wszystkich = 0;
+            ostrzezen = 0;
+            return;
+          }
+          // `sprawdz` zwraca LISTE modulow, nie mape z kluczem `moduly`.
+          let m = [];
+          try {
+            m = wyposazenieProjektu.sprawdz(qgisProject) || [];
+          } catch (e) {
+            m = [];
+          }
+          let zg = 0;
+          for (let i = 0; i < m.length; i++)
+            if (m[i].stan === "zgodny")
+              zg++;
+          moduly = m;
+          wszystkich = m.length;
+          zgodnych = zg;
+
+          let u = [];
+          try {
+            const st = NarzedziaProjektu.stanProjektu(qgisProject);
+            u = (st && st.ostrzezenia) ? st.ostrzezenia : [];
+          } catch (e) {
+            u = [];
+          }
+          uwagi = u;
+          ostrzezen = u.length;
+        }
+      }
+
+      Wyposazenie {
+        id: wyposazenieProjektu
+      }
+
+      Rectangle {
+        id: paskaWyposazenia
+
+        property bool rozwiniety: false
+
+        Layout.fillWidth: true
+        Layout.topMargin: 6
+        Layout.preferredHeight: wierszPaska.implicitHeight + 10
+        radius: 4
+        color: t.controlBackgroundColor
+        border.width: 1
+        // Ostrzezenia o DANYCH przed brakami konfiguracji: pierwsze mowia
+        // o pracy, ktora moze byc stracona, drugie o ustawieniu do poprawienia.
+        border.color: stanWyposazenia.ostrzezen > 0
+                      ? t.errorColor
+                      : (stanWyposazenia.zgodnych < stanWyposazenia.wszystkich
+                         ? t.warningColor : t.controlBorderColor)
+
+        RowLayout {
+          id: wierszPaska
+
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.margins: 8
+          spacing: 6
+
+          Text {
+            Layout.fillWidth: true
+            text: stanWyposazenia.wszystkich === 0
+                  ? qsTr("Wyposażenie · brak danych")
+                  : (stanWyposazenia.ostrzezen > 0
+                     ? qsTr("Wyposażenie · %1 z %2 · %3 uwag")
+                         .arg(stanWyposazenia.zgodnych)
+                         .arg(stanWyposazenia.wszystkich)
+                         .arg(stanWyposazenia.ostrzezen)
+                     : qsTr("Wyposażenie · %1 z %2")
+                         .arg(stanWyposazenia.zgodnych)
+                         .arg(stanWyposazenia.wszystkich))
+            font: t.tinyFont
+            color: stanWyposazenia.ostrzezen > 0 ? t.errorColor : t.secondaryTextColor
+            elide: Text.ElideRight
+          }
+
+          Text {
+            text: paskaWyposazenia.rozwiniety ? "\u25b2" : "\u25bc"
+            font: t.tinyFont
+            color: t.secondaryTextColor
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: {
+            if (!paskaWyposazenia.rozwiniety)
+              stanWyposazenia.odswiez();
+            paskaWyposazenia.rozwiniety = !paskaWyposazenia.rozwiniety;
+          }
+        }
+      }
+
+      Flickable {
+        id: przewijaczWyposazenia
+
+        Layout.fillWidth: true
+        // Sufit 30% szuflady: pod spodem jest siatka czasownikow i to ona
+        // jest glowna trescia zakladki. Rozwiniete wyposazenie nie moze
+        // zepchnac jej pod krawedz.
+        Layout.preferredHeight: paskaWyposazenia.rozwiniety
+                                ? Math.min(trescWyposazenia.implicitHeight,
+                                           mainWindow.height * 0.30)
+                                : 0
+        visible: paskaWyposazenia.rozwiniety
+        contentHeight: trescWyposazenia.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+
+        ColumnLayout {
+          id: trescWyposazenia
+
+          width: przewijaczWyposazenia.width
+          spacing: 2
+
+          Repeater {
+            model: stanWyposazenia.moduly
+
+            RowLayout {
+              Layout.fillWidth: true
+              Layout.leftMargin: 8
+              Layout.rightMargin: 8
+              spacing: 6
+
+              Rectangle {
+                Layout.preferredWidth: 8
+                Layout.preferredHeight: 8
+                radius: 4
+                color: modelData.stan === "zgodny" ? t.goodColor
+                     : modelData.stan === "starszy" ? t.warningColor
+                     : modelData.stan === "nowszy" ? t.warningColor
+                     : t.errorColor
+              }
+
+              Text {
+                Layout.fillWidth: true
+                text: modelData.nazwa !== undefined ? modelData.nazwa : modelData.modul
+                font: t.tinyFont
+                color: t.mainTextColor
+                elide: Text.ElideRight
+              }
+
+                          }
+          }
+
+          // Pelny ekran zostaje: ma miejsce na czternascie warstw, dlugie
+          // opisy i przyciski naprawy. Pasek jest skrotem, nie zamiennikiem.
+          ToolButton {
+            Layout.alignment: Qt.AlignRight
+            Layout.rightMargin: 8
+            text: qsTr("Zmień") + " \u2192"
+            font.pointSize: t.tinyFont.pointSize
+            implicitHeight: 24
+            onClicked: {
+              dashBoard.close();
+              if (typeof ekranWyposazenia !== "undefined")
+                ekranWyposazenia.otworz();
+            }
+          }
+
+          Repeater {
+            model: stanWyposazenia.uwagi
+
+            Text {
+              Layout.fillWidth: true
+              Layout.leftMargin: 8
+              Layout.rightMargin: 8
+              text: "· " + (modelData.opis !== undefined ? modelData.opis : String(modelData))
+              font: t.tinyFont
+              color: modelData.waga === "brak" ? t.errorColor : t.warningColor
+              wrapMode: Text.WordWrap
             }
           }
         }

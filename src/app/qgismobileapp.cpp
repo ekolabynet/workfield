@@ -435,6 +435,16 @@ void QgisMobileapp::registerGlobalVariables()
   rootContext()->setContextProperty( "drawingTemplateModel", mDrawingTemplateModel );
   rootContext()->setContextProperty( "qfieldAuthRequestHandler", mAuthRequestHandler );
   rootContext()->setContextProperty( "trackingModel", mTrackingModel );
+  // Wersja aplikacji do QML. `Qfield::appVersionStr` istnieje w C++,
+  // ale NIE bylo wystawione — QML uzywalo tej nazwy w dwoch miejscach
+  // i konczylo sie ReferenceError, tylko nikt tego nie widzial, bo
+  // oba byly wewnatrz `onClicked` przy zglaszaniu uwag z terenu.
+  rootContext()->setContextProperty( "appVersionStr", Qfield::appVersionStr );
+  // Wersja aplikacji do QML. `Qfield::appVersionStr` istnieje w C++,
+  // ale NIE bylo wystawione — QML uzywalo tej nazwy w dwoch miejscach
+  // i konczylo sie ReferenceError, tylko nikt tego nie widzial, bo
+  // oba byly wewnatrz `onClicked` przy zglaszaniu uwag z terenu.
+  rootContext()->setContextProperty( "appVersionStr", Qfield::appVersionStr );
   addImageProvider( QLatin1String( "legend" ), mLegendImageProvider );
   addImageProvider( QLatin1String( "asynclegend" ), mAsyncLegendImageProvider );
   addImageProvider( QLatin1String( "localfiles" ), mLocalFilesImageProvider );

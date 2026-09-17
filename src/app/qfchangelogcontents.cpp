@@ -41,7 +41,7 @@ void QfChangelogContents::request()
   mStatus = LoadingStatus;
   emit statusChanged();
 
-  QNetworkReply *reply = manager->get( QNetworkRequest( QUrl( QStringLiteral( "https://api.github.com/repos/opengisch/qfield/releases" ) ) ) );
+  QNetworkReply *reply = manager->get( QNetworkRequest( QUrl( QStringLiteral( "https://api.github.com/repos/ekolabynet/workfield/releases" ) ) ) );
 
   connect( reply, &QNetworkReply::finished, this, [this, reply]() {
     QJsonParseError error;
@@ -103,7 +103,7 @@ void QfChangelogContents::request()
                     : ( releaseChangelog + changelog );
     }
 
-    changelog += QStringLiteral( "\n" ) + QStringLiteral( "[" ) + tr( "Previous releases on GitHub" ) + QStringLiteral( "](https://github.com/opengisch/qfield/releases)" );
+    changelog += QStringLiteral( "\n" ) + QStringLiteral( "[" ) + tr( "Previous releases on GitHub" ) + QStringLiteral( "](https://github.com/ekolabynet/workfield/releases)" );
 
     QRegularExpression regexpFirstTitle( QStringLiteral( "^\n#\n# " ) );
     changelog = changelog.replace( regexpFirstTitle, QStringLiteral( "\n# " ) );
