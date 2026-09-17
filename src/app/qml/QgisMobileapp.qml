@@ -2726,10 +2726,32 @@ ApplicationWindow {
       anchors.bottomMargin: 8
       spacing: 6
 
-      Column {
-        id: pluginsToolbar
-        objectName: "pluginsToolbar"
-        spacing: 6
+      // Przewijacz wokol paska wtyczek. Sam `pluginsToolbar` zostaje
+      // `Column` o tej samej nazwie i roli — wtyczki zglaszaja sie do
+      // niego przez `iface.addItemToPluginsToolbar()` i nie wiedza,
+      // ze cokolwiek sie zmienilo.
+      Flickable {
+        id: przewijaczWtyczek
+
+        width: pluginsToolbar.implicitWidth
+        // Sufit z OKNA, nie z rodzica: `lewaKolumnaNarzedzi` mierzy sie
+        // wysokoscia dzieci, wiec pytanie jej o wysokosc zapetla sie.
+        height: Math.min(pluginsToolbar.implicitHeight,
+                         mainWindow.height * 0.45)
+        contentHeight: pluginsToolbar.implicitHeight
+        clip: true
+        // Bez odbicia na koncu: na krawedzi ekranu latwo pomylic
+        // przewijanie z tapnieciem.
+        boundsBehavior: Flickable.StopAtBounds
+        // Przy kilku wtyczkach nie ma czego przewijac — niech gest
+        // przechodzi do mapy pod spodem.
+        interactive: contentHeight > height
+
+        Column {
+          id: pluginsToolbar
+          objectName: "pluginsToolbar"
+          spacing: 6
+        }
       }
 
       // WorkField 22.08: prawa szuflada (dane) jako okragla zebatka.
