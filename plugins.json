@@ -5,6 +5,7 @@
     "description": "Pobieranie dzialek i budynkow z uslugi ULDK (GUGiK) tapnieciem w mape (v0.3)",
     "version": "0.3",
     "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-gugik-v0.3.zip",
+    "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_gugik.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
   },
@@ -14,6 +15,7 @@
     "description": "Naprawa bazy i aplikacji z telefonu: SQL, kod QML, style (v0.6)",
     "version": "0.6",
     "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-konsola-v0.6.zip",
+    "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_konsola.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
   },
@@ -23,6 +25,7 @@
     "description": "Rozpoznawanie gatunkow roslin ze zdjecia przez Pl@ntNet API (v0.11)",
     "version": "0.11",
     "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-plantnet-v0.11.zip",
+    "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_plantnet.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
   },
@@ -32,6 +35,7 @@
     "description": "Odhaczanie poligonow tapnieciem: NIE / CZESCIOWO / KOMPLET (v0.3)",
     "version": "0.3",
     "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-zrobione-v0.3.zip",
+    "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_zrobione.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
   },
