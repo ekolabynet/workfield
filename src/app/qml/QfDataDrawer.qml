@@ -212,19 +212,26 @@ Drawer {
       // miesiac, nie zabierajac zadnej — a `ColumnLayout` rosnie w
       // nieskonczonosc i nic o tym nie mowi.
       Flickable {
-        contentHeight: kolumnaNarzedzi.implicitHeight
+        id: przewijaczNarzedzi
+
+        // `id` nie jest ozdoba: ScrollBar odwolywal sie do `parent`, a jego
+        // rodzicem NIE jest przewijacz — warunek byl zawsze falszywy i pasek
+        // nie pokazywal sie nigdy.
+        contentHeight: kolumnaNarzedzi.implicitHeight + 16
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {
-          policy: parent.contentHeight > parent.height ? ScrollBar.AlwaysOn
-                                                       : ScrollBar.AlwaysOff
+          policy: przewijaczNarzedzi.contentHeight > przewijaczNarzedzi.height
+                  ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
         }
 
       ColumnLayout {
         id: kolumnaNarzedzi
 
-        anchors.left: parent.left
-        anchors.right: parent.right
+        // `width`, nie `anchors`: kotwiczenie w przewijaczu liczy sie
+        // wzgledem obszaru WIDOCZNEGO, a nie tresci — ostatnie pozycje
+        // ("Wtyczki", "Zablokuj ekran") wypadaly poza zasieg przewijania.
+        width: przewijaczNarzedzi.width
         spacing: 0
 
         // WorkField 23.08.2026 — zakladka przebudowana z trzech powodow naraz:

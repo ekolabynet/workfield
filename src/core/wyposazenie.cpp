@@ -10,6 +10,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonParseError>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -220,7 +221,18 @@ QString Wyposazenie::podsumowanie( QgsProject *projekt ) const
 static const QStringList UMIEMY = {
   QStringLiteral( "wlasciwosc" ),
   QStringLiteral( "wlasciwosc_warstwy" ),
-  QStringLiteral( "snapping" )
+  QStringLiteral( "snapping" ),
+  // Kroki SPRAWDZAJACE — niczego nie zmieniaja, wiec wolno je wykonac
+  // wszedzie. Odkryte 15.09: `tyczenie` tylko patrzy, czy warstwa jest,
+  // a `klawisze` czy plik kafli jest poprawny.
+  QStringLiteral( "warstwa_istnieje" ),
+  QStringLiteral( "kontrola_klawiszy" )
+};
+
+//! Typy krokow, ktore da sie COFNAC. Reszta = modul nieodwracalny.
+static const QStringList COFAMY = {
+  QStringLiteral( "wlasciwosc" ),
+  QStringLiteral( "wlasciwosc_warstwy" )
 };
 
 QJsonObject Wyposazenie::opisModulu( const QString &modul ) const
@@ -379,7 +391,223 @@ QString Wyposazenie::wykonajKrok( QgsProject *projekt, const QJsonObject &krok )
     return QStringLiteral( "przyciaganie: " ) + opis.join( QStringLiteral( ", " ) );
   }
 
+  if ( typ == QLatin1String( "warstwa_istnieje" ) )
+  {
+    // SPRAWDZENIE, nie zakladanie. Warstwe robocza i tak zakladasz recznie
+    // — modul stwierdza, ze jest, i zapisuje to w stemplu.
+    const QString nazwa = krok.value( QStringLiteral( "nazwa" ) ).toString();
+    const auto warstwy = projekt->mapLayersByName( nazwa );
+    if ( warstwy.isEmpty() )
+      return QString();
+    return tr( "warstwa \"%1\" jest" ).arg( nazwa );
+  }
+
+  if ( typ == QLatin1String( "kontrola_klawiszy" ) )
+  {
+    // Czytamy i sprawdzamy klucze. `nazwa` zamiast `etykieta` daje pasek
+    // PUSTY, a dowiadujesz sie o tym dopiero w terenie — wiec sprawdzamy
+    // dokladnie to, czego szuka QfQuickCaptureBar.loadDefinitions().
+    const QString plik = projekt->homePath() + QStringLiteral( "/" )
+                         + krok.value( QStringLiteral( "nazwa" ) ).toString();
+    QFile f( plik );
+    if ( !f.open( QIODevice::ReadOnly ) )
+      return QString();
+    QJsonParseError blad;
+    const QJsonDocument d = QJsonDocument::fromJson( f.readAll(), &blad );
+    f.close();
+    if ( blad.error != QJsonParseError::NoError )
+      return QString();
+    const QJsonArray kafle = d.object().value( QStringLiteral( "klawisze" ) ).toArray();
+    if ( kafle.isEmpty() )
+      return QString();
+    int dobre = 0;
+    for ( const QJsonValue &k : kafle )
+    {
+      const QJsonObject o = k.toObject();
+      if ( !o.contains( QStringLiteral( "etykieta" ) )
+           || !o.contains( QStringLiteral( "warstwa" ) ) )
+        return QString();
+      if ( projekt->mapLayersByName(
+             o.value( QStringLiteral( "warstwa" ) ).toString() ).isEmpty() )
+        return QString();
+      ++dobre;
+    }
+    return tr( "kafli: %1, wszystkie wskazuja na istniejace warstwy" ).arg( dobre );
+  }
+
   return QString();
+}
+
+QString Wyposazenie::cofnijKrok( QgsProject *projekt, const QJsonObject &krok ) const
+{
+  const QString typ = krok.value( QStringLiteral( "typ" ) ).toString();
+  const QString grupa = krok.value( QStringLiteral( "grupa" ) ).toString();
+  const QString klucz = krok.value( QStringLiteral( "klucz" ) ).toString();
+
+  if ( typ == QLatin1String( "wlasciwosc" ) )
+  {
+    const QJsonValue w = krok.value( QStringLiteral( "wartosc_cofniecia" ) );
+    if ( w.isUndefined() )
+      return QString();
+    projekt->writeEntry( grupa, QStringLiteral( "/" ) + klucz, w.toInt() );
+    return QStringLiteral( "%1/%2 = %3" ).arg( grupa, klucz ).arg( w.toInt() );
+  }
+
+  if ( typ == QLatin1String( "wlasciwosc_warstwy" ) )
+  {
+    // Cofniecie listy warstw to lista PUSTA — nie usuwamy wpisu, bo brak
+    // wpisu i pusta lista to dla QGIS-a co innego.
+    projekt->writeEntry( grupa, QStringLiteral( "/" ) + klucz, QStringList() );
+    return QStringLiteral( "%1/%2 = (pusto)" ).arg( grupa, klucz );
+  }
+
+  return QString();
+}
+
+QString Wyposazenie::mozeZdjac( const QString &modul ) const
+{
+  const QJsonObject m = opisModulu( modul );
+  if ( m.isEmpty() )
+    return tr( "nie ma takiego modulu w katalogu" );
+  if ( !m.value( QStringLiteral( "odwracalny" ) ).toBool() )
+    return tr( "nieodwracalny" );
+
+  for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
+  {
+    const QJsonObject o = k.toObject();
+    const QString typ = o.value( QStringLiteral( "typ" ) ).toString();
+    if ( !COFAMY.contains( typ ) )
+      return tr( "kroku \"%1\" nie umiem cofnac" ).arg( typ );
+    if ( typ == QLatin1String( "wlasciwosc" )
+         && o.value( QStringLiteral( "wartosc_cofniecia" ) ).isUndefined() )
+      return tr( "modul nie podaje, do czego wrocic" );
+  }
+  return QString();
+}
+
+QVariantMap Wyposazenie::zdejmij( QgsProject *projekt, const QString &modul ) const
+{
+  QVariantMap w;
+  w[QStringLiteral( "ok" )] = false;
+
+  const QString powod = mozeZdjac( modul );
+  if ( !powod.isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie zdejmuje — %1." ).arg( powod );
+    return w;
+  }
+  if ( !projekt || projekt->fileName().isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie ma otwartego projektu." );
+    return w;
+  }
+
+  const QString znacznik =
+    QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmmss" ) );
+  const QString kopia = projekt->fileName() + QStringLiteral( ".przed_" ) + znacznik;
+  if ( !QFile::copy( projekt->fileName(), kopia ) )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie udalo sie zrobic kopii — nic nie zmieniam." );
+    return w;
+  }
+  w[QStringLiteral( "kopia" )] = kopia;
+
+  const QJsonObject m = opisModulu( modul );
+  QStringList zrobione;
+  for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
+  {
+    const QString opis = cofnijKrok( projekt, k.toObject() );
+    if ( opis.isEmpty() )
+    {
+      w[QStringLiteral( "opis" )] = tr( "Cofniecie sie nie powiodlo — kopia: %1" ).arg( kopia );
+      return w;
+    }
+    zrobione << opis;
+  }
+
+  if ( !projekt->write() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie udalo sie zapisac projektu." );
+    return w;
+  }
+
+  // Stempel kasujemy DOPIERO po udanym cofnieciu i zapisie.
+  const QString baza = bazaProjektu( projekt );
+  sqlite3 *db = nullptr;
+  if ( !baza.isEmpty() && sqlite3_open( baza.toUtf8().constData(), &db ) == SQLITE_OK )
+  {
+    const QString sql = QStringLiteral( "DELETE FROM WF_WYPOSAZENIE WHERE modul='%1'" )
+                          .arg( QString( modul ).replace( '\'', QLatin1String( "''" ) ) );
+    sqlite3_exec( db, sql.toUtf8().constData(), nullptr, nullptr, nullptr );
+    sqlite3_close( db );
+  }
+
+  w[QStringLiteral( "ok" )] = true;
+  w[QStringLiteral( "opis" )] = tr( "Zdjete: %1" ).arg( zrobione.join( QStringLiteral( "; " ) ) );
+  return w;
+}
+
+QVariantMap Wyposazenie::szkieletKlawiszy( QgsProject *projekt ) const
+{
+  QVariantMap w;
+  w[QStringLiteral( "ok" )] = false;
+  if ( !projekt || projekt->homePath().isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie ma otwartego projektu." );
+    return w;
+  }
+
+  const QString plik = projekt->homePath()
+                       + QStringLiteral( "/workfield_klawisze.json" );
+  if ( QFileInfo::exists( plik ) )
+  {
+    w[QStringLiteral( "opis" )] =
+      tr( "Plik juz jest — nie nadpisuje. Popraw go w edytorze." );
+    return w;
+  }
+
+  // Wzorzec wskazuje na PIERWSZA warstwe wektorowa projektu, zeby kafel
+  // dzialal od razu. Kafel wskazujacy na nieistniejaca warstwe daje pasek
+  // pusty — a o tym dowiadujesz sie dopiero w terenie.
+  QString pierwsza;
+  const auto warstwy = projekt->mapLayers();
+  for ( auto it = warstwy.constBegin(); it != warstwy.constEnd(); ++it )
+  {
+    if ( qobject_cast<QgsVectorLayer *>( it.value() ) )
+    {
+      pierwsza = it.value()->name();
+      break;
+    }
+  }
+  if ( pierwsza.isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Projekt nie ma zadnej warstwy wektorowej." );
+    return w;
+  }
+
+  const QString tresc = QStringLiteral(
+    "{\n"
+    "  \"_uwaga\": \"Klucz to 'etykieta', NIE 'nazwa'. 'warstwa' musi sie zgadzac \"\n"
+    "               \"z nazwa warstwy w projekcie, inaczej pasek wstanie PUSTY.\",\n"
+    "  \"klawisze\": [\n"
+    "    { \"etykieta\": \"P\", \"warstwa\": \"%1\", \"kolor\": \"#4caf50\" }\n"
+    "  ]\n"
+    "}\n" ).arg( pierwsza );
+
+  QFile f( plik );
+  if ( !f.open( QIODevice::WriteOnly | QIODevice::Text ) )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie udalo sie zapisac pliku." );
+    return w;
+  }
+  f.write( tresc.toUtf8() );
+  f.close();
+
+  w[QStringLiteral( "ok" )] = true;
+  w[QStringLiteral( "opis" )] =
+    tr( "Szkielet zapisany z jednym kaflem na warstwie \"%1\". "
+        "Popraw go w edytorze, potem sprawdz jeszcze raz." ).arg( pierwsza );
+  return w;
 }
 
 bool Wyposazenie::ostempluj( QgsProject *projekt, const QString &modul, int wersja ) const

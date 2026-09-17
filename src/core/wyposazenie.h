@@ -119,6 +119,31 @@ class Wyposazenie : public QObject
      */
     Q_INVOKABLE QVariantMap zaloz( QgsProject *projekt, const QString &modul ) const;
 
+    /**
+     * Czy modul da sie ZDJAC z aplikacji. Pusty ciag = wolno.
+     *
+     * Odwracalne sa tylko ustawienia projektu, i tylko te, dla ktorych
+     * modul podaje `wartosc_cofniecia`. Struktura bazy nie jest odwracalna
+     * nigdy — `zalaczniki` maja w module `"odwracalny": false` i to nie
+     * jest ostroznosc, tylko fakt: skasowanie tabeli kasuje dane.
+     */
+    Q_INVOKABLE QString mozeZdjac( const QString &modul ) const;
+
+    /**
+     * Zdejmuje modul: cofa kroki i kasuje stempel.
+     * Zwraca mape jak `zaloz`.
+     */
+    Q_INVOKABLE QVariantMap zdejmij( QgsProject *projekt, const QString &modul ) const;
+
+    /**
+     * Zaklada SZKIELET `workfield_klawisze.json` z jednym przykladowym
+     * kaflem. Tresc jest branzowa (D/G/U/T w dendro, inna w platach),
+     * wiec modul jej nie wymysla — daje wzorzec do wypelnienia w edytorze.
+     *
+     * Odmawia, gdy plik juz jest: nadpisanie cudzych kafli byloby strata.
+     */
+    Q_INVOKABLE QVariantMap szkieletKlawiszy( QgsProject *projekt ) const;
+
   private:
     //! Wersje ze stempla `WF_WYPOSAZENIE` w `dane.gpkg` projektu.
     QVariantMap stempel( QgsProject *projekt ) const;
@@ -128,6 +153,9 @@ class Wyposazenie : public QObject
 
     //! Wykonuje jeden krok. Pusty ciag = niepowodzenie.
     QString wykonajKrok( QgsProject *projekt, const QJsonObject &krok ) const;
+
+    //! Cofa jeden krok. Pusty ciag = niepowodzenie.
+    QString cofnijKrok( QgsProject *projekt, const QJsonObject &krok ) const;
 
     //! Wpisuje wersje do `WF_WYPOSAZENIE`.
     bool ostempluj( QgsProject *projekt, const QString &modul, int wersja ) const;
