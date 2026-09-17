@@ -3010,7 +3010,7 @@ ApplicationWindow {
               name: "On"
               PropertyChanges {
                 target: cogoButton
-                iconColor: QfTheme.mainColor
+                iconColor: "#39ff14"
                 bgcolor: QfTheme.toolButtonBackgroundColor
               }
             }
@@ -3047,7 +3047,7 @@ ApplicationWindow {
               name: "On"
               PropertyChanges {
                 target: snappingButton
-                iconColor: QfTheme.mainColor
+                iconColor: "#39ff14"
                 bgcolor: QfTheme.toolButtonBackgroundColor
               }
             }
@@ -3087,7 +3087,7 @@ ApplicationWindow {
               name: "On"
               PropertyChanges {
                 target: topologyButton
-                iconColor: QfTheme.mainColor
+                iconColor: "#39ff14"
                 bgcolor: QfTheme.toolButtonBackgroundColor
               }
             }
@@ -3111,6 +3111,83 @@ ApplicationWindow {
             } else {
               displayToast(qsTr("Edycja topologiczna wyłączona"));
             }
+          }
+        }
+
+        // WorkField 17.09.2026 — unikanie nakladania obok topologii.
+        QfToolButton {
+          id: nakladanieButton
+
+          width: QfTheme.toolButtonSize * 5 / 6
+          height: QfTheme.toolButtonSize * 5 / 6
+          padding: 2
+          round: true
+
+          // Tryb czytamy przy KAZDEJ zmianie projektu — wlasciwosc siedzi
+          // w `Digitizing/AvoidIntersectionsMode`, nie w `snappingConfig`.
+          property int tryb: 0
+
+          // `setAvoidIntersectionsMode()` zmienia tryb w obiekcie projektu,
+          // ale NIE zapisuje go do wlasciwosci `Digitizing/...` — czytanie
+          // stamtad dawalo stan sprzed zmiany i przycisk nie gasl.
+          // Przy wczytaniu projektu bierzemy stan ze `stanProjektu`, potem
+          // pilnujemy go sami.
+          function odswiez() {
+            if (!qgisProject || typeof NarzedziaProjektu === "undefined") {
+              tryb = 0;
+              return;
+            }
+            try {
+              const st = NarzedziaProjektu.stanProjektu(qgisProject);
+              tryb = (st && st.pomiar && st.pomiar.unikanieNakladania) ? 1 : 0;
+            } catch (e) {
+              tryb = 0;
+            }
+          }
+
+          Component.onCompleted: odswiez()
+
+          Connections {
+            target: iface
+            function onLoadProjectEnded(path, name) { nakladanieButton.odswiez(); }
+          }
+
+          state: tryb > 0 ? "On" : "Off"
+          iconSource: QfTheme.getThemeVectorIcon("ic_cogo_intersection_circles_white_24dp")
+          iconColor: QfTheme.toolButtonColor
+          bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
+
+          states: [
+            State {
+              name: "Off"
+              PropertyChanges {
+                target: nakladanieButton
+                iconColor: QfTheme.toolButtonColor
+                bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
+              }
+            },
+            State {
+              name: "On"
+              PropertyChanges {
+                target: nakladanieButton
+                iconColor: "#39ff14"
+                bgcolor: QfTheme.toolButtonBackgroundColor
+              }
+            }
+          ]
+
+          onClicked: {
+            // Tryb 1 = warstwa aktywna. To ta, na ktorej sie rysuje — tryb 2
+            // (lista warstw) ustawia sie w wyposazeniu, gdy trzeba pilnowac
+            // kilku warstw naraz.
+            const nowy = nakladanieButton.tryb > 0 ? 0 : 1;
+            NarzedziaProjektu.unikajNakladania(qgisProject, nowy, []);
+            // Stan u siebie, bez ponownego odczytu — zapis zadzialal.
+            nakladanieButton.tryb = nowy;
+            displayToast(nowy > 0
+                         ? qsTr("Unikanie nakładania WŁĄCZONE — nowy obrys zostanie docięty do sąsiadów z warstwy aktywnej. Przy domykaniu płatu pomaga, przy warstwie nakładającej się celowo przeszkadza.")
+                         : qsTr("Unikanie nakładania wyłączone"),
+                         nowy > 0 ? "warning" : "info");
           }
         }
 
@@ -3141,7 +3218,7 @@ ApplicationWindow {
               name: "On"
               PropertyChanges {
                 target: freehandButton
-                iconColor: QfTheme.mainColor
+                iconColor: "#39ff14"
                 bgcolor: QfTheme.toolButtonBackgroundColor
               }
             }
@@ -3187,7 +3264,7 @@ ApplicationWindow {
               name: "On"
               PropertyChanges {
                 target: snapToCommonAngleButton
-                iconColor: QfTheme.mainColor
+                iconColor: "#39ff14"
                 bgcolor: QfTheme.toolButtonBackgroundColor
               }
             }
@@ -3403,7 +3480,7 @@ ApplicationWindow {
             name: "On"
             PropertyChanges {
               target: elevationProfileButton
-              iconColor: QfTheme.mainColor
+              iconColor: "#39ff14"
               bgcolor: QfTheme.toolButtonBackgroundColor
             }
           }
