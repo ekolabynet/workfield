@@ -70,4 +70,11 @@ print("QR:     " + sys.argv[2])
 PY
 
 echo
-echo "Teraz: wrzuc paczke na galaz plugins, potem sprawdz adres."
+# Spis odswiezamy ZAWSZE — inaczej nowa wersja jest na galezi, a menedzer
+# pokazuje poprzednia. To ta sama pulapka co z nota: co trzeba pamietac,
+# tego sie nie pamieta.
+python3 "$REPO/skrypty/zbuduj_spis_wtyczek.py" "$REPO" > /tmp/plugins.json \
+  && echo "spis:   /tmp/plugins.json (do wrzucenia na galaz razem z paczka)"
+
+echo
+echo "Teraz: wrzuc paczke I plugins.json na galaz plugins, potem sprawdz adres."
