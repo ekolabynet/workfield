@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Tlo ikony adaptacyjnej. Pelny prostokat w kolorze marki — launcher
+  przytnie go do swojego ksztaltu (kolo, kwadrat z zaokragleniem, kropla).
+
+  Do 17.09.2026 ikona byla JEDNOWARSTWOWA: launcher nie mial czego
+  przyciac i pokazywal sam rysunek bez tla. W customowych launcherach
+  bylo go ledwie widac.
+
+  Siatka z oryginalu (krycie 0.08) zostala USUNIETA — przy 48 px
+  jest niewidoczna, a przy wiekszych rozmiarach tylko brudzi.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <path
+      android:fillColor="#00695C"
+      android:pathData="M0,0h108v108h-108z" />
+</vector>

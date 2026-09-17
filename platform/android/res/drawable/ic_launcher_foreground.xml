@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Rysunek ikony adaptacyjnej: obrys platu z wierzcholkami
+  i pozycja GNSS z zasiegiem. Miesci sie w bezpiecznym polu,
+  wiec przetrwa przyciecie do kola i do kropli.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+  <!-- plat: wypelnienie i obrys -->
+  <path
+      android:fillColor="#003D33"
+      android:fillAlpha="0.55"
+      android:strokeColor="#FFFFFF"
+      android:strokeWidth="2.00"
+      android:strokeLineJoin="round"
+      android:pathData="M32.23,41.30 L63.07,29.51 L77.58,54.00 L64.88,78.49 L30.42,72.14 Z" />
+
+  <!-- zasieg pomiaru -->
+  <path
+      android:strokeColor="#FF4081"
+      android:strokeWidth="1.36"
+      android:fillColor="#FF4081"
+      android:fillAlpha="0.14"
+      android:pathData="M38.76,54.91 a15.24,15.24 0 1,0 30.48,0 a15.24,15.24 0 1,0 -30.48,0" />
+
+  <!-- wierzcholki platu -->
+  <path android:fillColor="#FFFFFF" android:pathData="M59.99,29.51 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
+  <path android:fillColor="#FFFFFF" android:pathData="M74.50,54.00 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
+  <path android:fillColor="#FFFFFF" android:pathData="M61.80,78.49 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
+  <path android:fillColor="#FFFFFF" android:pathData="M27.33,72.14 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
+
+  <!-- wierzcholek biezacy -->
+  <path
+      android:strokeColor="#FF4081"
+      android:strokeWidth="1.09"
+      android:pathData="M26.79,41.30 a5.44,5.44 0 1,0 10.88,0 a5.44,5.44 0 1,0 -10.88,0" />
+  <path android:fillColor="#FF4081" android:pathData="M29.15,41.30 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
+
+  <!-- punkt pomiarowy -->
+  <path android:fillColor="#FF4081" android:pathData="M52.00,54.91 a2.00,2.00 0 1,0 3.99,0 a2.00,2.00 0 1,0 -3.99,0" />
+</vector>
