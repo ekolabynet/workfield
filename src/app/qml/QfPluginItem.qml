@@ -79,6 +79,9 @@ Rectangle {
     QfToolButton {
       id: updatePlugin
       enabled: InstalledLocally && AvailableUpdate
+      // `downloadPlugin` obok ma `visible: enabled`, a ten nie mial —
+      // przycisk aktualizacji byl nie do znalezienia, choc dzialal.
+      visible: enabled
       Layout.preferredWidth: enabled ? QfTheme.toolButtonSize : 0
 
       iconSource: QfTheme.getThemeVectorIcon("ic_update_white_24dp")
