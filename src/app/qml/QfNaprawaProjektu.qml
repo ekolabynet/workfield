@@ -34,6 +34,10 @@ Popup {
   //! instancja QfKontrolaProjektu
   property var kontrola: null
 
+  //! Ostatni blad pobierania — zostaje na ekranie, bo toast znika,
+  //! a przyczyna jest potrzebna dluzej niz dwie sekundy.
+  property string bladPobierania: ""
+
   property string _potwierdzenieRzecz: ""
   property string _potwierdzenieOpis: ""
   property string _potwierdzenieCel: ""
@@ -159,6 +163,7 @@ Popup {
       if (NarzedziaProjektu.zapiszTekst(katalog() + "/workfield_klawisze.json", tresc)) {
         displayToast(qsTr("Kafle paska założone"));
         kontrola.sprawdz();
+        stanProjektu.odswiez();
       } else {
         displayToast(qsTr("Nie udało się zapisać pliku kafli"), "error");
       }
@@ -178,8 +183,20 @@ Popup {
       if (path.indexOf("wf_wskazniki.gpkg") === -1)
         return;
       displayToast(qsTr("Słownik gatunków pobrany"));
+      naprawa.bladPobierania = "";
       if (naprawa.kontrola)
         naprawa.kontrola.sprawdz();
+      stanProjektu.odswiez();
+    }
+
+    // `downloadFile` emituje `downloadFailed` z trescia bledu — a ekran
+    // sluchal tylko powodzenia. Pobieranie zawodzilo W CISZY: przycisk
+    // tapniety, komunikat "Pobieram…", i nic wiecej do konca swiata.
+    function onDownloadFailed(error, path) {
+      if (path.indexOf("wf_wskazniki.gpkg") === -1)
+        return;
+      naprawa.bladPobierania = error;
+      displayToast(qsTr("Nie pobrano słownika: %1").arg(error), "error");
     }
   }
 
@@ -299,7 +316,13 @@ Popup {
       // jest gorszy niż jego brak.
       Connections {
         target: naprawa
-        function onOpened() { stanProjektu.odswiez(); }
+        function onOpened() {
+          stanProjektu.odswiez();
+          // Blad pobierania zostaje na ekranie do konca sesji okna, ale
+          // przy KOLEJNYM otwarciu jest juz nieaktualny — wczoraj 404,
+          // dzis plik w chmurze jest.
+          naprawa.bladPobierania = "";
+        }
       }
 
       Component.onCompleted: odswiez()
@@ -446,6 +469,15 @@ Popup {
       Layout.preferredHeight: 1
       color: Theme.controlBorderColor
       opacity: 0.4
+    }
+
+    Text {
+      Layout.fillWidth: true
+      visible: naprawa.bladPobierania !== ""
+      text: qsTr("Ostatni błąd pobierania: %1").arg(naprawa.bladPobierania)
+      font: Theme.tinyFont
+      color: Theme.errorColor
+      wrapMode: Text.WordWrap
     }
 
     Text {
