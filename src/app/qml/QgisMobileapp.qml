@@ -194,17 +194,26 @@ ApplicationWindow {
         anchors.margins: 4
         spacing: 10
 
-        // Nazwa projektu USTĘPUJE miejsca ołówkowi: było 0.4, jest 0.28.
-        // W terenie człowiek wie, w którym parku stoi — nazwa projektu jest
-        // informacyjna, a nazwa warstwy i ołówek są robocze.
-        Text {
-          Layout.preferredWidth: parent.width * 0.28
-          visible: mainWindow.projectTitle !== ""
-          text: mainWindow.projectTitle
-          color: Theme.mainOverlayColor
-          opacity: 0.75
-          font.pointSize: Theme.tinyFont.pointSize
-          elide: Text.ElideRight
+        // WorkField 17.09.2026 — nazwa projektu USUNIETA, na jej miejsce
+        // wejscie do lewej szuflady. Nazwa zajmowala 28% szerokosci i byla
+        // ucieta do "Inwentaryzacja b…" — nie niosla informacji.
+        //
+        // Przytrzymanie otwiera `mainMenu`, tak jak przy przycisku, ktory
+        // stal w lewej kolumnie.
+        QfToolButton {
+          id: menuButtonGora
+
+          Layout.alignment: Qt.AlignVCenter
+          width: 36
+          height: 36
+          padding: 0
+          round: true
+          iconSource: Theme.getThemeVectorIcon("ic_menu_white_24dp")
+          iconColor: Theme.mainOverlayColor
+          bgcolor: dashBoard.opened ? Theme.mainColor : "transparent"
+
+          onClicked: dashBoard.opened ? dashBoard.close() : dashBoard.open()
+          onPressAndHold: mainMenu.popup(menuButtonGora.x, menuButtonGora.y)
         }
 
         Text {
@@ -269,6 +278,22 @@ ApplicationWindow {
           opacity: !mozna ? 0.3 : rysujemy ? 1.0 : 0.85
 
           onClicked: dashBoard.przelaczRysowanie(dashBoard.activeLayer)
+        }
+
+        // Wejscie do prawej szuflady (dane, narzedzia, ustawienia).
+        // Przeniesione z lewej kolumny 17.09.2026: szuflada jest nawigacja,
+        // a nie narzedziem uzywanym w trakcie rysowania.
+        QfToolButton {
+          Layout.alignment: Qt.AlignVCenter
+          width: 36
+          height: 36
+          padding: 0
+          round: true
+          iconSource: Theme.getThemeVectorIcon("ic_settings_white_24dp")
+          iconColor: Theme.mainOverlayColor
+          bgcolor: dataDrawer.opened ? Theme.mainColor : "transparent"
+
+          onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
         }
       }
       }
@@ -2755,17 +2780,6 @@ ApplicationWindow {
       }
 
       // WorkField 22.08: prawa szuflada (dane) jako okragla zebatka.
-      QfToolButton {
-        id: zebatkaButton
-
-        visible: !screenLocker.enabled && (Qt.platform.os === "android" || Qt.platform.os === "ios")
-        round: true
-        iconSource: QfTheme.getThemeVectorIcon("ic_settings_white_24dp")
-        iconColor: QfTheme.toolButtonColor
-        bgcolor: dataDrawer.opened ? QfTheme.mainColor : QfTheme.toolButtonBackgroundColor
-
-        onClicked: dataDrawer.opened ? dataDrawer.close() : dataDrawer.open()
-      }
     }
 
     Column {
@@ -2846,8 +2860,13 @@ ApplicationWindow {
       // WorkField 22.08: dwie ikony upstreamu (menu i wyszukiwarka) stoja
       // teraz jedna pod druga przy lewej krawedzi, pod belka terenowa
       anchors.left: parent.left
-      anchors.top: mainMenuBar.bottom
-      anchors.topMargin: 4
+      // Bylo `mainMenuBar.bottom`. Po przeniesieniu hamburgera do gornego
+      // paska (17.09.2026) ten `Row` liczy wysokosc z `childrenRect`,
+      // a jego dzieci sa prawie zawsze niewidoczne — skurczyl sie do zera
+      // i lupa wskoczyla pod belke terenowa.
+      anchors.top: parent.top
+      anchors.topMargin: (mainWindow.header ? mainWindow.header.height
+                                            : mainWindow.sceneTopMargin) + 40
       anchors.leftMargin: mainWindow.sceneLeftMargin + 4
 
       visible: !screenLocker.enabled && stateMachine.state !== 'measure'
@@ -2887,32 +2906,6 @@ ApplicationWindow {
       leftPadding: mainWindow.sceneLeftMargin + 4
       spacing: 4
 
-      QfToolButton {
-        id: menuButton
-        round: true
-        iconSource: QfTheme.getThemeVectorIcon("ic_menu_white_24dp")
-        iconColor: QfTheme.toolButtonColor
-        bgcolor: dashBoard.opened ? QfTheme.mainColor : QfTheme.toolButtonBackgroundColor
-
-        onClicked: dashBoard.opened ? dashBoard.close() : dashBoard.open()
-
-        onPressAndHold: {
-          mainMenu.popup(menuButton.x, menuButton.y);
-        }
-
-        QfBadge {
-          alignment: QfBadge.Alignment.TopRight
-          width: menuButton.width / 4
-          topMargin: menuButton.width / 24
-          rightMargin: menuButton.width / 24
-          visible: showSync || showPush
-          color: showSync ? QfTheme.mainColor : QfTheme.cloudColor
-          enableGradient: showSync && showPush
-
-          readonly property bool showSync: cloudProjectsModel.currentProject ? cloudProjectsModel.currentProject.isOutdated : false
-          readonly property bool showPush: cloudProjectsModel.layerObserver.deltaFileWrapper && cloudProjectsModel.layerObserver.deltaFileWrapper.count > 0
-        }
-      }
 
       QfActionButton {
         id: closeMeasureTool
@@ -3562,7 +3555,9 @@ ApplicationWindow {
       anchors.left: mainMenuBar.left
       anchors.leftMargin: mainWindow.sceneLeftMargin
       anchors.top: mainToolbar.bottom
-      width: menuButton.width + 10
+      // Bylo `menuButton.width + 10` — hamburger przeniesiony do gornego
+      // paska 17.09.2026, wiec bierzemy rozmiar wprost z motywu.
+      width: QfTheme.toolButtonSize + 10
       height: width
       running: mapCanvasMap.isRendering || (stateMachine.state === '3d' && mapCanvas3DLoader.item && mapCanvas3DLoader.item.isLoading && !mapCanvas3DLoader.item.isFirstLoad)
     }
