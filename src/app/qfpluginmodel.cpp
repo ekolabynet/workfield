@@ -26,7 +26,7 @@
 #include <qjsondocument.h>
 #include <qjsonobject.h>
 
-#define REMOTE_PLUGINS_URL "https://qfield.org/plugins.json"
+#define REMOTE_PLUGINS_URL "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/plugins.json"
 
 QfPluginModel::QfPluginModel( QfPluginManager *manager, QObject *parent )
   : mManager( manager ), QAbstractListModel( parent )
