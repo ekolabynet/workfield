@@ -18,4 +18,12 @@ https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-gugik-v
 
 ## Do sprawdzenia po instalacji
 
-- 
+- **Zrestartuj aplikację.** Sama instalacja z URL podmienia plik, ale QField
+  trzyma stary kod w pamięci do końca sesji.
+- **Wyczyść pole „plik GPKG" w ustawieniach wtyczki.** `Settings` przeżywa
+  aktualizację: wartość `gugik.gpkg` zapamiętana przez v0.2 nadpisuje nową
+  wartość domyślną z kodu. Puste pole znaczy „baza projektu".
+- **Usuń starą warstwę `REF_dzialki` z projektu**, jeśli wskazuje na
+  nieistniejący `gugik.gpkg`. Zostaje w `projekt.qgs` w trzech miejscach:
+  blok `<maplayer>`, wpis w drzewie warstw i ustawienie przyciągania —
+  a przy każdym otwarciu projektu wywołuje ekran o brakujących źródłach.
