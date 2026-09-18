@@ -16,6 +16,8 @@
 
 #include "qflayerutils.h"
 
+#include <cpl_conv.h>
+#include <qgstextformat.h>
 #include <qgsvectorlayereditbuffer.h>
 #include <QDomDocument>
 #include <QUrlQuery>
@@ -632,11 +634,72 @@ QSet<QVariant> QfLayerUtils::uniqueValuesForVectorLayerFieldIndex( QgsVectorLaye
   return layer->uniqueValues( fieldIndex );
 }
 
+bool QfLayerUtils::doprawCAD( QgsVectorLayer *warstwa, double rozmiar, double odSkali, const QString &poleEtykiety, double rozmiarEtykiety )
+{
+  if ( !warstwa || !warstwa->isValid() )
+    return false;
+
+  // ROZMIAR W JEDNOSTKACH MAPY. Symbol w milimetrach ma staly rozmiar na
+  // ekranie — przy trzydziestu tysiacach punktow zalewa widok ogolny.
+  // W metrach znika przy oddaleniu sam z siebie.
+  if ( rozmiar > 0 )
+  {
+    if ( QgsSingleSymbolRenderer *renderer = dynamic_cast<QgsSingleSymbolRenderer *>( warstwa->renderer() ) )
+    {
+      if ( QgsSymbol *symbol = renderer->symbol() )
+      {
+        symbol->setOutputUnit( Qgis::RenderUnit::MapUnits );
+        // `setSize` ma tylko symbol PUNKTOWY — linia ma szerokosc, a nie
+        // rozmiar, i zostaje przy tym, co przyszlo ze zrodla (kolory
+        // i grubosci z DXF sa dobre, nie ma czego poprawiac).
+        if ( QgsMarkerSymbol *punkt = dynamic_cast<QgsMarkerSymbol *>( symbol ) )
+          punkt->setSize( rozmiar );
+      }
+    }
+  }
+
+  // PROG WIDOCZNOSCI. Bez niego QField rysuje wszystkie obiekty takze
+  // wtedy, gdy sa mniejsze od piksela — i mapa staje.
+  if ( odSkali > 0 )
+  {
+    warstwa->setScaleBasedVisibility( true );
+    warstwa->setMinimumScale( odSkali );
+    warstwa->setMaximumScale( 0 );
+  }
+
+  // ETYKIETY. Teksty w DXF to osobne encje z polem `Text` — same z siebie
+  // nie sa pokazywane.
+  if ( !poleEtykiety.isEmpty() && warstwa->fields().lookupField( poleEtykiety ) >= 0 )
+  {
+    QgsPalLayerSettings ust;
+    ust.fieldName = poleEtykiety;
+    QgsTextFormat format;
+    format.setSizeUnit( Qgis::RenderUnit::MapUnits );
+    format.setSize( rozmiarEtykiety > 0 ? rozmiarEtykiety : 0.5 );
+    ust.setFormat( format );
+    warstwa->setLabeling( new QgsVectorLayerSimpleLabeling( ust ) );
+    warstwa->setLabelsEnabled( true );
+  }
+
+  warstwa->triggerRepaint();
+  return true;
+}
+
 QVariantList QfLayerUtils::warstwyZPliku( const QString &sciezka )
 {
   QVariantList wynik;
   if ( sciezka.isEmpty() )
     return wynik;
+
+  // BLOKI ROZWIJANE W MIEJSCU. Bez tego OGR oddaje sam punkt wstawienia
+  // (`INSERT`), a rysunek pokazuje wielkie kropki zamiast studzienek,
+  // drzew i znakow. Rozwiniecie wymaga siegniecia do sekcji `BLOCKS`
+  // i przeliczenia geometrii przez macierz — sterownik to umie, tylko
+  // trzeba go poprosic.
+  //
+  // To jest ta sama opcja, ktorej uzywa wtyczka dwg_layers_plus
+  // (`core/producer_ogr.py`, wiersz 266).
+  CPLSetConfigOption( "DXF_INLINE_BLOCKS", "TRUE" );
 
   QgsProviderSublayerDetails::LayerOptions opcje( QgsProject::instance()->transformContext() );
   // Styl ZE ZRODLA: dla DXF to kolory i grubosci zapisane przy encjach.

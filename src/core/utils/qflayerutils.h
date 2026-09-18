@@ -473,6 +473,20 @@ class QfLayerUtils : public QObject
     Q_INVOKABLE static QVariantList warstwyZPliku( const QString &sciezka );
 
     /**
+     * Doprawia warstwe z rysunku CAD: rozmiar symbolu w JEDNOSTKACH MAPY,
+     * prog widocznosci i etykiety z pola tekstowego.
+     *
+     * Metry, nie milimetry: rysunek ma trzydziesci tysiecy obiektow, wiec
+     * punkty maja znikac przy oddaleniu i pojawiac sie przy zblizeniu —
+     * tak, jak w CADzie. `setSymbolSize` tego nie da, bo pracuje w mm.
+     *
+     * \a rozmiar w metrach (0 = nie ruszaj). \a odSkali to mianownik, od
+     * ktorego warstwa jest widoczna (0 = zawsze). \a poleEtykiety puste =
+     * bez etykiet.
+     */
+    Q_INVOKABLE static bool doprawCAD( QgsVectorLayer *warstwa, double rozmiar, double odSkali, const QString &poleEtykiety = QString(), double rozmiarEtykiety = 0.5 );
+
+    /**
      * Loads a raster layer.
      * \param uri the data source uri
      * \param name the layer name

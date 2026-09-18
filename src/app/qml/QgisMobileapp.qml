@@ -442,8 +442,28 @@ ApplicationWindow {
       c.warstwa.name = c.typ !== "inne"
                        ? qsTr("Rysunek CAD — %1").arg(c.typ)
                        : qsTr("Rysunek CAD");
-      if (ProjectUtils.addMapLayer(qgisProject, c.warstwa))
-        podkladow++;
+      if (!ProjectUtils.addMapLayer(qgisProject, c.warstwa))
+        continue;
+      podkladow++;
+
+      // Punkty i teksty w JEDNOSTKACH MAPY, z progiem widocznosci.
+      // Rysunek ma trzydziesci tysiecy obiektow: przy widoku ogolnym maja
+      // znikac same z siebie, a pojawiac sie przy zblizeniu — tak jak
+      // w CADzie. Symbol w milimetrach zalalby ekran.
+      //
+      // Linie zostaja bez zmian: kolory i grubosci przyszly ze zrodla
+      // (`loadDefaultStyle`) i sa dobre.
+      if (c.typ === "punkty") {
+        // Teksty w DXF to osobne encje z polem `Text`, nie atrybuty
+        // punktow — same z siebie nie sa pokazywane.
+        LayerUtils.doprawCAD(c.warstwa, 0.1, 2000, "Text", 0.5);
+      }
+
+      // Grupa, zeby trzy warstwy rysunku dalo sie zgasic jednym tapnieciem
+      // i zeby nie mieszaly sie z warstwami roboczymi.
+      if (typeof NarzedziaProjektu !== "undefined")
+        NarzedziaProjektu.doGrupy(qgisProject, c.warstwa,
+                                  qsTr("Rysunek CAD"), false, true);
     }
     if (podkladow === 0)
       displayToast(qsTr("Nie udało się wczytać rysunku — projekt bez podkładu"),
