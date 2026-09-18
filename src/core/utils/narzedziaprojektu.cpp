@@ -17,6 +17,7 @@
 
 #include <sqlite3.h>
 
+#include <qgslayertreelayer.h>
 #include <qgscoordinatereferencesystem.h>
 #include <qgsproject.h>
 #include <qgsvectorlayer.h>
@@ -509,6 +510,38 @@ QString NarzedziaProjektu::nowyProjekt( const QString &korzen, const QString &na
     return QString();
 
   return sciezkaProjektu;
+}
+
+bool NarzedziaProjektu::przesunWarstwe( QgsProject *projekt, QgsMapLayer *warstwa, bool wGore ) const
+{
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p || !warstwa )
+    return false;
+
+  QgsLayerTreeLayer *wezel = p->layerTreeRoot()->findLayer( warstwa->id() );
+  if ( !wezel )
+    return false;
+  QgsLayerTreeNode *rodzic = wezel->parent();
+  if ( !rodzic )
+    return false;
+
+  const int gdzie = rodzic->children().indexOf( wezel );
+  const int cel = wGore ? gdzie - 1 : gdzie + 1;
+  if ( cel < 0 || cel >= rodzic->children().count() )
+    return false; // kraniec — nie ma dokad
+
+  // Klon PRZED usunieciem: `removeChildNode` kasuje wezel, a nie tylko
+  // wypina go z drzewa.
+  QgsLayerTreeNode *kopia = wezel->clone();
+  QgsLayerTreeGroup *grupa = qobject_cast<QgsLayerTreeGroup *>( rodzic );
+  if ( !grupa )
+  {
+    delete kopia;
+    return false;
+  }
+  grupa->insertChildNode( cel, kopia );
+  grupa->removeChildNode( wezel );
+  return true;
 }
 
 bool NarzedziaProjektu::doGrupy( QgsProject *projekt, QgsMapLayer *warstwa, const QString &grupa, bool zwinieta, bool widoczna ) const

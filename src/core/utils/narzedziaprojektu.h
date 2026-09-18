@@ -182,6 +182,19 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE bool doGrupy( QgsProject *projekt, QgsMapLayer *warstwa, const QString &grupa, bool zwinieta = true, bool widoczna = false ) const;
 
     /**
+     * Przesuwa warstwe o jedna pozycje w drzewie: \a wGore = wyzej.
+     *
+     * Kolejnosc w drzewie to kolejnosc rysowania — warstwa wyzej zaslania
+     * te pod soba. Do 18.09.2026 nie bylo jak jej zmienic z aplikacji:
+     * warstwy ustawialy sie w kolejnosci dodawania i tyle. Przy rysunku
+     * CAD pod ortofotomapa to znaczylo, ze podkladu nie widac.
+     *
+     * Przesuwa W OBREBIE RODZICA: warstwa w grupie nie wyskoczy z niej
+     * przypadkiem. Na krancu nie robi nic i zwraca false.
+     */
+    Q_INVOKABLE bool przesunWarstwe( QgsProject *projekt, QgsMapLayer *warstwa, bool wGore ) const;
+
+    /**
      * Warstwy ROBOCZE projektu — te, na ktorych sie zbiera dane.
      * Pomija tabele zalacznikow (ZAL_), warstwy odniesienia (REF_),
      * tylko-do-odczytu i bezgeometryczne. Zwraca liste map:
