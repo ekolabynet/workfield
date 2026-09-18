@@ -106,3 +106,32 @@ właściwa.
 Nie dokładamy go w kreatorze — zakładka Warstwy ma **Dodaj podkład**
 i projektant wybierze sobie ortofoto albo OSM jednym tapnięciem. Toast po
 utworzeniu projektu prowadzi tam przyciskiem.
+
+## Jak robi to sam QField (18.09.2026, wieczór)
+
+Po pięciu nieudanych próbach zajrzeliśmy do upstreamu — `QgisMobileapp::readProjectFile`, wiersze 715–740:
+
+```cpp
+QgsProviderSublayerDetails::LayerOptions options( transformContext );
+options.loadDefaultStyle = true;
+querySublayers( sciezka, SublayerQueryFlag::ResolveGeometryType );
+sublayer.toLayer( options );
+```
+
+Trzy rzeczy naraz:
+
+- **`ResolveGeometryType`** rozdziela rysunek na punkty, linie i poligony — stąd „osobne warstwy", które widać przy ręcznym wczytaniu z menedżera plików.
+- **`loadDefaultStyle`** każe dostawcy zbudować styl ze źródła; dla DXF to kolory i grubości z encji.
+- Warstwa **dostaje układ od dostawcy**, a projekt przyjmuje go za swój — nie odwrotnie.
+
+### Czego próbowaliśmy wcześniej i dlaczego nie działało
+
+Kreator budował warstwę przez `new QgsVectorLayer(uri)`. Taka warstwa nie ma ani układu, ani stylu, ani podziału na typy. Kolejne próby ratowania leczyły objaw:
+
+1. `setCrs` po wczytaniu — ustawia układ warstwy, ale `sourceCrs` zostaje pusty.
+2. `option:CRS=` w URI — sterownik tego nie czyta.
+3. `crs=` w URI — to samo.
+4. `fallbackCrs` w `LayerOptions` — nie dotarło do dostawcy.
+5. Import do GeoPackage z `-a_srs` — układ był, ale **zginęły kolory**: `OGR_STYLE` nie jest kolumną w pliku, tylko właściwością wyliczaną przy odczycie, więc `GDALVectorTranslate` jej nie przenosi.
+
+**Wniosek ogólny:** zanim napiszemy własną drogę, warto sprawdzić, jak tę samą rzecz robi upstream. Pięć prób kosztowało półtorej godziny; przeczytanie `readProjectFile` zajęło pięć minut.
