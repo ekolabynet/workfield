@@ -1304,8 +1304,15 @@ Popup {
                 iface.loadFile(filePath, FileUtils.fileName(filePath, false));
               } else if (photoGallery.wzorDanych.test(fileName)) {
                 // dane: warstwa dokłada się do bieżącego projektu, galeria zostaje
-                iface.loadFile(filePath, FileUtils.fileName(filePath, false));
-                displayToast(qsTr("Dodano warstwę: %1").arg(fileName));
+                //
+                // `loadFile` zwraca `bool` i do 18.09.2026 nikt go nie
+                // sprawdzal — toast mowil "Dodano warstwe" takze wtedy,
+                // gdy rozszerzenia nie bylo na liscie SUPPORTED_* i nie
+                // stalo sie nic.
+                if (iface.loadFile(filePath, FileUtils.fileName(filePath, false)))
+                  displayToast(qsTr("Dodano warstwę: %1").arg(fileName));
+                else
+                  displayToast(qsTr("Nie udało się otworzyć: %1 — aplikacja nie zna tego formatu").arg(fileName), "warning");
               } else {
                 displayToast(qsTr("Nie wiem, jak otworzyć ten plik"));
               }
