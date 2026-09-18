@@ -632,6 +632,58 @@ QSet<QVariant> QfLayerUtils::uniqueValuesForVectorLayerFieldIndex( QgsVectorLaye
   return layer->uniqueValues( fieldIndex );
 }
 
+QVariantList QfLayerUtils::warstwyZPliku( const QString &sciezka )
+{
+  QVariantList wynik;
+  if ( sciezka.isEmpty() )
+    return wynik;
+
+  QgsProviderSublayerDetails::LayerOptions opcje( QgsProject::instance()->transformContext() );
+  // Styl ZE ZRODLA: dla DXF to kolory i grubosci zapisane przy encjach.
+  opcje.loadDefaultStyle = true;
+
+  const QList<QgsProviderSublayerDetails> podwarstwy =
+    QgsProviderRegistry::instance()->querySublayers(
+      sciezka, Qgis::SublayerQueryFlags() | Qgis::SublayerQueryFlag::ResolveGeometryType );
+
+  for ( const QgsProviderSublayerDetails &pod : podwarstwy )
+  {
+    QgsMapLayer *warstwa = pod.toLayer( opcje );
+    if ( !warstwa || !warstwa->isValid() )
+    {
+      delete warstwa;
+      continue;
+    }
+    QVariantMap wpis;
+    wpis.insert( QStringLiteral( "warstwa" ), QVariant::fromValue( warstwa ) );
+    wpis.insert( QStringLiteral( "nazwa" ), pod.name() );
+    if ( QgsVectorLayer *wektor = qobject_cast<QgsVectorLayer *>( warstwa ) )
+    {
+      switch ( wektor->geometryType() )
+      {
+        case Qgis::GeometryType::Point:
+          wpis.insert( QStringLiteral( "typ" ), QStringLiteral( "punkty" ) );
+          break;
+        case Qgis::GeometryType::Line:
+          wpis.insert( QStringLiteral( "typ" ), QStringLiteral( "linie" ) );
+          break;
+        case Qgis::GeometryType::Polygon:
+          wpis.insert( QStringLiteral( "typ" ), QStringLiteral( "poligony" ) );
+          break;
+        default:
+          wpis.insert( QStringLiteral( "typ" ), QStringLiteral( "inne" ) );
+          break;
+      }
+    }
+    else
+    {
+      wpis.insert( QStringLiteral( "typ" ), QStringLiteral( "raster" ) );
+    }
+    wynik.append( wpis );
+  }
+  return wynik;
+}
+
 QgsVectorLayer *QfLayerUtils::loadVectorLayer( const QString &uri, const QString &name, const QString &provider )
 {
   QgsVectorLayer *layer = new QgsVectorLayer( uri, name, provider );

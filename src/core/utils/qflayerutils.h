@@ -455,6 +455,24 @@ class QfLayerUtils : public QObject
     Q_INVOKABLE static QgsVectorLayer *loadVectorLayer( const QString &uri, const QString &name = QString(), const QString &provider = QStringLiteral( "ogr" ) );
 
     /**
+     * Wczytuje WSZYSTKIE warstwy z pliku danych — tak, jak robi to QField
+     * przy otwieraniu pliku z menedzera (`QgisMobileapp::readProjectFile`).
+     *
+     * `new QgsVectorLayer(uri)` NIE WYSTARCZA dla formatow takich jak DXF:
+     * warstwa nie ma ukladu (format go nie niesie), nie ma stylu (kolory
+     * encji siedza w `OGR_STYLE`, wyliczanym przez OGR w locie) i nie jest
+     * rozdzielona na typy geometrii. Probowalismy pieciu sposobow
+     * (18.09.2026) — wszystkie leczyly objaw.
+     *
+     * `querySublayers` z `ResolveGeometryType` rozdziela rysunek na punkty,
+     * linie i poligony, a `loadDefaultStyle` kaze dostawcy zbudowac styl
+     * ze zrodla.
+     *
+     * Zwraca liste map: `warstwa`, `nazwa`, `typ`.
+     */
+    Q_INVOKABLE static QVariantList warstwyZPliku( const QString &sciezka );
+
+    /**
      * Loads a raster layer.
      * \param uri the data source uri
      * \param name the layer name

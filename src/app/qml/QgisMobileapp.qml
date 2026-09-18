@@ -419,32 +419,35 @@ ApplicationWindow {
     if (!qgisProject)
       return;
 
-    // Podklad przez `loadVectorLayer`, NIE przez `iface.loadFile`.
-    // `loadFile` woła `loadProjectFile`, ktore ZASTEPUJE caly projekt —
-    // handler startowal od nowa i ta funkcja nigdy nie dochodzila do konca
-    // (18.09.2026: warstwy robocze powstawaly, ale projekt zostawal
-    // niezapisany, a przyciski w zakladce Projekt nie dzialaly).
+    // RYSUNEK PRZEZ `warstwyZPliku` — ta sama droga, ktora QField idzie
+    // przy otwieraniu pliku z menedzera. `new QgsVectorLayer(uri)` nie
+    // wystarcza: warstwa nie ma ukladu (DXF go nie niesie), nie ma stylu
+    // (kolory encji siedza w `OGR_STYLE`, wyliczanym w locie) i nie jest
+    // rozdzielona na typy geometrii.
     //
-    // DXF daje trzy warstwy OGR: punkty, linie i poligony. Bierzemy
-    // wszystkie trzy — CADowiec rysuje kazdym typem.
+    // Probowalismy pieciu obejsc — `setCrs`, `option:CRS=`, `crs=`,
+    // `fallbackCrs`, import z `-a_srs`. Wszystkie leczyly objaw
+    // (18.09.2026, docs/ImportDXF.md).
     let podkladow = 0;
-    const czesci = [
-      { "sufiks": "|layername=entities", "nazwa": qsTr("Rysunek CAD") }
-    ];
-    for (const cz of czesci) {
-      const w = LayerUtils.loadVectorLayer(rysunek + cz.sufiks, cz.nazwa, "ogr");
-      if (w && ProjectUtils.addMapLayer(qgisProject, w))
+    let warstwyCAD = [];
+    try {
+      warstwyCAD = LayerUtils.warstwyZPliku(rysunek) || [];
+    } catch (e) {
+      warstwyCAD = [];
+    }
+    for (const c of warstwyCAD) {
+      if (!c.warstwa)
+        continue;
+      // Nazwa po ludzku: "Rysunek CAD — linie" zamiast "entities".
+      c.warstwa.name = c.typ !== "inne"
+                       ? qsTr("Rysunek CAD — %1").arg(c.typ)
+                       : qsTr("Rysunek CAD");
+      if (ProjectUtils.addMapLayer(qgisProject, c.warstwa))
         podkladow++;
     }
-    if (podkladow === 0) {
-      // Bez `layername` OGR oddaje pierwsza warstwe — lepsze niz nic.
-      const w = LayerUtils.loadVectorLayer(rysunek, qsTr("Rysunek CAD"), "ogr");
-      if (w && ProjectUtils.addMapLayer(qgisProject, w))
-        podkladow++;
-    }
-    if (podkladow === 0) {
-      displayToast(qsTr("Nie udało się wczytać rysunku — projekt bez podkładu"), "warning");
-    }
+    if (podkladow === 0)
+      displayToast(qsTr("Nie udało się wczytać rysunku — projekt bez podkładu"),
+                   "warning");
 
     const baza = katalog + "/dane.gpkg";
     const pola = [
