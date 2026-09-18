@@ -2981,10 +2981,14 @@ ApplicationWindow {
     Column {
       id: mainToolbar
       visible: !screenLocker.enabled
-      anchors.left: mainMenuBar.left
-      anchors.top: mainMenuBar.bottom
+      anchors.left: parent.left
+      // Bylo `mainMenuBar.bottom`, tak jak przy lupie. Ten `Row` liczy
+      // wysokosc z `childrenRect`, a po przeniesieniu hamburgera do gornego
+      // paska (17.09.2026) nie ma juz widocznych dzieci — skurczyl sie do
+      // zera i kolumna wskoczyla pod belke terenowa.
+      anchors.top: locatorItem.bottom
       anchors.leftMargin: mainWindow.sceneLeftMargin + 4
-      anchors.topMargin: 4
+      anchors.topMargin: 8
       spacing: 4
 
       QfToolButtonDrawer {

@@ -188,6 +188,41 @@ if (ANDROID)
   set(DST_DRAWABLE_DIR "${ANDROID_PACKAGE_SOURCE_DIR}/res/drawable")
   file(MAKE_DIRECTORY "${DST_DRAWABLE_DIR}")
 
+  # WorkField 18.09.2026 — IKONA ADAPTACYJNA (Android 8+).
+  #
+  # `android-template/res` jest budowany OD ZERA z wyliczonych plikow, wiec
+  # cokolwiek lezy w `platform/android/res/` poza ta lista nie trafia do APK.
+  # Warstwy ikony adaptacyjnej trzeba skopiowac jawnie — inaczej manifest
+  # wskazuje `@mipmap/ic_launcher`, ktorego w paczce nie ma.
+  foreach(WARSTWA ic_launcher_background ic_launcher_foreground)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/platform/android/res/drawable/${WARSTWA}.xml")
+      file(COPY "${CMAKE_SOURCE_DIR}/platform/android/res/drawable/${WARSTWA}.xml"
+           DESTINATION "${DST_DRAWABLE_DIR}")
+      message(STATUS "Ikona adaptacyjna: ${WARSTWA}.xml")
+    endif()
+  endforeach()
+
+  if(EXISTS "${CMAKE_SOURCE_DIR}/platform/android/res/mipmap-anydpi-v26/ic_launcher.xml")
+    file(MAKE_DIRECTORY "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-anydpi-v26")
+    file(COPY "${CMAKE_SOURCE_DIR}/platform/android/res/mipmap-anydpi-v26/ic_launcher.xml"
+         DESTINATION "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-anydpi-v26")
+    message(STATUS "Ikona adaptacyjna: mipmap-anydpi-v26/ic_launcher.xml")
+  endif()
+
+  # Starsze Androidy nie znaja `mipmap-anydpi-v26` i szukaja `@mipmap/ic_launcher`
+  # w zwyklych gestosciach — kladziemy tam dotychczasowa ikone pod ta nazwa.
+  foreach(DENSITY ${ANDROID_DRAWABLE_DENSITIES})
+    set(ZRODLO "${APP_ICON_PATH}/android/drawable-${DENSITY}/${APP_ICON}.png")
+    if(NOT EXISTS "${ZRODLO}")
+      set(ZRODLO "${CMAKE_SOURCE_DIR}/platform/android/res/drawable-${DENSITY}/${APP_ICON}.png")
+    endif()
+    if(EXISTS "${ZRODLO}")
+      file(MAKE_DIRECTORY "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-${DENSITY}")
+      file(COPY_FILE "${ZRODLO}"
+           "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-${DENSITY}/ic_launcher.png")
+    endif()
+  endforeach()
+
   if(APP_ICON_PATH AND EXISTS "${APP_ICON_PATH}/android/drawable/${APP_ICON}_vector.xml")
     message(STATUS "Using custom vector drawable: ${APP_ICON_PATH}/android/drawable/${APP_ICON}_vector.xml")
     file(COPY
