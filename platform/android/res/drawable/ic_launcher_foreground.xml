@@ -1,45 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Rysunek ikony adaptacyjnej: obrys platu z wierzcholkami
-  i pozycja GNSS z zasiegiem. Miesci sie w bezpiecznym polu,
-  wiec przetrwa przyciecie do kola i do kropli.
+  Ikona WorkField: plat z wierzcholkami, pole pomiaru z celownikiem,
+  wierzcholek biezacy z poswiata i kreskowana linia.
+
+  KRZYZ zamiast kropki w srodku (18.09.2026): kropka mowila
+  "obiekt", krzyz mowi "pomiar" — a to jest o tym ta aplikacja.
+  Wierzcholki mniejsze o 20%, zeby nie konkurowaly z celownikiem.
+
+  KRESKI jako osobne odcinki — VectorDrawable nie zna `stroke-dasharray`.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
 
-  <!-- plat: wypelnienie i obrys -->
-  <path
-      android:fillColor="#003D33"
-      android:fillAlpha="0.55"
-      android:strokeColor="#FFFFFF"
-      android:strokeWidth="2.00"
-      android:strokeLineJoin="round"
-      android:pathData="M32.23,41.30 L63.07,29.51 L77.58,54.00 L64.88,78.49 L30.42,72.14 Z" />
-
-  <!-- zasieg pomiaru -->
-  <path
-      android:strokeColor="#FF4081"
-      android:strokeWidth="1.36"
-      android:fillColor="#FF4081"
-      android:fillAlpha="0.14"
-      android:pathData="M38.76,54.91 a15.24,15.24 0 1,0 30.48,0 a15.24,15.24 0 1,0 -30.48,0" />
+  <!-- plat -->
+  <path android:fillColor="#C00041" android:strokeColor="#F60054"
+      android:strokeWidth="2.13" android:strokeLineJoin="round"
+      android:pathData="M30.71,40.42 L63.70,27.80 L79.23,54.00 L65.64,80.20 L28.77,73.41 Z" />
 
   <!-- wierzcholki platu -->
-  <path android:fillColor="#FFFFFF" android:pathData="M59.99,29.51 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
-  <path android:fillColor="#FFFFFF" android:pathData="M74.50,54.00 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
-  <path android:fillColor="#FFFFFF" android:pathData="M61.80,78.49 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
-  <path android:fillColor="#FFFFFF" android:pathData="M27.33,72.14 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
+  <path android:fillColor="#F60054" android:pathData="M59.82,27.80 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
+  <path android:fillColor="#F60054" android:pathData="M75.35,54.00 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
+  <path android:fillColor="#F60054" android:pathData="M61.76,80.20 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
+  <path android:fillColor="#F60054" android:pathData="M24.89,73.41 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
 
-  <!-- wierzcholek biezacy -->
-  <path
-      android:strokeColor="#FF4081"
-      android:strokeWidth="1.09"
-      android:pathData="M26.79,41.30 a5.44,5.44 0 1,0 10.88,0 a5.44,5.44 0 1,0 -10.88,0" />
-  <path android:fillColor="#FF4081" android:pathData="M29.15,41.30 a3.08,3.08 0 1,0 6.17,0 a3.08,3.08 0 1,0 -6.17,0" />
+  <!-- pole pomiaru -->
+  <path android:fillColor="#FFFFFF" android:pathData="M37.50,54.49 a16.30,16.30 0 1,0 32.60,0 a16.30,16.30 0 1,0 -32.60,0" />
 
-  <!-- punkt pomiarowy -->
-  <path android:fillColor="#FF4081" android:pathData="M52.00,54.91 a2.00,2.00 0 1,0 3.99,0 a2.00,2.00 0 1,0 -3.99,0" />
+  <!-- kreskowana linia: wierzcholek -> celownik -->
+  <path android:strokeColor="#F10052" android:strokeWidth="1.65"
+      android:strokeLineCap="round"
+      android:pathData="M37.01,44.25 L38.83,45.36 M40.82,46.57 L42.64,47.69 M44.63,48.90 L46.46,50.01" />
+
+  <!-- celownik -->
+  <path android:strokeColor="#F10052" android:strokeWidth="2.52"
+      android:strokeLineCap="round"
+      android:pathData="M46.24,54.49 L61.36,54.49 M53.80,46.93 L53.80,62.05" />
+
+  <!-- wierzcholek biezacy z poswiata -->
+  <path android:fillColor="#F60054" android:fillAlpha="0.30"
+      android:pathData="M21.78,40.42 a8.73,8.73 0 1,0 17.46,0 a8.73,8.73 0 1,0 -17.46,0" />
+  <path android:fillColor="#F60054"
+      android:pathData="M25.86,40.42 a4.85,4.85 0 1,0 9.70,0 a4.85,4.85 0 1,0 -9.70,0" />
 </vector>

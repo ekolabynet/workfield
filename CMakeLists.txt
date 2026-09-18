@@ -202,11 +202,11 @@ if (ANDROID)
     endif()
   endforeach()
 
-  if(EXISTS "${CMAKE_SOURCE_DIR}/platform/android/res/mipmap-anydpi-v26/ic_launcher.xml")
+  if(EXISTS "${CMAKE_SOURCE_DIR}/platform/android/res/mipmap-anydpi-v26/ic_wf2.xml")
     file(MAKE_DIRECTORY "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-anydpi-v26")
-    file(COPY "${CMAKE_SOURCE_DIR}/platform/android/res/mipmap-anydpi-v26/ic_launcher.xml"
+    file(COPY "${CMAKE_SOURCE_DIR}/platform/android/res/mipmap-anydpi-v26/ic_wf2.xml"
          DESTINATION "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-anydpi-v26")
-    message(STATUS "Ikona adaptacyjna: mipmap-anydpi-v26/ic_launcher.xml")
+    message(STATUS "Ikona adaptacyjna: mipmap-anydpi-v26/ic_wf2.xml")
   endif()
 
   # Starsze Androidy nie znaja `mipmap-anydpi-v26` i szukaja `@mipmap/ic_launcher`
@@ -219,7 +219,7 @@ if (ANDROID)
     if(EXISTS "${ZRODLO}")
       file(MAKE_DIRECTORY "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-${DENSITY}")
       file(COPY_FILE "${ZRODLO}"
-           "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-${DENSITY}/ic_launcher.png")
+           "${ANDROID_PACKAGE_SOURCE_DIR}/res/mipmap-${DENSITY}/ic_wf2.png")
     endif()
   endforeach()
 
