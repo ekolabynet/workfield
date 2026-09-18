@@ -403,6 +403,98 @@ ApplicationWindow {
     }
   }
 
+  //! Rysunek CAD do dolozenia po wczytaniu pustego projektu (kreator).
+  property string cadRysunek: ""
+  property string cadUklad: ""
+  property string cadKatalog: ""
+
+  /**
+   * Sklada projekt z rysunku CAD: podklad + trzy warstwy robocze.
+   *
+   * Warstwy w `dane.gpkg` obok projektu, kazda z OPIS / DATA / ZDJECIE.
+   * Nazwy po polsku i po CADowemu — "Poligony (hatch)", bo projektant
+   * tak nazywa obszary, a nie "powierzchnie".
+   */
+  function zlozProjektZCAD(rysunek, uklad, katalog) {
+    if (!qgisProject)
+      return;
+
+    // Podklad przez `loadVectorLayer`, NIE przez `iface.loadFile`.
+    // `loadFile` woła `loadProjectFile`, ktore ZASTEPUJE caly projekt —
+    // handler startowal od nowa i ta funkcja nigdy nie dochodzila do konca
+    // (18.09.2026: warstwy robocze powstawaly, ale projekt zostawal
+    // niezapisany, a przyciski w zakladce Projekt nie dzialaly).
+    //
+    // DXF daje trzy warstwy OGR: punkty, linie i poligony. Bierzemy
+    // wszystkie trzy — CADowiec rysuje kazdym typem.
+    let podkladow = 0;
+    const czesci = [
+      { "sufiks": "|layername=entities", "nazwa": qsTr("Rysunek CAD") }
+    ];
+    for (const cz of czesci) {
+      const w = LayerUtils.loadVectorLayer(rysunek + cz.sufiks, cz.nazwa, "ogr");
+      if (w && ProjectUtils.addMapLayer(qgisProject, w))
+        podkladow++;
+    }
+    if (podkladow === 0) {
+      // Bez `layername` OGR oddaje pierwsza warstwe — lepsze niz nic.
+      const w = LayerUtils.loadVectorLayer(rysunek, qsTr("Rysunek CAD"), "ogr");
+      if (w && ProjectUtils.addMapLayer(qgisProject, w))
+        podkladow++;
+    }
+    if (podkladow === 0) {
+      displayToast(qsTr("Nie udało się wczytać rysunku — projekt bez podkładu"), "warning");
+    }
+
+    const baza = katalog + "/dane.gpkg";
+    const pola = [
+      { "name": "OPIS", "type": "text" },
+      { "name": "DATA", "type": "date" },
+      { "name": "ZDJECIE", "type": "text" }
+    ];
+    const robocze = [
+      { "nazwa": qsTr("Punkty"), "typ": Qgis.GeometryType.Point },
+      { "nazwa": qsTr("Linie"), "typ": Qgis.GeometryType.Line },
+      { "nazwa": qsTr("Poligony (hatch)"), "typ": Qgis.GeometryType.Polygon }
+    ];
+
+    let zalozone = 0;
+    for (const w of robocze) {
+      let warstwa = null;
+      try {
+        warstwa = LayerUtils.createEmptyLayer(baza, w.nazwa, w.typ, uklad, pola);
+      } catch (e) {
+        warstwa = null;
+      }
+      if (!warstwa)
+        continue;
+      LayerUtils.setAttachmentField(warstwa, "ZDJECIE");
+      if (ProjectUtils.addMapLayer(qgisProject, warstwa))
+        zalozone++;
+    }
+
+    if (typeof NarzedziaProjektu !== "undefined")
+      NarzedziaProjektu.zapiszProjekt(qgisProject);
+
+    // Podklad dokladamy nie tutaj, tylko WSKAZUJEMY, gdzie jest: zakladka
+    // Warstwy ma "Dodaj podkład" i CADowiec wybierze sobie ortofoto albo
+    // OSM jednym tapnieciem. Narzucanie podkladu w kreatorze zabieraloby
+    // mu ten wybor i wydluzalo pierwszy start.
+    if (zalozone === robocze.length)
+      displayToast(qsTr("Projekt gotowy. Podkład dodasz w zakładce Warstwy."),
+                   "info",
+                   qsTr("Warstwy"),
+                   function () {
+                     // `otworzSekcje` otwiera szuflade i przelacza sekcje
+                     // jednym wywolaniem; 2 = Warstwy (Zlecenia, Projekt,
+                     // Warstwy, Stylizacja).
+                     dashBoard.otworzSekcje(2);
+                   });
+    else
+      displayToast(qsTr("Projekt złożony częściowo: %1 z %2 warstw")
+                    .arg(zalozone).arg(robocze.length), "warning");
+  }
+
   // WorkField: tytul projektu do paska stanu i szuflady
   //! WorkField: interpreter przepisow widoczny jako mainWindow.przepisy
   property alias przepisy: qfPrzepis
@@ -5587,6 +5679,23 @@ ApplicationWindow {
     function onLoadProjectEnded(path, name) {
       mainWindow.refreshProjectTitle();
 
+      // Projekt z rysunku CAD: pusty projekt wlasnie wstal, dokladamy
+      // podklad i warstwy robocze. `createEmptyLayer` wpina warstwe do
+      // OTWARTEGO projektu, wiec nie dalo sie tego zrobic w kreatorze.
+      if (mainWindow.cadRysunek !== "") {
+        const rysunek = mainWindow.cadRysunek;
+        const uklad = mainWindow.cadUklad;
+        const katalog = mainWindow.cadKatalog;
+        // Czyscimy OD RAZU: gdyby dokladanie padlo, przy nastepnym
+        // otwarciu projektu nie powtorzy sie po cichu.
+        mainWindow.cadRysunek = "";
+        mainWindow.cadUklad = "";
+        mainWindow.cadKatalog = "";
+        Qt.callLater(function () {
+          mainWindow.zlozProjektZCAD(rysunek, uklad, katalog);
+        });
+      }
+
       // Stan projektu WIE o zlepionych wierzcholkach i o edycji
       // topologicznej przy malych obiektach — tylko nikt go nie pytal.
       // Odkladamy na pozniej: przemiata warstwy i liczy obiekty.
@@ -6312,6 +6421,10 @@ ApplicationWindow {
   QfColorPicker {
     id: colorPicker
     t: Theme
+  }
+
+  QfProjektZCAD {
+    id: kreatorCAD
   }
 
   QfNewLayerDialog {

@@ -23,6 +23,7 @@
 #include <QDebug>
 #include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QImage>
@@ -208,6 +209,24 @@ QString QfFileUtils::sanitizeFilePathPart( const QString &filePathPart, const QS
   }
 
   return sanitizedPart;
+}
+
+bool QfFileUtils::kopiujPlik( const QString &zrodlo, const QString &cel, bool nadpisz )
+{
+  if ( zrodlo.isEmpty() || cel.isEmpty() )
+    return false;
+  if ( QFile::exists( cel ) )
+  {
+    if ( !nadpisz )
+      return false;
+    if ( !QFile::remove( cel ) )
+      return false;
+  }
+  // Katalog docelowy moze jeszcze nie istniec — `QFile::copy` go nie zaklada.
+  const QDir katalog = QFileInfo( cel ).absoluteDir();
+  if ( !katalog.exists() && !katalog.mkpath( QStringLiteral( "." ) ) )
+    return false;
+  return QFile::copy( zrodlo, cel );
 }
 
 bool QfFileUtils::copyRecursively( const QString &sourceFolder, const QString &destFolder, QgsFeedback *feedback, bool wipeDestFolder )

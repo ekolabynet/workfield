@@ -49,6 +49,7 @@ set(QFIELD_APP_QML_FILES
     QfNieboGwiazdy.js
     QfNoweZadanie.qml
     QfNowyProjekt.qml
+    QfProjektZCAD.qml
     QfPanelAkcji.qml
     QfPhotoGallery.qml
     QfPodgladStylu.qml

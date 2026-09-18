@@ -1337,6 +1337,20 @@ Drawer {
           }
         }
         QfPozycjaMenu {
+          // WorkField 18.09.2026 — wejscie dla projektanta CAD: wskazuje
+          // rysunek, dostaje projekt z podkladem i warstwami roboczymi.
+          // Osobno od "Nowego projektu", bo tam sa cztery listy rozwijane
+          // (zleceniodawca, teren, zlecenie, rodzaj), a CADowiec zaczyna
+          // od pliku, nie od zlecenia.
+          text: qsTr("Projekt z DXF")
+          ikona: "wfg_nowe"
+          onClicked: {
+            dashBoard.close();
+            if (typeof kreatorCAD !== "undefined")
+              kreatorCAD.otworz();
+          }
+        }
+        QfPozycjaMenu {
           text: qsTr("Zapisz jako szablon")
           ikona: "wfg_paczka"
           enabled: qgisProject && qgisProject.homePath !== ""

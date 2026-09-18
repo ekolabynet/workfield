@@ -131,6 +131,16 @@ class QFIELD_CORE_EXPORT QfFileUtils : public QObject
     Q_INVOKABLE static bool copyRecursively( const QString &sourceFolder, const QString &destFolder, QgsFeedback *feedback = nullptr, bool wipeDestFolder = true );
 
     /**
+     * Kopiuje POJEDYNCZY plik. `copyRecursively` bierze katalogi, a jeden
+     * plik dalo sie dotad przepisac tylko przez `readFileContent` +
+     * `writeFileContent` — czyli calosc przez pamiec. Przy rysunku mapy
+     * zasadniczej to kilkadziesiat megabajtow bez potrzeby.
+     *
+     * Nadpisuje, gdy `nadpisz`; inaczej odmawia, gdy cel istnieje.
+     */
+    Q_INVOKABLE static bool kopiujPlik( const QString &zrodlo, const QString &cel, bool nadpisz = false );
+
+    /**
      * Returns the checksum of a file. An empty QByteArray will be returned if it cannot be calculated.
      * \param fileName file name to get checksum of
      * \param hashAlgorithm hash algorithm (md5, sha1, sha256 etc)
