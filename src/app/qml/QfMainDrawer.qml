@@ -2199,7 +2199,13 @@ Drawer {
                 displayToast(qsTr("Nie udało się utworzyć projektu"));
               }
             } else {
-              ProjectUtils.saveProject(qgisProject);
+              // Zapis PRZED kopiowaniem — inaczej kopia dostaje stara
+              // tresc, a czlowiek komunikat o sukcesie. Nie kopiujemy,
+              // gdy zapis zawiodl: lepiej nic niz cicha polowa.
+              if (!ProjectUtils.saveProject(qgisProject)) {
+                displayToast(qsTr("Nie zapisano projektu — kopia nie powstala"), "error");
+                return;
+              }
               const sourceDir = FileUtils.absolutePath(projectSection.filePath);
               if (FileUtils.copyRecursively(sourceDir, destination)) {
                 dataDrawer.close();
@@ -2538,11 +2544,18 @@ Drawer {
                 return;
               }
             }
-            ProjectUtils.saveProject(qgisProject);
+            // Zapis pliku potrafi zawiesc: brak miejsca, plik tylko do
+            // odczytu, nosnik odlaczony. Do 18.09.2026 wynik szedl w
+            // proznie, a toast mowil "Zapisano" bezwarunkowo.
+            const zapisano = ProjectUtils.saveProject(qgisProject);
             crsCurrentLabel.refresh();
             projectSection.refresh();
-            displayToast(qsTr("Zapisano właściwości projektu"));
-            projectPropertiesPopup.close();
+            if (zapisano) {
+              displayToast(qsTr("Zapisano właściwości projektu"));
+              projectPropertiesPopup.close();
+            } else {
+              displayToast(qsTr("NIE zapisano właściwości — projekt został bez zmian"), "error");
+            }
           }
         }
       }
