@@ -206,6 +206,25 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE QVariantMap eksportujDxf( QgsProject *projekt, const QString &sciezka = QString(), bool zRysunkiem = false ) const;
 
     /**
+     * Eksport inwentaryzacji drzew do DXF - korony (CIRCLE), symbole srodka
+     * ze srednicy pnia, etykiety z odsylaczem MULTILEADER rozmieszczone bez
+     * kolizji (algorytm skryptu "Export Circles + Callouts to DXF v1.3").
+     * Dwa pliki w <projekt>/export/inwentaryzacja_<czas>/: osobny DXF i kopia
+     * rysunku projektu z dopisanymi warstwami KOLA, CENTROIDY, ETY_ODSYL.
+     * Warstwe i pola rozpoznaje po roli; wfg_inw/* w projekcie nadpisuje.
+     * Zwraca {pliki, katalog, drzewa, warstwa, rysunek, uwagi} albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap eksportujInwentaryzacjeDxf( QgsProject *projekt ) const;
+
+    /**
+     * Styl warstwy drzew: korona, SOD (korona + 1,5 m z kazdej strony) i pien
+     * jako okregi w metrach wokol punktu, liczone na zywo z pol obwodow
+     * i korony (te same wzory co eksport DXF); etykieta nr inw. albo fid.
+     * Zwraca {warstwa, pola} albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap stylujInwentaryzacje( QgsProject *projekt ) const;
+
+    /**
      * Warstwy ROBOCZE projektu — te, na ktorych sie zbiera dane.
      * Pomija tabele zalacznikow (ZAL_), warstwy odniesienia (REF_),
      * tylko-do-odczytu i bezgeometryczne. Zwraca liste map:

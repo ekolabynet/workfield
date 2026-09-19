@@ -116,6 +116,7 @@ set(QFIELD_CORE_SRCS
     qfwebdavconnection.cpp
     locator/wfnominatimlocatorfilter.cpp
     utils/narzedziaprojektu.cpp
+    utils/dxfinwentaryzacja.cpp
     utils/niebodziennik.cpp
     utils/spisplikow.cpp
     utils/kopiezapasowe.cpp
@@ -248,6 +249,7 @@ set(QFIELD_CORE_HDRS
     ${CMAKE_CURRENT_BINARY_DIR}/qfield.h
     locator/wfnominatimlocatorfilter.h
     utils/narzedziaprojektu.h
+    utils/dxfinwentaryzacja.h
     utils/niebodziennik.h
     utils/spisplikow.h
     utils/kopiezapasowe.h

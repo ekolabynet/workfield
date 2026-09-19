@@ -1381,6 +1381,54 @@ Drawer {
           }
         }
         QfPozycjaMenu {
+          // WorkField 19.09.2026 - inwentaryzacja drzew do DXF: korony,
+          // symbole srodka, etykiety z odsylaczami. Dwa pliki (osobny i kopia
+          // rysunku z dopisanymi warstwami), "Wyslij" pakuje oba.
+          text: qsTr("Eksport Inw. drzew")
+          ikona: "wfg_paczka"
+          enabled: qgisProject && qgisProject.homePath !== ""
+          onClicked: {
+            const wykonaj = function () {
+              dashBoard.closed.disconnect(wykonaj);
+              if (typeof NarzedziaProjektu === "undefined")
+                return;
+              const w = NarzedziaProjektu.eksportujInwentaryzacjeDxf(qgisProject);
+              console.log("WFG eksport inwentaryzacji: " + JSON.stringify(w));
+              if (w.blad) {
+                displayToast(w.blad, "warning");
+                return;
+              }
+              const pliki = w.pliki;
+              displayToast(qsTr("Inwentaryzacja: %1 drzew, plików: %2 (DXF + ODS)").arg(w.drzewa).arg(pliki.length),
+                           "info", qsTr("Wyślij"), function () {
+                             platformUtilities.sendCompressedFilesTo(pliki);
+                           });
+            };
+            dashBoard.closed.connect(wykonaj);
+            dashBoard.close();
+          }
+        }
+        QfPozycjaMenu {
+          // WorkField 19.09.2026 - korony, SOD i pnie jako okregi w metrach,
+          // liczone na zywo z pol; drzewo dodane w terenie od razu je ma.
+          text: qsTr("Styl Inw. drzew")
+          ikona: "wfg_paczka"
+          enabled: qgisProject && qgisProject.homePath !== ""
+          onClicked: {
+            dashBoard.close();
+            if (typeof NarzedziaProjektu === "undefined")
+              return;
+            const w = NarzedziaProjektu.stylujInwentaryzacje(qgisProject);
+            console.log("WFG styl inwentaryzacji: " + JSON.stringify(w));
+            if (w.blad) {
+              displayToast(w.blad, "warning");
+              return;
+            }
+            NarzedziaProjektu.zapiszProjekt(qgisProject);
+            displayToast(qsTr("Styl drzew: korony, SOD i pnie — %1").arg(w.warstwa));
+          }
+        }
+        QfPozycjaMenu {
           text: qsTr("Zapisz jako szablon")
           ikona: "wfg_paczka"
           enabled: qgisProject && qgisProject.homePath !== ""
