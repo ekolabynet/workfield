@@ -116,7 +116,8 @@ set(QFIELD_CORE_SRCS
     qfwebdavconnection.cpp
     locator/wfnominatimlocatorfilter.cpp
     utils/narzedziaprojektu.cpp
-    utils/dxfinwentaryzacja.cpp
+    moduly/dxfinwentaryzacja.cpp
+    moduly/inwentaryzacjadrzew.cpp
     utils/niebodziennik.cpp
     utils/spisplikow.cpp
     utils/kopiezapasowe.cpp
@@ -249,7 +250,9 @@ set(QFIELD_CORE_HDRS
     ${CMAKE_CURRENT_BINARY_DIR}/qfield.h
     locator/wfnominatimlocatorfilter.h
     utils/narzedziaprojektu.h
-    utils/dxfinwentaryzacja.h
+    moduly/dxfinwentaryzacja.h
+    moduly/inwentaryzacjadrzew.h
+    utils/kodowaniedxf.h
     utils/niebodziennik.h
     utils/spisplikow.h
     utils/kopiezapasowe.h
@@ -346,6 +349,7 @@ target_include_directories(
          $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/core/qgsquick>
          $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/core/3d>
          $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/core/utils>
+         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/core/moduly>
          $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/core/positioning>
          $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/core/processing>
          $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/core/qfieldcloud>

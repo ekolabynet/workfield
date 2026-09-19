@@ -57,6 +57,7 @@ set(QFIELD_APP_QML_FILES
     QfPrzelacznikMaly.qml
     QfPrzepis.qml
     QfQuickCaptureBar.qml
+    QfSekcjaModulow.qml
     QfSettingsAdvanced.qml
     QfSettingsDigitizing.qml
     QfSettingsIndex.qml

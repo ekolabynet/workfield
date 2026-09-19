@@ -105,6 +105,7 @@
 #include "utils/qfurlutils.h"
 #include "utils/narzedziaprojektu.h"
 #include "utils/spisplikow.h"
+#include "moduly/inwentaryzacjadrzew.h"
 #include "utils/kopiezapasowe.h"
 #include "utils/niebodziennik.h"
 #include "utils/nieboutils.h"
@@ -346,6 +347,8 @@ namespace QfCore
     // WorkField: nasze singletony. Rejestrujemy w org.qfield.core, bo klasy
     // leza w src/core; pliki importujace org.qfield widza je przez przekierowanie.
     REGISTER_SINGLETON( "org.qfield.core", NarzedziaProjektu, "NarzedziaProjektu" );
+    // Moduly dziedzinowe (claude/MODULY_dziedzinowe.md) - kazdy ma wlasny silnik.
+    REGISTER_SINGLETON( "org.qfield.core", InwentaryzacjaDrzew, "InwentaryzacjaDrzew" );
     REGISTER_SINGLETON( "org.qfield.core", SpisPlikow, "SpisPlikow" );
     REGISTER_SINGLETON( "org.qfield.core", KopieZapasowe, "KopieZapasowe" );
     REGISTER_SINGLETON( "org.qfield.core", NieboUtils, "NieboUtils" );
