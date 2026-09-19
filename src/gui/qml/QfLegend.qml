@@ -196,8 +196,8 @@ ListView {
           enabled: false
           bgcolor: "transparent"
           anchors.verticalCenter: parent.verticalCenter
-          iconSource: Theme.getThemeVectorIcon('ic_create_white_24dp')
-          iconColor: Theme.mainOverlayColor
+          iconSource: QfTheme.getThemeVectorIcon('ic_create_white_24dp')
+          iconColor: QfTheme.mainOverlayColor
         }
 
         // Legend icon
@@ -217,6 +217,7 @@ ListView {
             source: {
               if (!legend.isVisible || Type == QfFlatLayerTreeModel.Image)
                 return '';
+              console.log('WFG-SONDA legenda: ' + Name + ' typ=' + Type + ' zwinieta=' + IsCollapsed + ' obraz=' + LegendImage);
               if (LegendImage != '') {
                 return LegendImage;
               } else if (Type == QfFlatLayerTreeModel.Layer) {
@@ -260,8 +261,8 @@ ListView {
           leftPadding: 0
           text: Name
           horizontalAlignment: Text.AlignLeft
-          font.pointSize: Theme.tipFont.pointSize
-          font.bold: Type == FlatLayerTreeModel.Group || (Type == FlatLayerTreeModel.Layer && VectorLayerPointer && VectorLayerPointer == activeLayer) ? true : false
+          font.pointSize: QfTheme.tipFont.pointSize
+          font.bold: Type == QfFlatLayerTreeModel.Group || (Type == QfFlatLayerTreeModel.Layer && VectorLayerPointer && VectorLayerPointer == activeLayer) ? true : false
           elide: Text.ElideMiddle
           opacity: Visible ? 1 : 0.25
           color: {
@@ -317,6 +318,85 @@ ListView {
                 duration: 1000
                 easing.type: Easing.InOutQuad
               }
+            }
+          }
+
+          // WorkField 18.09.2026 — PRZESTAWIANIE WARSTW.
+          //
+          // Kolejnosc w drzewie to kolejnosc rysowania. Przy rysunku CAD
+          // pod ortofotomapa znaczylo to, ze podkladu nie widac wcale.
+          //
+          // Strzalki 32 px, nie przeciaganie: w rekawicach przeciaganie
+          // po liscie z grupami jest nietrafialne.
+          QfToolButton {
+            property bool isVisible: Type == QfFlatLayerTreeModel.Layer || Type == QfFlatLayerTreeModel.Group
+            visible: isVisible
+            // 28 px, nie 40: `layerName` liczy swoja szerokosc odejmujac
+            // `badges.width`, wiec kazdy piksel strzalek zabiera nazwie.
+            // Przy 40 nazwa gubila 80 px i podglady stylu sie nie miescily.
+            height: 28
+            width: 28
+            padding: 0
+            enabled: isVisible
+            bgcolor: 'transparent'
+            opacity: 0.7
+            icon.source: QfTheme.getThemeVectorIcon('ic_arrow_drop_up_48dp')
+            icon.color: QfTheme.mainTextColor
+
+            onClicked: {
+              const w = VectorLayerPointer ? VectorLayerPointer : MapLayerPointer;
+              if (!w || typeof NarzedziaProjektu === "undefined")
+                return;
+              // ZAMRAZAMY MODEL. Przestawienie usuwa wezel i wstawia klon,
+              // a model trzyma wskaznik na stary — przy odswiezeniu wiersza
+              // siega po nieistniejacy i aplikacja pada w
+              // `QfFlatLayerTreeModelBase::data()` (19.09.2026).
+              if (typeof flatLayerTree !== "undefined")
+                flatLayerTree.freeze();
+              NarzedziaProjektu.przesunWarstwe(qgisProject, w, true);
+              if (typeof flatLayerTree !== "undefined")
+                flatLayerTree.unfreeze(true);
+              // Most przelicza kolejnosc rysowania. Slucha sygnalow modelu,
+              // a ten byl zamrozony — bez tego mapa zostawala przy starej
+              // kolejnosci az do ponownego otwarcia projektu.
+              if (typeof layerTreeBridge !== "undefined")
+                layerTreeBridge.setCanvasLayers();
+            }
+          }
+
+          QfToolButton {
+            property bool isVisible: Type == QfFlatLayerTreeModel.Layer || Type == QfFlatLayerTreeModel.Group
+            visible: isVisible
+            // 28 px, nie 40: `layerName` liczy swoja szerokosc odejmujac
+            // `badges.width`, wiec kazdy piksel strzalek zabiera nazwie.
+            // Przy 40 nazwa gubila 80 px i podglady stylu sie nie miescily.
+            height: 28
+            width: 28
+            padding: 0
+            enabled: isVisible
+            bgcolor: 'transparent'
+            opacity: 0.7
+            icon.source: QfTheme.getThemeVectorIcon('ic_arrow_drop_down_48dp')
+            icon.color: QfTheme.mainTextColor
+
+            onClicked: {
+              const w = VectorLayerPointer ? VectorLayerPointer : MapLayerPointer;
+              if (!w || typeof NarzedziaProjektu === "undefined")
+                return;
+              // ZAMRAZAMY MODEL. Przestawienie usuwa wezel i wstawia klon,
+              // a model trzyma wskaznik na stary — przy odswiezeniu wiersza
+              // siega po nieistniejacy i aplikacja pada w
+              // `QfFlatLayerTreeModelBase::data()` (19.09.2026).
+              if (typeof flatLayerTree !== "undefined")
+                flatLayerTree.freeze();
+              NarzedziaProjektu.przesunWarstwe(qgisProject, w, false);
+              if (typeof flatLayerTree !== "undefined")
+                flatLayerTree.unfreeze(true);
+              // Most przelicza kolejnosc rysowania. Slucha sygnalow modelu,
+              // a ten byl zamrozony — bez tego mapa zostawala przy starej
+              // kolejnosci az do ponownego otwarcia projektu.
+              if (typeof layerTreeBridge !== "undefined")
+                layerTreeBridge.setCanvasLayers();
             }
           }
 

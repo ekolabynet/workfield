@@ -17,6 +17,7 @@
 
 #include <sqlite3.h>
 
+#include <qgslayertreeregistrybridge.h>
 #include <qgslayertreelayer.h>
 #include <qgscoordinatereferencesystem.h>
 #include <qgsproject.h>
@@ -530,18 +531,52 @@ bool NarzedziaProjektu::przesunWarstwe( QgsProject *projekt, QgsMapLayer *warstw
   if ( cel < 0 || cel >= rodzic->children().count() )
     return false; // kraniec — nie ma dokad
 
-  // Klon PRZED usunieciem: `removeChildNode` kasuje wezel, a nie tylko
-  // wypina go z drzewa.
-  QgsLayerTreeNode *kopia = wezel->clone();
   QgsLayerTreeGroup *grupa = qobject_cast<QgsLayerTreeGroup *>( rodzic );
   if ( !grupa )
-  {
-    delete kopia;
     return false;
+
+  // MOST DRZEWO-REJESTR TRZEBA WYLACZYC.
+  //
+  // `QgsLayerTreeRegistryBridge` pilnuje, zeby drzewo i rejestr warstw
+  // projektu mowily to samo: gdy wezel znika z drzewa, most USUWA warstwe
+  // z projektu. Przy przestawianiu wezel znika na ulamek sekundy — i to
+  // wystarczylo, zeby warstwa przepadla na dobre (18.09.2026, dwie proby:
+  // `clone`+`remove` dublowal, samo `takeChild` kasowalo).
+  //
+  // Most wraca w KAZDYM wyjsciu, takze przy bledzie.
+  QgsLayerTreeRegistryBridge *most = p->layerTreeRegistryBridge();
+  const bool bylWlaczony = most && most->isEnabled();
+  if ( most )
+    most->setEnabled( false );
+
+  // KLON, NIE PRZENIESIENIE. Tak robi QGIS przy przeciaganiu w legendzie
+  // (`QgsLayerTreeModel::dropMimeData`): serializuje wezel, tworzy NOWY
+  // i wstawia, a stary usuwa osobno. Nigdy nie wypina i nie wklada tego
+  // samego wskaznika — osierocony wezel nie przezywa podrozy.
+  //
+  // Klon wskazuje TE SAMA warstwe (ten sam identyfikator), wiec bez
+  // wylaczonego mostu usuniecie oryginalu zabieralo ja z projektu.
+  QgsLayerTreeNode *kopia = wezel->clone();
+  // STAN ROZWINIECIA nie przechodzi przez `clone()`. `buildMap` pokazuje
+  // podglad stylu tylko dla wezlow ROZWINIETYCH, wiec po przestawieniu
+  // znikaly symbole kolorow — warstwa wracala zwinieta (19.09.2026).
+  if ( kopia )
+    kopia->setExpanded( wezel->isExpanded() );
+  bool ok = false;
+  if ( kopia )
+  {
+    // KOLEJNOSC MA ZNACZENIE. Przy ruchu W GORE klon wchodzi PRZED
+    // oryginalem, wiec `cel` jest dobry. Przy ruchu W DOL klon ma stanac
+    // ZA sasiadem — a ten jest jeszcze na swoim miejscu, bo oryginalu
+    // nie usunelismy. Stad `cel + 1`.
+    grupa->insertChildNode( wGore ? cel : cel + 1, kopia );
+    grupa->removeChildNode( wezel );
+    ok = true;
   }
-  grupa->insertChildNode( cel, kopia );
-  grupa->removeChildNode( wezel );
-  return true;
+
+  if ( most && bylWlaczony )
+    most->setEnabled( true );
+  return ok;
 }
 
 bool NarzedziaProjektu::doGrupy( QgsProject *projekt, QgsMapLayer *warstwa, const QString &grupa, bool zwinieta, bool widoczna ) const

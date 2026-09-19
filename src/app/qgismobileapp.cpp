@@ -422,6 +422,12 @@ void QgisMobileapp::registerGlobalVariables()
   rootContext()->setContextProperty( "pluginManager", mPluginManager );
   rootContext()->setContextProperty( "settings", &mSettings );
   rootContext()->setContextProperty( "flatLayerTree", mFlatLayerTree );
+  // Most drzewo-plotno do QML. Slucha `layersAdded`/`layersRemoved`
+  // z modelu, ale przy przestawianiu warstw model jest ZAMROZONY (inaczej
+  // siega po usuniety wezel i aplikacja pada) — wiec sygnalow nie ma
+  // i mapa zostaje przy starej kolejnosci. Po odmrozeniu trzeba mostowi
+  // powiedziec wprost: `setCanvasLayers()`. (19.09.2026)
+  rootContext()->setContextProperty( "layerTreeBridge", mLayerTreeCanvasBridge );
   rootContext()->setContextProperty( "focusstack", mFocusStack.get() );
   rootContext()->setContextProperty( "WkbTypes", QVariant::fromValue<QgsWkbTypes>( mWkbTypes ) );
   rootContext()->setContextProperty( "UnitTypes", QVariant::fromValue<QgsUnitTypes>( mUnitTypes ) );
