@@ -2218,6 +2218,264 @@ namespace
     }
     return wynik;
   }
+
+  // Dopracowanie pliku pod CAD - WorkField 19.09.2026. Dziala na tekscie DXF
+  // po eksporcie (pary: kod grupy / wartosc), niczego nie dodaje do OBJECTS
+  // i nie tworzy nowych uchwytow:
+  //  1. KOLOR PRZY WARSTWIE. QGIS daje kazdej warstwie kolor 1 (czerwony),
+  //     a prawdziwy kolor zapisuje przy kazdym obiekcie (420). Warstwa
+  //     dostaje dominujacy kolor swoich obiektow (62 = najblizszy ACI,
+  //     420 = dokladny RGB), a obiekty w tym kolorze traca wlasny kolor,
+  //     czyli sa "wg warstwy" - projektant przemaluje warstwe jednym
+  //     kliknieciem. Inne kolory (np. wypelnienie HATCH) zostaja przy obiekcie.
+  //     Punkt (INSERT) liczy sie kolorem wypelnienia swojego bloku.
+  //  2. TEKST CZARNY (420 = 0) -> ACI 7: czarny na jasnym tle, bialy na
+  //     ciemnym - czarny tekst na czarnym tle CAD-a bylby niewidoczny.
+  //  3. CZCIONKA: Roboto z telefonu -> Arial, ktory CAD ma na pewno.
+  //  4. HATCH: brakujace 230 w wektorze wyciagniecia (patrz nizej).
+  QString dopracujDxf( const QString &tekst, QStringList *uwagi )
+  {
+    QStringList linie = tekst.split( QLatin1Char( '\n' ) );
+    const bool nowaLiniaNaKoncu = tekst.endsWith( QLatin1Char( '\n' ) );
+    if ( nowaLiniaNaKoncu )
+      linie.removeLast();
+    if ( linie.size() % 2 != 0 )
+    {
+      if ( uwagi )
+        *uwagi << QStringLiteral( "DXF: nieparzysta liczba linii - pominieto dopracowanie kolorow" );
+      return tekst;
+    }
+    const int par = static_cast<int>( linie.size() / 2 );
+    auto kod = [&linie]( int i ) { return linie.at( 2 * i ).trimmed(); };
+    auto wart = [&linie]( int i ) { return linie.at( 2 * i + 1 ).trimmed(); };
+
+    // --- sekcje --------------------------------------------------------
+    QVector<QString> sekcja( par );
+    QString biezaca;
+    for ( int i = 0; i < par; ++i )
+    {
+      if ( kod( i ) == QLatin1String( "0" ) && wart( i ) == QLatin1String( "SECTION" ) && i + 1 < par && kod( i + 1 ) == QLatin1String( "2" ) )
+        biezaca = wart( i + 1 );
+      sekcja[i] = biezaca;
+      if ( kod( i ) == QLatin1String( "0" ) && wart( i ) == QLatin1String( "ENDSEC" ) )
+        biezaca.clear();
+    }
+
+    const QSet<QString> liniowe = { QStringLiteral( "LWPOLYLINE" ), QStringLiteral( "POLYLINE" ), QStringLiteral( "LINE" ), QStringLiteral( "POINT" ), QStringLiteral( "CIRCLE" ), QStringLiteral( "ARC" ), QStringLiteral( "SPLINE" ), QStringLiteral( "ELLIPSE" ) };
+    const QSet<QString> tekstowe = { QStringLiteral( "MTEXT" ), QStringLiteral( "TEXT" ) };
+
+    // --- kolory blokow (wypelnienie, a bez niego pierwszy kolor) ----------
+    QHash<QString, int> kolorBloku;
+    {
+      QString blok, typ;
+      int wypelnienie = -1, inny = -1;
+      auto zamknijBlok = [&]() {
+        if ( !blok.isEmpty() )
+        {
+          const int k = wypelnienie >= 0 ? wypelnienie : inny;
+          if ( k >= 0 )
+            kolorBloku.insert( blok, k );
+        }
+      };
+      for ( int i = 0; i < par; ++i )
+      {
+        if ( sekcja[i] != QLatin1String( "BLOCKS" ) )
+          continue;
+        if ( kod( i ) == QLatin1String( "0" ) )
+        {
+          typ = wart( i );
+          if ( typ == QLatin1String( "BLOCK" ) )
+          {
+            zamknijBlok();
+            blok.clear();
+            wypelnienie = inny = -1;
+          }
+        }
+        else if ( kod( i ) == QLatin1String( "2" ) && typ == QLatin1String( "BLOCK" ) && blok.isEmpty() )
+          blok = wart( i );
+        else if ( kod( i ) == QLatin1String( "420" ) )
+        {
+          const int k = wart( i ).toInt();
+          if ( typ == QLatin1String( "HATCH" ) && wypelnienie < 0 )
+            wypelnienie = k;
+          else if ( inny < 0 )
+            inny = k;
+        }
+      }
+      zamknijBlok();
+    }
+
+    // --- obiekty w ENTITIES --------------------------------------------
+    struct Obiekt
+    {
+        QString typ, warstwa, blok;
+        int para420 = -1;
+        int kolor = -1;
+    };
+    QVector<Obiekt> obiekty;
+    for ( int i = 0; i < par; ++i )
+    {
+      if ( sekcja[i] != QLatin1String( "ENTITIES" ) )
+        continue;
+      if ( kod( i ) == QLatin1String( "0" ) )
+      {
+        if ( wart( i ) == QLatin1String( "SECTION" ) || wart( i ) == QLatin1String( "ENDSEC" ) )
+          continue;
+        Obiekt o;
+        o.typ = wart( i );
+        obiekty << o;
+        continue;
+      }
+      if ( obiekty.isEmpty() )
+        continue;
+      Obiekt &o = obiekty.last();
+      if ( kod( i ) == QLatin1String( "8" ) )
+        o.warstwa = wart( i );
+      else if ( kod( i ) == QLatin1String( "420" ) && o.para420 < 0 )
+      {
+        o.para420 = i;
+        o.kolor = wart( i ).toInt();
+      }
+      else if ( kod( i ) == QLatin1String( "2" ) && o.typ == QLatin1String( "INSERT" ) )
+        o.blok = wart( i );
+    }
+
+    // --- dominujacy kolor warstwy ----------------------------------------
+    QHash<QString, QHash<int, int>> glosy;
+    for ( const Obiekt &o : std::as_const( obiekty ) )
+    {
+      if ( liniowe.contains( o.typ ) && o.kolor >= 0 )
+        glosy[o.warstwa][o.kolor] += 2;
+      else if ( o.typ == QLatin1String( "HATCH" ) && o.kolor >= 0 )
+        glosy[o.warstwa][o.kolor] += 1;
+      else if ( o.typ == QLatin1String( "INSERT" ) && kolorBloku.contains( o.blok ) )
+        glosy[o.warstwa][kolorBloku.value( o.blok )] += 2;
+    }
+    QHash<QString, int> kolorWarstwy;
+    for ( auto it = glosy.constBegin(); it != glosy.constEnd(); ++it )
+    {
+      int najlepszy = -1, ile = 0;
+      for ( auto k = it.value().constBegin(); k != it.value().constEnd(); ++k )
+      {
+        if ( k.value() > ile || ( k.value() == ile && k.key() < najlepszy ) )
+        {
+          najlepszy = k.key();
+          ile = k.value();
+        }
+      }
+      if ( najlepszy >= 0 )
+        kolorWarstwy.insert( it.key(), najlepszy );
+    }
+
+    // --- zmiany: tabela LAYER --------------------------------------------
+    QSet<int> usun;
+    QHash<int, QStringList> dopiszPo;
+    {
+      QString typ, nazwa;
+      int para62 = -1;
+      bool ma420 = false;
+      auto zamknijWarstwe = [&]() {
+        if ( typ == QLatin1String( "LAYER" ) && para62 >= 0 && kolorWarstwy.contains( nazwa ) )
+        {
+          const int rgb = kolorWarstwy.value( nazwa );
+          const int aci = QgsDxfExport::closestColorMatch( 0xff000000u | static_cast<unsigned int>( rgb ) );
+          linie[2 * para62 + 1] = QStringLiteral( "%1" ).arg( aci, 6 );
+          if ( !ma420 )
+            dopiszPo.insert( para62, QStringList() << QStringLiteral( "420" ) << QString::number( rgb ) );
+        }
+      };
+      for ( int i = 0; i < par; ++i )
+      {
+        if ( sekcja[i] != QLatin1String( "TABLES" ) )
+          continue;
+        if ( kod( i ) == QLatin1String( "0" ) )
+        {
+          zamknijWarstwe();
+          typ = wart( i );
+          nazwa.clear();
+          para62 = -1;
+          ma420 = false;
+        }
+        else if ( typ == QLatin1String( "LAYER" ) && kod( i ) == QLatin1String( "2" ) )
+          nazwa = wart( i );
+        else if ( typ == QLatin1String( "LAYER" ) && kod( i ) == QLatin1String( "62" ) )
+          para62 = i;
+        else if ( typ == QLatin1String( "LAYER" ) && kod( i ) == QLatin1String( "420" ) )
+          ma420 = true;
+      }
+      zamknijWarstwe();
+    }
+
+    // --- zmiany: obiekty -------------------------------------------------
+    int wgWarstwy = 0, tekstyAci7 = 0;
+    for ( const Obiekt &o : std::as_const( obiekty ) )
+    {
+      if ( o.para420 < 0 )
+        continue;
+      if ( tekstowe.contains( o.typ ) )
+      {
+        if ( o.kolor == 0 )
+        {
+          linie[2 * o.para420] = QStringLiteral( " 62" );
+          linie[2 * o.para420 + 1] = QStringLiteral( "     7" );
+          ++tekstyAci7;
+        }
+      }
+      else if ( kolorWarstwy.contains( o.warstwa ) && kolorWarstwy.value( o.warstwa ) == o.kolor )
+      {
+        usun.insert( o.para420 );
+        ++wgWarstwy;
+      }
+    }
+
+    // --- czcionka w tekstach -----------------------------------------------
+    int czcionki = 0;
+    for ( int i = 0; i < par; ++i )
+    {
+      if ( sekcja[i] == QLatin1String( "ENTITIES" ) && ( kod( i ) == QLatin1String( "1" ) || kod( i ) == QLatin1String( "3" ) ) && linie.at( 2 * i + 1 ).contains( QLatin1String( "\\fRoboto|" ) ) )
+      {
+        linie[2 * i + 1].replace( QLatin1String( "\\fRoboto|" ), QLatin1String( "\\fArial|" ) );
+        ++czcionki;
+      }
+    }
+
+    // --- HATCH bez skladowej Z wektora wyciagniecia --------------------------
+    // QGIS pisze 210/220 = 0/0 i pomija 230, co daje wektor zerowy (0,0,0).
+    // ezdxf/AutoCAD naprawiaja to przy wczytaniu ("Fixed extrusion vector"),
+    // ale inne programy moga HATCH odrzucic. Dopisujemy 230 = 1.0.
+    int hatchZ = 0;
+    {
+      QString typ;
+      for ( int i = 0; i < par; ++i )
+      {
+        if ( kod( i ) == QLatin1String( "0" ) )
+          typ = wart( i );
+        else if ( typ == QLatin1String( "HATCH" ) && kod( i ) == QLatin1String( "220" ) && ( i + 1 >= par || kod( i + 1 ) != QLatin1String( "230" ) ) )
+        {
+          dopiszPo[i] << QStringLiteral( "230" ) << QStringLiteral( "1.0" );
+          ++hatchZ;
+        }
+      }
+    }
+
+    // --- zlozenie ------------------------------------------------------------
+    QStringList wynik;
+    wynik.reserve( linie.size() + 2 * dopiszPo.size() );
+    for ( int i = 0; i < par; ++i )
+    {
+      if ( usun.contains( i ) )
+        continue;
+      wynik << linie.at( 2 * i ) << linie.at( 2 * i + 1 );
+      if ( dopiszPo.contains( i ) )
+        wynik << dopiszPo.value( i );
+    }
+    if ( uwagi )
+      *uwagi << QStringLiteral( "DXF: kolor przy %1 warstwach, %2 obiektow wg warstwy, %3 tekstow ACI 7, %4 czcionek Arial, %5 HATCH z wektorem Z" ).arg( kolorWarstwy.size() ).arg( wgWarstwy ).arg( tekstyAci7 ).arg( czcionki ).arg( hatchZ );
+    QString zlozony = wynik.join( QLatin1Char( '\n' ) );
+    if ( nowaLiniaNaKoncu )
+      zlozony += QLatin1Char( '\n' );
+    return zlozony;
+  }
 } // namespace
 
 QVariantMap NarzedziaProjektu::eksportujDxf( QgsProject *projekt, const QString &sciezka, bool zRysunkiem ) const
@@ -2381,11 +2639,11 @@ QVariantMap NarzedziaProjektu::eksportujDxf( QgsProject *projekt, const QString 
     return wynik;
   }
 
-  // --- przekodowanie (patrz doCp1250) ------------------------------------
+  // --- dopracowanie pod CAD i kodowanie (patrz dopracujDxf, doCp1250) ----
+  // Plik jest juz kompletny: f.close() oddal bufor QTextStream (aboutToClose).
   QStringList uwagi;
   if ( !dxf.feedbackMessage().isEmpty() )
     uwagi << dxf.feedbackMessage();
-  if ( kodowanie.compare( QLatin1String( "UTF-8" ), Qt::CaseInsensitive ) != 0 )
   {
     QFile g( plik );
     if ( g.open( QIODevice::ReadOnly ) )
@@ -2393,31 +2651,35 @@ QVariantMap NarzedziaProjektu::eksportujDxf( QgsProject *projekt, const QString 
       const QByteArray bajty = g.readAll();
       g.close();
       QStringDecoder dekoder( QStringDecoder::Utf8 );
-      const QString tekst = dekoder( bajty );
-      // Jesli to nie jest poprawny UTF-8, QGIS zapisal juz we wlasciwym
-      // kodowaniu (inna wersja Qt) - nie ruszamy.
-      if ( !dekoder.hasError() )
+      QString tekst = dekoder( bajty );
+      // Nie-UTF-8 znaczy, ze QGIS (inna wersja Qt) zapisal juz we wlasciwym
+      // kodowaniu - wtedy nie ruszamy pliku wcale.
+      if ( dekoder.hasError() )
       {
-        bool czyAscii = true;
-        for ( const char b : bajty )
+        uwagi << QStringLiteral( "DXF nie jest w UTF-8 - pominieto dopracowanie i przekodowanie" );
+      }
+      else
+      {
+        tekst = dopracujDxf( tekst, &uwagi );
+        QByteArray wyjscie;
+        if ( kodowanie.compare( QLatin1String( "CP1250" ), Qt::CaseInsensitive ) == 0 )
         {
-          if ( static_cast<unsigned char>( b ) >= 0x80 )
-          {
-            czyAscii = false;
-            break;
-          }
+          wyjscie = doCp1250( tekst );
         }
-        if ( !czyAscii )
+        else
         {
-          if ( kodowanie.compare( QLatin1String( "CP1250" ), Qt::CaseInsensitive ) == 0 && g.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
-          {
-            g.write( doCp1250( tekst ) );
-            g.close();
-          }
-          else
-          {
+          wyjscie = tekst.toUtf8();
+          if ( kodowanie.compare( QLatin1String( "UTF-8" ), Qt::CaseInsensitive ) != 0 && wyjscie.size() != tekst.size() )
             uwagi << QStringLiteral( "Kodowanie %1 nieobsługiwane w Qt6 - znaki spoza ASCII mogą być błędne; użyj CP1250 albo UTF-8" ).arg( kodowanie );
-          }
+        }
+        if ( g.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+        {
+          g.write( wyjscie );
+          g.close();
+        }
+        else
+        {
+          uwagi << QStringLiteral( "Nie mogę zapisać dopracowanego DXF: %1" ).arg( plik );
         }
       }
     }
