@@ -82,7 +82,7 @@ namespace DxfInwentaryzacja
   };
 
   /**
-   * Tabela inwentaryzacyjna w ODS (sterownik GDAL) - kolumny jak w arkuszu
+   * Tabela inwentaryzacyjna w ODS (wlasny zapis, zip przez GDAL; formatowanie jak arkusz pracowni) - kolumny jak w arkuszu
    * "Tabela inwentaryzacyjna" (APPL LS Bruzdowa 2026-06-17), z kolumnami
    * liczonymi przez nas zamiast formul: obwod efektywny, srednica SOD
    * (korona + 2 x 1,5 m), srednica pnia, frazy z "Uwag". Drugi i trzeci

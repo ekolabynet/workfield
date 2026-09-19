@@ -16,6 +16,8 @@
 
 #include <gdal.h>
 #include <ogr_api.h>
+#include <cpl_conv.h>
+#include <cpl_string.h>
 
 #include <algorithm>
 #include <cmath>
@@ -1029,18 +1031,271 @@ namespace DxfInwentaryzacja
     return wynik;
   }
 
+  // --- ODS pisany recznie (WorkField 19.09.2026) --------------------------------
+  // Sterownik ODS z GDAL zapisuje same wartosci. Arkusz roboczy pracowni ma
+  // wyglad: czcionka Barlow, obramowania, zawijanie, szerokosci kolumn,
+  // kolorowana kolumna Grupa, zamrozony naglowek, autofiltr - i formuly, bo
+  // tabela jest dalej uzupelniana w biurze. Piszemy wiec content.xml sami,
+  // a zip robi GDAL (CPLCreateZip), bez nowej zaleznosci.
+  namespace
+  {
+    //! Kolumna arkusza w notacji literowej: 0 -> A, 26 -> AA.
+    QString litera( int i )
+    {
+      QString s;
+      for ( ++i; i > 0; i = ( i - 1 ) / 26 )
+        s.prepend( QChar( 'A' + ( i - 1 ) % 26 ) );
+      return s;
+    }
+
+    QString atrybut( const QString &t )
+    {
+      QString s = t.toHtmlEscaped(); // & < > "
+      s.replace( QLatin1Char( '\'' ), QLatin1String( "&apos;" ) );
+      return s;
+    }
+
+    //! Tekst jako akapity ODF: nowe linie -> <text:p>, spacje wielokrotne,
+    //! wiodace i koncowe -> <text:s/> (ODF zwija biale znaki).
+    QString akapity( const QString &t )
+    {
+      QString wy;
+      const QStringList linie = t.split( QRegularExpression( QStringLiteral( "\r\n|\r|\n" ) ) );
+      for ( const QString &l : linie )
+      {
+        QString p;
+        int spacje = 0;
+        auto zrzuc = [&]( bool koniec ) {
+          if ( spacje == 0 )
+            return;
+          if ( p.isEmpty() || koniec )
+            p += QStringLiteral( "<text:s text:c=\"%1\"/>" ).arg( spacje );
+          else
+          {
+            p += QLatin1Char( ' ' );
+            if ( spacje > 1 )
+              p += QStringLiteral( "<text:s text:c=\"%1\"/>" ).arg( spacje - 1 );
+          }
+          spacje = 0;
+        };
+        for ( const QChar ch : l )
+        {
+          if ( ch == QLatin1Char( ' ' ) )
+          {
+            ++spacje;
+            continue;
+          }
+          zrzuc( false );
+          if ( ch == QLatin1Char( '\t' ) )
+            p += QLatin1String( "<text:tab/>" );
+          else if ( ch.unicode() < 0x20 || ch.unicode() == 0xFFFE || ch.unicode() == 0xFFFF )
+            continue; // znaki niedozwolone w XML
+          else if ( ch == QLatin1Char( '&' ) )
+            p += QLatin1String( "&amp;" );
+          else if ( ch == QLatin1Char( '<' ) )
+            p += QLatin1String( "&lt;" );
+          else if ( ch == QLatin1Char( '>' ) )
+            p += QLatin1String( "&gt;" );
+          else
+            p += ch;
+        }
+        zrzuc( true );
+        wy += QStringLiteral( "<text:p>%1</text:p>" ).arg( p );
+      }
+      return wy;
+    }
+
+    QString liczbaOds( double v )
+    {
+      return QString::number( v, 'g', 15 );
+    }
+
+    QString styl( const QString &s )
+    {
+      return s.isEmpty() ? QString() : QStringLiteral( " table:style-name=\"%1\"" ).arg( s );
+    }
+
+    QString kPusta( const QString &s )
+    {
+      return QStringLiteral( "<table:table-cell%1/>" ).arg( styl( s ) );
+    }
+
+    QString kTekst( const QString &s, const QString &t )
+    {
+      if ( t.isEmpty() )
+        return kPusta( s );
+      return QStringLiteral( "<table:table-cell%1 office:value-type=\"string\">%2</table:table-cell>" ).arg( styl( s ), akapity( t ) );
+    }
+
+    QString kLiczba( const QString &s, double v )
+    {
+      return QStringLiteral( "<table:table-cell%1 office:value-type=\"float\" office:value=\"%2\"><text:p>%2</text:p></table:table-cell>" ).arg( styl( s ), liczbaOds( v ) );
+    }
+
+    //! Formula z zapamietanym wynikiem liczbowym (albo pustym, gdy \a v jest NaN).
+    QString kFormula( const QString &s, const QString &f, double v )
+    {
+      if ( std::isnan( v ) )
+        return QStringLiteral( "<table:table-cell%1 table:formula=\"%2\" office:value-type=\"string\" office:string-value=\"\"><text:p/></table:table-cell>" ).arg( styl( s ), atrybut( f ) );
+      return QStringLiteral( "<table:table-cell%1 table:formula=\"%2\" office:value-type=\"float\" office:value=\"%3\"><text:p>%3</text:p></table:table-cell>" ).arg( styl( s ), atrybut( f ), liczbaOds( v ) );
+    }
+
+    QString kFormulaTekst( const QString &s, const QString &f, const QString &t )
+    {
+      return QStringLiteral( "<table:table-cell%1 table:formula=\"%2\" office:value-type=\"string\" office:string-value=\"%3\">%4</table:table-cell>" ).arg( styl( s ), atrybut( f ), atrybut( t ), akapity( t ) );
+    }
+
+    //! Czysta liczba ("7", "7,5", "103") -> komorka liczbowa, reszta -> tekst.
+    bool czystaLiczba( const QString &t, double *v )
+    {
+      static const QRegularExpression re( QStringLiteral( "^[+-]?\\d+([.,]\\d+)?$" ) );
+      if ( !re.match( t ).hasMatch() )
+        return false;
+      *v = QString( t ).replace( QLatin1Char( ',' ), QLatin1Char( '.' ) ).toDouble();
+      return true;
+    }
+
+    QString kWartosc( const QString &s, const QString &t )
+    {
+      double v = 0;
+      return czystaLiczba( t, &v ) ? kLiczba( s, v ) : kTekst( s, t );
+    }
+
+    // Grupa -> kolor tla (i tekstu), jak w arkuszu pracowni.
+    struct KolorGrupy
+    {
+        const char *grupa;
+        const char *styl;
+        const char *tlo;
+        const char *tekst;
+    };
+    const KolorGrupy kGrupy[] = {
+      { "A", "Grupa_A", "#00e676", nullptr },
+      { "A*", "Grupa_A_gw", "#c6ff00", nullptr },
+      { "b/d/a", "Grupa_bda", "#c6ff00", nullptr },
+      { "AC", "Grupa_AC", "#ffeb3b", nullptr },
+      { "G", "Grupa_G", "#ff9900", nullptr },
+      { "G*", "Grupa_G_gw", "#e91e63", nullptr },
+      { "O", "Grupa_O", "#993366", "#fafafa" },
+      { "Z", "Grupa_Z", "#808080", "#fff9c4" },
+      { "M", "Grupa_M", "#333333", "#ffffff" },
+      { "b/d", "Grupa_bd", "#0000ff", "#ffffff" },
+      { "p/t", "Grupa_pt", "#0000ff", "#ffffff" },
+    };
+
+    const char *kKomorka = "<style:table-cell-properties fo:wrap-option=\"wrap\" fo:border=\"0.74pt solid #000000\" fo:padding=\"0.071cm\" style:vertical-align=\"middle\"/>"
+                           "<style:paragraph-properties fo:text-align=\"center\"/>";
+    const char *kBarlow = "<style:text-properties style:font-name=\"Barlow\" fo:font-size=\"12pt\" style:font-size-asian=\"12pt\" style:font-size-complex=\"12pt\"/>";
+    const char *kBarlowBlack = "<style:text-properties style:font-name=\"Barlow Black\" fo:font-size=\"12pt\" fo:font-weight=\"bold\" style:font-size-asian=\"12pt\" style:font-weight-asian=\"bold\" style:font-size-complex=\"12pt\" style:font-weight-complex=\"bold\"/>";
+    const char *kFonty = "<office:font-face-decls>"
+                         "<style:font-face style:name=\"Barlow\" svg:font-family=\"Barlow\" style:font-family-generic=\"swiss\" style:font-pitch=\"variable\"/>"
+                         "<style:font-face style:name=\"Barlow Black\" svg:font-family=\"&apos;Barlow Black&apos;\" style:font-family-generic=\"swiss\" style:font-pitch=\"variable\"/>"
+                         "</office:font-face-decls>";
+    const char *kPrzestrzenie = "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" "
+                                "xmlns:style=\"urn:oasis:names:tc:opendocument:xmlns:style:1.0\" "
+                                "xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\" "
+                                "xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" "
+                                "xmlns:number=\"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0\" "
+                                "xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" "
+                                "xmlns:svg=\"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0\" "
+                                "xmlns:of=\"urn:oasis:names:tc:opendocument:xmlns:of:1.2\" "
+                                "xmlns:meta=\"urn:oasis:names:tc:opendocument:xmlns:meta:1.0\" "
+                                "xmlns:config=\"urn:oasis:names:tc:opendocument:xmlns:config:1.0\" "
+                                "office:version=\"1.3\"";
+
+    //! styles.xml: styl Default i nazwane style grup (style:map wymaga
+    //! stylow nazwanych, nie automatycznych).
+    QByteArray stylesXml()
+    {
+      QString s = QStringLiteral( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<office:document-styles %1>%2<office:styles>" ).arg( QLatin1String( kPrzestrzenie ), QLatin1String( kFonty ) );
+      s += QStringLiteral( "<style:default-style style:family=\"table-cell\"><style:text-properties style:font-name=\"Barlow\" fo:font-size=\"12pt\" fo:language=\"pl\" fo:country=\"PL\"/></style:default-style>" );
+      s += QStringLiteral( "<style:style style:name=\"Default\" style:family=\"table-cell\"/>" );
+      for ( const KolorGrupy &g : kGrupy )
+      {
+        s += QStringLiteral( "<style:style style:name=\"%1\" style:family=\"table-cell\" style:parent-style-name=\"Default\">"
+                             "<style:table-cell-properties fo:background-color=\"%2\" fo:wrap-option=\"no-wrap\" fo:border=\"0.74pt solid #000000\" fo:padding=\"0.071cm\" style:vertical-align=\"middle\"/>"
+                             "<style:paragraph-properties fo:text-align=\"center\"/>" )
+               .arg( QLatin1String( g.styl ), QLatin1String( g.tlo ) );
+        QString tekst = QLatin1String( kBarlowBlack );
+        if ( g.tekst )
+          tekst.replace( QLatin1String( "<style:text-properties " ), QStringLiteral( "<style:text-properties fo:color=\"%1\" " ).arg( QLatin1String( g.tekst ) ) );
+        s += tekst + QStringLiteral( "</style:style>" );
+      }
+      s += QStringLiteral( "</office:styles></office:document-styles>" );
+      return s.toUtf8();
+    }
+
+    //! Styl komorki automatyczny (content.xml).
+    QString stylKomorki( const QString &nazwa, const QString &komorka, const QString &akapit, const QString &tekst, const QString &format = QString(), const QString &mapy = QString() )
+    {
+      return QStringLiteral( "<style:style style:name=\"%1\" style:family=\"table-cell\" style:parent-style-name=\"Default\"%2>%3%4%5%6</style:style>" )
+        .arg( nazwa, format.isEmpty() ? QString() : QStringLiteral( " style:data-style-name=\"%1\"" ).arg( format ), komorka, akapit, tekst, mapy );
+    }
+
+    //! settings.xml: zamrozony pierwszy wiersz w kazdym arkuszu.
+    QByteArray settingsXml( const QStringList &arkusze )
+    {
+      QString s = QStringLiteral( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<office:document-settings %1><office:settings>"
+                                  "<config:config-item-set config:name=\"ooo:view-settings\"><config:config-item-map-indexed config:name=\"Views\"><config:config-item-map-entry>"
+                                  "<config:config-item config:name=\"ViewId\" config:type=\"string\">view1</config:config-item>"
+                                  "<config:config-item-map-named config:name=\"Tables\">" )
+                    .arg( QLatin1String( kPrzestrzenie ) );
+      for ( const QString &a : arkusze )
+      {
+        s += QStringLiteral( "<config:config-item-map-entry config:name=\"%1\">"
+                             "<config:config-item config:name=\"CursorPositionX\" config:type=\"int\">0</config:config-item>"
+                             "<config:config-item config:name=\"CursorPositionY\" config:type=\"int\">1</config:config-item>"
+                             "<config:config-item config:name=\"HorizontalSplitMode\" config:type=\"short\">0</config:config-item>"
+                             "<config:config-item config:name=\"VerticalSplitMode\" config:type=\"short\">2</config:config-item>"
+                             "<config:config-item config:name=\"HorizontalSplitPosition\" config:type=\"int\">0</config:config-item>"
+                             "<config:config-item config:name=\"VerticalSplitPosition\" config:type=\"int\">1</config:config-item>"
+                             "<config:config-item config:name=\"ActiveSplitRange\" config:type=\"short\">2</config:config-item>"
+                             "<config:config-item config:name=\"PositionLeft\" config:type=\"int\">0</config:config-item>"
+                             "<config:config-item config:name=\"PositionRight\" config:type=\"int\">0</config:config-item>"
+                             "<config:config-item config:name=\"PositionTop\" config:type=\"int\">0</config:config-item>"
+                             "<config:config-item config:name=\"PositionBottom\" config:type=\"int\">1</config:config-item>"
+                             "</config:config-item-map-entry>" )
+               .arg( atrybut( a ) );
+      }
+      s += QStringLiteral( "</config:config-item-map-named>"
+                           "<config:config-item config:name=\"ActiveTable\" config:type=\"string\">%1</config:config-item>"
+                           "</config:config-item-map-entry></config:config-item-map-indexed></config:config-item-set></office:settings></office:document-settings>" )
+             .arg( atrybut( arkusze.value( 0 ) ) );
+      return s.toUtf8();
+    }
+
+    QString zapiszZip( const QString &sciezka, const QList<QPair<QByteArray, QByteArray>> &pliki )
+    {
+      void *zip = CPLCreateZip( sciezka.toUtf8().constData(), nullptr );
+      if ( !zip )
+        return QStringLiteral( "nie mozna utworzyc %1" ).arg( sciezka );
+      QString blad;
+      for ( int i = 0; i < pliki.size() && blad.isEmpty(); ++i )
+      {
+        // "mimetype" musi byc pierwszy i nieskompresowany (wymog ODF).
+        char **opcje = i == 0 ? CSLSetNameValue( nullptr, "COMPRESSED", "NO" ) : nullptr;
+        if ( CPLCreateFileInZip( zip, pliki.at( i ).first.constData(), opcje ) != CE_None )
+          blad = QStringLiteral( "zip: %1" ).arg( QString::fromLatin1( pliki.at( i ).first ) );
+        CSLDestroy( opcje );
+        if ( !blad.isEmpty() )
+          break;
+        const QByteArray &b = pliki.at( i ).second;
+        if ( CPLWriteFileInZip( zip, b.constData(), static_cast<int>( b.size() ) ) != CE_None )
+          blad = QStringLiteral( "zip: zapis %1" ).arg( QString::fromLatin1( pliki.at( i ).first ) );
+        CPLCloseFileInZip( zip );
+      }
+      if ( CPLCloseZip( zip ) != CE_None && blad.isEmpty() )
+        blad = QStringLiteral( "zip: zamkniecie %1" ).arg( sciezka );
+      return blad;
+    }
+  } // namespace
+
   QString zapiszOds( const QString &sciezka, const QVector<Wiersz> &wiersze )
   {
-    GDALDriverH sterownik = GDALGetDriverByName( "ODS" );
-    if ( !sterownik )
-      return QStringLiteral( "brak sterownika ODS w GDAL" );
-    QFile::remove( sciezka );
-    GDALDatasetH ds = GDALCreate( sterownik, sciezka.toUtf8().constData(), 0, 0, 0, GDT_Unknown, nullptr );
-    if ( !ds )
-      return QStringLiteral( "GDAL nie utworzyl %1" ).arg( sciezka );
-
-    // Frazy szukane w "Uwagach" - naglowki kolumn arkusza. Arkusz liczy je
-    // formula SZUKAJ (bez rozrozniania wielkosci liter); robimy to samo.
+    // Frazy szukane w "Uwagach" - naglowki kolumn arkusza. W komorkach sa
+    // formuly SZUKAJ (bez rozrozniania wielkosci liter, jak nasz C++), wiec
+    // zmiana tekstu naglowka - np. w ostatniej kolumnie "TUTAJ WPISZ HASŁO" -
+    // od razu przelicza cala kolumne.
     static const QStringList frazy = {
       QStringLiteral( "poza zakresem" ), QStringLiteral( "osłabione" ), QStringLiteral( "drzewo zaczyna zamiera" ),
       QStringLiteral( "wysokie potencjalne zagrożenie" ), QStringLiteral( "potencjalne zagrożenie" ),
@@ -1049,88 +1304,123 @@ namespace DxfInwentaryzacja
       QStringLiteral( "wskazane cięcia sanit" ), QStringLiteral( "wskazane usunięcie" ), QStringLiteral( "wskazane założenie wiązań" ),
       QStringLiteral( "wskazane rozgęszczenie" ), QStringLiteral( "drzewostan lokalnie przegęszczony" ) };
     const QString haslo = QStringLiteral( "TUTAJ WPISZ HASŁO DO WYSZUKANIA" );
+    const QString myslnik = QStringLiteral( "—" );
 
-    struct Kolumna
+    // --- style ---------------------------------------------------------------
+    const QString komorka = QLatin1String( kKomorka );
+    const QString barlow = QLatin1String( kBarlow );
+    const QString barlowBold = QString( barlow ).replace( QLatin1String( "fo:font-size=\"12pt\"" ), QLatin1String( "fo:font-size=\"12pt\" fo:font-weight=\"bold\" style:font-weight-asian=\"bold\" style:font-weight-complex=\"bold\"" ) );
+    const QString srodek = QStringLiteral( "<style:paragraph-properties fo:text-align=\"center\"/>" );
+    const QString bezRamki = QStringLiteral( "<style:table-cell-properties fo:wrap-option=\"wrap\" fo:padding=\"0.071cm\" style:vertical-align=\"middle\"/>" );
+    const QString cienka = QString( komorka ).replace( QLatin1String( "0.74pt" ), QLatin1String( "0.06pt" ) );
+    auto tlo = []( QString k, const char *kolor ) { return k.replace( QLatin1String( "<style:table-cell-properties " ), QStringLiteral( "<style:table-cell-properties fo:background-color=\"%1\" " ).arg( QLatin1String( kolor ) ) ); };
+
+    QString mapyGrup;
+    for ( const KolorGrupy &g : kGrupy )
+      mapyGrup += QStringLiteral( "<style:map style:condition=\"cell-content()=&quot;%1&quot;\" style:apply-style-name=\"%2\" style:base-cell-address=\"&apos;Tabela inwentaryzacyjna&apos;.A2\"/>" )
+                    .arg( QLatin1String( g.grupa ), QLatin1String( g.styl ) );
+
+    QString automatyczne;
+    const double szer[] = { 1.633, 1.737, 2.588, 4.879, 5.346, 3.295, 3.672, 2.251, 2.808, 2.489, 14.6, 4.431 }; // cm, z arkusza pracowni
+    for ( int i = 0; i < 12; ++i )
+      automatyczne += QStringLiteral( "<style:style style:name=\"co%1\" style:family=\"table-column\"><style:table-column-properties fo:break-before=\"auto\" style:column-width=\"%2cm\"/></style:style>" ).arg( i + 1 ).arg( szer[i] );
+    for ( int i = 0; i < 4; ++i ) // zestawienia: 5 / 5 / 4 / 2,5 cm
+      automatyczne += QStringLiteral( "<style:style style:name=\"cz%1\" style:family=\"table-column\"><style:table-column-properties fo:break-before=\"auto\" style:column-width=\"%2cm\"/></style:style>" ).arg( i + 1 ).arg( QList<double> { 6.0, 5.0, 4.5, 2.5 }.at( i ) );
+    automatyczne += QStringLiteral( "<style:style style:name=\"ro1\" style:family=\"table-row\"><style:table-row-properties style:row-height=\"0.9cm\" fo:break-before=\"auto\" style:use-optimal-row-height=\"true\"/></style:style>" );
+    automatyczne += QStringLiteral( "<style:style style:name=\"ta1\" style:family=\"table\" style:master-page-name=\"Default\"><style:table-properties table:display=\"true\" style:writing-mode=\"lr-tb\"/></style:style>" );
+    automatyczne += QStringLiteral( "<number:number-style style:name=\"N1\"><number:number number:decimal-places=\"1\" number:min-decimal-places=\"1\" number:min-integer-digits=\"1\"/></number:number-style>" );
+    automatyczne += QStringLiteral( "<number:number-style style:name=\"N2\"><number:number number:decimal-places=\"2\" number:min-decimal-places=\"2\" number:min-integer-digits=\"1\"/></number:number-style>" );
+    automatyczne += stylKomorki( QStringLiteral( "nGrupa" ), tlo( komorka, "#c6ff00" ).replace( QLatin1String( "\"wrap\"" ), QLatin1String( "\"no-wrap\"" ) ), srodek, QLatin1String( kBarlowBlack ) );
+    automatyczne += stylKomorki( QStringLiteral( "nag" ), cienka, srodek, barlowBold );
+    automatyczne += stylKomorki( QStringLiteral( "nagFraza" ), cienka, srodek, barlow );
+    automatyczne += stylKomorki( QStringLiteral( "nagHaslo" ), tlo( cienka, "#fff9c4" ), srodek, barlowBold );
+    automatyczne += stylKomorki( QStringLiteral( "nagZest" ), tlo( komorka, "#e0e0e0" ), srodek, barlowBold );
+    automatyczne += stylKomorki( QStringLiteral( "grupa" ), QString( komorka ).replace( QLatin1String( "\"wrap\"" ), QLatin1String( "\"no-wrap\"" ) ), srodek, QLatin1String( kBarlowBlack ), QString(), mapyGrup );
+    automatyczne += stylKomorki( QStringLiteral( "dane" ), komorka, srodek, barlow );
+    automatyczne += stylKomorki( QStringLiteral( "danePogr" ), komorka, srodek, barlowBold );
+    automatyczne += stylKomorki( QStringLiteral( "wyl1" ), bezRamki, srodek, barlow, QStringLiteral( "N1" ) );
+    automatyczne += stylKomorki( QStringLiteral( "wyl2" ), bezRamki, srodek, barlow, QStringLiteral( "N2" ) );
+    automatyczne += stylKomorki( QStringLiteral( "fraza" ), bezRamki, srodek, barlow );
+
+    // --- arkusz 1: tabela -------------------------------------------------------
+    const QStringList naglowki = QStringList {
+      QStringLiteral( "Grupa" ), QStringLiteral( "fid" ), QStringLiteral( "Kategoria" ), QStringLiteral( "Nazwa techniczna" ), QStringLiteral( "Nazwa polska" ),
+      QStringLiteral( "Obwody pni [cm] na wys. 5cm lub powierzchnia krzewów [m2]" ), QStringLiteral( "Obwody pni [cm] na wys. 130cm lub faktyczna powierzchnia [m2]" ),
+      QStringLiteral( "Szerokość korony [m]" ), QStringLiteral( "Wysokość [m]" ), QStringLiteral( "Stan zdrowotny [0-5]" ), QStringLiteral( "Uwagi" ),
+      QStringLiteral( "obreb" ), QStringLiteral( "nr_dzialki" ), QStringLiteral( "teryt" ), QStringLiteral( "wkt_geom" ), QString(),
+      QStringLiteral( "Obwód efektywny [cm]" ), QStringLiteral( "Średnica +1,5m" ), QStringLiteral( "Średnica pnia efektywna" ), QString() }
+                                  + frazy + QStringList { haslo };
+    const int nKol = static_cast<int>( naglowki.size() ); // 35: A..AI
+    const int kFraz = 20;                                 // U
+
+    QString tabela = QStringLiteral( "<table:table table:name=\"Tabela inwentaryzacyjna\" table:style-name=\"ta1\">" );
+    const char *kolumny[] = { "co1", "co2", "co3", "co4", "co5", "co6", "co7", "co8", "co9", "co10", "co11", "co12", "co12", "co12", "co12", "co8" };
+    for ( int i = 0; i < nKol; ++i )
     {
-        QString nazwa;
-        OGRFieldType typ;
-    };
-    QVector<Kolumna> kolumny = {
-      { QStringLiteral( "Grupa" ), OFTString },
-      { QStringLiteral( "fid" ), OFTInteger64 },
-      { QStringLiteral( "Kategoria" ), OFTString },
-      { QStringLiteral( "Nazwa techniczna" ), OFTString },
-      { QStringLiteral( "Nazwa polska" ), OFTString },
-      { QStringLiteral( "Obwody pni [cm] na wys. 5cm lub powierzchnia krzewów [m2]" ), OFTString },
-      { QStringLiteral( "Obwody pni [cm] na wys. 130cm lub faktyczna powierzchnia [m2]" ), OFTString },
-      { QStringLiteral( "Szerokość korony [m]" ), OFTString },
-      { QStringLiteral( "Wysokość [m]" ), OFTString },
-      { QStringLiteral( "Stan zdrowotny [0-5]" ), OFTString },
-      { QStringLiteral( "Uwagi" ), OFTString },
-      { QStringLiteral( "obreb" ), OFTString },
-      { QStringLiteral( "nr_dzialki" ), OFTString },
-      { QStringLiteral( "teryt" ), OFTString },
-      { QStringLiteral( "wkt_geom" ), OFTString },
-      { QStringLiteral( " " ), OFTString }, // odstep jak w arkuszu
-      { QStringLiteral( "Obwód efektywny [cm]" ), OFTReal },
-      { QStringLiteral( "Średnica +1,5m" ), OFTReal },
-      { QStringLiteral( "Średnica pnia efektywna" ), OFTReal },
-      { QStringLiteral( "  " ), OFTString } };
-    for ( const QString &f : frazy )
-      kolumny << Kolumna { f, OFTString };
-    kolumny << Kolumna { haslo, OFTString };
+      const QString co = i < 16 ? QLatin1String( kolumny[i] ) : QStringLiteral( "co8" );
+      // kolumna Grupa: styl z kolorami takze w pustych komorkach ponizej danych
+      tabela += QStringLiteral( "<table:table-column table:style-name=\"%1\"%2/>" ).arg( co, i == 0 ? QStringLiteral( " table:default-cell-style-name=\"grupa\"" ) : QString() );
+    }
+    tabela += QStringLiteral( "<table:table-row table:style-name=\"ro1\">" );
+    for ( int i = 0; i < nKol; ++i )
+    {
+      const QString s = i == 0 ? QStringLiteral( "nGrupa" ) : i == nKol - 1 ? QStringLiteral( "nagHaslo" ) : i >= kFraz ? QStringLiteral( "nagFraza" ) : naglowki.at( i ).isEmpty() ? QString() : QStringLiteral( "nag" );
+      tabela += kTekst( s, naglowki.at( i ) );
+    }
+    tabela += QStringLiteral( "</table:table-row>" );
 
-    auto warstwa = [&]( const char *nazwa, const QVector<Kolumna> &k ) -> OGRLayerH {
-      OGRLayerH l = GDALDatasetCreateLayer( ds, nazwa, nullptr, wkbNone, nullptr );
-      for ( const Kolumna &kol : k )
-      {
-        OGRFieldDefnH p = OGR_Fld_Create( kol.nazwa.toUtf8().constData(), kol.typ );
-        OGR_L_CreateField( l, p, TRUE );
-        OGR_Fld_Destroy( p );
-      }
-      return l;
-    };
-    auto tekst = []( OGRFeatureH f, int i, const QString &t ) {
-      if ( !t.isEmpty() )
-        OGR_F_SetFieldString( f, i, t.toUtf8().constData() );
-    };
-    bool ok = true;
-    auto dodaj = [&]( OGRLayerH l, OGRFeatureH f ) {
-      if ( OGR_L_CreateFeature( l, f ) != OGRERR_NONE )
-        ok = false;
-      OGR_F_Destroy( f );
-    };
-
-    // --- arkusz 1: tabela ---------------------------------------------------
-    OGRLayerH tab = warstwa( "Tabela inwentaryzacyjna", kolumny );
     QMap<QString, int> gatunki, stany;
     QMap<QString, QString> polskie, kategorie;
+    int nr = 1;
     for ( const Wiersz &w : wiersze )
     {
-      OGRFeatureH f = OGR_F_Create( OGR_L_GetLayerDefn( tab ) );
-      int i = 0;
-      tekst( f, i++, w.grupa );
-      OGR_F_SetFieldInteger64( f, i++, w.fid );
-      for ( const QString *t : { &w.kategoria, &w.nazwaTechniczna, &w.nazwaPolska, &w.obwody5, &w.obwody130, &w.korona, &w.wysokosc, &w.stan, &w.uwagi, &w.obreb, &w.dzialka, &w.teryt, &w.wkt } )
-        tekst( f, i++, t->trimmed() );
-      ++i; // odstep
+      ++nr;
+      const QString n = QString::number( nr );
+      QString r = QStringLiteral( "<table:table-row table:style-name=\"ro1\">" );
+      r += kTekst( QStringLiteral( "grupa" ), w.grupa.trimmed() );
+      r += kLiczba( QStringLiteral( "dane" ), static_cast<double>( w.fid ) );
+      r += kTekst( QStringLiteral( "dane" ), w.kategoria.trimmed() );
+      r += kTekst( QStringLiteral( "dane" ), w.nazwaTechniczna.trimmed() );
+      r += kTekst( QStringLiteral( "dane" ), w.nazwaPolska.trimmed() );
+      r += kWartosc( QStringLiteral( "dane" ), w.obwody5.trimmed() );
+      r += kWartosc( QStringLiteral( "dane" ), w.obwody130.trimmed() );
+      r += kWartosc( QStringLiteral( "dane" ), w.korona.trimmed() );
+      r += kWartosc( QStringLiteral( "dane" ), w.wysokosc.trimmed() );
+      r += kWartosc( QStringLiteral( "dane" ), w.stan.trimmed() );
+      r += kTekst( QStringLiteral( "dane" ), w.uwagi.trimmed() );
+      r += kTekst( QStringLiteral( "dane" ), w.obreb.trimmed() );
+      r += kTekst( QStringLiteral( "dane" ), w.dzialka.trimmed() );
+      r += kTekst( QStringLiteral( "dane" ), w.teryt.trimmed() );
+      r += kTekst( QStringLiteral( "dane" ), w.wkt.trimmed() );
+      r += kPusta( QString() );
+
+      // Q: obwod efektywny - wartosc z C++ (arkusz nie umie "sr35", m2 itd.)
       const double d = srednicaZObwodow( w.obwody130 );
-      if ( d > 0 )
-        OGR_F_SetFieldDouble( f, i, std::round( d * 100.0 * M_PI * 100.0 ) / 100.0 );
-      ++i;
-      const double kor = liczba( w.korona );
-      if ( kor > 0 )
-        OGR_F_SetFieldDouble( f, i, kor + 3.0 ); // SOD: korona + 1,5 m z kazdej strony
-      ++i;
-      if ( d > 0 )
-        OGR_F_SetFieldDouble( f, i, std::round( d * 100.0 * 100.0 ) / 100.0 );
-      ++i;
-      ++i; // odstep
+      const double q = d > 0 ? std::round( d * 100.0 * M_PI * 100.0 ) / 100.0 : std::nan( "" );
+      r += std::isnan( q ) ? kPusta( QStringLiteral( "wyl1" ) ) : kLiczba( QStringLiteral( "wyl1" ), q );
+      // R: SOD = korona + 2 x 1,5 m; formula, gdy korona jest liczba w komorce
+      double kor = 0;
+      const bool korLiczba = czystaLiczba( w.korona.trimmed(), &kor );
+      if ( korLiczba )
+        r += kFormula( QStringLiteral( "wyl2" ), QStringLiteral( "of:=IF(ISNUMBER([.H%1]);IF([.H%1]>0;[.H%1]+3;\"\");\"\")" ).arg( n ), kor > 0 ? kor + 3.0 : std::nan( "" ) );
+      else
+      {
+        kor = liczba( w.korona );
+        r += kor > 0 ? kLiczba( QStringLiteral( "wyl2" ), kor + 3.0 ) : kPusta( QStringLiteral( "wyl2" ) );
+      }
+      // S: srednica pnia [cm] = Q / pi
+      r += kFormula( QStringLiteral( "wyl1" ), QStringLiteral( "of:=IF(ISNUMBER([.Q%1]);[.Q%1]/PI();\"\")" ).arg( n ), std::isnan( q ) ? q : q / M_PI );
+      r += kPusta( QString() );
       const QString uw = w.uwagi.toLower();
-      for ( const QString &fr : frazy )
-        tekst( f, i++, uw.contains( fr.toLower() ) ? fr : QStringLiteral( "—" ) );
-      tekst( f, i++, QStringLiteral( "—" ) );
-      dodaj( tab, f );
+      for ( int k = 0; k <= frazy.size(); ++k )
+      {
+        const QString kol = litera( kFraz + k );
+        const QString fr = k < frazy.size() ? frazy.at( k ) : haslo;
+        const QString wynik = !uw.isEmpty() && uw.contains( fr.toLower() ) ? fr : myslnik;
+        r += kFormulaTekst( QStringLiteral( "fraza" ), QStringLiteral( "of:=IF(ISERROR(SEARCH([.%1$1];[.$K%2]));\"—\";[.%1$1])" ).arg( kol, n ), wynik );
+      }
+      r += QStringLiteral( "</table:table-row>" );
+      tabela += r;
 
       const QString gat = w.nazwaTechniczna.trimmed();
       gatunki[gat] += 1;
@@ -1140,34 +1430,79 @@ namespace DxfInwentaryzacja
         kategorie[gat] = w.kategoria.trimmed();
       stany[w.stan.trimmed()] += 1;
     }
+    tabela += QStringLiteral( "</table:table>" );
 
-    // --- arkusz 2: gatunki -------------------------------------------------
-    OGRLayerH zg = warstwa( "Zestawienie gatunków", { { QStringLiteral( "Nazwa techniczna" ), OFTString },
-                                                        { QStringLiteral( "Nazwa polska" ), OFTString },
-                                                        { QStringLiteral( "Kategoria" ), OFTString },
-                                                        { QStringLiteral( "Liczba" ), OFTInteger } } );
+    // --- arkusz 2 i 3: zestawienia z suma ---------------------------------------
+    auto zestawienie = [&]( const QString &nazwa, const QStringList &nag, const QList<QStringList> &wiersze2 ) {
+      QString t = QStringLiteral( "<table:table table:name=\"%1\" table:style-name=\"ta1\">" ).arg( atrybut( nazwa ) );
+      for ( int i = 0; i < nag.size(); ++i )
+        t += QStringLiteral( "<table:table-column table:style-name=\"cz%1\"/>" ).arg( nag.size() == 2 && i == 0 ? 3 : nag.size() == 2 ? 4 : i + 1 );
+      t += QStringLiteral( "<table:table-row table:style-name=\"ro1\">" );
+      for ( const QString &h : nag )
+        t += kTekst( QStringLiteral( "nagZest" ), h );
+      t += QStringLiteral( "</table:table-row>" );
+      for ( const QStringList &w : wiersze2 )
+      {
+        t += QStringLiteral( "<table:table-row table:style-name=\"ro1\">" );
+        for ( int i = 0; i < w.size(); ++i )
+          t += i == w.size() - 1 ? kLiczba( QStringLiteral( "dane" ), w.at( i ).toDouble() ) : kWartosc( QStringLiteral( "dane" ), w.at( i ) );
+        t += QStringLiteral( "</table:table-row>" );
+      }
+      // wiersz "Razem"
+      const QString ost = litera( static_cast<int>( nag.size() ) - 1 );
+      double suma = 0;
+      for ( const QStringList &w : wiersze2 )
+        suma += w.last().toDouble();
+      t += QStringLiteral( "<table:table-row table:style-name=\"ro1\">" );
+      t += kTekst( QStringLiteral( "nagZest" ), QStringLiteral( "Razem" ) );
+      for ( int i = 1; i < nag.size() - 1; ++i )
+        t += kPusta( QStringLiteral( "nagZest" ) );
+      t += wiersze2.isEmpty() ? kLiczba( QStringLiteral( "nagZest" ), 0 )
+                              : kFormula( QStringLiteral( "nagZest" ), QStringLiteral( "of:=SUM([.%1%2:.%1%3])" ).arg( ost ).arg( 2 ).arg( wiersze2.size() + 1 ), suma );
+      t += QStringLiteral( "</table:table-row></table:table>" );
+      return t;
+    };
+    QList<QStringList> wg;
     for ( auto it = gatunki.constBegin(); it != gatunki.constEnd(); ++it )
-    {
-      OGRFeatureH f = OGR_F_Create( OGR_L_GetLayerDefn( zg ) );
-      tekst( f, 0, it.key() );
-      tekst( f, 1, polskie.value( it.key() ) );
-      tekst( f, 2, kategorie.value( it.key() ) );
-      OGR_F_SetFieldInteger( f, 3, it.value() );
-      dodaj( zg, f );
-    }
-
-    // --- arkusz 3: stan zdrowotny --------------------------------------------
-    OGRLayerH zs = warstwa( "Zestawienie stanu", { { QStringLiteral( "Stan zdrowotny [0-5]" ), OFTString },
-                                                     { QStringLiteral( "Liczba" ), OFTInteger } } );
+      wg << QStringList { it.key(), polskie.value( it.key() ), kategorie.value( it.key() ), QString::number( it.value() ) };
+    QList<QStringList> ws;
     for ( auto it = stany.constBegin(); it != stany.constEnd(); ++it )
-    {
-      OGRFeatureH f = OGR_F_Create( OGR_L_GetLayerDefn( zs ) );
-      tekst( f, 0, it.key() );
-      OGR_F_SetFieldInteger( f, 1, it.value() );
-      dodaj( zs, f );
-    }
+      ws << QStringList { it.key(), QString::number( it.value() ) };
+    const QString arkusz2 = QStringLiteral( "Zestawienie gatunków" ), arkusz3 = QStringLiteral( "Zestawienie stanu" );
+    const QString zg = zestawienie( arkusz2, { QStringLiteral( "Nazwa techniczna" ), QStringLiteral( "Nazwa polska" ), QStringLiteral( "Kategoria" ), QStringLiteral( "Liczba" ) }, wg );
+    const QString zs = zestawienie( arkusz3, { QStringLiteral( "Stan zdrowotny [0-5]" ), QStringLiteral( "Liczba" ) }, ws );
 
-    GDALClose( ds );
-    return ok ? QString() : QStringLiteral( "GDAL: nie wszystkie wiersze zapisane" );
+    // --- zlozenie -----------------------------------------------------------------
+    QString content = QStringLiteral( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<office:document-content %1><office:scripts/>%2<office:automatic-styles>%3</office:automatic-styles>"
+                                      "<office:body><office:spreadsheet>"
+                                      "<table:calculation-settings table:automatic-find-labels=\"false\" table:use-regular-expressions=\"false\" table:use-wildcards=\"false\"/>" )
+                        .arg( QLatin1String( kPrzestrzenie ), QLatin1String( kFonty ), automatyczne );
+    content += tabela + zg + zs;
+    content += QStringLiteral( "<table:database-ranges><table:database-range table:name=\"__Anonymous_Sheet_DB__0\" table:target-range-address=\"&apos;Tabela inwentaryzacyjna&apos;.A1:&apos;Tabela inwentaryzacyjna&apos;.%1%2\" table:display-filter-buttons=\"true\"/></table:database-ranges>" )
+                 .arg( litera( nKol - 1 ) )
+                 .arg( wiersze.size() + 1 );
+    content += QStringLiteral( "</office:spreadsheet></office:body></office:document-content>" );
+
+    const QByteArray manifest = QByteArrayLiteral( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                                                   "<manifest:manifest xmlns:manifest=\"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0\" manifest:version=\"1.3\">"
+                                                   "<manifest:file-entry manifest:full-path=\"/\" manifest:version=\"1.3\" manifest:media-type=\"application/vnd.oasis.opendocument.spreadsheet\"/>"
+                                                   "<manifest:file-entry manifest:full-path=\"content.xml\" manifest:media-type=\"text/xml\"/>"
+                                                   "<manifest:file-entry manifest:full-path=\"styles.xml\" manifest:media-type=\"text/xml\"/>"
+                                                   "<manifest:file-entry manifest:full-path=\"meta.xml\" manifest:media-type=\"text/xml\"/>"
+                                                   "<manifest:file-entry manifest:full-path=\"settings.xml\" manifest:media-type=\"text/xml\"/>"
+                                                   "</manifest:manifest>" );
+    const QByteArray meta = QStringLiteral( "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<office:document-meta %1><office:meta><meta:generator>WorkField</meta:generator></office:meta></office:document-meta>" )
+                              .arg( QLatin1String( kPrzestrzenie ) )
+                              .toUtf8();
+
+    QFile::remove( sciezka );
+    return zapiszZip( sciezka, {
+                                 { QByteArrayLiteral( "mimetype" ), QByteArrayLiteral( "application/vnd.oasis.opendocument.spreadsheet" ) },
+                                 { QByteArrayLiteral( "content.xml" ), content.toUtf8() },
+                                 { QByteArrayLiteral( "styles.xml" ), stylesXml() },
+                                 { QByteArrayLiteral( "meta.xml" ), meta },
+                                 { QByteArrayLiteral( "settings.xml" ), settingsXml( { QStringLiteral( "Tabela inwentaryzacyjna" ), arkusz2, arkusz3 } ) },
+                                 { QByteArrayLiteral( "META-INF/manifest.xml" ), manifest },
+                               } );
   }
 } // namespace DxfInwentaryzacja
