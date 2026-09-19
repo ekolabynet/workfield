@@ -195,6 +195,17 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE bool przesunWarstwe( QgsProject *projekt, QgsMapLayer *warstwa, bool wGore ) const;
 
     /**
+     * Eksport projektu do DXF - odpowiednik "Projekt > Import/Eksport >
+     * Eksportuj projekt do DXF" z QGIS desktop (QgisApp::dxfExport).
+     * Czyta TE SAME ustawienia co okno QGIS: wpisy projektu dxf/last*
+     * i wlasciwosci warstw lastDxfOutputAttribute itd. Warstwy z grupy
+     * "Rysunek CAD" pomijane, chyba ze \a zRysunkiem.
+     * Pusta \a sciezka = <projekt>/export/<nazwa>_<RRRRMMDD_GGMM>.dxf.
+     * Zwraca {plik, warstwy, obiekty, uwagi} albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap eksportujDxf( QgsProject *projekt, const QString &sciezka = QString(), bool zRysunkiem = false ) const;
+
+    /**
      * Warstwy ROBOCZE projektu — te, na ktorych sie zbiera dane.
      * Pomija tabele zalacznikow (ZAL_), warstwy odniesienia (REF_),
      * tylko-do-odczytu i bezgeometryczne. Zwraca liste map:

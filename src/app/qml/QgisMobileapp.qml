@@ -492,6 +492,10 @@ ApplicationWindow {
       if (!warstwa)
         continue;
       LayerUtils.setAttachmentField(warstwa, "ZDJECIE");
+      // WFG-etykiety-OPIS: bez etykiet eksport DXF nie ma z czego zrobic
+      // tekstow - QgsDxfExport zapisuje napisy tylko z wlaczonego etykietowania.
+      // Rozmiar 0 i prog 0 = symbol i widocznosc bez zmian, same etykiety.
+      LayerUtils.doprawCAD(warstwa, 0, 0, "OPIS", 0.5);
       if (ProjectUtils.addMapLayer(qgisProject, warstwa))
         zalozone++;
     }

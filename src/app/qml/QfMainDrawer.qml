@@ -1351,6 +1351,36 @@ Drawer {
           }
         }
         QfPozycjaMenu {
+          // WorkField 19.09.2026 - droga powrotna dla projektanta CAD.
+          // Czasownik NarzedziaProjektu.eksportujDxf robi to samo co
+          // "Eksportuj projekt do DXF" w QGIS i czyta te same ustawienia.
+          text: qsTr("Eksport do DXF")
+          ikona: "wfg_paczka"
+          enabled: qgisProject && qgisProject.homePath !== ""
+          onClicked: {
+            // WFG-po-zamknieciu: komunikat pokazany w trakcie zamykania
+            // szuflady ginal pod jej animacja - eksport rusza po sygnale closed.
+            const wykonaj = function () {
+              dashBoard.closed.disconnect(wykonaj);
+              if (typeof NarzedziaProjektu === "undefined")
+                return;
+              const w = NarzedziaProjektu.eksportujDxf(qgisProject, "", false);
+              console.log("WFG eksport DXF: " + JSON.stringify(w));
+              if (w.blad) {
+                displayToast(w.blad, "warning");
+                return;
+              }
+              const plik = w.plik;
+              displayToast(qsTr("DXF: %1 obiektów z %2 warstw").arg(w.obiekty).arg(w.warstwy.length),
+                           "info", qsTr("Wyślij"), function () {
+                             platformUtilities.sendDatasetTo(plik);
+                           });
+            };
+            dashBoard.closed.connect(wykonaj);
+            dashBoard.close();
+          }
+        }
+        QfPozycjaMenu {
           text: qsTr("Zapisz jako szablon")
           ikona: "wfg_paczka"
           enabled: qgisProject && qgisProject.homePath !== ""

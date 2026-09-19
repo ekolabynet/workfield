@@ -2154,3 +2154,285 @@ QVariantMap NarzedziaProjektu::zrodloWarstwy( QgsMapLayer *warstwa ) const
 
   return wynik;
 }
+
+
+// ---------------------------------------------------------------------------
+// Eksport do DXF - WorkField 19.09.2026 (wersja 2, wzorowana na QGIS desktop)
+// Zrodla: src/app/qgisapp.cpp QgisApp::dxfExport()
+//         src/app/qgsdxfexportdialog.cpp (klucze i wartosci domyslne)
+//
+// Te same klucze projektu co okno QGIS, wiec projekt ustawiony w biurze
+// eksportuje sie w terenie tak samo, a to, co zapiszemy tutaj, QGIS
+// w biurze odczyta. Zmienione tylko domyslne (gdy projekt ich nie ma):
+//   skala symboli 1:1000 zamiast 1:50000 - przy 1:50000 symbol 1 mm
+//     zamienia sie w 50 m terenu,
+//   polilinie 2D - pomiar GNSS niesie Z, a CADowiec chce plaski rysunek,
+//   kodowanie CP1250 zamiast CP1252 - polskie litery.
+// ---------------------------------------------------------------------------
+#include <QRegularExpression>
+#include <QStringDecoder>
+#include <algorithm>
+#include <qgsdxfexport.h>
+#include <qgsmapsettings.h>
+#include <qgsmapthemecollection.h>
+
+namespace
+{
+  QString dxfWpis( QgsProject *p, const QString &klucz, const QString &domyslnie )
+  {
+    return p->readEntry( QStringLiteral( "dxf" ), QStringLiteral( "/" ) + klucz, domyslnie );
+  }
+
+  bool dxfFlaga( QgsProject *p, const QString &klucz, bool domyslnie )
+  {
+    // QGIS porownuje z "false" - robimy dokladnie tak samo
+    return dxfWpis( p, klucz, domyslnie ? QStringLiteral( "true" ) : QStringLiteral( "false" ) ) != QLatin1String( "false" );
+  }
+
+  // QgsDxfExport::writeToFile w Qt6 ustawia strumien przez
+  // QStringConverter::encodingForName(), ktory zna tylko UTF-8/16/32
+  // i Latin1 - dla CP1250 cicho pisze UTF-8, a w naglowku deklaruje
+  // $DWGCODEPAGE ANSI_1250. Polskie litery wychodza wtedy jako krzaki.
+  // Przekodowujemy plik po zapisie; tablica wygenerowana z codecs.cp1250.
+  QByteArray doCp1250( const QString &tekst )
+  {
+    static const QHash<ushort, char> tablica = [] {
+      QHash<ushort, char> t;
+      const ushort pary[][2] = {
+        {0x20AC,0x80}, {0x201A,0x82}, {0x201E,0x84}, {0x2026,0x85}, {0x2020,0x86}, {0x2021,0x87}, {0x2030,0x89}, {0x0160,0x8A}, {0x2039,0x8B}, {0x015A,0x8C}, {0x0164,0x8D}, {0x017D,0x8E}, {0x0179,0x8F}, {0x2018,0x91}, {0x2019,0x92}, {0x201C,0x93}, {0x201D,0x94}, {0x2022,0x95}, {0x2013,0x96}, {0x2014,0x97}, {0x2122,0x99}, {0x0161,0x9A}, {0x203A,0x9B}, {0x015B,0x9C}, {0x0165,0x9D}, {0x017E,0x9E}, {0x017A,0x9F}, {0x00A0,0xA0}, {0x02C7,0xA1}, {0x02D8,0xA2}, {0x0141,0xA3}, {0x00A4,0xA4}, {0x0104,0xA5}, {0x00A6,0xA6}, {0x00A7,0xA7}, {0x00A8,0xA8}, {0x00A9,0xA9}, {0x015E,0xAA}, {0x00AB,0xAB}, {0x00AC,0xAC}, {0x00AD,0xAD}, {0x00AE,0xAE}, {0x017B,0xAF}, {0x00B0,0xB0}, {0x00B1,0xB1}, {0x02DB,0xB2}, {0x0142,0xB3}, {0x00B4,0xB4}, {0x00B5,0xB5}, {0x00B6,0xB6}, {0x00B7,0xB7}, {0x00B8,0xB8}, {0x0105,0xB9}, {0x015F,0xBA}, {0x00BB,0xBB}, {0x013D,0xBC}, {0x02DD,0xBD}, {0x013E,0xBE}, {0x017C,0xBF}, {0x0154,0xC0}, {0x00C1,0xC1}, {0x00C2,0xC2}, {0x0102,0xC3}, {0x00C4,0xC4}, {0x0139,0xC5}, {0x0106,0xC6}, {0x00C7,0xC7}, {0x010C,0xC8}, {0x00C9,0xC9}, {0x0118,0xCA}, {0x00CB,0xCB}, {0x011A,0xCC}, {0x00CD,0xCD}, {0x00CE,0xCE}, {0x010E,0xCF}, {0x0110,0xD0}, {0x0143,0xD1}, {0x0147,0xD2}, {0x00D3,0xD3}, {0x00D4,0xD4}, {0x0150,0xD5}, {0x00D6,0xD6}, {0x00D7,0xD7}, {0x0158,0xD8}, {0x016E,0xD9}, {0x00DA,0xDA}, {0x0170,0xDB}, {0x00DC,0xDC}, {0x00DD,0xDD}, {0x0162,0xDE}, {0x00DF,0xDF}, {0x0155,0xE0}, {0x00E1,0xE1}, {0x00E2,0xE2}, {0x0103,0xE3}, {0x00E4,0xE4}, {0x013A,0xE5}, {0x0107,0xE6}, {0x00E7,0xE7}, {0x010D,0xE8}, {0x00E9,0xE9}, {0x0119,0xEA}, {0x00EB,0xEB}, {0x011B,0xEC}, {0x00ED,0xED}, {0x00EE,0xEE}, {0x010F,0xEF}, {0x0111,0xF0}, {0x0144,0xF1}, {0x0148,0xF2}, {0x00F3,0xF3}, {0x00F4,0xF4}, {0x0151,0xF5}, {0x00F6,0xF6}, {0x00F7,0xF7}, {0x0159,0xF8}, {0x016F,0xF9}, {0x00FA,0xFA}, {0x0171,0xFB}, {0x00FC,0xFC}, {0x00FD,0xFD}, {0x0163,0xFE}, {0x02D9,0xFF}
+      };
+      for ( const auto &para : pary )
+        t.insert( para[0], static_cast<char>( para[1] ) );
+      return t;
+    }();
+
+    QByteArray wynik;
+    wynik.reserve( tekst.size() );
+    for ( const QChar znak : tekst )
+    {
+      const ushort u = znak.unicode();
+      if ( u < 0x80 )
+        wynik.append( static_cast<char>( u ) );
+      else
+        wynik.append( tablica.value( u, '?' ) );
+    }
+    return wynik;
+  }
+} // namespace
+
+QVariantMap NarzedziaProjektu::eksportujDxf( QgsProject *projekt, const QString &sciezka, bool zRysunkiem ) const
+{
+  QVariantMap wynik;
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p || !p->layerTreeRoot() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Brak otwartego projektu" ) );
+    return wynik;
+  }
+
+  QString plik = sciezka;
+  if ( plik.isEmpty() )
+  {
+    QString nazwa = p->title().trimmed();
+    if ( nazwa.isEmpty() )
+      nazwa = QFileInfo( p->homePath() ).fileName();
+    if ( nazwa.isEmpty() )
+      nazwa = QStringLiteral( "projekt" );
+    nazwa.replace( QRegularExpression( QStringLiteral( "[\\\\/:*?\"<>|\\s]+" ) ), QStringLiteral( "_" ) ); // WFG-nazwa-dxf
+    plik = QStringLiteral( "%1/export/%2_%3.dxf" ).arg( p->homePath(), nazwa, QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmm" ) ) );
+  }
+  if ( !plik.endsWith( QLatin1String( ".dxf" ), Qt::CaseInsensitive ) )
+    plik += QLatin1String( ".dxf" );
+  QDir().mkpath( QFileInfo( plik ).absolutePath() );
+
+  // --- ustawienia: klucze i indeksy jak w qgsdxfexportdialog.cpp ---------
+  Qgis::FeatureSymbologyExport symbologia = Qgis::FeatureSymbologyExport::PerSymbolLayer;
+  switch ( dxfWpis( p, QStringLiteral( "lastDxfSymbologyMode" ), QStringLiteral( "2" ) ).toInt() )
+  {
+    case 0:
+      symbologia = Qgis::FeatureSymbologyExport::NoSymbology;
+      break;
+    case 1:
+      symbologia = Qgis::FeatureSymbologyExport::PerFeature;
+      break;
+    default:
+      break;
+  }
+  // QGIS zapisuje skale jako 1/mianownik
+  double odwrotnoscSkali = dxfWpis( p, QStringLiteral( "lastSymbologyExportScale" ), QStringLiteral( "0.001" ) ).toDouble();
+  if ( odwrotnoscSkali <= 0 )
+    odwrotnoscSkali = 0.001;
+  const double skala = 1.0 / odwrotnoscSkali;
+
+  const QString kodowanie = dxfWpis( p, QStringLiteral( "lastDxfEncoding" ), QStringLiteral( "CP1250" ) );
+  const bool mtext = dxfFlaga( p, QStringLiteral( "lastDxfUseMText" ), true );
+  const bool plasko = dxfFlaga( p, QStringLiteral( "lastDxfForce2d" ), true );
+  const bool tytulJakoNazwa = dxfFlaga( p, QStringLiteral( "lastDxfLayerTitleAsName" ), false );
+  const bool wlosowe = dxfFlaga( p, QStringLiteral( "lastDxfHairlineWidthExport" ), false );
+  const QgsCoordinateReferenceSystem crs = p->crs();
+
+  // Motyw mapy ("Visibility preset") - jesli ustawiony w biurze, decyduje
+  // o warstwach i stylach, dokladnie jak w QGIS.
+  const QString motyw = dxfWpis( p, QStringLiteral( "lastVisibilityPreset" ), QString() );
+  const bool jestMotyw = !motyw.isEmpty() && p->mapThemeCollection()->hasMapTheme( motyw );
+  QSet<QgsMapLayer *> wMotywie;
+  if ( jestMotyw )
+  {
+    const QList<QgsMapLayer *> widoczne = p->mapThemeCollection()->mapThemeVisibleLayers( motyw );
+    for ( QgsMapLayer *l : widoczne )
+      wMotywie.insert( l );
+  }
+
+  // --- warstwy: w kolejnosci rysowania, jak layersInROrder w QGIS ---------
+  QList<QgsDxfExport::DxfLayer> warstwy;
+  QStringList nazwy;
+  long long obiekty = 0;
+  const QList<QgsMapLayer *> kolejnosc = p->layerTreeRoot()->layerOrder();
+  for ( QgsMapLayer *ml : kolejnosc )
+  {
+    QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( ml );
+    if ( !vl || !vl->isValid() || !vl->isSpatial() )
+      continue;
+    QgsLayerTreeLayer *wezel = p->layerTreeRoot()->findLayer( vl );
+    if ( !wezel )
+      continue;
+    if ( jestMotyw ? !wMotywie.contains( vl ) : !wezel->isVisible() )
+      continue;
+
+    const QString nazwa = vl->name();
+    if ( nazwa.startsWith( QLatin1String( "ZAL_" ), Qt::CaseInsensitive )
+         || nazwa.startsWith( QLatin1String( "REF_" ), Qt::CaseInsensitive ) )
+      continue;
+
+    // Rysunek zrodlowy projektant juz ma - nie odsylamy go w dublu.
+    bool wRysunku = nazwa.startsWith( QLatin1String( "Rysunek CAD" ) );
+    for ( QgsLayerTreeNode *rodzic = wezel->parent(); rodzic && !wRysunku; rodzic = rodzic->parent() )
+    {
+      if ( QgsLayerTree::isGroup( rodzic ) && QgsLayerTree::toGroup( rodzic )->name() == QLatin1String( "Rysunek CAD" ) )
+        wRysunku = true;
+    }
+    if ( wRysunku && !zRysunkiem )
+      continue;
+
+    // Ustawienia per warstwa - te same wlasciwosci, ktore zapisuje okno QGIS:
+    // atrybut dzielacy na warstwy DXF i bloki z symboli zaleznych od danych.
+    const int atrybut = vl->fields().lookupField( vl->customProperty( QStringLiteral( "lastDxfOutputAttribute" ), QString() ).toString() );
+    const bool bloki = vl->customProperty( QStringLiteral( "lastAllowDataDefinedBlocks" ), DEFAULT_DXF_DATA_DEFINED_BLOCKS ).toBool();
+    const int maksBlokow = vl->customProperty( QStringLiteral( "lastMaximumNumberOfBlocks" ), -1 ).toInt();
+
+    warstwy << QgsDxfExport::DxfLayer( vl, atrybut, bloki, maksBlokow );
+    nazwy << nazwa;
+    obiekty += std::max<long long>( 0, vl->featureCount() );
+  }
+
+  if ( warstwy.isEmpty() || obiekty == 0 )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Nie ma czego eksportować — widoczne warstwy nie mają obiektów" ) );
+    return wynik;
+  }
+
+  // --- ustawienia mapy: QGIS bierze je z plotna; tu skladamy z projektu -----
+  QgsMapSettings ustawienia;
+  ustawienia.setDestinationCrs( crs );
+  ustawienia.setTransformContext( p->transformContext() );
+  ustawienia.setEllipsoid( p->ellipsoid() );
+  ustawienia.setLabelingEngineSettings( p->labelingEngineSettings() );
+  if ( jestMotyw )
+    ustawienia.setLayerStyleOverrides( p->mapThemeCollection()->mapThemeStyleOverrides( motyw ) );
+
+  QgsDxfExport dxf;
+  dxf.setMapSettings( ustawienia );
+  dxf.addLayers( warstwy );
+  dxf.setSymbologyScale( skala );
+  dxf.setSymbologyExport( symbologia );
+  dxf.setLayerTitleAsName( tytulJakoNazwa );
+  dxf.setDestinationCrs( crs );
+  dxf.setForce2d( plasko );
+
+  QgsDxfExport::Flags flagi = QgsDxfExport::Flags();
+  if ( !mtext )
+    flagi = flagi | QgsDxfExport::FlagNoMText;
+  if ( wlosowe )
+    flagi = flagi | QgsDxfExport::FlagHairlineWidthExport;
+  dxf.setFlags( flagi );
+
+  QFile f( plik );
+  const QgsDxfExport::ExportResult r = dxf.writeToFile( &f, kodowanie );
+  if ( f.isOpen() )
+    f.close();
+
+  if ( r != QgsDxfExport::ExportResult::Success )
+  {
+    QString opis;
+    switch ( r )
+    {
+      case QgsDxfExport::ExportResult::EmptyExtentError:
+        opis = QStringLiteral( "nie da się ustalić zasięgu" );
+        break;
+      case QgsDxfExport::ExportResult::DeviceNotWritableError:
+        opis = QStringLiteral( "nie można zapisać pliku" );
+        break;
+      default:
+        opis = QStringLiteral( "nieprawidłowy plik docelowy" );
+        break;
+    }
+    QFile::remove( plik );
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Eksport DXF nie powiódł się: %1" ).arg( opis ) );
+    return wynik;
+  }
+
+  // --- przekodowanie (patrz doCp1250) ------------------------------------
+  QStringList uwagi;
+  if ( !dxf.feedbackMessage().isEmpty() )
+    uwagi << dxf.feedbackMessage();
+  if ( kodowanie.compare( QLatin1String( "UTF-8" ), Qt::CaseInsensitive ) != 0 )
+  {
+    QFile g( plik );
+    if ( g.open( QIODevice::ReadOnly ) )
+    {
+      const QByteArray bajty = g.readAll();
+      g.close();
+      QStringDecoder dekoder( QStringDecoder::Utf8 );
+      const QString tekst = dekoder( bajty );
+      // Jesli to nie jest poprawny UTF-8, QGIS zapisal juz we wlasciwym
+      // kodowaniu (inna wersja Qt) - nie ruszamy.
+      if ( !dekoder.hasError() )
+      {
+        bool czyAscii = true;
+        for ( const char b : bajty )
+        {
+          if ( static_cast<unsigned char>( b ) >= 0x80 )
+          {
+            czyAscii = false;
+            break;
+          }
+        }
+        if ( !czyAscii )
+        {
+          if ( kodowanie.compare( QLatin1String( "CP1250" ), Qt::CaseInsensitive ) == 0 && g.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+          {
+            g.write( doCp1250( tekst ) );
+            g.close();
+          }
+          else
+          {
+            uwagi << QStringLiteral( "Kodowanie %1 nieobsługiwane w Qt6 - znaki spoza ASCII mogą być błędne; użyj CP1250 albo UTF-8" ).arg( kodowanie );
+          }
+        }
+      }
+    }
+  }
+
+  // Zapis ustawien - jak QGIS po udanym eksporcie; biuro zobaczy to samo.
+  p->writeEntry( QStringLiteral( "dxf" ), QStringLiteral( "/lastDxfSymbologyMode" ), symbologia == Qgis::FeatureSymbologyExport::NoSymbology ? 0 : ( symbologia == Qgis::FeatureSymbologyExport::PerFeature ? 1 : 2 ) );
+  p->writeEntry( QStringLiteral( "dxf" ), QStringLiteral( "/lastSymbologyExportScale" ), odwrotnoscSkali );
+  p->writeEntry( QStringLiteral( "dxf" ), QStringLiteral( "/lastDxfEncoding" ), kodowanie );
+  p->writeEntry( QStringLiteral( "dxf" ), QStringLiteral( "/lastDxfUseMText" ), mtext );
+  p->writeEntry( QStringLiteral( "dxf" ), QStringLiteral( "/lastDxfForce2d" ), plasko );
+
+  wynik.insert( QStringLiteral( "plik" ), plik );
+  wynik.insert( QStringLiteral( "warstwy" ), nazwy );
+  wynik.insert( QStringLiteral( "obiekty" ), obiekty );
+  wynik.insert( QStringLiteral( "uwagi" ), uwagi.join( QStringLiteral( "\n" ) ) );
+  return wynik;
+}
