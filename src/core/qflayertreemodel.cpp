@@ -26,6 +26,7 @@
 #include <qgsmapthemecollection.h>
 #include <qgsquickmapsettings.h>
 #include <qgsrasterlayer.h>
+#include <qgsrenderer.h>
 #include <qgsvectorlayer.h>
 #include <qgsvectorlayerfeaturecounter.h>
 #include <qgsvectortilelayer.h>
@@ -705,7 +706,9 @@ QVariant QfFlatLayerTreeModelBase::data( const QModelIndex &index, int role ) co
             QgsVectorLayer *vectorLayer = qobject_cast<QgsVectorLayer *>( nodeLayer->layer() );
             if ( vectorLayer && vectorLayer->geometryType() != Qgis::GeometryType::Null )
             {
-              id += QStringLiteral( "image://legend/layer" );
+              // Renderer osadzony (DXF, OGR_STYLE) nie daje pozycji legendy - ikona z symbolu obiektu
+              const bool osadzony = vectorLayer->renderer() && vectorLayer->renderer()->type() == QLatin1String( "embeddedSymbol" );
+              id += osadzony ? QStringLiteral( "image://legend/osadzony" ) : QStringLiteral( "image://legend/layer" );
               id += '/' + nodeLayer->layerId();
             }
           }

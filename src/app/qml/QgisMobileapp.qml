@@ -476,9 +476,9 @@ ApplicationWindow {
       { "name": "ZDJECIE", "type": "text" }
     ];
     const robocze = [
-      { "nazwa": qsTr("Punkty"), "typ": Qgis.GeometryType.Point },
-      { "nazwa": qsTr("Linie"), "typ": Qgis.GeometryType.Line },
-      { "nazwa": qsTr("Poligony (hatch)"), "typ": Qgis.GeometryType.Polygon }
+      { "nazwa": qsTr("Punkty"), "typ": "Point" },
+      { "nazwa": qsTr("Linie"), "typ": "LineString" },
+      { "nazwa": qsTr("Poligony (hatch)"), "typ": "Polygon" }
     ];
 
     let zalozone = 0;

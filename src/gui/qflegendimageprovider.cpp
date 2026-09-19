@@ -24,6 +24,13 @@
 #include <qgslayertreemodellegendnode.h>
 #include <qgsproject.h>
 #include <qgsrasterlayer.h>
+#include <qgsembeddedsymbolrenderer.h>
+#include <qgsfeatureiterator.h>
+#include <qgsfeaturerequest.h>
+#include <qgssymbol.h>
+#include <qgssymbollayerutils.h>
+#include <qgsvectorlayer.h>
+#include <memory>
 
 QfLegendImageProvider::QfLegendImageProvider( QgsLayerTreeModel *layerTreeModel )
   : QQuickImageProvider( Pixmap )
@@ -117,6 +124,41 @@ QPixmap QfLegendImageProvider::requestPixmap( const QString &id, QSize *, const 
         return pixmap;
       }
     }
+  }
+  else if ( idParts.value( 0 ) == QStringLiteral( "osadzony" ) )
+  {
+    QgsLayerTreeLayer *layerNode = mRootNode->findLayer( idParts.value( 1 ) );
+    QgsVectorLayer *vl = layerNode ? qobject_cast<QgsVectorLayer *>( layerNode->layer() ) : nullptr;
+    if ( vl && vl->renderer() )
+    {
+      std::unique_ptr<QgsSymbol> symbol;
+      QgsFeatureRequest req;
+      req.setFlags( Qgis::FeatureRequestFlag::EmbeddedSymbols );
+      req.setLimit( 50 );
+      QgsFeature f;
+      QgsFeatureIterator it = vl->getFeatures( req );
+      while ( it.nextFeature( f ) )
+      {
+        if ( f.embeddedSymbol() )
+        {
+          symbol.reset( f.embeddedSymbol()->clone() );
+          break;
+        }
+      }
+      if ( !symbol )
+      {
+        if ( QgsEmbeddedSymbolRenderer *r = dynamic_cast<QgsEmbeddedSymbolRenderer *>( vl->renderer() ) )
+        {
+          if ( r->defaultSymbol() )
+            symbol.reset( r->defaultSymbol()->clone() );
+        }
+      }
+      if ( symbol )
+        return QgsSymbolLayerUtils::symbolPreviewPixmap( symbol.get(), QSize( iconSize, iconSize ) );
+    }
+    QPixmap pixmap( iconSize, iconSize );
+    pixmap.fill( QColor( 255, 255, 255 ) );
+    return pixmap;
   }
   else if ( idParts.value( 0 ) == QStringLiteral( "image" ) )
   {

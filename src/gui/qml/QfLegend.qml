@@ -217,7 +217,6 @@ ListView {
             source: {
               if (!legend.isVisible || Type == QfFlatLayerTreeModel.Image)
                 return '';
-              console.log('WFG-SONDA legenda: ' + Name + ' typ=' + Type + ' zwinieta=' + IsCollapsed + ' obraz=' + LegendImage);
               if (LegendImage != '') {
                 return LegendImage;
               } else if (Type == QfFlatLayerTreeModel.Layer) {
