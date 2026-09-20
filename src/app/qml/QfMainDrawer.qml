@@ -855,7 +855,7 @@ Drawer {
       spacing: 2
 
       Repeater {
-        model: [{ "nazwa": qsTr("Zlecenia"), "ikona": "wfg_magazyn", "sekcja": 0 }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }, { "nazwa": qsTr("Moduły"), "ikona": "wfg_paczka", "sekcja": 4 }]
+        model: [{ "nazwa": qsTr("Zlecenia"), "ikona": "wfg_magazyn", "sekcja": 0 }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }]
 
         delegate: ItemDelegate {
           id: przelacznikWidoku
@@ -950,11 +950,6 @@ Drawer {
       }
       TabButton {
         text: qsTr("Stylizacja")
-        font: Theme.tipFont
-      }
-      TabButton {
-        // WorkField 19.09.2026 - moduly dziedzinowe (claude/MODULY_dziedzinowe.md)
-        text: qsTr("Moduły")
         font: Theme.tipFont
       }
     }
@@ -1693,6 +1688,19 @@ Drawer {
         rowSpacing: 2
 
         QfPozycjaMenu {
+          // WorkField 20.09.2026 - "Powieksz do danych" obejmuje caly projekt;
+          // tu jedna, aktywna warstwa.
+          text: qsTr("Powiększ do warstwy")
+          ikona: "wfg_powieksz"
+          enabled: dashBoard.activeLayer
+          onClicked: {
+            const warstwa = dashBoard.activeLayer;
+            dashBoard.close();
+            if (!iface.zoomToLayer(warstwa, dashBoard.mapSettings))
+              displayToast(qsTr("Warstwa %1 nie ma jeszcze obiektów").arg(warstwa.name));
+          }
+        }
+        QfPozycjaMenu {
           text: qsTr("Pola")
           ikona: "wfg_pola"
           enabled: dashBoard.activeLayer
@@ -2128,15 +2136,6 @@ Drawer {
         }
       }
 
-
-      // ── Moduły (4) ──────────────────────────────────────────
-      // WorkField 19.09.2026 - moduly dziedzinowe: karty modulow tego
-      // projektu z ich akcjami + lista zainstalowanych (QfSekcjaModulow.qml).
-      QfSekcjaModulow {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        szuflada: dashBoard
-      }
     }
 
     

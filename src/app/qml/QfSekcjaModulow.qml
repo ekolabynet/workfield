@@ -9,6 +9,9 @@ import Theme
  * \ingroup qml
  *
  * WorkField 19.09.2026 — ZAKŁADKA „MODUŁY" W SZUFLADZIE.
+ * 20.09.2026: przeniesiona do PRAWEJ szuflady (narzędzia) — moduł to
+ * zintegrowane narzędzie; jego zawartość (warstwy w grupie modułu) jest
+ * po lewej, w Warstwach.
  *
  * Moduł dziedzinowy to sposób pracy (warstwy, styl, eksporty), nie cecha
  * projektu — decyzje w claude/MODULY_dziedzinowe.md. Ta zakładka:
@@ -19,6 +22,17 @@ import Theme
  *    karta powstaje z opisu modułu (modul.json), który podaje silnik.
  *  - „Zainstalowane": wszystkie moduły, które aplikacja zna. Dziś tylko
  *    wbudowane; paczki z katalogu dojdą w tę samą listę.
+ *
+ *  - „Nowy projekt z modułu" (gdy opis ma "przepis"): pusty projekt w
+ *    wybranym układzie, potem — PO wczytaniu, bo createEmptyLayer wpina
+ *    warstwy do otwartego projektu — warstwy z polami, aliasami, listami
+ *    i wartościami domyślnymi, ustawienia modułu, znacznik wfg_moduly/<id>
+ *    i czynności "po_zalozeniu" (np. styl). Tak jak kreator „Projekt z DXF".
+ *
+ * Akcja z "potwierdz" pyta przed wykonaniem (tekst z {kluczami} z rozpoznania);
+ * akcja z "tylko_z_modulu" jest widoczna tylko w projekcie założonym z modułu
+ * (rozpoznanie zwraca zModulu) — "Wyczyść dane" nie może się pokazać
+ * w projekcie z prawdziwą inwentaryzacją.
  *
  * Czynność niedostępna w tej wersji aplikacji (brak czasownika z
  * "wymaga_silnika") nie pokazuje martwego przycisku — moduł mówi wtedy,
@@ -37,6 +51,10 @@ Item {
     return m.wProjekcie;
   })
 
+  //! Moduł, którego przepis czeka na wczytanie nowego projektu:
+  //! {opis, katalog, uklad}. Czyszczony od razu przy użyciu.
+  property var oczekujacy: null
+
   onVisibleChanged: {
     if (visible)
       odswiez();
@@ -46,6 +64,14 @@ Item {
     target: iface
     ignoreUnknownSignals: true
     function onLoadProjectEnded(path, name) {
+      if (sekcja.oczekujacy) {
+        const z = sekcja.oczekujacy;
+        sekcja.oczekujacy = null;
+        Qt.callLater(function () {
+          sekcja.zlozZPrzepisu(z.opis, z.katalog, z.uklad);
+        });
+        return;
+      }
       sekcja.odswiez();
     }
   }
@@ -112,6 +138,22 @@ Item {
     });
   }
 
+  //! Akcja widoczna na karcie? (tylko_z_modulu -> projekt z modułu)
+  function widoczna(akcja, rozpoznanie) {
+    return !akcja.tylko_z_modulu || !!rozpoznanie.zModulu;
+  }
+
+  //! Przycisk na karcie: akcja z "potwierdz" najpierw pyta.
+  function nacisnij(akcja, rozpoznanie) {
+    if (akcja.potwierdz) {
+      oknoPotwierdzenia.akcja = akcja;
+      oknoPotwierdzenia.tekst = wypelnij(akcja.potwierdz, rozpoznanie);
+      oknoPotwierdzenia.open();
+      return;
+    }
+    wykonaj(akcja);
+  }
+
   function wykonaj(akcja) {
     const uruchom = function () {
       const f = czynnosc(akcja.czasownik);
@@ -149,6 +191,264 @@ Item {
       szuflada.close();
     } else {
       uruchom();
+    }
+  }
+
+  //! Pusty projekt w "Imported Projects" (tam wolno pisać na Androidzie),
+  //! warstwy z przepisu dochodzą po wczytaniu (onLoadProjectEnded).
+  function nowyProjekt(opis, nazwa, uklad) {
+    if (typeof NarzedziaProjektu === "undefined")
+      return qsTr("Brak narzędzi projektu");
+    nazwa = nazwa.trim();
+    if (nazwa === "")
+      return qsTr("Podaj nazwę projektu.");
+    const katalogProjektow = iface.dataRoot() + "Imported Projects";
+    const cel = katalogProjektow + "/" + nazwa;
+    if (FileUtils.fileExists(cel))
+      return qsTr("Projekt o tej nazwie już istnieje.");
+    const plik = NarzedziaProjektu.nowyProjekt(katalogProjektow, nazwa, uklad);
+    if (plik === "")
+      return qsTr("Nie udało się utworzyć projektu.");
+    oczekujacy = {
+      "opis": opis,
+      "katalog": cel,
+      "uklad": uklad
+    };
+    displayToast(qsTr("Tworzę projekt %1…").arg(nazwa));
+    iface.loadFile(plik, nazwa);
+    return "";
+  }
+
+  function zlozZPrzepisu(opis, katalog, uklad) {
+    const przepis = opis.przepis || {};
+    const baza = katalog + "/dane.gpkg";
+    const warstwy = przepis.warstwy || [];
+    const zalozone = [];
+    for (const w of warstwy) {
+      let warstwa = null;
+      try {
+        warstwa = LayerUtils.createEmptyLayer(baza, w.nazwa, w.typ, uklad, w.pola);
+      } catch (e) {
+        warstwa = null;
+      }
+      if (!warstwa) {
+        console.log("WFG modul przepis: nie powstala warstwa " + w.nazwa);
+        continue;
+      }
+      for (const pole of w.pola) {
+        if (pole.alias)
+          NarzedziaProjektu.alias(warstwa, pole.name, pole.alias);
+        if (pole.widget)
+          NarzedziaProjektu.widget(warstwa, pole.name, pole.widget, pole.opcje || {});
+        if (pole.domyslna)
+          NarzedziaProjektu.wartoscDomyslna(warstwa, pole.name, pole.domyslna, !!pole.przy_zmianie);
+      }
+      if (w.zalacznik)
+        LayerUtils.setAttachmentField(warstwa, w.zalacznik);
+      if (ProjectUtils.addMapLayer(qgisProject, warstwa)) {
+        zalozone.push(w.nazwa);
+        // Zawartość modułu po lewej: warstwy w grupie o nazwie modułu,
+        // zgaszalne jednym tapnięciem (jak "Rysunek CAD").
+        if (przepis.grupa)
+          NarzedziaProjektu.doGrupy(qgisProject, warstwa, przepis.grupa, false, true);
+      }
+    }
+    const ustawienia = przepis.ustawienia || {};
+    for (const klucz in ustawienia) {
+      const ukosnik = klucz.indexOf("/");
+      NarzedziaProjektu.wlasciwosc(qgisProject, klucz.substring(0, ukosnik), klucz.substring(ukosnik + 1), ustawienia[klucz]);
+    }
+    // Znacznik: projekt wie, z jakiego modułu i wersji powstał.
+    NarzedziaProjektu.wlasciwosc(qgisProject, "wfg_moduly", opis.id, opis.wersja || "");
+    for (const czasownik of (przepis.po_zalozeniu || [])) {
+      const f = czynnosc(czasownik);
+      const w = f ? f(qgisProject) : { "blad": czasownik };
+      console.log("WFG modul przepis " + czasownik + ": " + JSON.stringify(w));
+    }
+    NarzedziaProjektu.zapiszProjekt(qgisProject);
+    console.log("WFG modul przepis " + opis.id + ": warstwy " + JSON.stringify(zalozone));
+    // Nowy projekt ma same PUSTE warstwy - mapa nie miała czego narysować
+    // i zostawał na niej obraz poprzedniego projektu (20.09.2026: wyglądało
+    // to jak "dane skopiowane do nowego projektu"). Wymuszamy przerysowanie.
+    if (typeof mapCanvasMap !== "undefined" && mapCanvasMap.refresh)
+      mapCanvasMap.refresh(true);
+    odswiez();
+    if (zalozone.length === warstwy.length)
+      displayToast(qsTr("Projekt gotowy: %1. Podkład dodasz w zakładce Warstwy.").arg(zalozone.join(", ")));
+    else
+      displayToast(qsTr("Projekt złożony częściowo: %1 z %2 warstw").arg(zalozone.length).arg(warstwy.length), "warning");
+  }
+
+  function otworzNowy(opis) {
+    oknoNowego.opis = opis;
+    poleNazwy.text = "";
+    komunikatNowego.text = "";
+    wyborUkladu.currentIndex = 0;
+    const pokaz = function () {
+      oknoNowego.open();
+    };
+    if (szuflada && szuflada.modal && szuflada.opened) {
+      const poZamknieciu = function () {
+        szuflada.closed.disconnect(poZamknieciu);
+        pokaz();
+      };
+      szuflada.closed.connect(poZamknieciu);
+      szuflada.close();
+    } else {
+      pokaz();
+    }
+  }
+
+  Popup {
+    id: oknoPotwierdzenia
+
+    property var akcja: ({})
+    property string tekst: ""
+
+    parent: typeof mainWindow !== "undefined" ? mainWindow.contentItem : sekcja
+    x: (parent.width - width) / 2
+    y: Math.max(12, (parent.height - height) / 3)
+    width: Math.min(parent.width - 24, 440)
+    modal: true
+    focus: true
+    closePolicy: Popup.CloseOnEscape
+
+    background: Rectangle {
+      color: Theme.mainBackgroundColor
+      radius: 8
+      border.width: 1
+      border.color: Theme.errorColor
+    }
+
+    contentItem: ColumnLayout {
+      spacing: 10
+
+      Text {
+        Layout.fillWidth: true
+        text: oknoPotwierdzenia.akcja.etykieta || ""
+        font: Theme.strongTipFont
+        color: Theme.mainTextColor
+      }
+      Text {
+        Layout.fillWidth: true
+        text: oknoPotwierdzenia.tekst
+        font: Theme.tipFont
+        color: Theme.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        Item {
+          Layout.fillWidth: true
+        }
+        Button {
+          text: qsTr("Anuluj")
+          onClicked: oknoPotwierdzenia.close()
+        }
+        Button {
+          text: oknoPotwierdzenia.akcja.etykieta || qsTr("Wykonaj")
+          onClicked: {
+            const a = oknoPotwierdzenia.akcja;
+            oknoPotwierdzenia.close();
+            sekcja.wykonaj(a);
+          }
+        }
+      }
+    }
+  }
+
+  Popup {
+    id: oknoNowego
+
+    property var opis: ({})
+
+    parent: typeof mainWindow !== "undefined" ? mainWindow.contentItem : sekcja
+    x: (parent.width - width) / 2
+    y: Math.max(12, (parent.height - height) / 3)
+    width: Math.min(parent.width - 24, 480)
+    modal: true
+    focus: true
+    closePolicy: Popup.CloseOnEscape
+
+    background: Rectangle {
+      color: Theme.mainBackgroundColor
+      radius: 8
+      border.width: 1
+      border.color: Theme.controlBorderColor
+    }
+
+    contentItem: ColumnLayout {
+      spacing: 10
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Nowy projekt: %1").arg(oknoNowego.opis.nazwa || "")
+        font: Theme.strongTipFont
+        color: Theme.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Warstwy: %1").arg(((oknoNowego.opis.przepis || {}).warstwy || []).map(function (w) {
+          return w.nazwa;
+        }).join(", "))
+        font: Theme.tinyFont
+        color: Theme.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+      TextField {
+        id: poleNazwy
+        Layout.fillWidth: true
+        placeholderText: qsTr("Nazwa projektu")
+        font: Theme.tipFont
+      }
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        Text {
+          text: qsTr("Układ")
+          font: Theme.tipFont
+          color: Theme.mainTextColor
+        }
+        ComboBox {
+          id: wyborUkladu
+          Layout.fillWidth: true
+          // jak w kreatorze "Projekt z DXF": PL-2000 strefa 7 pierwsza
+          model: ["EPSG:2178", "EPSG:2179", "EPSG:2177", "EPSG:2176", "EPSG:2180"]
+        }
+      }
+      Text {
+        id: komunikatNowego
+        Layout.fillWidth: true
+        visible: text !== ""
+        color: Theme.errorColor
+        font: Theme.tipFont
+        wrapMode: Text.WordWrap
+      }
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        Item {
+          Layout.fillWidth: true
+        }
+        Button {
+          text: qsTr("Anuluj")
+          onClicked: oknoNowego.close()
+        }
+        Button {
+          text: qsTr("Utwórz")
+          enabled: poleNazwy.text.trim() !== ""
+          onClicked: {
+            const blad = sekcja.nowyProjekt(oknoNowego.opis, poleNazwy.text, wyborUkladu.currentText);
+            if (blad !== "") {
+              komunikatNowego.text = blad;
+              return;
+            }
+            oknoNowego.close();
+          }
+        }
+      }
     }
   }
 
@@ -278,14 +578,16 @@ Item {
             }
 
             Repeater {
-              model: karta.modelData.opis.akcje || []
+              model: (karta.modelData.opis.akcje || []).filter(function (a) {
+                return sekcja.widoczna(a, karta.r);
+              })
 
               delegate: QfPozycjaMenu {
                 required property var modelData
                 Layout.fillWidth: true
                 text: modelData.etykieta
                 ikona: modelData.ikona || "wfg_paczka"
-                onClicked: sekcja.wykonaj(modelData)
+                onClicked: sekcja.nacisnij(modelData, karta.r)
               }
             }
           }
@@ -344,6 +646,13 @@ Item {
             font: Theme.tinyFont
             color: Theme.secondaryTextColor
             wrapMode: Text.WordWrap
+          }
+          QfPozycjaMenu {
+            Layout.fillWidth: true
+            visible: !!wpis.modelData.opis.przepis && wpis.modelData.brak.length === 0
+            text: qsTr("Nowy projekt z modułu")
+            ikona: "wfg_nowe"
+            onClicked: sekcja.otworzNowy(wpis.modelData.opis)
           }
         }
       }

@@ -155,6 +155,13 @@ class QfAppInterface : public QObject
     //! Zooms the map to the combined extent of non-basemap project layers.
     Q_INVOKABLE bool zoomToProjectData( QgsQuickMapSettings *mapSettings );
 
+    /**
+     * WorkField 20.09.2026 - powieksza mape do zasiegu jednej warstwy.
+     * Pusta warstwa: false (mapa bez zmian). Jeden punkt (zasieg zerowy):
+     * okno 50 x 50 jednostek mapy wokol niego.
+     */
+    Q_INVOKABLE bool zoomToLayer( QgsMapLayer *layer, QgsQuickMapSettings *mapSettings );
+
     //! Short info label for a vector layer: geometry type and feature count.
     Q_INVOKABLE QString layerInfoLabel( QgsVectorLayer *layer ) const;
 

@@ -44,14 +44,59 @@ QVariantMap InwentaryzacjaDrzew::opis() const
   "wersja": "1.0",
   "silnik": "InwentaryzacjaDrzew",
   "opis": "Korony, strefa ochrony drzewa (SOD) i pnie liczone na żywo z obwodów; eksport do CAD (DXF z multiodnośnikami) i tabela inwentaryzacyjna ODS.",
-  "wymaga_silnika": ["InwentaryzacjaDrzew.rozpoznaj", "InwentaryzacjaDrzew.styluj", "InwentaryzacjaDrzew.eksportuj"],
+  "wymaga_silnika": ["InwentaryzacjaDrzew.rozpoznaj", "InwentaryzacjaDrzew.styluj", "InwentaryzacjaDrzew.eksportuj", "InwentaryzacjaDrzew.wyczysc"],
   "wymaga_modulow": [],
   "rozpoznanie": "InwentaryzacjaDrzew.rozpoznaj",
   "role": [
     { "klucz": "poleObwodow", "nazwa": "obwody pni" },
     { "klucz": "poleKorony", "nazwa": "korona" },
-    { "klucz": "poleEtykiety", "nazwa": "etykieta" }
+    { "klucz": "poleEtykiety", "nazwa": "etykieta" },
+    { "klucz": "opisGrup", "nazwa": "grupy krzewów" },
+    { "klucz": "opisZakresu", "nazwa": "zakres prac" }
   ],
+  "przepis": {
+    "ustawienia": { "wfg_inw/warstwa": "Drzewa", "wfg_inw/warstwaGrup": "Grupy krzewów", "wfg_inw/warstwaZakresu": "Zakres inwentaryzacji" },
+    "grupa": "Inwentaryzacja drzew",
+    "warstwy": [
+      { "nazwa": "Zakres inwentaryzacji", "typ": "Polygon", "pola": [
+        { "name": "nazwa", "type": "text", "alias": "Nazwa" },
+        { "name": "powierzchnia_m2", "type": "real", "alias": "Powierzchnia [m2]", "domyslna": "round($area, 1)", "przy_zmianie": true },
+        { "name": "bufor_m", "type": "real", "alias": "Bufor [m]", "domyslna": "5" },
+        { "name": "uwagi", "type": "multiline", "alias": "Uwagi" },
+        { "name": "data", "type": "date", "alias": "Data", "domyslna": "now()" }
+      ] },
+      { "nazwa": "Drzewa", "typ": "Point", "zalacznik": "zdjecie", "pola": [
+        { "name": "nr_inw", "type": "text", "alias": "nr inw." },
+        { "name": "grupa", "type": "text", "alias": "Grupa" },
+        { "name": "kategoria", "type": "text", "alias": "Kategoria", "widget": "ValueMap", "opcje": { "map": [{ "drzewa": "drzewa" }, { "krzewy": "krzewy" }, { "karpa po wyciętym drzewie": "karpa po wyciętym drzewie" }, { "zdeformowana forma odroślowa po wielokrotnym ogławianiu u podstawy": "zdeformowana forma odroślowa po wielokrotnym ogławianiu u podstawy" }, { "roboczy numer pomiarowy": "roboczy numer pomiarowy" }] }, "domyslna": "'drzewa'" },
+        { "name": "gatunek_lac", "type": "text", "alias": "Nazwa techniczna" },
+        { "name": "gatunek_pl", "type": "text", "alias": "Nazwa polska" },
+        { "name": "obwody_5", "type": "text", "alias": "Obwody pni [cm] na wys. 5cm lub powierzchnia krzewów [m2]" },
+        { "name": "obwody_130", "type": "text", "alias": "Obwody pni [cm] na wys. 130cm lub faktyczna powierzchnia [m2]" },
+        { "name": "korona_m", "type": "real", "alias": "Szerokość korony [m]" },
+        { "name": "wysokosc_m", "type": "real", "alias": "Wysokość [m]" },
+        { "name": "stan", "type": "integer", "alias": "Stan zdrowotny [0-5]", "widget": "Range", "opcje": { "Min": 0, "Max": 5, "Step": 1, "Style": "SpinBox", "AllowNull": true } },
+        { "name": "uwagi", "type": "multiline", "alias": "Uwagi" },
+        { "name": "decyzja", "type": "text", "alias": "Decyzja projektowa" },
+        { "name": "data", "type": "date", "alias": "Data", "domyslna": "now()" },
+        { "name": "zdjecie", "type": "text", "alias": "Zdjęcie" }
+      ] },
+      { "nazwa": "Grupy krzewów", "typ": "Polygon", "zalacznik": "zdjecie", "pola": [
+        { "name": "nr_inw", "type": "text", "alias": "nr inw." },
+        { "name": "kategoria", "type": "text", "alias": "Kategoria", "widget": "ValueMap", "opcje": { "map": [{ "grupy krzewów": "grupy krzewów" }, { "grupy krzewów i podrostu": "grupy krzewów i podrostu" }, { "grupy podrostu": "grupy podrostu" }] }, "domyslna": "'grupy krzewów'" },
+        { "name": "gatunek_lac", "type": "text", "alias": "Nazwa techniczna" },
+        { "name": "gatunek_pl", "type": "text", "alias": "Nazwa polska" },
+        { "name": "powierzchnia_m2", "type": "real", "alias": "Powierzchnia [m2]", "domyslna": "round($area, 1)", "przy_zmianie": true },
+        { "name": "wysokosc_m", "type": "real", "alias": "Wysokość [m]" },
+        { "name": "stan", "type": "integer", "alias": "Stan zdrowotny [0-5]", "widget": "Range", "opcje": { "Min": 0, "Max": 5, "Step": 1, "Style": "SpinBox", "AllowNull": true } },
+        { "name": "uwagi", "type": "multiline", "alias": "Uwagi" },
+        { "name": "decyzja", "type": "text", "alias": "Decyzja projektowa" },
+        { "name": "data", "type": "date", "alias": "Data", "domyslna": "now()" },
+        { "name": "zdjecie", "type": "text", "alias": "Zdjęcie" }
+      ] }
+    ],
+    "po_zalozeniu": ["InwentaryzacjaDrzew.styluj"]
+  },
   "akcje": [
     {
       "etykieta": "Styl: korony, SOD, pnie",
@@ -64,6 +109,13 @@ QVariantMap InwentaryzacjaDrzew::opis() const
       "czasownik": "InwentaryzacjaDrzew.eksportuj",
       "wyslij": "pliki",
       "komunikat": "Inwentaryzacja: {drzewa} drzew, plików: {pliki} (DXF + ODS)"
+    },
+    {
+      "etykieta": "Wyczyść dane",
+      "czasownik": "InwentaryzacjaDrzew.wyczysc",
+      "tylko_z_modulu": true,
+      "potwierdz": "Usunąć wszystkie obiekty: {obiekty} drzew i {obiektyGrup} grup krzewów? Warstwy, pola, styl i zakres prac zostaną. Tego nie da się cofnąć.",
+      "komunikat": "Usunięto obiektów: {usuniete}"
     }
   ]
 })WFG" );
@@ -103,7 +155,9 @@ namespace
       return pola.lookupField( wskazane );
     for ( int i = 0; i < pola.count(); ++i )
     {
-      if ( pasuje( bezOgonkow( pola.at( i ).name() ) ) )
+      // Nazwa albo alias: projekty z modulu maja krotkie nazwy (obwody_130)
+      // i polskie aliasy jak w arkuszu; projekty z Mapit - pelne nazwy.
+      if ( pasuje( bezOgonkow( pola.at( i ).name() ) ) || ( !pola.at( i ).alias().isEmpty() && pasuje( bezOgonkow( pola.at( i ).alias() ) ) ) )
         return i;
     }
     return -1;
@@ -178,6 +232,28 @@ namespace
     }
     return zapas;
   }
+
+  //! Warstwa wskazana w ustawieniach projektu (wfg_inw/<klucz>) o danej geometrii.
+  QgsVectorLayer *warstwaZUstawien( QgsProject *p, const QString &klucz, Qgis::GeometryType geometria )
+  {
+    const QString nazwa = p->readEntry( QStringLiteral( "wfg_inw" ), QStringLiteral( "/" ) + klucz );
+    if ( nazwa.isEmpty() )
+      return nullptr;
+    const QList<QgsMapLayer *> kandydaci = p->mapLayersByName( nazwa );
+    for ( QgsMapLayer *ml : kandydaci )
+    {
+      QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( ml );
+      if ( vl && vl->isValid() && vl->geometryType() == geometria )
+        return vl;
+    }
+    return nullptr;
+  }
+
+  //! Projekt zalozony z modulu (znacznik wfg_moduly/inwentaryzacja_drzew)?
+  bool zModulu( QgsProject *p )
+  {
+    return !p->readEntry( QStringLiteral( "wfg_moduly" ), QStringLiteral( "/inwentaryzacja_drzew" ) ).isEmpty();
+  }
 } // namespace
 
 QVariantMap InwentaryzacjaDrzew::rozpoznaj( QgsProject *projekt ) const
@@ -203,6 +279,80 @@ QVariantMap InwentaryzacjaDrzew::rozpoznaj( QgsProject *projekt ) const
   wynik.insert( QStringLiteral( "poleObwodow" ), nazwa( wd.obwody ) );
   wynik.insert( QStringLiteral( "poleKorony" ), nazwa( wd.korona ) );
   wynik.insert( QStringLiteral( "poleEtykiety" ), nazwa( wd.etykieta ) );
+  if ( QgsVectorLayer *g = warstwaZUstawien( p, QStringLiteral( "warstwaGrup" ), Qgis::GeometryType::Polygon ) )
+  {
+    wynik.insert( QStringLiteral( "warstwaGrup" ), g->name() );
+    wynik.insert( QStringLiteral( "opisGrup" ), QStringLiteral( "%1 (%2)" ).arg( g->name() ).arg( g->featureCount() ) );
+  }
+  wynik.insert( QStringLiteral( "obiektyGrup" ), [&] {
+    QgsVectorLayer *g = warstwaZUstawien( p, QStringLiteral( "warstwaGrup" ), Qgis::GeometryType::Polygon );
+    return g ? g->featureCount() : 0;
+  }() );
+  if ( QgsVectorLayer *z = warstwaZUstawien( p, QStringLiteral( "warstwaZakresu" ), Qgis::GeometryType::Polygon ) )
+  {
+    wynik.insert( QStringLiteral( "warstwaZakresu" ), z->name() );
+    wynik.insert( QStringLiteral( "opisZakresu" ), z->featureCount() > 0 ? QStringLiteral( "%1 (%2)" ).arg( z->name() ).arg( z->featureCount() ) : QStringLiteral( "%1 — nie narysowany" ).arg( z->name() ) );
+  }
+  wynik.insert( QStringLiteral( "zModulu" ), zModulu( p ) );
+  return wynik;
+}
+
+QVariantMap InwentaryzacjaDrzew::wyczysc( QgsProject *projekt ) const
+{
+  QVariantMap wynik;
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p || !p->layerTreeRoot() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Brak otwartego projektu" ) );
+    return wynik;
+  }
+  // Tylko projekt zalozony z modulu: w projekcie z prawdziwa inwentaryzacja
+  // (np. z Mapit) jedno tapniecie skasowaloby miesiace pracy.
+  if ( !zModulu( p ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Czyszczenie działa tylko w projekcie założonym z modułu" ) );
+    return wynik;
+  }
+  QList<QgsVectorLayer *> warstwy;
+  if ( QgsVectorLayer *d = znajdzWarstweDrzew( p ).warstwa )
+    warstwy << d;
+  if ( QgsVectorLayer *g = warstwaZUstawien( p, QStringLiteral( "warstwaGrup" ), Qgis::GeometryType::Polygon ) )
+    warstwy << g;
+  int usuniete = 0;
+  QStringList nazwy, bledy;
+  for ( QgsVectorLayer *vl : std::as_const( warstwy ) )
+  {
+    const bool bylaEdycja = vl->isEditable();
+    if ( !bylaEdycja && !vl->startEditing() )
+    {
+      bledy << QStringLiteral( "%1: nie da się edytować" ).arg( vl->name() );
+      continue;
+    }
+    const QgsFeatureIds ids = vl->allFeatureIds();
+    if ( !vl->deleteFeatures( ids ) )
+    {
+      if ( !bylaEdycja )
+        vl->rollBack();
+      bledy << QStringLiteral( "%1: usuwanie odrzucone" ).arg( vl->name() );
+      continue;
+    }
+    if ( !bylaEdycja && !vl->commitChanges() )
+    {
+      bledy << QStringLiteral( "%1: %2" ).arg( vl->name(), vl->commitErrors().join( QStringLiteral( "; " ) ) );
+      vl->rollBack();
+      continue;
+    }
+    usuniete += ids.size();
+    nazwy << vl->name();
+    vl->triggerRepaint();
+  }
+  if ( !bledy.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Czyszczenie nie powiodło się: %1" ).arg( bledy.join( QStringLiteral( "; " ) ) ) );
+    return wynik;
+  }
+  wynik.insert( QStringLiteral( "usuniete" ), usuniete );
+  wynik.insert( QStringLiteral( "warstwy" ), nazwy );
   return wynik;
 }
 
@@ -398,7 +548,7 @@ QVariantMap InwentaryzacjaDrzew::eksportuj( QgsProject *projekt ) const
   if ( nazwa.isEmpty() )
     nazwa = QFileInfo( p->homePath() ).fileName();
   nazwa = nazwaPliku( nazwa.isEmpty() ? QStringLiteral( "projekt" ) : nazwa );
-  const QString znacznik = QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmm" ) );
+  const QString znacznik = QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmmss" ) );
   const QString katalog = QStringLiteral( "%1/export/inwentaryzacja_%2" ).arg( p->homePath(), znacznik );
   QDir().mkpath( katalog );
 
@@ -476,6 +626,9 @@ QVariantMap InwentaryzacjaDrzew::eksportuj( QgsProject *projekt ) const
 // Wyrazenie pnia daje TE SAME wyniki co DxfInwentaryzacja::srednicaZObwodow
 // (sprawdzone na 164 wartosciach, w tym 156 z Bruzdowej: 0 roznic).
 // ---------------------------------------------------------------------------
+#include <qgsfillsymbol.h>
+#include <qgsgeometrygeneratorsymbollayer.h>
+#include <qgslinesymbollayer.h>
 #include <qgsmarkersymbol.h>
 #include <qgsmarkersymbollayer.h>
 #include <qgspallabeling.h>
@@ -600,5 +753,32 @@ QVariantMap InwentaryzacjaDrzew::styluj( QgsProject *projekt ) const
   wynik.insert( QStringLiteral( "warstwa" ), vl->name() );
   wynik.insert( QStringLiteral( "pola" ), QStringLiteral( "%1 / %2 / %3" ).arg( pola.at( wd.obwody ).name(), pola.at( wd.korona ).name(),
                                                                               wd.etykieta >= 0 ? pola.at( wd.etykieta ).name() : QStringLiteral( "fid" ) ) );
+  // Zakres prac: czerwony przerywany obrys bez wypelnienia - granica, nie plama.
+  // Bufor (pole bufor_m, domyslnie 5 m) osobno, jak SOD wokol korony:
+  // pomaranczowy obrys liczony na zywo z geometrii; bufor 0 = brak.
+  if ( QgsVectorLayer *z = warstwaZUstawien( p, QStringLiteral( "warstwaZakresu" ), Qgis::GeometryType::Polygon ) )
+  {
+    QgsSymbolLayerList warstwySymbolu;
+    if ( z->fields().lookupField( QStringLiteral( "bufor_m" ) ) >= 0 )
+    {
+      QVariantMap w;
+      w.insert( QStringLiteral( "geometryModifier" ), QStringLiteral( "CASE WHEN coalesce(\"bufor_m\", 0) > 0 THEN buffer($geometry, \"bufor_m\") END" ) );
+      w.insert( QStringLiteral( "SymbolType" ), QStringLiteral( "Fill" ) );
+      QgsSymbolLayer *generator = QgsGeometryGeneratorSymbolLayer::create( w );
+      QgsSimpleLineSymbolLayer *linia = new QgsSimpleLineSymbolLayer( QColor( 245, 124, 0 ), 0.5 );
+      linia->setWidthUnit( Qgis::RenderUnit::Millimeters );
+      linia->setPenStyle( Qt::DashLine );
+      generator->setSubSymbol( new QgsFillSymbol( QgsSymbolLayerList() << linia ) );
+      warstwySymbolu << generator;
+    }
+    QgsSimpleLineSymbolLayer *obrys = new QgsSimpleLineSymbolLayer( QColor( 211, 47, 47 ), 0.8 );
+    obrys->setWidthUnit( Qgis::RenderUnit::Millimeters );
+    obrys->setPenStyle( Qt::DashLine );
+    warstwySymbolu << obrys;
+    QgsFillSymbol *wypelnienie = new QgsFillSymbol( warstwySymbolu );
+    z->setRenderer( new QgsSingleSymbolRenderer( wypelnienie ) );
+    z->triggerRepaint();
+    wynik.insert( QStringLiteral( "zakres" ), z->name() );
+  }
   return wynik;
 }

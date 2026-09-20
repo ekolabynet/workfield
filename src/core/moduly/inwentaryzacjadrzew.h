@@ -62,6 +62,14 @@ class InwentaryzacjaDrzew : public QObject
      * Zwraca {pliki, katalog, drzewa, warstwa, rysunek, uwagi} albo {blad}.
      */
     Q_INVOKABLE QVariantMap eksportuj( QgsProject *projekt ) const;
+
+    /**
+     * Usuwa wszystkie obiekty z warstwy drzew i warstwy grup krzewow -
+     * warstwy, pola, styl i zakres prac zostaja. TYLKO w projekcie
+     * zalozonym z modulu (znacznik wfg_moduly/inwentaryzacja_drzew).
+     * Zwraca {usuniete, warstwy} albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap wyczysc( QgsProject *projekt ) const;
 };
 
 #endif // INWENTARYZACJADRZEW_H

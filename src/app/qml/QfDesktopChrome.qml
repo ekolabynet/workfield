@@ -191,6 +191,11 @@ ToolBar {
           "nazwa": qsTr("Ustawienia"),
           "ikona": "wfg_ustawienia",
           "zakladka": 2
+        },
+        {
+          "nazwa": qsTr("Moduły"),
+          "ikona": "wfg_paczka",
+          "zakladka": 3
         }
       ]
 

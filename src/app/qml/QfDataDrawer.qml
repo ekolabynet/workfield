@@ -195,6 +195,12 @@ Drawer {
         text: qsTr("Ustawienia")
         font: t.tipFont
       }
+      TabButton {
+        // WorkField 20.09.2026 - moduly dziedzinowe: zintegrowane narzedzia,
+        // ich zawartosc (warstwy w grupie modulu) jest po lewej
+        text: qsTr("Moduły")
+        font: t.tipFont
+      }
     }
 
     StackLayout {
@@ -472,6 +478,13 @@ Drawer {
         Item {
           Layout.fillHeight: true
         }
+      }
+
+      // ── Moduły (3) ──────────────────────────────────────────
+      QfSekcjaModulow {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        szuflada: dataDrawer
       }
     }
 

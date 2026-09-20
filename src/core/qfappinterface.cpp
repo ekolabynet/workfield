@@ -1239,6 +1239,42 @@ bool QfAppInterface::zoomToProjectData( QgsQuickMapSettings *mapSettings )
   return true;
 }
 
+bool QfAppInterface::zoomToLayer( QgsMapLayer *layer, QgsQuickMapSettings *mapSettings )
+{
+  if ( !layer || !mapSettings || !layer->isValid() )
+    return false;
+  if ( QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer ) )
+  {
+    // Zasieg w pamieci nie nadaza za dopiero co dodanymi obiektami.
+    vl->updateExtents();
+    if ( vl->featureCount() == 0 )
+      return false;
+  }
+  QgsRectangle extent = layer->extent();
+  if ( extent.isNull() )
+    return false;
+  try
+  {
+    const QgsCoordinateTransform transform( layer->crs(), mapSettings->destinationCrs(), QgsProject::instance() );
+    extent = transform.transformBoundingBox( extent );
+  }
+  catch ( const QgsCsException & )
+  {
+    return false;
+  }
+  if ( extent.width() <= 0 && extent.height() <= 0 )
+  {
+    const QgsPointXY srodek = extent.center();
+    extent = QgsRectangle( srodek.x() - 25, srodek.y() - 25, srodek.x() + 25, srodek.y() + 25 );
+  }
+  else
+  {
+    extent.scale( 1.1 );
+  }
+  mapSettings->setExtent( extent );
+  return true;
+}
+
 QString QfAppInterface::layerInfoLabel( QgsVectorLayer *layer ) const
 {
   if ( !layer )
