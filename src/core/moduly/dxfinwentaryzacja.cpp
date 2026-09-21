@@ -12,6 +12,7 @@
 #include <QHash>
 #include <QList>
 #include <QMap>
+#include <QSet>
 #include <QRegularExpression>
 
 #include <gdal.h>
@@ -491,7 +492,7 @@ namespace DxfInwentaryzacja
   }
 
   Wynik dopisz( const QByteArray &bazowy, const QVector<Drzewo> &drzewa, const Ustawienia &ust,
-                QByteArray ( *koduj )( const QString & ) )
+                QByteArray ( *koduj )( const QString & ), const QVector<Obszar> &obszary )
   {
     Wynik wynik;
     Dxf d = wczytaj( bazowy.isEmpty() ? szablon() : bazowy );
@@ -978,6 +979,49 @@ namespace DxfInwentaryzacja
       ++wynik.etykietyZOdsylaczem;
     }
 
+    // --- obszary: zakres prac, bufor, grupy krzewow --------------------------
+    // Obrys jako LWPOLYLINE (zamknieta, 70 = 1) - CAD widzi jeden obiekt,
+    // ktory da sie zaznaczyc i zmierzyc. Etykieta w srodku ciezkosci obrysu.
+    QSet<QByteArray> warstwyObszarow;
+    for ( const Obszar &o : obszary )
+    {
+      const QByteArray nazwaWarstwy = o.warstwa.toLatin1();
+      for ( const QVector<QPointF> &pierscien : o.pierscienie )
+      {
+        if ( pierscien.size() < 3 )
+          continue;
+        // DXF nie powtarza pierwszego punktu na koncu - zamkniecie robi flaga 70.
+        int n = pierscien.size();
+        if ( n > 3 && qFuzzyCompare( pierscien.first().x(), pierscien.last().x() ) && qFuzzyCompare( pierscien.first().y(), pierscien.last().y() ) )
+          --n;
+        poczatek( "LWPOLYLINE", nazwaWarstwy, "AcDbPolyline" );
+        e.pi( 90, n );
+        e.pi( 70, 1 );
+        for ( int i = 0; i < n; ++i )
+        {
+          e.p( 10, pierscien.at( i ).x() );
+          e.p( 20, pierscien.at( i ).y() );
+          zasieg( pierscien.at( i ).x(), pierscien.at( i ).y(), 0.0 );
+        }
+        warstwyObszarow.insert( nazwaWarstwy );
+      }
+      if ( !o.etykieta.isEmpty() && !o.pierscienie.isEmpty() && o.pierscienie.first().size() >= 3 )
+      {
+        double sx = 0, sy = 0;
+        const QVector<QPointF> &pierscien = o.pierscienie.first();
+        for ( const QPointF &pt : pierscien )
+        {
+          sx += pt.x();
+          sy += pt.y();
+        }
+        tekst( nazwaWarstwy, sx / pierscien.size(), sy / pierscien.size(), h, o.etykieta );
+      }
+    }
+    for ( const QByteArray &nazwaWarstwy : std::as_const( warstwyObszarow ) )
+      warstwa( nazwaWarstwy );
+    if ( !obszary.isEmpty() )
+      wynik.uwagi << QStringLiteral( "Obszary w DXF: %1 obrysów na warstwach %2" ).arg( obszary.size() ).arg( QString::fromLatin1( QList<QByteArray>( warstwyObszarow.constBegin(), warstwyObszarow.constEnd() ).join( ", " ) ) );
+
     if ( uzyteKola )
       warstwa( "KOLA" );
     warstwa( "CENTROIDY" );
@@ -1290,7 +1334,7 @@ namespace DxfInwentaryzacja
     }
   } // namespace
 
-  QString zapiszOds( const QString &sciezka, const QVector<Wiersz> &wiersze )
+  QString zapiszOds( const QString &sciezka, const QVector<Wiersz> &wiersze, const QList<QStringList> &grupy )
   {
     // Frazy szukane w "Uwagach" - naglowki kolumn arkusza. W komorkach sa
     // formuly SZUKAJ (bez rozrozniania wielkosci liter, jak nasz C++), wiec
@@ -1469,6 +1513,8 @@ namespace DxfInwentaryzacja
     for ( auto it = stany.constBegin(); it != stany.constEnd(); ++it )
       ws << QStringList { it.key(), QString::number( it.value() ) };
     const QString arkusz2 = QStringLiteral( "Zestawienie gatunków" ), arkusz3 = QStringLiteral( "Zestawienie stanu" );
+    // Arkusz grup krzewow (poligony) - te same role pol co u drzew, plus powierzchnia.
+    const QString arkusz4 = QStringLiteral( "Grupy krzewów" );
     const QString zg = zestawienie( arkusz2, { QStringLiteral( "Nazwa techniczna" ), QStringLiteral( "Nazwa polska" ), QStringLiteral( "Kategoria" ), QStringLiteral( "Liczba" ) }, wg );
     const QString zs = zestawienie( arkusz3, { QStringLiteral( "Stan zdrowotny [0-5]" ), QStringLiteral( "Liczba" ) }, ws );
 
@@ -1477,7 +1523,8 @@ namespace DxfInwentaryzacja
                                       "<office:body><office:spreadsheet>"
                                       "<table:calculation-settings table:automatic-find-labels=\"false\" table:use-regular-expressions=\"false\" table:use-wildcards=\"false\"/>" )
                         .arg( QLatin1String( kPrzestrzenie ), QLatin1String( kFonty ), automatyczne );
-    content += tabela + zg + zs;
+    const QString zk = grupy.isEmpty() ? QString() : zestawienie( arkusz4, { QStringLiteral( "nr inw." ), QStringLiteral( "Kategoria" ), QStringLiteral( "Nazwa techniczna" ), QStringLiteral( "Nazwa polska" ), QStringLiteral( "Wysokość [m]" ), QStringLiteral( "Stan zdrowotny [0-5]" ), QStringLiteral( "Uwagi" ), QStringLiteral( "Powierzchnia [m2]" ) }, grupy );
+    content += tabela + zg + zs + zk;
     content += QStringLiteral( "<table:database-ranges><table:database-range table:name=\"__Anonymous_Sheet_DB__0\" table:target-range-address=\"&apos;Tabela inwentaryzacyjna&apos;.A1:&apos;Tabela inwentaryzacyjna&apos;.%1%2\" table:display-filter-buttons=\"true\"/></table:database-ranges>" )
                  .arg( litera( nKol - 1 ) )
                  .arg( wiersze.size() + 1 );
@@ -1501,7 +1548,7 @@ namespace DxfInwentaryzacja
                                  { QByteArrayLiteral( "content.xml" ), content.toUtf8() },
                                  { QByteArrayLiteral( "styles.xml" ), stylesXml() },
                                  { QByteArrayLiteral( "meta.xml" ), meta },
-                                 { QByteArrayLiteral( "settings.xml" ), settingsXml( { QStringLiteral( "Tabela inwentaryzacyjna" ), arkusz2, arkusz3 } ) },
+                                 { QByteArrayLiteral( "settings.xml" ), settingsXml( grupy.isEmpty() ? QStringList { QStringLiteral( "Tabela inwentaryzacyjna" ), arkusz2, arkusz3 } : QStringList { QStringLiteral( "Tabela inwentaryzacyjna" ), arkusz2, arkusz3, arkusz4 } ) },
                                  { QByteArrayLiteral( "META-INF/manifest.xml" ), manifest },
                                } );
   }

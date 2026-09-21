@@ -23,6 +23,8 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 
+#include <qgscurve.h>
+#include <qgscurvepolygon.h>
 #include <qgsgeometry.h>
 #include <qgslayertree.h>
 #include <qgslayertreelayer.h>
@@ -44,7 +46,7 @@ QVariantMap InwentaryzacjaDrzew::opis() const
   "wersja": "1.0",
   "silnik": "InwentaryzacjaDrzew",
   "opis": "Korony, strefa ochrony drzewa (SOD) i pnie liczone na żywo z obwodów; eksport do CAD (DXF z multiodnośnikami) i tabela inwentaryzacyjna ODS.",
-  "wymaga_silnika": ["InwentaryzacjaDrzew.rozpoznaj", "InwentaryzacjaDrzew.styluj", "InwentaryzacjaDrzew.eksportuj", "InwentaryzacjaDrzew.wyczysc"],
+  "wymaga_silnika": ["InwentaryzacjaDrzew.rozpoznaj", "InwentaryzacjaDrzew.styluj", "InwentaryzacjaDrzew.eksportuj", "InwentaryzacjaDrzew.wyczysc", "InwentaryzacjaDrzew.zakresZPliku", "InwentaryzacjaDrzew.dzialkaZUldk", "InwentaryzacjaDrzew.dodajZakres"],
   "wymaga_modulow": [],
   "rozpoznanie": "InwentaryzacjaDrzew.rozpoznaj",
   "role": [
@@ -98,6 +100,15 @@ QVariantMap InwentaryzacjaDrzew::opis() const
     "po_zalozeniu": ["InwentaryzacjaDrzew.styluj"]
   },
   "akcje": [
+    {
+      "etykieta": "Zakres prac: z pliku lub z działek…",
+      "okno": "zakres",
+      "tylko_gdy": "warstwaZakresu",
+      "z_pliku": "InwentaryzacjaDrzew.zakresZPliku",
+      "z_uldk": "InwentaryzacjaDrzew.dzialkaZUldk",
+      "z_dzialek": "InwentaryzacjaDrzew.dodajZakres",
+      "bufor": 5
+    },
     {
       "etykieta": "Styl: korony, SOD, pnie",
       "czasownik": "InwentaryzacjaDrzew.styluj",
@@ -511,6 +522,107 @@ QVariantMap InwentaryzacjaDrzew::eksportuj( QgsProject *projekt ) const
     return wynik;
   }
 
+  // --- obszary do DXF i arkusz grup: grupy krzewow, zakres prac, bufor ---------
+  // Wszystko w ukladzie rysunku (= uklad projektu), jak punkty drzew wyzej.
+  QVector<DxfInwentaryzacja::Obszar> obszary;
+  QList<QStringList> grupyDoOds;
+  auto pierscienieZ = []( const QgsGeometry &g ) {
+    QVector<QVector<QPointF>> pierscienie;
+    for ( auto czesc = g.const_parts_begin(); czesc != g.const_parts_end(); ++czesc )
+    {
+      const QgsCurvePolygon *wielokat = qgsgeometry_cast<const QgsCurvePolygon *>( *czesc );
+      if ( !wielokat || !wielokat->exteriorRing() )
+        continue;
+      QVector<const QgsCurve *> obrysy;
+      obrysy << wielokat->exteriorRing();
+      for ( int i = 0; i < wielokat->numInteriorRings(); ++i )
+        obrysy << wielokat->interiorRing( i );
+      for ( const QgsCurve *obrys : std::as_const( obrysy ) )
+      {
+        QgsPointSequence punkty;
+        obrys->points( punkty );
+        QVector<QPointF> pierscien;
+        pierscien.reserve( punkty.size() );
+        for ( const QgsPoint &pt : std::as_const( punkty ) )
+          pierscien << QPointF( pt.x(), pt.y() );
+        if ( pierscien.size() >= 3 )
+          pierscienie << pierscien;
+      }
+    }
+    return pierscienie;
+  };
+  auto dodajObszary = [&]( QgsVectorLayer *vl, const QString &warstwaDxf, const QString &poleEtykiety, double bufor ) {
+    if ( !vl )
+      return 0;
+    const QgsCoordinateTransform doProjektu( vl->crs(), p->crs(), p->transformContext() );
+    const int iEty = poleEtykiety.isEmpty() ? -1 : vl->fields().lookupField( poleEtykiety );
+    const int iBufor = bufor < 0 ? vl->fields().lookupField( QStringLiteral( "bufor_m" ) ) : -1;
+    int ile = 0;
+    QgsFeature f;
+    QgsFeatureIterator it = vl->getFeatures();
+    while ( it.nextFeature( f ) )
+    {
+      QgsGeometry g = f.geometry();
+      if ( g.isNull() )
+        continue;
+      try
+      {
+        g.transform( doProjektu );
+      }
+      catch ( const QgsCsException & )
+      {
+        continue;
+      }
+      const double b = iBufor >= 0 ? f.attribute( iBufor ).toDouble() : bufor;
+      if ( b > 0 )
+      {
+        g = g.buffer( b, 12 );
+        if ( g.isNull() )
+          continue;
+      }
+      else if ( bufor < 0 )
+      {
+        continue; // bufor wylaczony przy tym obiekcie
+      }
+      DxfInwentaryzacja::Obszar o;
+      o.pierscienie = pierscienieZ( g );
+      if ( o.pierscienie.isEmpty() )
+        continue;
+      o.warstwa = warstwaDxf;
+      o.etykieta = iEty >= 0 ? f.attribute( iEty ).toString().trimmed() : QString();
+      obszary << o;
+      ++ile;
+    }
+    return ile;
+  };
+  QgsVectorLayer *warstwaGrup = warstwaZUstawien( p, QStringLiteral( "warstwaGrup" ), Qgis::GeometryType::Polygon );
+  QgsVectorLayer *warstwaZakresu = warstwaZUstawien( p, QStringLiteral( "warstwaZakresu" ), Qgis::GeometryType::Polygon );
+  const int ileGrup = dodajObszary( warstwaGrup, QStringLiteral( "GRUPY" ), QStringLiteral( "nr_inw" ), 0 );
+  const int ileZakresu = dodajObszary( warstwaZakresu, QStringLiteral( "ZAKRES" ), QStringLiteral( "nazwa" ), 0 );
+  const int ileBuforow = dodajObszary( warstwaZakresu, QStringLiteral( "ZAKRES_BUFOR" ), QString(), -1 );
+  const QString uwagaObszarow = ileGrup + ileZakresu > 0 ? QStringLiteral( "Obszary: grupy krzewów %1, zakres prac %2 (bufory %3)" ).arg( ileGrup ).arg( ileZakresu ).arg( ileBuforow ) : QString();
+  if ( warstwaGrup )
+  {
+    // Arkusz ODS: te same role pol co u drzew (szukane po nazwie albo aliasie).
+    const QgsFields polaGrup = warstwaGrup->fields();
+    auto poleG = [&polaGrup]( const std::function<bool( const QString & )> &pasuje ) { return poleWgNazwy( polaGrup, QString(), pasuje ); };
+    const int gEty = poleG( []( const QString &n ) { return n.startsWith( QLatin1String( "nr inw" ) ) || n.startsWith( QLatin1String( "nr_inw" ) ); } );
+    const int gKat = poleG( []( const QString &n ) { return n.startsWith( QLatin1String( "kategori" ) ); } );
+    const int gTech = poleG( []( const QString &n ) { return n.contains( QLatin1String( "techniczn" ) ); } );
+    const int gPol = poleG( []( const QString &n ) { return n.contains( QLatin1String( "nazwa polsk" ) ); } );
+    const int gWys = poleG( []( const QString &n ) { return n.startsWith( QLatin1String( "wysokosc" ) ); } );
+    const int gStan = poleG( []( const QString &n ) { return n.startsWith( QLatin1String( "stan" ) ); } );
+    const int gUwagi = poleG( []( const QString &n ) { return n.startsWith( QLatin1String( "uwag" ) ); } );
+    QgsFeature f;
+    QgsFeatureIterator it = warstwaGrup->getFeatures();
+    while ( it.nextFeature( f ) )
+    {
+      auto t = [&f]( int i ) { return i >= 0 ? f.attribute( i ).toString().trimmed() : QString(); };
+      const double pow = f.geometry().isNull() ? 0.0 : std::round( f.geometry().area() * 10.0 ) / 10.0;
+      grupyDoOds << QStringList { t( gEty ), t( gKat ), t( gTech ), t( gPol ), t( gWys ), t( gStan ), t( gUwagi ), QString::number( pow ) };
+    }
+  }
+
   DxfInwentaryzacja::Ustawienia ust;
   ust.wysokoscTekstu = p->readDoubleEntry( zakres, QStringLiteral( "/wysokoscTekstu" ), ust.wysokoscTekstu );
   ust.szerokoscZnaku = p->readDoubleEntry( zakres, QStringLiteral( "/szerokoscZnaku" ), ust.szerokoscZnaku );
@@ -553,6 +665,8 @@ QVariantMap InwentaryzacjaDrzew::eksportuj( QgsProject *projekt ) const
   QDir().mkpath( katalog );
 
   QStringList pliki, uwagi;
+  if ( !uwagaObszarow.isEmpty() )
+    uwagi << uwagaObszarow;
   uwagi << QStringLiteral( "Warstwa: %1; pola: %2 / %3 / %4" )
              .arg( drzewa->name(), drzewa->fields().at( iObw ).name(), drzewa->fields().at( iKor ).name(),
                    iEty >= 0 ? drzewa->fields().at( iEty ).name() : QStringLiteral( "fid" ) );
@@ -560,7 +674,7 @@ QVariantMap InwentaryzacjaDrzew::eksportuj( QgsProject *projekt ) const
     uwagi << QStringLiteral( "Średnica zamiast obwodu (sr/s): %1; powierzchnia (m2) bez pnia: %2; bez korony: %3" ).arg( zSrednicy ).arg( zPowierzchni ).arg( bezKorony );
 
   auto zapisz = [&]( const QString &sciezka, const QByteArray &bazowy ) -> bool {
-    const DxfInwentaryzacja::Wynik w = DxfInwentaryzacja::dopisz( bazowy, lista, ust, bazowy.contains( "ANSI_1250" ) ? &KodowanieDxf::doCp1250 : nullptr );
+    const DxfInwentaryzacja::Wynik w = DxfInwentaryzacja::dopisz( bazowy, lista, ust, bazowy.contains( "ANSI_1250" ) ? &KodowanieDxf::doCp1250 : nullptr, obszary );
     uwagi << w.uwagi;
     if ( w.dxf.isEmpty() )
       return false;
@@ -595,7 +709,7 @@ QVariantMap InwentaryzacjaDrzew::eksportuj( QgsProject *projekt ) const
   // --- tabela inwentaryzacyjna ODS (do dalszego uzupelnienia) -------------------
   {
     const QString ods = QStringLiteral( "%1/%2_tabela_inwentaryzacyjna.ods" ).arg( katalog, nazwa );
-    const QString blad = DxfInwentaryzacja::zapiszOds( ods, wiersze );
+    const QString blad = DxfInwentaryzacja::zapiszOds( ods, wiersze, grupyDoOds );
     if ( blad.isEmpty() )
       pliki << ods;
     else
@@ -780,5 +894,306 @@ QVariantMap InwentaryzacjaDrzew::styluj( QgsProject *projekt ) const
     z->triggerRepaint();
     wynik.insert( QStringLiteral( "zakres" ), z->name() );
   }
+  return wynik;
+}
+
+// ---------------------------------------------------------------------------
+// Zakres prac - WorkField 20.09.2026
+// Zakres wczytany z pliku albo z dzialek ewidencyjnych (ULDK). Siec robi
+// QML (XMLHttpRequest, jak wtyczka GUGiK, sprawdzona na telefonie), a tu
+// jest to, co da sie sprawdzic poza telefonem: odczyt pliku, rozbior
+// odpowiedzi ULDK, zapis obiektow zakresu z buforem.
+// ---------------------------------------------------------------------------
+#include <qgscurve.h>
+#include <qgspolygon.h>
+#include <qgsprovidersublayerdetails.h>
+#include <qgsvectorlayerutils.h>
+#include <qgsexpressioncontextutils.h>
+
+namespace
+{
+  //! Poligony z geometrii: poligon/multipoligon wprost, zamknieta linia jako obrys.
+  QList<QgsGeometry> poligonyZ( const QgsGeometry &g )
+  {
+    QList<QgsGeometry> wynik;
+    if ( g.isNull() || g.isEmpty() )
+      return wynik;
+    if ( g.type() == Qgis::GeometryType::Polygon )
+    {
+      for ( auto it = g.const_parts_begin(); it != g.const_parts_end(); ++it )
+        wynik << QgsGeometry( ( *it )->clone() );
+      return wynik;
+    }
+    if ( g.type() == Qgis::GeometryType::Line )
+    {
+      for ( auto it = g.const_parts_begin(); it != g.const_parts_end(); ++it )
+      {
+        const QgsCurve *linia = qgsgeometry_cast<const QgsCurve *>( *it );
+        if ( linia && linia->isClosed() && linia->numPoints() >= 4 )
+        {
+          QgsPolygon *p = new QgsPolygon();
+          p->setExteriorRing( linia->clone() );
+          wynik << QgsGeometry( p );
+        }
+      }
+    }
+    return wynik;
+  }
+
+  //! Dopisuje poligony do warstwy zakresu: nazwa, bufor, domyslne (powierzchnia, data).
+  int zapiszZakres( QgsVectorLayer *zakres, const QList<QPair<QgsGeometry, QString>> &obiekty, double bufor, QStringList *bledy )
+  {
+    const bool bylaEdycja = zakres->isEditable();
+    if ( !bylaEdycja && !zakres->startEditing() )
+    {
+      *bledy << QStringLiteral( "warstwa zakresu nie daje się edytować" );
+      return 0;
+    }
+    const int iNazwa = zakres->fields().lookupField( QStringLiteral( "nazwa" ) );
+    const int iBufor = zakres->fields().lookupField( QStringLiteral( "bufor_m" ) );
+    QgsExpressionContext kontekst = zakres->createExpressionContext();
+    int dodane = 0;
+    for ( const auto &o : obiekty )
+    {
+      QgsAttributeMap a;
+      if ( iNazwa >= 0 )
+        a.insert( iNazwa, o.second );
+      if ( iBufor >= 0 )
+        a.insert( iBufor, bufor );
+      QgsFeature f = QgsVectorLayerUtils::createFeature( zakres, o.first, a, &kontekst );
+      if ( zakres->addFeature( f ) )
+        ++dodane;
+    }
+    if ( !bylaEdycja && !zakres->commitChanges() )
+    {
+      *bledy << zakres->commitErrors().join( QStringLiteral( "; " ) );
+      zakres->rollBack();
+      return 0;
+    }
+    zakres->updateExtents();
+    zakres->triggerRepaint();
+    return dodane;
+  }
+} // namespace
+
+QVariantMap InwentaryzacjaDrzew::zakresZPliku( QgsProject *projekt, const QString &sciezka, double bufor ) const
+{
+  QVariantMap wynik;
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  QgsVectorLayer *zakres = p ? warstwaZUstawien( p, QStringLiteral( "warstwaZakresu" ), Qgis::GeometryType::Polygon ) : nullptr;
+  if ( !zakres )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Projekt nie ma warstwy zakresu prac" ) );
+    return wynik;
+  }
+  if ( !QFileInfo::exists( sciezka ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Nie ma pliku %1" ).arg( sciezka ) );
+    return wynik;
+  }
+
+  // Wszystkie warstwy wektorowe pliku (GPKG ma ich kilka, DXF - typy encji).
+  QStringList uri;
+  const QList<QgsProviderSublayerDetails> podwarstwy = QgsProviderRegistry::instance()->querySublayers( sciezka );
+  for ( const QgsProviderSublayerDetails &d : podwarstwy )
+  {
+    if ( d.type() == Qgis::LayerType::Vector )
+      uri << d.uri();
+  }
+  if ( uri.isEmpty() )
+    uri << sciezka;
+
+  const QString nazwaPliku = QFileInfo( sciezka ).completeBaseName();
+  QList<QPair<QgsGeometry, QString>> obiekty;
+  int pominiete = 0;
+  for ( const QString &u : std::as_const( uri ) )
+  {
+    QgsVectorLayer vl( u, QStringLiteral( "zakres_zrodlo" ), QStringLiteral( "ogr" ) );
+    if ( !vl.isValid() )
+      continue;
+    // DXF nie niesie ukladu - wtedy zakladamy uklad projektu (jak kreator CAD).
+    const QgsCoordinateReferenceSystem crsZrodla = vl.crs().isValid() ? vl.crs() : p->crs();
+    const QgsCoordinateTransform t( crsZrodla, zakres->crs(), p->transformContext() );
+    const int iNazwy = vl.fields().lookupField( QStringLiteral( "nazwa" ) ) >= 0 ? vl.fields().lookupField( QStringLiteral( "nazwa" ) ) : vl.fields().lookupField( QStringLiteral( "name" ) );
+    QgsFeature f;
+    QgsFeatureIterator it = vl.getFeatures();
+    while ( it.nextFeature( f ) )
+    {
+      const QList<QgsGeometry> poligony = poligonyZ( f.geometry() );
+      if ( poligony.isEmpty() )
+      {
+        ++pominiete;
+        continue;
+      }
+      const QString nazwa = iNazwy >= 0 && !f.attribute( iNazwy ).toString().isEmpty() ? f.attribute( iNazwy ).toString() : nazwaPliku;
+      for ( QgsGeometry g : poligony )
+      {
+        try
+        {
+          g.transform( t );
+        }
+        catch ( const QgsCsException & )
+        {
+          ++pominiete;
+          continue;
+        }
+        obiekty << qMakePair( g, nazwa );
+      }
+    }
+  }
+  if ( obiekty.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "W pliku %1 nie ma poligonów ani zamkniętych linii" ).arg( QFileInfo( sciezka ).fileName() ) );
+    return wynik;
+  }
+  QStringList bledy;
+  const int dodane = zapiszZakres( zakres, obiekty, bufor, &bledy );
+  if ( !bledy.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Zapis zakresu nie powiódł się: %1" ).arg( bledy.join( QStringLiteral( "; " ) ) ) );
+    return wynik;
+  }
+  wynik.insert( QStringLiteral( "dodane" ), dodane );
+  wynik.insert( QStringLiteral( "pominiete" ), pominiete );
+  wynik.insert( QStringLiteral( "warstwaId" ), zakres->id() );
+  return wynik;
+}
+
+QVariantMap InwentaryzacjaDrzew::dzialkaZUldk( const QString &odpowiedz, double x, double y ) const
+{
+  // Odpowiedz ULDK: pierwsza linia to status ("0" = jest, "-1 ..." = nie ma),
+  // dalej wiersz pol rozdzielonych "|". Geometrie rozpoznajemy po tresci
+  // (SRID=...;POLYGON, POLYGON, MULTIPOLYGON albo hex WKB), identyfikator po
+  // wzorcu TERYT - jak we wtyczce GUGiK, ktora przezyla zmiany kolejnosci pol.
+  QVariantMap wynik;
+  const QStringList linie = odpowiedz.split( QRegularExpression( QStringLiteral( "\r?\n" ) ) );
+  QString dane;
+  for ( const QString &l : linie )
+  {
+    if ( l.contains( QLatin1Char( '|' ) ) || l.contains( QLatin1String( "POLYGON" ), Qt::CaseInsensitive ) )
+    {
+      dane = l.trimmed();
+      break;
+    }
+  }
+  if ( dane.isEmpty() )
+  {
+    const QString pierwsza = linie.value( 0 ).trimmed();
+    wynik.insert( QStringLiteral( "blad" ), pierwsza.startsWith( QLatin1String( "-1" ) ) || pierwsza == QLatin1String( "0" ) ? QStringLiteral( "ULDK nie zna tu działki" ) : QStringLiteral( "Nie rozumiem odpowiedzi ULDK: %1" ).arg( odpowiedz.left( 120 ) ) );
+    wynik.insert( QStringLiteral( "brak" ), true );
+    return wynik;
+  }
+  const QStringList pola = dane.split( QLatin1Char( '|' ) );
+  static const QRegularExpression reGeom( QStringLiteral( "^(SRID\\s*=\\s*\\d+\\s*;\\s*)?(MULTI)?POLYGON" ), QRegularExpression::CaseInsensitiveOption );
+  static const QRegularExpression reHex( QStringLiteral( "^[0-9a-fA-F]{40,}$" ) );
+  static const QRegularExpression reTeryt( QStringLiteral( "^\\d{6}_\\d+\\.\\d+" ) );
+  QgsGeometry geometria;
+  QStringList opisy;
+  QString id;
+  for ( const QString &surowe : pola )
+  {
+    const QString pole = surowe.trimmed();
+    if ( geometria.isNull() && reGeom.match( pole ).hasMatch() )
+    {
+      QString wkt = pole;
+      wkt.remove( QRegularExpression( QStringLiteral( "^SRID\\s*=\\s*\\d+\\s*;\\s*" ), QRegularExpression::CaseInsensitiveOption ) );
+      geometria = QgsGeometry::fromWkt( wkt );
+      continue;
+    }
+    if ( geometria.isNull() && reHex.match( pole ).hasMatch() )
+    {
+      // EWKB: flaga SRID (0x20000000) z czterobajtowym SRID po typie - QGIS
+      // czyta WKB bez niej, wiec ja zdejmujemy (tylko w naglowku glownym).
+      QByteArray wkb = QByteArray::fromHex( pole.toLatin1() );
+      if ( wkb.size() > 9 )
+      {
+        const bool le = wkb.at( 0 ) == 1;
+        auto czytaj32 = [&]( int o ) {
+          const quint8 *b = reinterpret_cast<const quint8 *>( wkb.constData() + o );
+          return le ? ( quint32( b[0] ) | quint32( b[1] ) << 8 | quint32( b[2] ) << 16 | quint32( b[3] ) << 24 ) : ( quint32( b[3] ) | quint32( b[2] ) << 8 | quint32( b[1] ) << 16 | quint32( b[0] ) << 24 );
+        };
+        quint32 typ = czytaj32( 1 );
+        if ( typ & 0x20000000u )
+        {
+          typ &= ~0x20000000u;
+          wkb.remove( 5, 4 );
+          quint8 *b = reinterpret_cast<quint8 *>( wkb.data() + 1 );
+          for ( int k = 0; k < 4; ++k )
+            b[k] = le ? quint8( ( typ >> ( 8 * k ) ) & 0xff ) : quint8( ( typ >> ( 8 * ( 3 - k ) ) ) & 0xff );
+        }
+        QgsGeometry g;
+        g.fromWkb( wkb );
+        geometria = g;
+      }
+      continue;
+    }
+    if ( id.isEmpty() && reTeryt.match( pole ).hasMatch() )
+      id = pole;
+    if ( !pole.isEmpty() )
+      opisy << pole;
+  }
+  if ( geometria.isNull() || geometria.type() != Qgis::GeometryType::Polygon )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "W odpowiedzi ULDK nie ma obrysu działki" ) );
+    return wynik;
+  }
+  if ( id.isEmpty() && !opisy.isEmpty() )
+    id = opisy.first();
+  wynik.insert( QStringLiteral( "wkt" ), geometria.asWkt( 2 ) );
+  wynik.insert( QStringLiteral( "id" ), id );
+  wynik.insert( QStringLiteral( "opisy" ), opisy );
+  wynik.insert( QStringLiteral( "powierzchnia" ), std::round( geometria.area() ) );
+  // Czy obrys obejmuje punkt zapytania (tolerancja 3 m)? Tak wtyczka GUGiK
+  // ustala kolejnosc osi: zly obrys = pytac jeszcze raz z zamienionymi X/Y.
+  if ( !std::isnan( x ) && !std::isnan( y ) && ( x != 0 || y != 0 ) )
+    wynik.insert( QStringLiteral( "zawiera" ), geometria.distance( QgsGeometry::fromPointXY( QgsPointXY( x, y ) ) ) <= 3.0 );
+  else
+    wynik.insert( QStringLiteral( "zawiera" ), true );
+  return wynik;
+}
+
+QVariantMap InwentaryzacjaDrzew::dodajZakres( QgsProject *projekt, const QVariantList &dzialki, double bufor ) const
+{
+  QVariantMap wynik;
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  QgsVectorLayer *zakres = p ? warstwaZUstawien( p, QStringLiteral( "warstwaZakresu" ), Qgis::GeometryType::Polygon ) : nullptr;
+  if ( !zakres )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Projekt nie ma warstwy zakresu prac" ) );
+    return wynik;
+  }
+  // Dzialki przychodza w PUWG 1992 (EPSG:2180) - w tym ukladzie pytamy ULDK.
+  const QgsCoordinateTransform t( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:2180" ) ), zakres->crs(), p->transformContext() );
+  QList<QPair<QgsGeometry, QString>> obiekty;
+  for ( const QVariant &v : dzialki )
+  {
+    const QVariantMap d = v.toMap();
+    QgsGeometry g = QgsGeometry::fromWkt( d.value( QStringLiteral( "wkt" ) ).toString() );
+    if ( g.isNull() )
+      continue;
+    try
+    {
+      g.transform( t );
+    }
+    catch ( const QgsCsException & )
+    {
+      continue;
+    }
+    obiekty << qMakePair( g, QStringLiteral( "działka %1" ).arg( d.value( QStringLiteral( "id" ) ).toString() ) );
+  }
+  if ( obiekty.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Brak działek do dodania" ) );
+    return wynik;
+  }
+  QStringList bledy;
+  const int dodane = zapiszZakres( zakres, obiekty, bufor, &bledy );
+  if ( !bledy.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Zapis zakresu nie powiódł się: %1" ).arg( bledy.join( QStringLiteral( "; " ) ) ) );
+    return wynik;
+  }
+  wynik.insert( QStringLiteral( "dodane" ), dodane );
+  wynik.insert( QStringLiteral( "warstwaId" ), zakres->id() );
   return wynik;
 }

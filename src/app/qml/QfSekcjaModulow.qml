@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs as SystemoweOkna
 import org.qfield
 import org.qfield.core
 import Theme
@@ -28,6 +29,12 @@ import Theme
  *    warstwy do otwartego projektu — warstwy z polami, aliasami, listami
  *    i wartościami domyślnymi, ustawienia modułu, znacznik wfg_moduly/<id>
  *    i czynności "po_zalozeniu" (np. styl). Tak jak kreator „Projekt z DXF".
+ *
+ * Akcja z "okno": "zakres" otwiera okno zakresu prac (20.09.2026): z pliku
+ * albo z działek ewidencyjnych (adres lub numer działki → GUGiK UUG → ULDK),
+ * z pytaniem o bufor. Sieć tutaj (XMLHttpRequest, jak wtyczka GUGiK);
+ * rozbiór odpowiedzi ULDK i zapis zakresu robi silnik (czasowniki z akcji:
+ * "z_pliku", "z_uldk", "z_dzialek").
  *
  * Akcja z "potwierdz" pyta przed wykonaniem (tekst z {kluczami} z rozpoznania);
  * akcja z "tylko_z_modulu" jest widoczna tylko w projekcie założonym z modułu
@@ -89,8 +96,10 @@ Item {
     const kropka = czasownik.indexOf(".");
     const s = silniki()[czasownik.substring(0, kropka)];
     const metoda = czasownik.substring(kropka + 1);
-    return s && typeof s[metoda] === "function" ? function (projekt) {
-      return s[metoda](projekt);
+    // Dowolne argumenty: czynności modułu dostają nie tylko projekt
+    // (np. zakres z pliku: projekt, ścieżka, bufor).
+    return s && typeof s[metoda] === "function" ? function () {
+      return s[metoda].apply(s, arguments);
     } : null;
   }
 
@@ -140,11 +149,18 @@ Item {
 
   //! Akcja widoczna na karcie? (tylko_z_modulu -> projekt z modułu)
   function widoczna(akcja, rozpoznanie) {
+    // "tylko_gdy": klucz, który rozpoznanie musi zwrócić (np. warstwaZakresu)
+    if (akcja.tylko_gdy && !rozpoznanie[akcja.tylko_gdy])
+      return false;
     return !akcja.tylko_z_modulu || !!rozpoznanie.zModulu;
   }
 
   //! Przycisk na karcie: akcja z "potwierdz" najpierw pyta.
   function nacisnij(akcja, rozpoznanie) {
+    if (akcja.okno === "zakres") {
+      oknoZakresu.otworz(akcja);
+      return;
+    }
     if (akcja.potwierdz) {
       oknoPotwierdzenia.akcja = akcja;
       oknoPotwierdzenia.tekst = wypelnij(akcja.potwierdz, rozpoznanie);
@@ -296,6 +312,353 @@ Item {
       szuflada.close();
     } else {
       pokaz();
+    }
+  }
+
+  // ── Zakres prac: z pliku albo z działek ewidencyjnych ─────────────────
+  Popup {
+    id: oknoZakresu
+
+    property var akcja: ({})
+    property var dzialki: []
+    property string stan: ""
+    property bool zajety: false
+    //! Kolejność osi w zapytaniu ULDK, która zadziałała (jak we wtyczce GUGiK).
+    property bool osieOdwrotne: false
+    readonly property string uldk: "https://uldk.gugik.gov.pl/?"
+    readonly property string wynikUldk: "&result=teryt,parcel,region,commune,geom_wkt"
+
+    parent: typeof mainWindow !== "undefined" ? mainWindow.contentItem : sekcja
+    x: (parent.width - width) / 2
+    y: Math.max(12, (parent.height - height) / 4)
+    width: Math.min(parent.width - 24, 520)
+    modal: true
+    focus: true
+    closePolicy: Popup.CloseOnEscape
+
+    function otworz(a) {
+      akcja = a;
+      dzialki = [];
+      stan = "";
+      zajety = false;
+      poleSzukaj.text = "";
+      poleBufor.text = String(a.bufor !== undefined ? a.bufor : 5);
+      const pokaz = function () {
+        oknoZakresu.open();
+      };
+      if (sekcja.szuflada && sekcja.szuflada.modal && sekcja.szuflada.opened) {
+        const poZamknieciu = function () {
+          sekcja.szuflada.closed.disconnect(poZamknieciu);
+          pokaz();
+        };
+        sekcja.szuflada.closed.connect(poZamknieciu);
+        sekcja.szuflada.close();
+      } else {
+        pokaz();
+      }
+    }
+
+    function bufor() {
+      const b = parseFloat(String(poleBufor.text).replace(",", "."));
+      return isNaN(b) || b < 0 ? 0 : b;
+    }
+
+    function log(t) {
+      console.log("WFG zakres: " + t);
+    }
+
+    //! Wynik czasownika zapisu: komunikat, powiększenie do zakresu, odświeżenie karty.
+    function zakonczone(w, opis) {
+      log(JSON.stringify(w));
+      if (w.blad) {
+        stan = w.blad;
+        return;
+      }
+      close();
+      displayToast(qsTr("Zakres prac: dodano %1 (%2), bufor %3 m").arg(w.dodane).arg(opis).arg(bufor()));
+      const warstwa = w.warstwaId && qgisProject ? qgisProject.mapLayer(w.warstwaId) : null;
+      if (warstwa && typeof iface.zoomToLayer === "function" && typeof mapCanvas !== "undefined")
+        iface.zoomToLayer(warstwa, mapCanvas.mapSettings);
+      sekcja.odswiez();
+    }
+
+    function zPliku(sciezka) {
+      const f = sekcja.czynnosc(akcja.z_pliku);
+      if (!f) {
+        stan = qsTr("Ta wersja aplikacji nie umie wczytać zakresu z pliku");
+        return;
+      }
+      const w = f(qgisProject, sciezka, bufor());
+      if (!w.blad && w.pominiete > 0)
+        log("pominięte obiekty bez obrysu: " + w.pominiete);
+      zakonczone(w, FileUtils.fileName(sciezka));
+    }
+
+    function dodajDzialke(d, opis) {
+      for (const juz of dzialki)
+        if (juz.id === d.id)
+          return;
+      d.opis = opis;
+      d.wybrana = true;
+      dzialki = dzialki.concat([d]);
+    }
+
+    //! Zapytanie ULDK po punkcie (EPSG:2180). \a proba: 0 = bieżąca kolejność
+    //! osi, 1 = zamieniona. Obrys musi obejmować punkt — inaczej druga próba.
+    function uldkPunkt(a, b, opis, proba) {
+      const odwrotnie = proba === 0 ? osieOdwrotne : !osieOdwrotne;
+      const url = uldk + "request=GetParcelByXY&xy=" + (odwrotnie ? b : a).toFixed(2) + "," + (odwrotnie ? a : b).toFixed(2) + "&srid=2180" + wynikUldk;
+      zapytaj(url, function (tekst) {
+        const f = sekcja.czynnosc(akcja.z_uldk);
+        // punkt sprawdzamy w obu kolejnościach: nie wiemy, w której UUG podał współrzędne
+        let d = f(tekst, a, b);
+        if (!d.blad && !d.zawiera) {
+          const d2 = f(tekst, b, a);
+          if (d2.zawiera)
+            d = d2;
+        }
+        if (!d.blad && d.zawiera) {
+          if (odwrotnie !== osieOdwrotne) {
+            osieOdwrotne = odwrotnie;
+            log("kolejność osi ULDK: " + (odwrotnie ? "odwrotna" : "wprost"));
+          }
+          dodajDzialke(d, opis);
+          stan = qsTr("Znaleziono działek: %1").arg(dzialki.length);
+          return;
+        }
+        if (proba === 0) {
+          uldkPunkt(a, b, opis, 1);
+          return;
+        }
+        stan = qsTr("ULDK nie zwróciło działki dla: %1").arg(opis);
+      });
+    }
+
+    function uldkId(id, opis) {
+      const url = uldk + "request=GetParcelByIdOrNr&id=" + encodeURIComponent(id) + "&srid=2180" + wynikUldk;
+      zapytaj(url, function (tekst) {
+        const d = sekcja.czynnosc(akcja.z_uldk)(tekst, NaN, NaN);
+        if (d.blad) {
+          stan = qsTr("Nie znalazłem działki „%1”: %2").arg(id).arg(d.blad);
+          return;
+        }
+        dodajDzialke(d, opis);
+        stan = qsTr("Znaleziono działek: %1").arg(dzialki.length);
+      });
+    }
+
+    function zapytaj(url, poOdpowiedzi) {
+      log("pytam: " + url);
+      zajety = true;
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", url);
+      xhr.timeout = 25000;
+      xhr.ontimeout = function () {
+        oknoZakresu.zajety = false;
+        oknoZakresu.stan = qsTr("Usługa nie odpowiedziała w 25 s — sprawdź zasięg.");
+      };
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== XMLHttpRequest.DONE)
+          return;
+        oknoZakresu.zajety = false;
+        const tekst = String(xhr.responseText);
+        oknoZakresu.log("odpowiedź " + xhr.status + ": " + tekst.substring(0, 200).replace(/\n/g, "\\n"));
+        if (xhr.status !== 200) {
+          oknoZakresu.stan = xhr.status === 0 ? qsTr("Brak odpowiedzi (sieć, TLS albo blokada).") : qsTr("Usługa odpowiedziała błędem %1.").arg(xhr.status);
+          return;
+        }
+        poOdpowiedzi(tekst);
+      };
+      xhr.send();
+    }
+
+    //! Numer działki TERYT albo "obręb nr" → ULDK wprost; reszta to adres → UUG.
+    function szukaj(tekst) {
+      tekst = String(tekst).trim();
+      if (tekst === "")
+        return;
+      stan = qsTr("Szukam…");
+      if (/^\d{6}_\d\.\d{4}\.\S+$/.test(tekst)) {
+        uldkId(tekst, tekst);
+        return;
+      }
+      const url = "https://services.gugik.gov.pl/uug/?request=GetAddress&address=" + encodeURIComponent(tekst) + "&srid=2180";
+      zapytaj(url, function (odp) {
+        let wyniki = [];
+        try {
+          const j = JSON.parse(odp);
+          const r = j.results || {};
+          for (const k in r)
+            wyniki.push(r[k]);
+        } catch (e) {
+          oknoZakresu.log("UUG: nie JSON: " + e);
+        }
+        const punkty = [];
+        for (const w of wyniki.slice(0, 5)) {
+          let a = NaN, b = NaN;
+          const m = /POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)/i.exec(String(w.geometry_wkt || ""));
+          if (m) {
+            a = parseFloat(m[1]);
+            b = parseFloat(m[2]);
+          } else {
+            a = parseFloat(w.x);
+            b = parseFloat(w.y);
+          }
+          if (isNaN(a) || isNaN(b))
+            continue;
+          const opis = [w.city, w.street, w.number].filter(function (t) {
+            return t && String(t).trim() !== "";
+          }).join(" ");
+          punkty.push({ "a": a, "b": b, "opis": opis !== "" ? opis : tekst });
+        }
+        if (punkty.length === 0) {
+          // Nie adres - może "obręb numer" (ULDK GetParcelByIdOrNr to rozumie).
+          oknoZakresu.log("UUG bez wyników - próbuję jako obręb i numer działki");
+          oknoZakresu.uldkId(tekst, tekst);
+          return;
+        }
+        for (const pt of punkty)
+          oknoZakresu.uldkPunkt(pt.a, pt.b, pt.opis, 0);
+      });
+    }
+
+    SystemoweOkna.FileDialog {
+      id: wybieraczZakresu
+      title: qsTr("Wskaż plik z zakresem prac")
+      // jak w kreatorze "Projekt z DXF": start w Pobranych, bez filtra typów
+      // (Android filtruje po MIME, a GPKG/DXF go nie mają)
+      currentFolder: "file:///storage/emulated/0/Download"
+      nameFilters: [qsTr("Wszystkie pliki (*)")]
+      onAccepted: oknoZakresu.zPliku(String(selectedFile).replace(/^file:\/\//, ""))
+    }
+
+    background: Rectangle {
+      color: Theme.mainBackgroundColor
+      radius: 8
+      border.width: 1
+      border.color: Theme.controlBorderColor
+    }
+
+    contentItem: ColumnLayout {
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Zakres prac")
+        font: Theme.strongTipFont
+        color: Theme.mainTextColor
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        Text {
+          text: qsTr("Bufor wokół zakresu [m]")
+          font: Theme.tipFont
+          color: Theme.mainTextColor
+        }
+        TextField {
+          id: poleBufor
+          Layout.preferredWidth: 70
+          inputMethodHints: Qt.ImhFormattedNumbersOnly
+          font: Theme.tipFont
+        }
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("0 = bez bufora")
+          font: Theme.tinyFont
+          color: Theme.secondaryTextColor
+          wrapMode: Text.WordWrap
+        }
+      }
+
+      QfPozycjaMenu {
+        Layout.fillWidth: true
+        text: qsTr("Z pliku (GPKG, KML, GeoJSON, DXF, SHP)…")
+        ikona: "wfg_przeglad"
+        enabled: !oknoZakresu.zajety
+        onClicked: wybieraczZakresu.open()
+      }
+
+      Text {
+        Layout.fillWidth: true
+        Layout.topMargin: 4
+        text: qsTr("Z działek ewidencyjnych — adres albo numer działki:")
+        font: Theme.tipFont
+        color: Theme.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+        TextField {
+          id: poleSzukaj
+          Layout.fillWidth: true
+          placeholderText: qsTr("np. Warszawa, Bruzdowa 100 · 146516_8.0625.4/1")
+          font: Theme.tipFont
+          onAccepted: oknoZakresu.szukaj(text)
+        }
+        Button {
+          text: qsTr("Szukaj")
+          enabled: !oknoZakresu.zajety && poleSzukaj.text.trim() !== ""
+          onClicked: oknoZakresu.szukaj(poleSzukaj.text)
+        }
+      }
+
+      Repeater {
+        model: oknoZakresu.dzialki
+        delegate: CheckBox {
+          required property var modelData
+          required property int index
+          Layout.fillWidth: true
+          checked: modelData.wybrana
+          text: qsTr("%1 · %2 m² · %3").arg(modelData.id).arg(modelData.powierzchnia).arg(modelData.opis)
+          font: Theme.tinyFont
+          onToggled: oknoZakresu.dzialki[index].wybrana = checked
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        visible: text !== ""
+        text: oknoZakresu.stan
+        font: Theme.tinyFont
+        color: Theme.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        BusyIndicator {
+          Layout.preferredWidth: 28
+          Layout.preferredHeight: 28
+          running: oknoZakresu.zajety
+          visible: running
+        }
+        Item {
+          Layout.fillWidth: true
+        }
+        Button {
+          text: qsTr("Zamknij")
+          onClicked: oknoZakresu.close()
+        }
+        Button {
+          text: qsTr("Dodaj do zakresu")
+          enabled: !oknoZakresu.zajety && oknoZakresu.dzialki.length > 0
+          onClicked: {
+            const wybrane = oknoZakresu.dzialki.filter(function (d) {
+              return d.wybrana;
+            });
+            if (wybrane.length === 0) {
+              oknoZakresu.stan = qsTr("Zaznacz co najmniej jedną działkę.");
+              return;
+            }
+            const f = sekcja.czynnosc(oknoZakresu.akcja.z_dzialek);
+            oknoZakresu.zakonczone(f(qgisProject, wybrane, oknoZakresu.bufor()), qsTr("działek: %1").arg(wybrane.length));
+          }
+        }
+      }
     }
   }
 

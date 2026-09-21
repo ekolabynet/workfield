@@ -19,6 +19,7 @@
 #include <QByteArray>
 #include <QString>
 #include <QStringList>
+#include <QPointF>
 #include <QVector>
 
 namespace DxfInwentaryzacja
@@ -30,6 +31,19 @@ namespace DxfInwentaryzacja
       double y = 0.0;
       double rKorony = 0.0; //!< [m]; 0 = bez okregu korony
       double rPnia = 0.0;   //!< [m]; 0 = symbol zastepczy
+      QString etykieta;
+  };
+
+  /**
+   * Obszar rysowany jako obrys: zakres prac, bufor zakresu, grupa krzewow.
+   * \a pierscienie - zewnetrzny i ewentualne wewnetrzne (dziury), kazdy
+   * zamkniety, we wspolrzednych rysunku; \a warstwa - nazwa warstwy DXF;
+   * \a etykieta - napis w srodku obrysu (pusty = bez napisu).
+   */
+  struct Obszar
+  {
+      QVector<QVector<QPointF>> pierscienie;
+      QString warstwa;
       QString etykieta;
   };
 
@@ -71,7 +85,8 @@ namespace DxfInwentaryzacja
    * (np. CP1250); nullptr = Latin-1. Od R2007 DXF jest zawsze w UTF-8.
    */
   Wynik dopisz( const QByteArray &bazowy, const QVector<Drzewo> &drzewa, const Ustawienia &ust,
-                QByteArray ( *koduj )( const QString & ) = nullptr );
+                QByteArray ( *koduj )( const QString & ) = nullptr,
+                const QVector<Obszar> &obszary = QVector<Obszar>() );
 
   //! Wiersz tabeli inwentaryzacyjnej - pola jak w zrodle, jako tekst.
   struct Wiersz
@@ -89,7 +104,9 @@ namespace DxfInwentaryzacja
    * arkusz: zestawienie gatunkow i stanu zdrowotnego.
    * Zwraca pusty tekst albo opis bledu.
    */
-  QString zapiszOds( const QString &sciezka, const QVector<Wiersz> &wiersze );
+  //! \a grupy - wiersze arkusza "Grupy krzewow" (ostatnia kolumna liczbowa:
+  //! powierzchnia); pusta lista = bez tego arkusza.
+  QString zapiszOds( const QString &sciezka, const QVector<Wiersz> &wiersze, const QList<QStringList> &grupy = QList<QStringList>() );
 } // namespace DxfInwentaryzacja
 
 #endif // DXFINWENTARYZACJA_H

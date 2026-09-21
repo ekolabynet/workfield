@@ -70,6 +70,29 @@ class InwentaryzacjaDrzew : public QObject
      * Zwraca {usuniete, warstwy} albo {blad}.
      */
     Q_INVOKABLE QVariantMap wyczysc( QgsProject *projekt ) const;
+
+    /**
+     * Zakres prac z pliku (GPKG, SHP, KML, GeoJSON, DXF...): poligony
+     * i zamkniete linie ze wszystkich warstw pliku, przeliczone do ukladu
+     * warstwy zakresu (plik bez ukladu, np. DXF = uklad projektu), z buforem
+     * \a bufor [m]. Zwraca {dodane, pominiete, warstwaId} albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap zakresZPliku( QgsProject *projekt, const QString &sciezka, double bufor ) const;
+
+    /**
+     * Rozbior odpowiedzi ULDK (GetParcelByXY / GetParcelById / GetParcelByIdOrNr,
+     * srid=2180, result=...,geom_wkt): {wkt (EPSG:2180), id, opisy,
+     * powierzchnia, zawiera} albo {blad, brak}. \a zawiera - czy obrys obejmuje
+     * punkt zapytania \a x, \a y (tolerancja 3 m); sluzy do ustalenia
+     * kolejnosci osi, jak we wtyczce GUGiK.
+     */
+    Q_INVOKABLE QVariantMap dzialkaZUldk( const QString &odpowiedz, double x, double y ) const;
+
+    /**
+     * Dzialki (lista {wkt w EPSG:2180, id}) jako obiekty zakresu prac
+     * z buforem \a bufor [m]. Zwraca {dodane, warstwaId} albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap dodajZakres( QgsProject *projekt, const QVariantList &dzialki, double bufor ) const;
 };
 
 #endif // INWENTARYZACJADRZEW_H
