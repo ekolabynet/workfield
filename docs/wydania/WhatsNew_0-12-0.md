@@ -1,4 +1,4 @@
-# WorkField 0.12.0
+# WorkField 0.12.0 „Electronic Elm”
 
 _2026-09-21 · zmiany od wersji 0.11.84_
 
