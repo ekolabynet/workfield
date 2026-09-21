@@ -180,22 +180,22 @@ ToolBar {
         {
           "nazwa": qsTr("Narzędzia"),
           "ikona": "wfg_sprzet",
-          "zakladka": 0
+          "zakladka": 1
         },
         {
           "nazwa": qsTr("Algorytmy"),
           "ikona": "wfg_zbuduj",
-          "zakladka": 1
+          "zakladka": 2
         },
         {
           "nazwa": qsTr("Ustawienia"),
           "ikona": "wfg_ustawienia",
-          "zakladka": 2
+          "zakladka": 3
         },
         {
           "nazwa": qsTr("Moduły"),
           "ikona": "wfg_paczka",
-          "zakladka": 3
+          "zakladka": 0
         }
       ]
 

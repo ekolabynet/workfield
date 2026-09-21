@@ -302,6 +302,12 @@ Drawer {
       currentIndex: 0
 
       TabButton {
+        // WorkField 20.09.2026 - moduly dziedzinowe: zintegrowane narzedzia,
+        // ich zawartosc (warstwy w grupie modulu) jest po lewej
+        text: qsTr("Moduły")
+        font: t.tipFont
+      }
+      TabButton {
         text: qsTr("Narzędzia")
         font: t.tipFont
       }
@@ -311,12 +317,6 @@ Drawer {
       }
       TabButton {
         text: qsTr("Ustawienia")
-        font: t.tipFont
-      }
-      TabButton {
-        // WorkField 20.09.2026 - moduly dziedzinowe: zintegrowane narzedzia,
-        // ich zawartosc (warstwy w grupie modulu) jest po lewej
-        text: qsTr("Moduły")
         font: t.tipFont
       }
     }
@@ -329,6 +329,12 @@ Drawer {
       currentIndex: drawerTabs.currentIndex
 
 
+      // ── Moduły (0) ──────────────────────────────────────────
+      QfSekcjaModulow {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        szuflada: dataDrawer
+      }
       // ── Narzędzia ───────────────────────────────────────────
       //
       // WorkField 15.09.2026 — PRZEWIJANIE. Pozycji uzbieralo sie szesnascie
@@ -728,12 +734,6 @@ Drawer {
         }
       }
 
-      // ── Moduły (3) ──────────────────────────────────────────
-      QfSekcjaModulow {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        szuflada: dataDrawer
-      }
     }
 
     
