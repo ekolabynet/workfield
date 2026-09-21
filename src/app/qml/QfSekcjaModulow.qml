@@ -30,6 +30,9 @@ import Theme
  *    i wartościami domyślnymi, ustawienia modułu, znacznik wfg_moduly/<id>
  *    i czynności "po_zalozeniu" (np. styl). Tak jak kreator „Projekt z DXF".
  *
+ * Akcja z "okno": "podklady" otwiera okno podkładów i danych wysokościowych
+ * (XYZ/WMS, NMT, NMPT, CHM) — 21.09.2026 przeniesione tu z lewej szuflady.
+ *
  * Akcja z "okno": "zakres" otwiera okno zakresu prac (20.09.2026): z pliku
  * albo z działek ewidencyjnych (adres lub numer działki → GUGiK UUG → ULDK),
  * z pytaniem o bufor. Sieć tutaj (XMLHttpRequest, jak wtyczka GUGiK);
@@ -89,6 +92,8 @@ Item {
     const s = {};
     if (typeof InwentaryzacjaDrzew !== "undefined")
       s["InwentaryzacjaDrzew"] = InwentaryzacjaDrzew;
+    if (typeof CAD !== "undefined")
+      s["CAD"] = CAD;
     return s;
   }
 
@@ -159,6 +164,20 @@ Item {
   function nacisnij(akcja, rozpoznanie) {
     if (akcja.okno === "zakres") {
       oknoZakresu.otworz(akcja);
+      return;
+    }
+    if (akcja.okno === "podklady") {
+      // Wspólne okno aplikacji (QfPodklady.qml) — moduł tylko do niego prowadzi.
+      if (typeof oknoPodkladow === "undefined") {
+        displayToast(qsTr("Ta wersja aplikacji nie ma okna podkładów"), "warning");
+        return;
+      }
+      oknoPodkladow.otworz(sekcja.szuflada);
+      return;
+    }
+    // Każde inne "okno" to objectName okna aplikacji — moduł podaje je sam.
+    if (akcja.okno) {
+      otworzOkno(akcja.okno);
       return;
     }
     if (akcja.potwierdz) {
@@ -293,6 +312,48 @@ Item {
       displayToast(qsTr("Projekt gotowy: %1. Podkład dodasz w zakładce Warstwy.").arg(zalozone.join(", ")));
     else
       displayToast(qsTr("Projekt złożony częściowo: %1 z %2 warstw").arg(zalozone.length).arg(warstwy.length), "warning");
+  }
+
+  /**
+   * Start modułu „z pliku": panel nie wie, co to za plik ani co z nim
+   * zrobić — otwiera okno wskazane w opisie modułu i na tym kończy.
+   * Szuflada musi się najpierw zamknąć, inaczej okno wychodzi wyblakłe
+   * spod jej przyciemnienia (notatka z 24.08).
+   */
+  function zacznijZPliku(opis) {
+    otworzOkno((opis.start || {}).okno || "");
+  }
+
+  /**
+   * WorkField 21.09.2026 — otwarcie okna aplikacji po `objectName`.
+   *
+   * Panel nie wie, co to za okno ani co ono robi. Dzięki temu moduł, który
+   * potrzebuje własnego okna, dopisuje je w SWOIM opisie ("okno": "…"),
+   * a nie kolejnym `if`-em tutaj — dwa takie `if`-y (zakres, podkłady) już
+   * są i zostają, bo wołają okna po id, nie po nazwie.
+   *
+   * Szuflada musi się najpierw zamknąć, inaczej okno wychodzi wyblakłe
+   * spod jej przyciemnienia (notatka z 24.08).
+   */
+  function otworzOkno(nazwaOkna) {
+    const okno = nazwaOkna !== "" && typeof iface !== "undefined" ? iface.findItemByObjectName(nazwaOkna) : null;
+    if (!okno || typeof okno.otworz !== "function") {
+      displayToast(qsTr("Ta wersja aplikacji nie ma okna „%1”").arg(nazwaOkna), "warning");
+      return;
+    }
+    const pokaz = function () {
+      okno.otworz();
+    };
+    if (szuflada && szuflada.modal && szuflada.opened) {
+      const poZamknieciu = function () {
+        szuflada.closed.disconnect(poZamknieciu);
+        pokaz();
+      };
+      szuflada.closed.connect(poZamknieciu);
+      szuflada.close();
+    } else {
+      pokaz();
+    }
   }
 
   function otworzNowy(opis) {
@@ -1016,6 +1077,17 @@ Item {
             text: qsTr("Nowy projekt z modułu")
             ikona: "wfg_nowe"
             onClicked: sekcja.otworzNowy(wpis.modelData.opis)
+          }
+          // ── start „z pliku" (21.09.2026) ────────────────────────
+          // Drugi rodzaj startu obok przepisu: moduł, który nie zakłada
+          // pustych warstw, tylko wychodzi od CUDZEGO pliku. Panel nic
+          // o CAD-zie nie wie — otwiera okno, które podał opis modułu.
+          QfPozycjaMenu {
+            Layout.fillWidth: true
+            visible: !!wpis.modelData.opis.start && wpis.modelData.brak.length === 0
+            text: (wpis.modelData.opis.start || {}).etykieta || qsTr("Nowy projekt z pliku…")
+            ikona: "wfg_import"
+            onClicked: sekcja.zacznijZPliku(wpis.modelData.opis)
           }
         }
       }

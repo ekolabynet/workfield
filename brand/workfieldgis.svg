@@ -111,17 +111,6 @@
      r="22"
      fill="#FF4081"
      id="circle8" />
-  <line
-     x1="300"
-     y1="380"
-     x2="540"
-     y2="530"
-     stroke="#FF4081"
-     stroke-width="12"
-     stroke-dasharray="4 34"
-     stroke-linecap="round"
-     opacity="0.9"
-     id="line8" />
   <g
      fill="#FFFFFF"
      id="g12">
@@ -156,13 +145,14 @@
      r="34"
      fill="#FF4081"
      id="circle13" />
+  
   <circle
      cx="300"
      cy="380"
      r="60"
      fill="none"
-     stroke="#FF4081"
+     stroke="#64FFDA"
      stroke-width="12"
-     opacity="0.55"
+     opacity="0.9"
      id="circle14" />
 </svg>

@@ -32,13 +32,33 @@ Button {
   //! wraca w dymku, zeby nie trzeba bylo zgadywac, co znaczy obrazek.
   property bool tylkoIkona: false
 
+  /**
+   * WorkField 21.09.2026 — UKŁAD: "lista" | "dwie" | "kafelki" | "ikony".
+   *
+   * Cztery układy to nie cztery komponenty, tylko cztery rozmiary i dwa
+   * ustawienia tego samego. Wcześniej prawa szuflada miała własny kafelek,
+   * a lewa nie miała nic — trzy sposoby rysowania jednej rzeczy.
+   *
+   * Szerokość i wysokość nadaje wołający (szuflada wie, ile ma miejsca);
+   * tutaj jest tylko to, co zależy od układu: gdzie stoi ikona i czy
+   * widać napis.
+   */
+  property string uklad: "lista"
+
+  //! Ikona NAD napisem, oba wyśrodkowane.
+  readonly property bool kafelek: uklad === "kafelki"
+
+  //! Sama ikona, nazwa w dymku. `tylkoIkona` zostaje osobno, bo używa go
+  //! szyna kategorii w Ustawieniach, która o układach nic nie wie.
+  readonly property bool samaIkona: tylkoIkona || uklad === "ikony"
+
   ToolTip.text: pozycja.text
   ToolTip.delay: 400
-  ToolTip.visible: pozycja.tylkoIkona && pozycja.hovered && pozycja.text !== ""
+  ToolTip.visible: pozycja.samaIkona && pozycja.hovered && pozycja.text !== ""
 
   background: Rectangle {
-    color: pozycja.wybrana ? Qt.rgba(pozycja.t.mainColor.r, pozycja.t.mainColor.g, pozycja.t.mainColor.b, 0.45) : pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
-    radius: 4
+    color: pozycja.wybrana ? Qt.rgba(pozycja.t.mainColor.r, pozycja.t.mainColor.g, pozycja.t.mainColor.b, 0.45) : pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : pozycja.kafelek ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+    radius: pozycja.kafelek ? 6 : 4
 
     Behavior on color {
       ColorAnimation {
@@ -49,11 +69,16 @@ Button {
 
   flat: true
   Layout.fillWidth: true
-  implicitHeight: 34
+  implicitHeight: pozycja.kafelek ? 84 : pozycja.uklad === "ikony" ? 44 : 34
   font.pointSize: t.tinyFont.pointSize
 
-  contentItem: RowLayout {
-    spacing: 10
+  // GridLayout, a nie dwa osobne układy: jedna kolumna kładzie ikonę NAD
+  // napisem (kafelek), dwie — obok siebie (lista, dwie kolumny). Te same
+  // dzieci, ta sama ikona, jeden komponent.
+  contentItem: GridLayout {
+    columns: pozycja.kafelek ? 1 : 2
+    columnSpacing: 10
+    rowSpacing: 4
 
     Image {
       id: obrazIkony
@@ -66,10 +91,10 @@ Button {
       // MultiEffect.colorization BARWI, ZACHOWUJĄC JASNOŚĆ — ciemna ikona
       // Breeze zostawała ciemna także w ciemnym motywie (17.08.2026).
       // ColorOverlay zamienia piksele na podany kolor, zachowując alfę.
-      Layout.leftMargin: pozycja.tylkoIkona ? 0 : 6
-      Layout.alignment: pozycja.tylkoIkona ? Qt.AlignHCenter | Qt.AlignVCenter : Qt.AlignVCenter
-      Layout.preferredWidth: 22
-      Layout.preferredHeight: 22
+      Layout.leftMargin: pozycja.samaIkona || pozycja.kafelek ? 0 : 6
+      Layout.alignment: pozycja.samaIkona || pozycja.kafelek ? Qt.AlignHCenter | Qt.AlignVCenter : Qt.AlignVCenter
+      Layout.preferredWidth: pozycja.kafelek ? 26 : 22
+      Layout.preferredHeight: pozycja.kafelek ? 26 : 22
       source: obrazIkony
       visible: obrazIkony.status === Image.Ready
       color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor
@@ -77,12 +102,15 @@ Button {
 
     Text {
       Layout.fillWidth: true
-      visible: !pozycja.tylkoIkona
+      Layout.fillHeight: pozycja.kafelek
+      visible: !pozycja.samaIkona
       text: pozycja.text
       font: pozycja.font
       color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor
       elide: Text.ElideRight
-      horizontalAlignment: Text.AlignLeft
+      wrapMode: pozycja.kafelek ? Text.WordWrap : Text.NoWrap
+      maximumLineCount: pozycja.kafelek ? 3 : 1
+      horizontalAlignment: pozycja.kafelek ? Text.AlignHCenter : Text.AlignLeft
       verticalAlignment: Text.AlignVCenter
     }
   }

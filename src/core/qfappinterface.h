@@ -124,6 +124,79 @@ class QfAppInterface : public QObject
     //! Runs a GDAL DEM tool (slope, aspect, hillshade, TRI, TPI, roughness) on \a inputPath.
     Q_INVOKABLE bool demProcessing( const QString &tool, const QString &inputPath, const QString &outputPath );
 
+    /**
+     * Warstwice z rastra wysokosciowego (NMT) do pliku GPKG obok niego.
+     *
+     * Rachunek jest wspolny z modulem CAD (utils/warstwice.h) - tam liczy
+     * sie je z rzednych z rysunku, tu z modelu terenu. Zrodlo decyduje
+     * o tym, gdzie stoi przycisk; sam rachunek jest jeden.
+     *
+     * Gdy `nazwaWarstwy` nie jest pusta, wynik od razu wchodzi do projektu -
+     * tak samo jak przy rastrach (addRasterLayerToProject); inaczej trzeba by
+     * dokladac w QML druga droge do tego samego.
+     *
+     * Zwraca {plik, linie, odstep} albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap warstwiceZRastra( const QString &raster, const QString &wyjscie, double odstep, const QString &nazwaWarstwy = QString() );
+
+    /**
+     * Georeferencjonowanie obrazu z punktow dopasowania.
+     *
+     * `punkty` to lista map {px, py, x, y}: piksel obrazu i odpowiadajacy
+     * mu punkt na mapie. Ile ich potrzeba i dlaczego cztery rogi nie
+     * wystarcza - patrz utils/georeferencja.h (zmierzone).
+     *
+     * Zwraca {plik, srednie, najwieksze, najgorszy, odchylki, stopien}
+     * albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap georeferuj( const QString &obraz, const QVariantList &punkty, const QString &uklad, const QString &metoda, const QString &wyjscie );
+
+    /**
+     * Spis metod przekształcenia: {klucz, nazwa, minimum, opis}.
+     *
+     * Okno nie ma wlasnej listy - bralaby sie rozjechac z silnikiem
+     * przy pierwszej zmianie. Minimum punktow tez przychodzi stad.
+     */
+    Q_INVOKABLE QVariantList metodyGeoreferencji();
+
+    /**
+     * Ocena dopasowania BEZ przeliczania obrazu.
+     *
+     * Wola sie po kazdej zmianie punktu i po zmianie metody, bo wybor
+     * metody ma byc WIDOCZNY, a nie zgadywany. Zwraca odchylki na
+     * punktach i sprawdzian krzyzowy - patrz utils/georeferencja.h.
+     */
+    Q_INVOKABLE QVariantMap ocenDopasowanie( const QVariantList &punkty, const QString &metoda );
+
+    /**
+     * Gotowy podklad rastrowy do projektu - BEZ przemalowywania.
+     *
+     * `addRasterLayerToProject` jest pisane dla rastrow WYSOKOSCIOWYCH:
+     * liczy statystyki calego pliku i zaklada na pierwsze pasmo rampe
+     * "turbo" z przezroczystoscia 0,7. Dla zdjecia mapy to jest bez sensu
+     * (kanal czerwony pomalowany na teczowo) i kosztowne (statystyki
+     * 15 Mpx na watku interfejsu). Zdjecie zostaje przy rendererze,
+     * ktory dal mu sterownik.
+     *
+     * Warstwa wchodzi OD RAZU NA DOL drzewa: addMapLayer(..., false)
+     * plus layerTreeRoot()->addLayer(). Dotad szla na gore i byla potem
+     * przenoszona na dol przez NarzedziaProjektu::naDol, ktore robi to
+     * SKLONOWANIEM I USUNIECIEM wezla - a usuniety wezel zostawal
+     * w modelu drzewa warstw i pierwszy odczyt po nim konczyl sie
+     * SIGSEGV w QfFlatLayerTreeModelBase::data pod adresem
+     * 0x800000000 (telefon, 21.09.2026 - slad stosu w dzienniku).
+     * Wstawienie od razu we wlasciwe miejsce nie usuwa niczego.
+     */
+    Q_INVOKABLE bool dodajPodkladRastrowy( const QString &plik, const QString &nazwa );
+
+    /**
+     * Wymiary obrazu w pikselach pliku: {szerokosc, wysokosc} albo {blad}.
+     *
+     * Okno georeferencji dekoduje podglad mniejszy, niz jest plik (patrz
+     * utils/georeferencja.h), wiec rozmiaru pliku nie ma skad wziac w QML.
+     */
+    Q_INVOKABLE QVariantMap wymiaryObrazu( const QString &obraz );
+
     //! Computes rasterA - rasterB (e.g. CHM = NMPT - NMT) into \a outputPath.
     Q_INVOKABLE bool rasterDifference( const QString &pathA, const QString &pathB, const QString &outputPath );
 

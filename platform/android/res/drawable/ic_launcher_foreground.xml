@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Ikona WorkField: plat z wierzcholkami, pole pomiaru z celownikiem,
-  wierzcholek biezacy z poswiata i kreskowana linia.
+  wierzcholek biezacy z otoczka w jasnym tealu.
 
   KRZYZ zamiast kropki w srodku (18.09.2026): kropka mowila
   "obiekt", krzyz mowi "pomiar" — a to jest o tym ta aplikacja.
   Wierzcholki mniejsze o 20%, zeby nie konkurowaly z celownikiem.
 
-  KRESKI jako osobne odcinki — VectorDrawable nie zna `stroke-dasharray`.
+  KRESKOWANA LINIA USUNIETA 21.09.2026 — przy 48 px byla trzema kropkami,
+  ktore czytalo sie jak brud. Otoczka wierzcholka robi to samo: mowi,
+  ktory wierzcholek jest biezacy.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
@@ -27,10 +29,6 @@
   <!-- pole pomiaru -->
   <path android:fillColor="#FFFFFF" android:pathData="M37.50,54.49 a16.30,16.30 0 1,0 32.60,0 a16.30,16.30 0 1,0 -32.60,0" />
 
-  <!-- kreskowana linia: wierzcholek -> celownik -->
-  <path android:strokeColor="#F10052" android:strokeWidth="1.65"
-      android:strokeLineCap="round"
-      android:pathData="M37.01,44.25 L38.83,45.36 M40.82,46.57 L42.64,47.69 M44.63,48.90 L46.46,50.01" />
 
   <!-- celownik -->
   <path android:strokeColor="#F10052" android:strokeWidth="2.52"
@@ -38,8 +36,10 @@
       android:pathData="M46.24,54.49 L61.36,54.49 M53.80,46.93 L53.80,62.05" />
 
   <!-- wierzcholek biezacy z poswiata -->
-  <path android:fillColor="#F60054" android:fillAlpha="0.30"
-      android:pathData="M21.78,40.42 a8.73,8.73 0 1,0 17.46,0 a8.73,8.73 0 1,0 -17.46,0" />
   <path android:fillColor="#F60054"
       android:pathData="M25.86,40.42 a4.85,4.85 0 1,0 9.70,0 a4.85,4.85 0 1,0 -9.70,0" />
+  <!-- otoczka wierzcholka biezacego: pierscien, NA WIERZCHU -->
+  <path android:strokeColor="#64FFDA" android:strokeWidth="1.60"
+      android:fillColor="#00000000"
+      android:pathData="M21.78,40.42 a8.73,8.73 0 1,0 17.46,0 a8.73,8.73 0 1,0 -17.46,0" />
 </vector>

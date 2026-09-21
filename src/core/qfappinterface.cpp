@@ -17,6 +17,8 @@
 
 #include "qfappcontroller.h"
 #include "qfappinterface.h"
+
+#include "utils/narzedziaprojektu.h"
 #include "qffileutils.h"
 #include "qfield.h"
 #include "qfplatformutilities.h"
@@ -844,9 +846,13 @@ bool QfAppInterface::addRasterLayerToProject( const QString &path, const QString
   shader->setRasterShaderFunction( new QgsColorRampShader( colorRampShader ) );
   layer->setRenderer( new QgsSingleBandPseudoColorRenderer( layer->dataProvider(), 1, shader ) );
   layer->setOpacity( 0.7 );
+  // WorkField 21.09.2026: raster (NMT, NMPT, CHM) to podklad - ma isc POD
+  // warstwy z danymi, a nie zaslaniac ich po pobraniu.
+  NarzedziaProjektu narzedzia;
   if ( groupName.isEmpty() )
   {
     QgsProject::instance()->addMapLayer( layer );
+    narzedzia.naDol( QgsProject::instance(), layer );
   }
   else
   {
@@ -855,6 +861,8 @@ bool QfAppInterface::addRasterLayerToProject( const QString &path, const QString
       group = QgsProject::instance()->layerTreeRoot()->insertGroup( 0, groupName );
     QgsProject::instance()->addMapLayer( layer, false );
     group->addLayer( layer );
+    // Cala grupa (NMT / NMPT / CHM) tez na dol - grupy wstawiaja sie na gorze.
+    narzedzia.grupaNaDol( QgsProject::instance(), groupName );
   }
   return true;
 }
@@ -1044,6 +1052,75 @@ bool QfAppInterface::migrateDataDir( const QString &source, const QString &desti
 
 #include <gdal_utils.h>
 #include <qgsrastercalculator.h>
+#include "utils/warstwice.h"
+#include "utils/georeferencja.h"
+
+QVariantMap QfAppInterface::georeferuj( const QString &obraz, const QVariantList &punkty, const QString &uklad, const QString &metoda, const QString &wyjscie )
+{
+  const QVariantMap w = Georeferencja::dopasuj( obraz, punkty, uklad, metoda, wyjscie );
+  qInfo() << "WFG georeferencja:" << obraz << metoda << "punktow" << punkty.size() << "->" << w;
+  return w;
+}
+
+QVariantList QfAppInterface::metodyGeoreferencji()
+{
+  return Georeferencja::metody();
+}
+
+bool QfAppInterface::dodajPodkladRastrowy( const QString &plik, const QString &nazwa )
+{
+  QgsRasterLayer *warstwa = new QgsRasterLayer( plik, nazwa, QStringLiteral( "gdal" ) );
+  if ( !warstwa->isValid() )
+  {
+    qWarning() << "WFG podklad: warstwa nieprawidlowa" << plik;
+    delete warstwa;
+    return false;
+  }
+  QgsProject *p = QgsProject::instance();
+  // Bez wstawiania do drzewa przez most (false), a potem OD RAZU na dol.
+  // Zadnego klonowania i usuwania wezlow - patrz komentarz w naglowku.
+  p->addMapLayer( warstwa, false );
+  p->layerTreeRoot()->addLayer( warstwa );
+  qInfo() << "WFG podklad:" << plik << warstwa->width() << "x" << warstwa->height()
+          << "pasm" << warstwa->bandCount();
+  return true;
+}
+
+QVariantMap QfAppInterface::ocenDopasowanie( const QVariantList &punkty, const QString &metoda )
+{
+  QList<GDAL_GCP> gcp = Georeferencja::zListy( punkty );
+  const QVariantMap w = Georeferencja::ocena( metoda, gcp );
+  GDALDeinitGCPs( gcp.size(), gcp.data() );
+  return w;
+}
+
+QVariantMap QfAppInterface::wymiaryObrazu( const QString &obraz )
+{
+  return Georeferencja::wymiary( obraz );
+}
+
+QVariantMap QfAppInterface::warstwiceZRastra( const QString &raster, const QString &wyjscie, double odstep, const QString &nazwaWarstwy )
+{
+  QVariantMap w = Warstwice::zRastra( raster, wyjscie, odstep );
+  qInfo() << "WFG warstwice z rastra:" << raster << "->" << w;
+  if ( w.contains( QStringLiteral( "blad" ) ) || nazwaWarstwy.isEmpty() )
+    return w;
+
+  QgsVectorLayer *warstwa = new QgsVectorLayer( wyjscie + QStringLiteral( "|layername=warstwice" ), nazwaWarstwy, QStringLiteral( "ogr" ) );
+  if ( !warstwa->isValid() )
+  {
+    delete warstwa;
+    w.insert( QStringLiteral( "blad" ), QStringLiteral( "Warstwice policzone, ale warstwa się nie wczytała" ) );
+    return w;
+  }
+  if ( !QgsProject::instance()->addMapLayer( warstwa ) )
+  {
+    w.insert( QStringLiteral( "blad" ), QStringLiteral( "Nie udało się dodać warstwic do projektu" ) );
+    return w;
+  }
+  w.insert( QStringLiteral( "warstwa" ), nazwaWarstwy );
+  return w;
+}
 
 bool QfAppInterface::demProcessing( const QString &tool, const QString &inputPath, const QString &outputPath )
 {
@@ -1406,6 +1483,15 @@ double QfAppInterface::sampleRasterBuffered( const QString &nameFragment, double
     const int mid = values.size() / 2;
     return values.size() % 2 == 0 ? ( values[mid - 1] + values[mid] ) / 2.0 : values[mid];
   }
+
+  // najmniejsza i najwieksza - z tych samych probek, bez drugiej petli
+  // po rastrze. Przy CHM to jest wysokosc najwyzszego i najnizszego
+  // piksela w kole, czyli liczba, po ktora projektant siega czesciej
+  // niz po srednia (prosba z 21.09.2026).
+  if ( statistic.compare( QLatin1String( "min" ), Qt::CaseInsensitive ) == 0 )
+    return *std::min_element( values.constBegin(), values.constEnd() );
+  if ( statistic.compare( QLatin1String( "max" ), Qt::CaseInsensitive ) == 0 )
+    return *std::max_element( values.constBegin(), values.constEnd() );
 
   double sum = 0.0;
   for ( double v : values )

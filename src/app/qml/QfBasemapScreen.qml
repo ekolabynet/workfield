@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.core
 import Theme
 
 Popup {
@@ -12,18 +13,9 @@ Popup {
 
   readonly property var presets: [
     {
-      group: qsTr("Podkłady globalne"),
-      items: [
-        { name: "OpenStreetMap", kind: "xyz", url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", zmax: 19 },
-        { name: "OpenTopoMap", kind: "xyz", url: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png", zmax: 17 },
-        { name: "Esri World Imagery", kind: "xyz", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", zmax: 19 },
-        { name: "Google Satellite", kind: "xyz", url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", zmax: 20 },
-        { name: "Google Hybrid", kind: "xyz", url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", zmax: 20 },
-        { name: "Google Roads", kind: "xyz", url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", zmax: 20 }
-      ]
-    },
-    {
-      group: qsTr("Ortofotomapa"),
+      dzial: qsTr("Obraz terenu"),
+      opis: qsTr("Co widać z góry: zdjęcia lotnicze, cieniowanie, mapy."),
+      group: qsTr("Ortofotomapa i wskaźniki"),
       items: [
         { name: qsTr("Ortofotomapa standardowa"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution", layers: "Raster", crs: "EPSG:2180" },
         { name: qsTr("Ortofotomapa wysokorozdzielcza"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/HighResolution", layers: "Raster", crs: "EPSG:2180" },
@@ -39,7 +31,30 @@ Popup {
       ]
     },
     {
-      group: qsTr("Ewidencja i uzbrojenie"),
+      group: qsTr("Mapy topograficzne"),
+      items: [
+        { name: qsTr("BDOT10k — wybierz warstwę…"), kind: "browse", url: "https://mapy.geoportal.gov.pl/wss/service/pub/guest/kompozycja_BDOT10k_WMS/MapServer/WMSServer", crs: "EPSG:2180" },
+        { name: qsTr("Mapa topograficzna rastrowa"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/img/guest/TOPO/MapServer/WMSServer", layers: "Raster", crs: "EPSG:2180" },
+        { name: qsTr("Mapa glebowo-rolnicza"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/pub/guest/MapaGlebowoRolnicza/MapServer/WMSServer", layers: "0", crs: "EPSG:2180" },
+        { name: qsTr("Granice administracyjne — wybierz…"), kind: "browse", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WMS/AdministrativeBoundaries", crs: "EPSG:2180" }
+      ]
+    },
+    {
+      group: qsTr("Mapy świata (XYZ)"),
+      items: [
+        { name: "OpenStreetMap", kind: "xyz", url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", zmax: 19 },
+        { name: "OpenTopoMap", kind: "xyz", url: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png", zmax: 17 },
+        { name: "Esri World Imagery", kind: "xyz", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", zmax: 19 },
+        { name: "Google Satellite", kind: "xyz", url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", zmax: 20 },
+        { name: "Google Hybrid", kind: "xyz", url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", zmax: 20 },
+        { name: "Google Roads", kind: "xyz", url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", zmax: 20 }
+      ]
+    },
+    {
+      dzial: qsTr("Granice, działki, uzbrojenie"),
+      opis: qsTr("Co gdzie jest według urzędów — do podglądu i do obrysu zakresu prac."),
+      kreska: true,
+      group: qsTr("Ewidencja, uzbrojenie, plany (WMS)"),
       items: [
         { name: qsTr("Działki ewidencyjne (KIEG)"), kind: "wms", url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", layers: "dzialki", crs: "EPSG:2180" },
         { name: qsTr("Obręby ewidencyjne (KIEG)"), kind: "wms", url: "https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow", layers: "obreby", crs: "EPSG:2180" },
@@ -48,7 +63,7 @@ Popup {
       ]
     },
     {
-      group: qsTr("GUGiK — dane wektorowe (WFS)"),
+      group: qsTr("Granice i obiekty (WFS)"),
       items: [
         { name: qsTr("Granice gmin"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries", typeName: "A03_Granice_gmin", crs: "EPSG:2180" },
         { name: qsTr("Granice powiatów"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries", typeName: "A02_Granice_powiatow", crs: "EPSG:2180" },
@@ -62,27 +77,10 @@ Popup {
       ]
     },
     {
-      group: qsTr("Skorowidze do pobierania danych (WFS)"),
-      items: [
-        { name: qsTr("Skorowidz ortofotomapy"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze", typeName: "gugik:SkorowidzOrtofomapy2020", crs: "EPSG:2180" },
-        { name: qsTr("Skorowidz NMT"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NumerycznyModelTerenuEVRF2007/WFS/Skorowidze", typeName: "gugik:SkorowidzNMT2020", crs: "EPSG:2180" },
-        { name: qsTr("Skorowidz NMPT"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NumerycznyModelPokryciaTerenuEVRF2007/WFS/Skorowidze", typeName: "gugik:SkorowidzNMPT2020", crs: "EPSG:2180" },
-        { name: qsTr("Skorowidz BDOT10k"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k", typeName: "ms:BDOT10k_powiaty", crs: "EPSG:2180" }
-      ]
-    },
-    {
-      group: qsTr("Warszawa — dane wektorowe (WFS)"),
-      items: [
-        { name: qsTr("Działki ewidencyjne"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:dzialki", crs: "EPSG:2178" },
-        { name: qsTr("Budynki"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:budynki", crs: "EPSG:2178" },
-        { name: qsTr("Punkty adresowe"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:punkty_adresowe", crs: "EPSG:2178" },
-        { name: qsTr("Ulice"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:ulice", crs: "EPSG:2178" },
-        { name: qsTr("Osnowa pozioma"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:Osnowa_pozioma", crs: "EPSG:2178" },
-        { name: qsTr("Osnowa wysokościowa"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:Osnowa_wysokosciowa", crs: "EPSG:2178" }
-      ]
-    },
-    {
-      group: qsTr("Warszawa"),
+      dzial: qsTr("Warszawa"),
+      opis: qsTr("Dane miasta, układ EPSG:2178."),
+      kreska: true,
+      group: qsTr("Mapy miejskie (WMS)"),
       items: [
         { name: qsTr("Ortofotomapa Warszawy"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "ORTO", crs: "EPSG:2178" },
         { name: qsTr("Działki ewidencyjne"), kind: "wms", url: "https://wms.um.warszawa.pl/serwis", layers: "GEODEZJA_DZIALKI", crs: "EPSG:2178" },
@@ -95,12 +93,26 @@ Popup {
       ]
     },
     {
-      group: qsTr("Mapy topograficzne"),
+      group: qsTr("Dane miejskie (WFS)"),
       items: [
-        { name: qsTr("BDOT10k — wybierz warstwę…"), kind: "browse", url: "https://mapy.geoportal.gov.pl/wss/service/pub/guest/kompozycja_BDOT10k_WMS/MapServer/WMSServer", crs: "EPSG:2180" },
-        { name: qsTr("Mapa topograficzna rastrowa"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/img/guest/TOPO/MapServer/WMSServer", layers: "Raster", crs: "EPSG:2180" },
-        { name: qsTr("Mapa glebowo-rolnicza"), kind: "wms", url: "https://mapy.geoportal.gov.pl/wss/service/pub/guest/MapaGlebowoRolnicza/MapServer/WMSServer", layers: "0", crs: "EPSG:2180" },
-        { name: qsTr("Granice administracyjne — wybierz…"), kind: "browse", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WMS/AdministrativeBoundaries", crs: "EPSG:2180" }
+        { name: qsTr("Działki ewidencyjne"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:dzialki", crs: "EPSG:2178" },
+        { name: qsTr("Budynki"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:budynki", crs: "EPSG:2178" },
+        { name: qsTr("Punkty adresowe"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:punkty_adresowe", crs: "EPSG:2178" },
+        { name: qsTr("Ulice"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:ulice", crs: "EPSG:2178" },
+        { name: qsTr("Osnowa pozioma"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:Osnowa_pozioma", crs: "EPSG:2178" },
+        { name: qsTr("Osnowa wysokościowa"), kind: "wfs", url: "https://wms2.um.warszawa.pl/geoserver/wfs/wfs", typeName: "wfs:Osnowa_wysokosciowa", crs: "EPSG:2178" }
+      ]
+    },
+    {
+      dzial: qsTr("Skorowidze"),
+      opis: qsTr("Podziały arkuszowe GUGiK — nie dane, tylko kratka z nazwami arkuszy."),
+      kreska: true,
+      group: qsTr("Arkusze do pobierania (WFS)"),
+      items: [
+        { name: qsTr("Skorowidz ortofotomapy"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze", typeName: "gugik:SkorowidzOrtofomapy2020", crs: "EPSG:2180" },
+        { name: qsTr("Skorowidz NMT"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NumerycznyModelTerenuEVRF2007/WFS/Skorowidze", typeName: "gugik:SkorowidzNMT2020", crs: "EPSG:2180" },
+        { name: qsTr("Skorowidz NMPT"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/NumerycznyModelPokryciaTerenuEVRF2007/WFS/Skorowidze", typeName: "gugik:SkorowidzNMPT2020", crs: "EPSG:2180" },
+        { name: qsTr("Skorowidz BDOT10k"), kind: "wfs", url: "https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k", typeName: "ms:BDOT10k_powiaty", crs: "EPSG:2180" }
       ]
     }
   ]
@@ -138,6 +150,9 @@ Popup {
       layer = LayerUtils.createWfsLayer(item.url, item.name, item.typeName, item.crs !== undefined ? item.crs : "EPSG:2180", true);
 
     if (layer && ProjectUtils.addMapLayer(qgisProject, layer)) {
+      // Podkład POD dane: inaczej ortofoto zasłania to, co zebrano w terenie.
+      if (typeof NarzedziaProjektu !== "undefined")
+        NarzedziaProjektu.naDol(qgisProject, layer);
       displayToast(qsTr("Dodano podkład %1").arg(item.name));
       basemapScreen.close();
     } else {
@@ -152,6 +167,13 @@ Popup {
   y: (mainWindow.height - height) / 2
   modal: true
   closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+  background: Rectangle {
+    color: t.mainBackgroundColor
+    radius: 8
+    border.width: 1
+    border.color: t.controlBorderColor
+  }
 
   ColumnLayout {
     anchors.fill: parent
@@ -175,13 +197,42 @@ Popup {
 
         width: ListView.view.width
 
+        // WorkField 21.09.2026 - dzial nad grupa. Dziewiec grup stalo w jednym
+        // rzedzie, choc obraz terenu, dane urzedowe, jedno miasto i skorowidze
+        // to cztery rozne rzeczy.
+        Rectangle {
+          visible: modelData.kreska === true
+          width: parent.width
+          height: 1
+          color: t.controlBorderColor
+        }
+
+        Text {
+          visible: modelData.dzial !== undefined
+          width: parent.width
+          topPadding: 10
+          text: modelData.dzial !== undefined ? modelData.dzial : ""
+          font: t.strongFont
+          color: t.mainTextColor
+        }
+
+        Text {
+          visible: modelData.opis !== undefined
+          width: parent.width
+          bottomPadding: 2
+          text: modelData.opis !== undefined ? modelData.opis : ""
+          font: t.tinyFont
+          color: t.secondaryTextColor
+          wrapMode: Text.WordWrap
+        }
+
         Text {
           width: parent.width
           topPadding: 8
           bottomPadding: 4
           text: modelData.group
-          font: t.strongTipFont
-          color: t.mainTextColor
+          font: t.tipFont
+          color: t.secondaryTextColor
         }
 
         Repeater {

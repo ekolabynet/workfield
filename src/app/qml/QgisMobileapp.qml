@@ -404,6 +404,18 @@ ApplicationWindow {
   }
 
   //! Rysunek CAD do dolozenia po wczytaniu pustego projektu (kreator).
+  /**
+   * WorkField 21.09.2026 — układ pozycji menu, WSPÓLNY dla obu szuflad:
+   * "lista" | "dwie" | "kafelki" | "ikony".
+   *
+   * Tu, a nie w szufladzie, bo szuflady są dwie i wybór ma być jeden.
+   * Wiązanie z ustawień czyta wartość raz; pierwsze przypisanie je zrywa
+   * i od tej pory zapis idzie przez onUkladPozycjiChanged.
+   */
+  property string ukladPozycji: settings.value("WorkField/szufladaUklad", "lista")
+
+  onUkladPozycjiChanged: settings.setValue("WorkField/szufladaUklad", ukladPozycji)
+
   property string cadRysunek: ""
   property string cadUklad: ""
   property string cadKatalog: ""
@@ -415,10 +427,18 @@ ApplicationWindow {
    * Nazwy po polsku i po CADowemu — "Poligony (hatch)", bo projektant
    * tak nazywa obszary, a nie "powierzchnie".
    */
-  function zlozProjektZCAD(rysunek, uklad, katalog) {
+  /**
+   * Rysunek DXF do OTWARTEGO projektu — zwraca liczbę dodanych warstw.
+   *
+   * Jedna droga dla dwóch wejść: kreatora „Projekt z DXF" i okna
+   * „Import z rysunku DXF", które dokłada kolejny rysunek do projektu
+   * już istniejącego. Gdyby były dwie, druga nie miałaby ani układu,
+   * ani stylu, ani podziału na typy geometrii — a to jest dokładnie ta
+   * lista, po której chodziliśmy pięć razy 18.09.
+   */
+  function dodajRysunekCAD(rysunek) {
     if (!qgisProject)
-      return;
-
+      return 0;
     // RYSUNEK PRZEZ `warstwyZPliku` — ta sama droga, ktora QField idzie
     // przy otwieraniu pliku z menedzera. `new QgsVectorLayer(uri)` nie
     // wystarcza: warstwa nie ma ukladu (DXF go nie niesie), nie ma stylu
@@ -469,6 +489,18 @@ ApplicationWindow {
       displayToast(qsTr("Nie udało się wczytać rysunku — projekt bez podkładu"),
                    "warning");
 
+    return podkladow;
+  }
+
+  function zlozProjektZCAD(rysunek, uklad, katalog) {
+    if (!qgisProject)
+      return;
+
+    const podkladow = mainWindow.dodajRysunekCAD(rysunek);
+    if (podkladow === 0)
+      displayToast(qsTr("Nie udało się wczytać rysunku — projekt bez podkładu"),
+                   "warning");
+
     const baza = katalog + "/dane.gpkg";
     const pola = [
       { "name": "OPIS", "type": "text" },
@@ -482,6 +514,9 @@ ApplicationWindow {
     ];
 
     let zalozone = 0;
+    // Kolejnosc ma znaczenie: punkty, linie, poligony - tak samo jak klucze
+    // wfg_cad/* nizej. Pusty wpis, gdy ktoras warstwa nie wstala.
+    let zalozoneWarstwy = [];
     for (const w of robocze) {
       let warstwa = null;
       try {
@@ -489,6 +524,7 @@ ApplicationWindow {
       } catch (e) {
         warstwa = null;
       }
+      zalozoneWarstwy.push(warstwa);
       if (!warstwa)
         continue;
       LayerUtils.setAttachmentField(warstwa, "ZDJECIE");
@@ -498,6 +534,18 @@ ApplicationWindow {
       LayerUtils.doprawCAD(warstwa, 0, 0, "OPIS", 0.5);
       if (ProjectUtils.addMapLayer(qgisProject, warstwa))
         zalozone++;
+    }
+
+    // Stempel modulu i ID warstw roboczych: bez nich "Wyczysc dane" odmawia,
+    // a rozpoznanie szukaloby warstw po samej geometrii i trafilo w pierwsza
+    // lepsza warstwe punktowa w projekcie.
+    if (typeof NarzedziaProjektu !== "undefined") {
+      NarzedziaProjektu.wlasciwosc(qgisProject, "wfg_moduly", "cad", "1.0");
+      const kluczeRobocze = ["warstwaPunktow", "warstwaLinii", "warstwaPoligonow"];
+      for (let i = 0; i < zalozoneWarstwy.length && i < kluczeRobocze.length; i++) {
+        if (zalozoneWarstwy[i])
+          NarzedziaProjektu.wlasciwosc(qgisProject, "wfg_cad", kluczeRobocze[i], zalozoneWarstwy[i].id);
+      }
     }
 
     if (typeof NarzedziaProjektu !== "undefined")
@@ -6412,6 +6460,18 @@ ApplicationWindow {
     t: Theme
   }
 
+  // WorkField 21.09.2026 - jedno wejscie do podkladow i danych wysokosciowych.
+  // Wejsc jest kilka (lewa szuflada, karta modulu, prawa szuflada), okno jedno.
+  QfPodklady {
+    id: oknoPodkladow
+    t: Theme
+  }
+
+  QfDaneWysokosciowe {
+    id: oknoDaneWysokosciowe
+    t: Theme
+  }
+
   QfLayerFieldsScreen {
     id: layerFieldsScreen
     t: Theme
@@ -6452,6 +6512,189 @@ ApplicationWindow {
 
   QfProjektZCAD {
     id: kreatorCAD
+    objectName: "kreatorCAD"
+  }
+
+  QfWarstwyRysunku {
+    id: oknoWarstwRysunku
+  }
+
+  QfBlokiCAD {
+    id: oknoBlokowCAD
+  }
+
+  QfOpisyCAD {
+    id: oknoOpisowCAD
+  }
+
+  QfWarstwiceCAD {
+    id: oknoWarstwicCAD
+  }
+
+  QfImportCAD {
+    id: oknoImportuCAD
+  }
+
+  QfGeoreferencja {
+    id: oknoGeoreferencji
+  }
+
+  // ── znaczniki punktow dopasowania NA MAPIE ──────────────────────
+  // Trwale, przez caly czas dopasowywania - inaczej nie widac, ktore
+  // miejsca w terenie sa juz wziete i latwo wskazac drugi raz to samo.
+  // Krzyz z kropka w srodku i numerem obok; biala podkladka, bo pod
+  // spodem moze byc wszystko - ortofoto, ciemna mapa, biala kartka.
+  Item {
+    anchors.fill: mapCanvas
+    visible: oknoGeoreferencji.obraz !== ""
+    z: 999
+
+    Repeater {
+      model: oknoGeoreferencji.punkty
+
+      delegate: Item {
+        required property int index
+        required property var modelData
+
+        // `visibleExtent` w warunku NIE JEST ozdoba: bez niego wiazanie
+        // nie przelicza sie przy przesunieciu mapy i znaczniki stoja.
+        readonly property point ekran: !!mapCanvas.mapSettings.visibleExtent
+                                       ? mapCanvas.mapSettings.coordinateToScreen(Qt.point(modelData.x, modelData.y))
+                                       : Qt.point(0, 0)
+        readonly property color barwa: index === oknoGeoreferencji.poprawiany ? "#ffb300" : "#d81b60"
+
+        x: ekran.x
+        y: ekran.y
+
+        Rectangle {
+          x: -11
+          y: -2
+          width: 22
+          height: 4
+          color: "#ffffff"
+          opacity: 0.8
+        }
+
+        Rectangle {
+          x: -2
+          y: -11
+          width: 4
+          height: 22
+          color: "#ffffff"
+          opacity: 0.8
+        }
+
+        Rectangle {
+          x: -10
+          y: -1
+          width: 20
+          height: 2
+          color: parent.barwa
+        }
+
+        Rectangle {
+          x: -1
+          y: -10
+          width: 2
+          height: 20
+          color: parent.barwa
+        }
+
+        Rectangle {
+          x: -4
+          y: -4
+          width: 8
+          height: 8
+          radius: 4
+          color: parent.barwa
+          border.width: 1
+          border.color: "#ffffff"
+        }
+
+        Text {
+          x: 12
+          y: -20
+          text: index + 1
+          font: Theme.tinyFont
+          style: Text.Outline
+          styleColor: "#ffffff"
+          color: parent.barwa
+        }
+      }
+    }
+  }
+
+  // ── celownik i pasek georeferencjonowania ───────────────────────
+  // Drugi krok pary: okno jest zamkniete, mapa zywa, a uzytkownik
+  // PRZESUWA MAPE pod nieruchomym krzyzykiem. Tak dziala digitalizacja
+  // w QField, wiec reka juz to zna - i trafia lepiej niz palcem.
+  Item {
+    anchors.fill: mapCanvas
+    visible: oknoGeoreferencji.oczekujacy !== null
+    z: 1000
+
+    Rectangle {
+      anchors.centerIn: parent
+      width: 2
+      height: 40
+      color: "#d81b60"
+    }
+
+    Rectangle {
+      anchors.centerIn: parent
+      width: 40
+      height: 2
+      color: "#d81b60"
+    }
+
+    Rectangle {
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      anchors.leftMargin: 8
+      anchors.rightMargin: 8
+      // Nad paskiem nawigacji Androida, nie pod nim - inaczej "Dodaj"
+      // laduje pod systemowym przyciskiem i nie da sie w niego trafic.
+      anchors.bottomMargin: 12 + mainWindow.sceneBottomMargin
+      height: pasekGeoref.implicitHeight + 16
+      radius: 8
+      color: Theme.mainBackgroundColor
+      opacity: 0.96
+
+      RowLayout {
+        id: pasekGeoref
+
+        anchors.fill: parent
+        anchors.margins: 8
+        spacing: 8
+
+        Text {
+          Layout.fillWidth: true
+          text: oknoGeoreferencji.poprawiany >= 0
+                ? qsTr("Poprawiasz punkt %1 — ustaw krzyżyk na tym samym miejscu i naciśnij Dodaj").arg(oknoGeoreferencji.poprawiany + 1)
+                : qsTr("Ustaw krzyżyk na tym samym miejscu i naciśnij Dodaj")
+          font: Theme.tipFont
+          color: Theme.mainTextColor
+          wrapMode: Text.WordWrap
+        }
+
+        Button {
+          text: qsTr("Anuluj")
+          font.pointSize: Theme.tinyFont.pointSize
+          onClicked: {
+            oknoGeoreferencji.oczekujacy = null;
+            oknoGeoreferencji.open();
+          }
+        }
+
+        Button {
+          text: qsTr("Dodaj")
+          font.pointSize: Theme.tinyFont.pointSize
+          highlighted: true
+          onClicked: oknoGeoreferencji.dodajZeSrodka()
+        }
+      }
+    }
   }
 
   QfNewLayerDialog {

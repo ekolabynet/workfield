@@ -114,7 +114,12 @@ def dzieci_korzenia(sciezka):
             if glebokosc == 2 and start is not None:
                 przed = t[max(0, start - 60):start]
                 m = re.search(r"([A-Za-z_][A-Za-z0-9_.]*)\s*$", przed)
-                if m and m.group(1)[0].isupper():
+                # WorkField 21.09.2026 — `background: Rectangle {}` to PRZYPISANIE
+                # WLASCIWOSCI, a nie dziecko domyslne. Okno z jawnym `contentItem:`
+                # liczy wysokosc z niego i falszywego `Item`-a o zerowej wysokosci
+                # nigdy nie dostanie. Bez tego sito zglaszalo zdrowe okna.
+                wlasciwosc = m and re.search(r"[A-Za-z_][A-Za-z0-9_]*\s*:\s*$", przed[:m.start(1)])
+                if m and m.group(1)[0].isupper() and not wlasciwosc:
                     typ = m.group(1)
                     if typ.split(".")[-1] not in NIEWIDOCZNE:
                         dzieci.append((typ, t[:start].count("\n") + 1))

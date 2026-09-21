@@ -101,6 +101,10 @@ QVariantMap InwentaryzacjaDrzew::opis() const
   },
   "akcje": [
     {
+      "etykieta": "Podkłady i dane wysokościowe…",
+      "okno": "podklady"
+    },
+    {
       "etykieta": "Zakres prac: z pliku lub z działek…",
       "okno": "zakres",
       "tylko_gdy": "warstwaZakresu",

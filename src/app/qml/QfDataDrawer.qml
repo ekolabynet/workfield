@@ -3,6 +3,7 @@ import Qt.labs.folderlistmodel
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import Qt5Compat.GraphicalEffects
 import org.qfield
 import Theme
 
@@ -132,6 +133,123 @@ Drawer {
     displayToast(qsTr("Czynność „%1” nie ma jeszcze obsługi").arg(czynnosc), "warning");
   }
 
+  // ── wtyczki i układ pozycji (21.09.2026) ────────────────────────────
+  //
+  // Wtyczek przybywa i robią się ważne, a siedziały wyłącznie na pasku przy
+  // mapie, w przewijaczu z sufitem 45% wysokości ekranu i `clip: true` —
+  // czyli po piątej ikonie znikały bez śladu, że jest co przewijać.
+  // Tutaj są WIDOCZNE od razu po otwarciu szuflady.
+  //
+  // To ODBICIE, nie kopia: kafelek nie ma własnego stanu, tylko czyta barwy
+  // z oryginalnego przycisku i emituje na nim `clicked()`. Uzbrojona wtyczka
+  // świeci w obu miejscach naraz, bo obiekt jest jeden.
+  //! Pozycje zakładki „Narzędzia" — jedna lista, dwa układy.
+  property var modelNarzedzi: [
+    { "naglowek": qsTr("Aplikacja") },
+    { "label": qsTr("Wtyczki"), "action": "plugins", "ikona": "wfg_paczka" },
+    { "label": qsTr("Zablokuj ekran"), "action": "lockScreen", "ikona": "wfg_zamek" },
+    { "naglowek": qsTr("Na mapie") },
+    { "label": qsTr("Pomiar odległości i powierzchni"), "action": "measurement", "ikona": "wfg_pomiar", "tryb": "measure" },
+    { "label": qsTr("Widok 3D"), "action": "view3d", "ikona": "wfg_kostka", "tryb": "3d" },
+    { "label": qsTr("Wydruki map"), "action": "print", "ikona": "wfg_wydruk" },
+    { "label": qsTr("Zakładki przestrzenne"), "action": "bookmarks", "ikona": "wfg_zakladka" },
+    { "label": qsTr("Pasek wyszukiwania"), "action": "lokalizator", "ikona": "wfg_lupa" },
+    { "naglowek": qsTr("Niebo i pozycja") },
+    { "label": qsTr("Niebo \u2014 satelity"), "action": "niebo", "ikona": "wfg_niebo" },
+    { "label": qsTr("Diagnostyka GNSS / NTRIP"), "action": "gnssDiag", "ikona": "wfg_sprzet" },
+    { "label": qsTr("Ustawienia pozycjonowania"), "action": "gnssSettings", "ikona": "wfg_ustawienia" },
+    { "naglowek": qsTr("Teren i pliki") },
+    { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
+    { "label": qsTr("Klawisze szybkiego zapisu"), "action": "klawisze", "ikona": "wfg_zapisz" },
+    { "label": qsTr("Wyposażenie projektu"), "action": "wyposazenie", "ikona": "wfg_wlasciwosci" },
+    { "label": qsTr("Pliki aplikacji"), "action": "pliki", "ikona": "wfg_przeglad" },
+    { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad" },
+    { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka" }
+  ]
+
+  property var pasekWtyczek: null
+  property var wtyczki: []
+
+  /**
+   * Układ pozycji: "lista" | "dwie" | "kafelki" | "ikony". Wybór
+   * użytkownika, pamiętany między sesjami.
+   *
+   * Cztery, bo każdy krok coś realnie zmienia: jedna kolumna jest
+   * najczytelniejsza, dwie mieszczą dwa razy więcej i wciąż dają się
+   * przeczytać jednym rzutem oka, kafelki są do celowania palcem
+   * w rękawicy, same ikony mieszczą wszystko naraz.
+   *
+   * Trzy z czterech układów to TEN SAM delegat `pozycjaNarzedzia`
+   * w innej szerokości — w tym „ikony", które włączają jego własny
+   * tryb `tylkoIkona` (ikona wyśrodkowana + dymek z nazwą), obecny
+   * w QfPozycjaMenu od 23.08.2026 i dotąd używany wyłącznie przez
+   * szynę kategorii w Ustawieniach.
+   */
+  readonly property string uklad: mainWindow.ukladPozycji
+
+  /**
+   * Ten sam model pogrupowany na sekcje: [{ naglowek, pozycje: [...] }].
+   *
+   * Lista czyta `modelNarzedzi` wprost, bo nagłówek jest tam po prostu
+   * kolejnym wierszem. W siatce tak się nie da: kafelki układa `Flow`,
+   * a nagłówek musi zostać PRZY swoich kafelkach, nie przed wszystkimi.
+   */
+  readonly property var sekcjeNarzedzi: {
+    var sekcje = [];
+    var biezaca = null;
+    for (var i = 0; i < modelNarzedzi.length; i++) {
+      var w = modelNarzedzi[i];
+      if (w.naglowek !== undefined) {
+        biezaca = {
+          "naglowek": w.naglowek,
+          "pozycje": []
+        };
+        sekcje.push(biezaca);
+        continue;
+      }
+      if (!biezaca) {
+        biezaca = {
+          "naglowek": "",
+          "pozycje": []
+        };
+        sekcje.push(biezaca);
+      }
+      biezaca.pozycje.push(w);
+    }
+    return sekcje;
+  }
+
+  function odswiezWtyczki() {
+    if (!pasekWtyczek) {
+      wtyczki = [];
+      return;
+    }
+    var lista = [];
+    for (var i = 0; i < pasekWtyczek.children.length; i++) {
+      var d = pasekWtyczek.children[i];
+      // Sam Repeater i elementy bez ikony nie są przyciskami wtyczek.
+      if (d && d.iconSource !== undefined)
+        lista.push(d);
+    }
+    wtyczki = lista;
+  }
+
+  Component.onCompleted: {
+    pasekWtyczek = iface.findItemByObjectName("pluginsToolbar");
+    odswiezWtyczki();
+  }
+
+  // Wtyczka zgłasza się do paska w swoim Component.onCompleted, czyli PO
+  // zbudowaniu szuflady — bez tego sekcja zostałaby pusta do restartu.
+  Connections {
+    target: dataDrawer.pasekWtyczek
+    function onChildrenChanged() {
+      dataDrawer.odswiezWtyczki();
+    }
+  }
+
+  onOpened: odswiezWtyczki()
+
   edge: Qt.RightEdge
   width: Math.min(360, mainWindow.width * 0.85)
   height: parent.height
@@ -250,36 +368,158 @@ Drawer {
         //  3. Niebo, Teren i edytor plikow byly osiagalne wylacznie z trzeciego
         //     poziomu (Niebo: Narzedzia > Diagnostyka > stopka; Teren i edytor:
         //     LEWA szuflada > Dane > Teren > na sam dol). Wchodza na poziom 1.
-        Repeater {
-          model: [
-            { "naglowek": qsTr("Na mapie") },
-            { "label": qsTr("Pomiar odległości i powierzchni"), "action": "measurement", "ikona": "wfg_pomiar", "tryb": "measure" },
-            { "label": qsTr("Widok 3D"), "action": "view3d", "ikona": "wfg_kostka", "tryb": "3d" },
-            { "label": qsTr("Wydruki map"), "action": "print", "ikona": "wfg_wydruk" },
-            { "label": qsTr("Zakładki przestrzenne"), "action": "bookmarks", "ikona": "wfg_zakladka" },
-            { "label": qsTr("Pasek wyszukiwania"), "action": "lokalizator", "ikona": "wfg_lupa" },
-            { "naglowek": qsTr("Niebo i pozycja") },
-            { "label": qsTr("Niebo \u2014 satelity"), "action": "niebo", "ikona": "wfg_niebo" },
-            { "label": qsTr("Diagnostyka GNSS / NTRIP"), "action": "gnssDiag", "ikona": "wfg_sprzet" },
-            { "label": qsTr("Ustawienia pozycjonowania"), "action": "gnssSettings", "ikona": "wfg_ustawienia" },
-            { "naglowek": qsTr("Teren i pliki") },
-            { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
-            { "label": qsTr("Klawisze szybkiego zapisu"), "action": "klawisze", "ikona": "wfg_zapisz" },
-            { "label": qsTr("Wyposażenie projektu"), "action": "wyposazenie", "ikona": "wfg_wlasciwosci" },
-            { "label": qsTr("Pliki aplikacji"), "action": "pliki", "ikona": "wfg_przeglad" },
-            { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad" },
-            { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka" },
-            { "naglowek": qsTr("Aplikacja") },
-            { "label": qsTr("Wtyczki"), "action": "plugins", "ikona": "wfg_paczka" },
-            { "label": qsTr("Zablokuj ekran"), "action": "lockScreen", "ikona": "wfg_zamek" }
-          ]
+        // ── Wtyczki ─────────────────────────────────────────────
+        Item {
+          id: sekcjaWtyczek
 
-          // Naglowki i pozycje w JEDNYM modelu — kolejnosc widac w jednym
-          // miejscu, a nie w czterech osobnych Repeaterach.
-          Loader {
-            Layout.fillWidth: true
-            property var wpis: modelData
-            sourceComponent: modelData.naglowek !== undefined ? naglowekSekcjiNarzedzi : pozycjaNarzedzia
+          Layout.fillWidth: true
+          Layout.preferredHeight: ukladWtyczek.implicitHeight + 12
+          visible: dataDrawer.wtyczki.length > 0
+
+          ColumnLayout {
+            id: ukladWtyczek
+
+            anchors.fill: parent
+            anchors.margins: 6
+            spacing: 4
+
+            Text {
+              Layout.fillWidth: true
+              Layout.leftMargin: 2
+              text: qsTr("Wtyczki")
+              font: t.tipFont
+              color: t.secondaryTextColor
+            }
+
+            Flow {
+              Layout.fillWidth: true
+              spacing: 8
+
+              Repeater {
+                model: dataDrawer.wtyczki
+
+                delegate: QfToolButton {
+                  required property var modelData
+
+                  width: 44
+                  height: 44
+                  round: true
+                  // Barwy z ORYGINAŁU — uzbrojona wtyczka świeci tu tak samo
+                  // jak na pasku, bo to ten sam obiekt, nie jego odbitka.
+                  iconSource: modelData.iconSource
+                  iconColor: modelData.iconColor
+                  bgcolor: modelData.bgcolor
+                  ToolTip.text: modelData.ToolTip !== undefined && modelData.ToolTip.text ? modelData.ToolTip.text : ""
+                  ToolTip.visible: hovered && ToolTip.text !== ""
+                  ToolTip.delay: 400
+                  onClicked: {
+                    dataDrawer.close();
+                    modelData.clicked();
+                  }
+                  onPressAndHold: {
+                    dataDrawer.close();
+                    modelData.pressAndHold();
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 1
+          color: t.controlBorderColor
+          visible: sekcjaWtyczek.visible
+        }
+
+        // ── przełącznik układu ──────────────────────────────────
+        // Ten sam komponent co w lewej szufladzie: wybor jest jeden.
+        QfPrzelacznikUkladu {
+          t: dataDrawer.t
+          Layout.fillWidth: true
+          Layout.margins: 6
+        }
+
+        // ── pozycje: lista ──────────────────────────────────────
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 0
+          visible: dataDrawer.uklad === "lista"
+
+          Repeater {
+            model: dataDrawer.modelNarzedzi
+
+            // Naglowki i pozycje w JEDNYM modelu — kolejnosc widac w jednym
+            // miejscu, a nie w czterech osobnych Repeaterach.
+            Loader {
+              Layout.fillWidth: true
+              property var wpis: modelData
+              sourceComponent: modelData.naglowek !== undefined ? naglowekSekcjiNarzedzi : pozycjaNarzedzia
+            }
+          }
+        }
+
+        // ── pozycje: siatka ─────────────────────────────────────
+        // Ten sam model, inne ułożenie: nagłówek sekcji, pod nim jej kafelki
+        // po trzy w rzędzie. Szesnaście pozycji mieści się wtedy bez
+        // przewijania — i widać je wszystkie naraz.
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 0
+          visible: dataDrawer.uklad !== "lista"
+
+          Repeater {
+            model: dataDrawer.sekcjeNarzedzi
+
+            delegate: ColumnLayout {
+              required property var modelData
+
+              Layout.fillWidth: true
+              spacing: 0
+
+              Loader {
+                Layout.fillWidth: true
+                property var wpis: ({
+                    "naglowek": modelData.naglowek
+                  })
+                active: modelData.naglowek !== ""
+                sourceComponent: naglowekSekcjiNarzedzi
+              }
+
+              Flow {
+                Layout.fillWidth: true
+                Layout.leftMargin: 6
+                Layout.rightMargin: 10
+                Layout.bottomMargin: 6
+                spacing: 6
+
+                Repeater {
+                  model: modelData.pozycje
+
+                  // Szerokosc z SZUFLADY, nie z rzedu. Liczona z `Flow`
+                  // zapetla uklad: szerokosc dziecka zalezalaby od szerokosci
+                  // rzedu, a ta od dzieci ("Flow called polish() inside
+                  // updatePolish()", piaskownica 21.09). Odejmujemy marginesy
+                  // (6 + 10), odstepy (2 x 6) i miejsce na pasek przewijania.
+                  // Dwie kolumny to TEN SAM delegat co lista, tylko w polowie
+                  // szerokosci — trzeci uklad wygladajacy jak lista, ale nia
+                  // nie bedacy, rozjechalby sie przy pierwszej zmianie w liscie.
+                  delegate: Loader {
+                    property var wpis: modelData
+                    width: dataDrawer.uklad === "ikony"
+                           ? 44
+                           : dataDrawer.uklad === "kafelki"
+                             ? Math.floor((dataDrawer.width - 34) / 3)
+                             : Math.floor((dataDrawer.width - 28) / 2)
+                    height: dataDrawer.uklad === "kafelki" ? 84 : dataDrawer.uklad === "ikony" ? 44 : 36
+                    // Jeden komponent na cztery uklady - kafelekNarzedzia
+                    // byl czwartym sposobem rysowania tej samej pozycji.
+                    sourceComponent: pozycjaNarzedzia
+                  }
+                }
+              }
+            }
           }
         }
 
@@ -312,11 +552,19 @@ Drawer {
         }
 
         QfPozycjaMenu {
+          // WorkField 21.09.2026 - samo CHM stalo tu bez NMT i NMPT, z ktorych
+          // sie liczy. Teraz link do okna, w ktorym sa wszystkie trzy.
           Layout.fillWidth: true
           t: dataDrawer.t
-          text: qsTr("Policz CHM (NMPT \u2212 NMT)")
+          text: qsTr("Dane wysokościowe: NMT, NMPT, CHM…")
           ikona: "wfg_rzezba"
-          onClicked: dataDrawer.wykonajNarzedzie("chm")
+          onClicked: {
+            if (typeof oknoDaneWysokosciowe === "undefined") {
+              dataDrawer.wykonajNarzedzie("chm");
+              return;
+            }
+            oknoDaneWysokosciowe.otworz(dataDrawer);
+          }
         }
 
         Rectangle {
@@ -501,6 +749,9 @@ Drawer {
       readonly property bool wTrybie: dataDrawer.trybAktywny(wpis.tryb)
 
       t: dataDrawer.t
+      // Komponent sam wie, co zrobic z ukladem: napis znika do dymka
+      // ("ikony") albo ikona wchodzi nad napis ("kafelki").
+      uklad: dataDrawer.uklad
       // Tryb wlaczony? Pozycja mowi wprost, ze druga klikniecie go wylaczy.
       text: wTrybie ? wpis.label + qsTr("  ·  wyłącz") : wpis.label
       ikona: wpis.ikona !== undefined ? wpis.ikona : ""

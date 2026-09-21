@@ -35,6 +35,7 @@ set(QFIELD_APP_QML_FILES
     QfCloudSettings.qml
     QfColorPicker.qml
     QfDataDrawer.qml
+    QfDaneWysokosciowe.qml
     QfDesktopChrome.qml
     QfKontrolaProjektu.qml
     QfLayerExportDialog.qml
@@ -53,10 +54,19 @@ set(QFIELD_APP_QML_FILES
     QfPanelAkcji.qml
     QfPhotoGallery.qml
     QfPodgladStylu.qml
+    QfPodklady.qml
     QfPozycjaMenu.qml
+    QfPrzelacznikUkladu.qml
     QfPrzelacznikMaly.qml
     QfPrzepis.qml
     QfQuickCaptureBar.qml
+    QfSiatkaMenu.qml
+    QfBlokiCAD.qml
+    QfImportCAD.qml
+    QfOpisyCAD.qml
+    QfWarstwyRysunku.qml
+    QfWarstwiceCAD.qml
+    QfGeoreferencja.qml
     QfSekcjaModulow.qml
     QfSettingsAdvanced.qml
     QfSettingsDigitizing.qml

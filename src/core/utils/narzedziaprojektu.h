@@ -195,6 +195,15 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE bool przesunWarstwe( QgsProject *projekt, QgsMapLayer *warstwa, bool wGore ) const;
 
     /**
+     * Warstwa na SAM DOL swojej grupy (albo korzenia). Podklad ma byc POD
+     * danymi - inaczej ortofoto zasłania to, co zebrano w terenie.
+     */
+    Q_INVOKABLE bool naDol( QgsProject *projekt, QgsMapLayer *warstwa ) const;
+
+    //! Cala grupa (np. "NMT") na sam dol drzewa warstw.
+    Q_INVOKABLE bool grupaNaDol( QgsProject *projekt, const QString &nazwaGrupy ) const;
+
+    /**
      * Eksport projektu do DXF - odpowiednik "Projekt > Import/Eksport >
      * Eksportuj projekt do DXF" z QGIS desktop (QgisApp::dxfExport).
      * Czyta TE SAME ustawienia co okno QGIS: wpisy projektu dxf/last*

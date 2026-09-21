@@ -18,6 +18,7 @@
 #include <QChar>
 #include <QHash>
 #include <QString>
+#include <QStringDecoder>
 
 namespace KodowanieDxf
 {
@@ -26,7 +27,8 @@ namespace KodowanieDxf
   // i Latin1 - dla CP1250 cicho pisze UTF-8, a w naglowku deklaruje
   // $DWGCODEPAGE ANSI_1250. Polskie litery wychodza wtedy jako krzaki.
   // Przekodowujemy plik po zapisie; tablica wygenerowana z codecs.cp1250.
-  inline QByteArray doCp1250( const QString &tekst )
+  //! Tablica Unicode -> CP1250, wspolna dla obu kierunkow.
+  inline const QHash<ushort, char> &tablicaCp1250()
   {
     static const QHash<ushort, char> tablica = [] {
       QHash<ushort, char> t;
@@ -37,6 +39,12 @@ namespace KodowanieDxf
         t.insert( para[0], static_cast<char>( para[1] ) );
       return t;
     }();
+    return tablica;
+  }
+
+  inline QByteArray doCp1250( const QString &tekst )
+  {
+    const QHash<ushort, char> &tablica = tablicaCp1250();
 
     QByteArray wynik;
     wynik.reserve( tekst.size() );
@@ -49,6 +57,57 @@ namespace KodowanieDxf
         wynik.append( tablica.value( u, '?' ) );
     }
     return wynik;
+  }
+
+  /**
+   * Naprawa "krzakow" przy ODCZYCIE rysunku - droga w druga strone.
+   *
+   * Rysunki z polskich CAD-ow potrafia deklarowac w naglowku
+   * $DWGCODEPAGE ANSI_1250, a byc zapisane w UTF-8 (tak jest w probnym
+   * rysunku z 17.06.2026). GDAL wierzy naglowkowi, wiec bajty UTF-8
+   * odczytuje jako CP1250 i "przewod" robi sie "przewĂłd".
+   *
+   * Przeksztalcenie jest odwracalne: zapisujemy tekst z powrotem do CP1250
+   * i probujemy odczytac te bajty jako UTF-8. Jesli sie udaje - mamy
+   * oryginal; jesli nie - tekst byl w porzadku i zostaje bez zmian.
+   *
+   * DLACZEGO PRZY WYSWIETLANIU, a nie przy odczycie z pliku: DXF_ENCODING
+   * to opcja globalna GDAL-a, ktorej nie da sie zapisac w projekcie.
+   * Ustawiona raz, nie przezylaby ponownego otwarcia projektu, a filtr
+   * warstw (zapisany w subsetString) przestalby pasowac do danych.
+   * Naprawa przy wyswietlaniu dziala zawsze i niczego nie psuje: warunki
+   * i klucze zostaja na SUROWYCH wartosciach z bazy.
+   */
+  inline QString zKrzakow( const QString &tekst )
+  {
+    const QHash<ushort, char> &tablica = tablicaCp1250();
+    QByteArray bajty;
+    bajty.reserve( tekst.size() );
+    bool byloNieAscii = false;
+    for ( const QChar znak : tekst )
+    {
+      const ushort u = znak.unicode();
+      if ( u < 0x80 )
+      {
+        bajty.append( static_cast<char>( u ) );
+        continue;
+      }
+      byloNieAscii = true;
+      const auto i = tablica.constFind( u );
+      // Znak spoza CP1250 - tekst nie mogl przyjsc ta droga.
+      if ( i == tablica.constEnd() )
+        return tekst;
+      bajty.append( i.value() );
+    }
+    // Same ASCII: nie ma czego naprawiac (i nie ma jak sie pomylic).
+    if ( !byloNieAscii )
+      return tekst;
+
+    QStringDecoder dekoder( QStringDecoder::Utf8, QStringDecoder::Flag::Stateless );
+    const QString proba = dekoder( bajty );
+    if ( dekoder.hasError() )
+      return tekst;
+    return proba;
   }
 } // namespace KodowanieDxf
 

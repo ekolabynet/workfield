@@ -429,18 +429,12 @@ ColumnLayout {
 
 
   // ── czasowniki: menu akcji na górze sekcji (decyzja 2026-08-10) ──
-  Settings {
-    id: ustawieniaPaneluM
-    category: "WFGPanel"
-    property int ukladMenu: 0
-  }
-  GridLayout {
+  QfSiatkaMenu {
     Layout.fillWidth: true
     Layout.leftMargin: 8
     Layout.rightMargin: 8
-    columns: ustawieniaPaneluM.ukladMenu === 0 ? 1 : 2
-    columnSpacing: 4
-    rowSpacing: 2
+    t: dashBoard.t
+    szerokosc: dashBoard.width - 16
 
     QfPozycjaMenu {
       id: przyciskOtworz

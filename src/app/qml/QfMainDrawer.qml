@@ -1,4 +1,3 @@
-import QtCore
 import QtQuick
 import Qt5Compat.GraphicalEffects
 import QtQuick.Effects
@@ -43,6 +42,20 @@ Drawer {
 
   function computeChmAction() {
     demDownloader.computeChm();
+  }
+
+  /**
+   * Pobranie arkuszy dla nazwanego obszaru - wywolywane z okna danych
+   * wysokosciowych (QfDaneWysokosciowe.qml). Pusta nazwa daje "Obszar N".
+   */
+  function pobierzDemZakres(rodzaj, nazwa, najnowsze) {
+    demDownloader.areaName = nazwa !== undefined && nazwa !== "" ? nazwa : "Obszar " + demDownloader.areaCounter;
+    demDownloader.requestScoped(rodzaj, najnowsze);
+  }
+
+  //! Nazwa ostatniego obszaru - CHM dobiera NMT i NMPT po tej samej nazwie.
+  function nazwaObszaru() {
+    return demDownloader.areaName;
   }
   objectName: "dashBoard"
 
@@ -330,8 +343,15 @@ Drawer {
     }
 
     function request(type) {
+      // WorkField 21.09.2026 - dawne okno "Zakres pobierania" bylo druga kopia
+      // tego samego wyboru; teraz jest jedno okno na NMT, NMPT i CHM.
       pendingType = type;
-      demScopeDialog.open();
+      if (typeof oknoDaneWysokosciowe === "undefined") {
+        displayToast(qsTr("Ta wersja aplikacji nie ma okna danych wysokościowych"), "warning");
+        return;
+      }
+      oknoDaneWysokosciowe.rodzaj = type;
+      oknoDaneWysokosciowe.otworz(dashBoard);
     }
 
     function requestScoped(type, newestOnly) {
@@ -652,76 +672,6 @@ Drawer {
         const fileName = u.split("/").pop();
         active++;
         iface.downloadFile(u, qgisProject.homePath + "/" + type + "/" + fileName);
-      }
-    }
-  }
-
-  Dialog {
-    id: demScopeDialog
-
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 400)
-    modal: true
-    title: qsTr("Zakres pobierania %1").arg(demDownloader.pendingType)
-
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
-
-      Label {
-        Layout.fillWidth: true
-        text: qsTr("Skorowidze GUGiK dzielą arkusze na roczniki. Które pobrać?")
-        font: Theme.defaultFont
-        color: Theme.mainTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Label {
-          text: qsTr("Nazwa obszaru:")
-          font: Theme.tipFont
-          color: Theme.secondaryTextColor
-        }
-
-        TextField {
-          id: areaNameField
-          Layout.fillWidth: true
-          font: Theme.defaultFont
-          text: demDownloader.areaName
-        }
-      }
-      Button {
-        Layout.fillWidth: true
-        text: qsTr("Najnowsze arkusze")
-        font.pointSize: Theme.tinyFont.pointSize
-        onClicked: {
-          demDownloader.areaName = areaNameField.text.trim() !== "" ? areaNameField.text.trim() : "Obszar " + demDownloader.areaCounter;
-          demScopeDialog.close();
-          demDownloader.requestScoped(demDownloader.pendingType, true);
-        }
-      }
-
-      Button {
-        Layout.fillWidth: true
-        text: qsTr("Wszystkie roczniki")
-        font.pointSize: Theme.tinyFont.pointSize
-        onClicked: {
-          demDownloader.areaName = areaNameField.text.trim() !== "" ? areaNameField.text.trim() : "Obszar " + demDownloader.areaCounter;
-          demScopeDialog.close();
-          demDownloader.requestScoped(demDownloader.pendingType, false);
-        }
-      }
-
-      Button {
-        Layout.fillWidth: true
-        text: qsTr("Anuluj")
-        font.pointSize: Theme.tinyFont.pointSize
-        onClicked: demScopeDialog.close()
       }
     }
   }
@@ -1289,35 +1239,26 @@ Drawer {
         }
       }
 
-      RowLayout {
+      // ── przełącznik układu ──────────────────────────────────
+      // Ten sam komponent i ten sam wybór co w prawej szufladzie. Wcześniej
+      // lewa miała własny (▤/▦), dwa stany zamiast czterech i własne
+      // ustawienie WFGPanel/ukladMenu, o którym trzeba było pamiętać osobno.
+      QfPrzelacznikUkladu {
+        t: dashBoard.t
         Layout.fillWidth: true
         Layout.topMargin: 6
+      }
 
-        Text {
-          Layout.fillWidth: true
-          text: qsTr("Wszystkie projekty")
-          font: t.tinyFont
-          color: t.secondaryTextColor
-        }
-        ToolButton {
-          // przełącznik układu: lista (menu) / siatka dwukolumnowa
-          text: ustawieniaPanelu.ukladMenu === 0 ? "\u25a4" : "\u25a6"
-          font.pointSize: t.tinyFont.pointSize
-          implicitHeight: 24
-          onClicked: ustawieniaPanelu.ukladMenu = ustawieniaPanelu.ukladMenu === 0 ? 1 : 0
-        }
-      }
-      Settings {
-        id: ustawieniaPanelu
-        category: "WFGPanel"
-        // 0 = lista jak klasyczne menu (decyzja 2026-08-10), 1 = siatka
-        property int ukladMenu: 0
-      }
-      GridLayout {
+      Text {
         Layout.fillWidth: true
-        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
-        columnSpacing: 4
-        rowSpacing: 2
+        text: qsTr("Wszystkie projekty")
+        font: t.tinyFont
+        color: t.secondaryTextColor
+      }
+      QfSiatkaMenu {
+        Layout.fillWidth: true
+        t: dashBoard.t
+        szerokosc: dashBoard.width
 
         QfPozycjaMenu {
           text: qsTr("Zlecenia")
@@ -1451,11 +1392,10 @@ Drawer {
         color: t.secondaryTextColor
         opacity: projectSection.filePath !== "" ? 1.0 : 0.4
       }
-      GridLayout {
+      QfSiatkaMenu {
         Layout.fillWidth: true
-        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
-        columnSpacing: 4
-        rowSpacing: 2
+        t: dashBoard.t
+        szerokosc: dashBoard.width
 
         QfPozycjaMenu {
           // WorkField 18.08.2026: przyszło ze Zleceń — dotyczy projektu
@@ -1558,11 +1498,10 @@ Drawer {
         font: t.tinyFont
         color: t.secondaryTextColor
       }
-      GridLayout {
+      QfSiatkaMenu {
         Layout.fillWidth: true
-        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
-        columnSpacing: 4
-        rowSpacing: 2
+        t: dashBoard.t
+        szerokosc: dashBoard.width
 
         QfPozycjaMenu {
           text: qsTr("Folder aplikacji")
@@ -1608,13 +1547,12 @@ Drawer {
           font: t.strongFont
           color: t.mainTextColor
         }
-      GridLayout {
+      QfSiatkaMenu {
         Layout.fillWidth: true
         Layout.leftMargin: 8
         Layout.rightMargin: 8
-        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
-        columnSpacing: 4
-        rowSpacing: 2
+        t: dashBoard.t
+        szerokosc: dashBoard.width - 16
 
         QfPozycjaMenu {
           text: qsTr("Nowa warstwa")
@@ -1625,12 +1563,11 @@ Drawer {
         }
         }
         QfPozycjaMenu {
-          text: qsTr("Podkład")
+          // WorkField 21.09.2026 - jedno wejscie: ekran podkladow i dane
+          // wysokosciowe (NMT, NMPT, CHM) za jednymi drzwiami.
+          text: qsTr("Podkłady i dane wysokościowe")
           ikona: "wfg_podklad"
-          onClicked: {
-          dashBoard.close();
-          basemapScreen.open();
-        }
+          onClicked: oknoPodkladow.otworz(dashBoard)
         }
         QfPozycjaMenu {
           text: qsTr("Dodaj z pliku")
@@ -1655,21 +1592,6 @@ Drawer {
           photoGallery.openPhotos();
         }
         }
-        QfPozycjaMenu {
-          text: qsTr("NMT")
-          ikona: "wfg_rzezba"
-          onClicked: demDownloader.request("NMT")
-        }
-        QfPozycjaMenu {
-          text: qsTr("NMPT")
-          ikona: "wfg_rzezba"
-          onClicked: demDownloader.request("NMPT")
-        }
-        QfPozycjaMenu {
-          text: qsTr("CHM")
-          ikona: "wfg_rzezba"
-          onClicked: demDownloader.computeChm()
-        }
       }
       Text {
           Layout.fillWidth: true
@@ -1679,13 +1601,12 @@ Drawer {
           font: t.tinyFont
           color: t.secondaryTextColor
         }
-      GridLayout {
+      QfSiatkaMenu {
         Layout.fillWidth: true
         Layout.leftMargin: 8
         Layout.rightMargin: 8
-        columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
-        columnSpacing: 4
-        rowSpacing: 2
+        t: dashBoard.t
+        szerokosc: dashBoard.width - 16
 
         QfPozycjaMenu {
           // WorkField 20.09.2026 - "Powieksz do danych" obejmuje caly projekt;
@@ -2087,13 +2008,12 @@ Drawer {
           }
         }
 
-        GridLayout {
+        QfSiatkaMenu {
           Layout.fillWidth: true
           Layout.leftMargin: 8
           Layout.rightMargin: 8
-          columns: ustawieniaPanelu.ukladMenu === 0 ? 1 : 2
-          columnSpacing: 4
-          rowSpacing: 2
+          t: dashBoard.t
+          szerokosc: dashBoard.width - 16
 
           QfPozycjaMenu {
             text: qsTr("Zapisz styl")

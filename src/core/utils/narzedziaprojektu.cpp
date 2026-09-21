@@ -579,6 +579,56 @@ bool NarzedziaProjektu::przesunWarstwe( QgsProject *projekt, QgsMapLayer *warstw
   return ok;
 }
 
+namespace
+{
+  /**
+   * Wezel na SAM DOL swojego rodzica - ta sama droga co przesunWarstwe:
+   * most drzewo-rejestr wylaczony, klon wstawiony na koncu, oryginal usuniety
+   * (samo przeniesienie wskaznika gubi warstwe - 18.09.2026).
+   */
+  bool wezelNaDol( QgsProject *p, QgsLayerTreeNode *wezel )
+  {
+    if ( !p || !wezel )
+      return false;
+    QgsLayerTreeGroup *rodzic = qobject_cast<QgsLayerTreeGroup *>( wezel->parent() );
+    if ( !rodzic )
+      return false;
+    if ( rodzic->children().indexOf( wezel ) == rodzic->children().count() - 1 )
+      return true; // juz na dole
+    QgsLayerTreeRegistryBridge *most = p->layerTreeRegistryBridge();
+    const bool bylWlaczony = most && most->isEnabled();
+    if ( most )
+      most->setEnabled( false );
+    bool ok = false;
+    if ( QgsLayerTreeNode *kopia = wezel->clone() )
+    {
+      kopia->setExpanded( wezel->isExpanded() );
+      rodzic->addChildNode( kopia );
+      rodzic->removeChildNode( wezel );
+      ok = true;
+    }
+    if ( most && bylWlaczony )
+      most->setEnabled( true );
+    return ok;
+  }
+} // namespace
+
+bool NarzedziaProjektu::naDol( QgsProject *projekt, QgsMapLayer *warstwa ) const
+{
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p || !warstwa )
+    return false;
+  return wezelNaDol( p, p->layerTreeRoot()->findLayer( warstwa->id() ) );
+}
+
+bool NarzedziaProjektu::grupaNaDol( QgsProject *projekt, const QString &nazwaGrupy ) const
+{
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p || nazwaGrupy.isEmpty() )
+    return false;
+  return wezelNaDol( p, p->layerTreeRoot()->findGroup( nazwaGrupy ) );
+}
+
 bool NarzedziaProjektu::doGrupy( QgsProject *projekt, QgsMapLayer *warstwa, const QString &grupa, bool zwinieta, bool widoczna ) const
 {
   QgsProject *p = projekt ? projekt : QgsProject::instance();
