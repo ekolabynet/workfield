@@ -30,6 +30,16 @@
     "author": "ekolabynet"
   },
   {
+    "uuid": "workfield-probka",
+    "name": "WorkField Probka",
+    "description": "Odczyt wartosci z rastra pod palcem: punkt, srednia wzdluz linii, srednia z kola o rozciaganym promieniu; wynik do schowka (v0.1)",
+    "version": "0.1",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-probka-v0.1.zip",
+    "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_probka.svg",
+    "homepage": "https://github.com/ekolabynet/workfield",
+    "author": "ekolabynet"
+  },
+  {
     "uuid": "workfield-zrobione",
     "name": "WorkField Zrobione",
     "description": "Odhaczanie poligonow tapnieciem: NIE / CZESCIOWO / KOMPLET (v0.6)",
