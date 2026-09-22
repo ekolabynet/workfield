@@ -18,9 +18,9 @@
      inkscape:pageopacity="1"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
-     inkscape:zoom="0.87792969"
-     inkscape:cx="306.97219"
-     inkscape:cy="553.00556"
+     inkscape:zoom="0.43896485"
+     inkscape:cx="5.6952169"
+     inkscape:cy="511.43048"
      inkscape:window-width="1920"
      inkscape:window-height="1128"
      inkscape:window-x="0"
@@ -72,13 +72,6 @@
      stroke-width="15"
      id="circle7"
      style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-opacity:1" />
-  <circle
-     cx="538"
-     cy="525.03229"
-     fill="#FF4081"
-     id="circle8"
-     style="fill:#f10052;fill-opacity:1;stroke-width:1.81818"
-     r="40" />
   <g
      fill="#FFFFFF"
      id="g12"
@@ -109,7 +102,7 @@
        style="fill:#f60054;fill-opacity:1" />
   </g>
   <circle
-     cx="300"
+     cx="298"
      cy="380"
      r="60"
      fill="none"
@@ -117,23 +110,25 @@
      stroke-width="12"
      opacity="0.55"
      id="circle14"
-     style="stroke-width:20;stroke-dasharray:none" />
-  <line
-     x1="300"
-     y1="380"
-     x2="512"
-     y2="512"
-     stroke="#ff4081"
-     stroke-width="10.58"
-     stroke-dasharray="4, 34"
-     stroke-linecap="round"
-     opacity="0.9"
-     id="line8"
-     style="stroke-dasharray:10.58, 21.16;stroke-dashoffset:0;stroke:#f10052;stroke-opacity:1" />
+     style="opacity:0.749482;stroke:#00f68e;stroke-width:20;stroke-dasharray:none;stroke-opacity:1" />
   <circle
      cx="300"
      cy="380"
      r="34"
      fill="#FF4081"
      id="circle13" />
+  <path
+     style="opacity:0.749482;fill:#ff5555;stroke:#00f68e;stroke-width:20;stroke-opacity:1"
+     d="m -102.5139,111.62625 c -0.75937,9.49203 -1.64467,18.97482 -2.27809,28.47609 -0.51523,7.72844 0.68719,15.09941 1.13904,22.78086 0.17837,3.03221 -0.59569,6.13389 0,9.11235 0.56709,2.83541 2.58625,5.20369 3.41713,7.9733 0.327304,1.09101 -0.14128,2.28689 0,3.41713 0.580837,4.64667 2.325362,9.30144 3.417133,13.66852 1.935256,7.74103 9.295082,16.26945 10.25139,23.91992 0.329656,2.63724 0,5.31553 0,7.9733"
+     id="path1" />
+  <path
+     id="path3"
+     style="opacity:1;fill:#ff5555;stroke:#f10052;stroke-width:24;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1"
+     d="M 533.64182,433.97553 V 621.91769" />
+  <path
+     id="path3-6"
+     style="opacity:1;fill:#ff5555;stroke:#f10052;stroke-width:24;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1"
+     d="M 632.77163,528.0246 434.512,527.86862"
+     inkscape:transform-center-x="-39.866518"
+     inkscape:transform-center-y="-28.476084" />
 </svg>
