@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="done_unpacking_msg">Rozpakowywanie zakończone, uruchamianie QGIS.</string>
-    <string name="unpacking_title">QField za chwilę będzie gotowy</string>
+    <string name="unpacking_title">WorkFieldGIS za chwilę będzie gotowy</string>
     <string name="unpacking_msg">To jest jednokrotna operacja, za chwilę wszystko będzie gotowe</string>
     <string name="unpacking_msg_following">Już prawie gotowe, wytrzymaj jeszcze chwilę!</string>
     <string name="use_internal_storage">Użyj pamięci wewnętrznej</string>

@@ -30,7 +30,7 @@ QfPopup {
     padding: 5
 
     header: QfPageHeader {
-      title: qsTr("What's new in QField")
+      title: qsTr("Co nowego w WorkFieldGIS")
 
       showApplyButton: false
       showCancelButton: false
@@ -64,6 +64,19 @@ QfPopup {
           anchors.right: parent.right
 
           columns: 1
+
+          // WFG-POCHODZENIE — WorkFieldGIS 22.09.2026.
+          // Do 22.09 to okno mialo naglowek „What's new in QField”: klikniecie
+          // w nazwe NASZEGO programu wyswietlalo nazwe cudzego. Naglowek
+          // poprawiony, a nad lista zmian stoi zdanie, skad ten program jest.
+          QfPochodzenie {
+            Layout.fillWidth: true
+            Layout.bottomMargin: 10
+            wersjaQGIS: String(Qfield.qgisVersion).split("-")[0]
+            barwaTekstu: QfTheme.secondaryTextColor
+            barwaLinku: QfTheme.mainColor
+            rozmiar: QfTheme.tipFont.pointSize
+          }
 
           Text {
             id: changelogBody

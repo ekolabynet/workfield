@@ -58,7 +58,7 @@ Popup {
 
     Text {
       Layout.fillWidth: true
-      text: qsTr("Teren — ustawienia WorkField")
+      text: qsTr("Teren — ustawienia WorkFieldGIS")
       color: "#80CBC4"
       font: Theme.strongFont
       wrapMode: Text.Wrap

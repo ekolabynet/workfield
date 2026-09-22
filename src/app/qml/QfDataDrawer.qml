@@ -691,7 +691,7 @@ Drawer {
         QfPozycjaMenu {
           t: dataDrawer.t
           ikona: "ic_info_white_24dp"
-          text: qsTr("O aplikacji WorkField")
+          text: qsTr("O aplikacji WorkFieldGIS")
           onClicked: {
             dashBoard.showAbout();
             dataDrawer.close();

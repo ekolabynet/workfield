@@ -4427,10 +4427,15 @@ ApplicationWindow {
    */
   QfJakZaczac {
     id: oknoJakZaczac
+    wersjaQGIS: String(Qfield.qgisVersion).split("-")[0]
     szufladaLewa: dashBoard
     szufladaPrawa: dataDrawer
     oknoWtyczek: pluginManagerSettings
     podklady: oknoPodkladow
+    daneWysokosciowe: oknoDaneWysokosciowe
+    importCAD: oknoImportuCAD
+    georeferencja: oknoGeoreferencji
+    ekranPowitalny: welcomeScreen
   }
 
   /**
@@ -4444,10 +4449,10 @@ ApplicationWindow {
     running: true
     repeat: false
     onTriggered: {
-      const pokazane = settings.valueBool('WorkField/jakZaczacPokazane', false);
+      const pokazane = settings.valueBool('WorkField/jakZaczacPokazane2', false);
       const zawsze = settings.valueBool('WorkField/jakZaczacPokazuj', false);
       if (!pokazane || zawsze) {
-        settings.setValue('WorkField/jakZaczacPokazane', true);
+        settings.setValue('WorkField/jakZaczacPokazane2', true);
         oknoJakZaczac.open();
       }
     }
@@ -4477,6 +4482,7 @@ ApplicationWindow {
 
     onShowBookmarks: bookmarkList.show()
     onShowPluginManager: pluginManagerSettings.open()
+    onPokazJakZaczac: oknoJakZaczac.open()
     onShowSettings: qfieldSettings.visible = true
     onShowMessageLog: messageLog.visible = true
     onLockScreen: screenLocker.enabled = true

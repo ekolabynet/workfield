@@ -315,7 +315,7 @@ Page {
     }
     ListElement {
       title: qsTr("Używaj aparatu systemowego")
-      description: qsTr("Wymagane do pracy z OpenCamera. Gdy włączone, zdjęcia robi aparat systemowy — WorkField użyje OpenCamera, jeśli jest zainstalowana, w przeciwnym razie aparatu fabrycznego. Wyłączenie przywraca prosty aparat wbudowany w aplikację.")
+      description: qsTr("Wymagane do pracy z OpenCamera. Gdy włączone, zdjęcia robi aparat systemowy — WorkFieldGIS użyje OpenCamera, jeśli jest zainstalowana, w przeciwnym razie aparatu fabrycznego. Wyłączenie przywraca prosty aparat wbudowany w aplikację.")
       settingAlias: "nativeCamera2"
       isVisible: true
     }

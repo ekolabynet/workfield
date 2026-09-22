@@ -70,7 +70,7 @@ ColumnLayout {
   Label {
     Layout.fillWidth: true
     wrapMode: Text.WordWrap
-    text: qsTr("Konto chmury WorkField")
+    text: qsTr("Konto chmury WorkFieldGIS")
     font: Theme.strongTipFont
     color: Theme.mainTextColor
   }

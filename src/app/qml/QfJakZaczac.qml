@@ -1,14 +1,21 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Theme
 
 /**
- * WorkField 22.09.2026 — „Jak zacząć?"
+ * WorkFieldGIS 22.09.2026 — „Jak zacząć?" (wersja 3)
  *
- * Ekran pierwszego kontaktu. Pokazuje się RAZ, po instalacji, i jest
- * spisem CZYNNOŚCI, nie opisem programu: każda pozycja otwiera to miejsce,
- * o którym mówi. Wiersz, który tylko opowiada, nie ma tu czego szukać —
- * od opowiadania jest dokumentacja.
+ * Ekran pierwszego kontaktu. Pokazuje się RAZ, po instalacji, i wraca
+ * z nagłówka lewej szuflady albo z menu („Aplikacja → Jak zacząć?").
+ *
+ * Trzon to spis CZYNNOŚCI: każda pozycja otwiera to miejsce, o którym mówi.
+ * Od wersji 3 przed spisem stoją dwie rzeczy, o które prosił autor:
+ *   - OSTRZEŻENIE o wczesnym etapie rozwoju — pierwsze, co widać, bo
+ *     tester ma je zobaczyć zanim zacznie na tym pracować, a nie po fakcie;
+ *   - „CO TO JEST” — czym jest projekt i czym jest zlecenie. Bez tego
+ *     dwa najważniejsze słowa w programie znaczą dla nowego tyle,
+ *     ile zgadnie z kontekstu.
  *
  * Nie zna żadnych identyfikatorów z QgisMobileapp.qml. Miejsca, które ma
  * otwierać, dostaje we właściwościach — tak jak QfSekcjaModulow dostaje
@@ -22,26 +29,58 @@ Popup {
   property var szufladaLewa: null
   //! Prawa szuflada (dataDrawer): otworzZakladke(0 Moduły, 1 Narzędzia, 2 Algorytmy, 3 Ustawienia)
   property var szufladaPrawa: null
-  //! Okna, każde z open(): menedżer wtyczek, okno podkładów i danych wysokościowych
+  //! Okna, każde z open() — wiersz ma otwierać OKNO POLECENIA, nie szufladę,
+  //! w której polecenie się chowa (uwaga z telefonu, 22.09).
   property var oknoWtyczek: null
   property var podklady: null
+  property var daneWysokosciowe: null
+  property var importCAD: null
+  property var georeferencja: null
+  //! Ekran powitalny z listą projektów — pokazuje się przez `visible`, nie open()
+  property var ekranPowitalny: null
   //! Napis wersji do stopki — tym numerem posługuje się tester w zgłoszeniu
   property string wersja: ""
+  //! Wersja silnika QGIS do akapitu o pochodzeniu — z `Qfield.qgisVersion`
+  property string wersjaQGIS: ""
 
   //! Ustawienie „pokazuj przy starcie"; puste = nie zapisuj (podgląd osobny)
   property string kluczUstawienia: "WorkField/jakZaczacPokazuj"
 
   signal poproszonoOProjektPrzykladowy
 
+  /**
+   * Numer wersji do stopki. NIE wiazanie `wersja: appVersionStr` w miejscu
+   * uzycia: ta nazwa jest wlasciwoscia kontekstu i bywa jeszcze nieustawiona,
+   * gdy komponent sie buduje - QfMainDrawer przerabial to 17.09 i skonczyl
+   * na tym samym `Component.onCompleted` z osłoną.
+   */
+  Component.onCompleted: {
+    if (jakZaczac.wersja === "") {
+      try {
+        jakZaczac.wersja = appVersionStr;
+      } catch (e) {
+        jakZaczac.wersja = "";
+      }
+    }
+  }
+
   modal: true
   focus: true
   closePolicy: Popup.CloseOnEscape
   padding: 0
 
-  readonly property color barwaTla: Theme.mainBackgroundColor !== undefined ? Theme.mainBackgroundColor : "#ffffff"
-  readonly property color barwaTekstu: Theme.mainTextColor !== undefined ? Theme.mainTextColor : "#1f1f1f"
-  readonly property color barwaSzara: Theme.secondaryTextColor !== undefined ? Theme.secondaryTextColor : "#6b6b6b"
-  readonly property color barwaGlowna: Theme.mainColor !== undefined ? Theme.mainColor : "#80cc28"
+  /**
+   * WLASNA SKORA, nie motyw aplikacji. Powitanie ma wygladac inaczej niz
+   * okna robocze - po to, zeby bylo widac, ze to jest powitanie, a nie
+   * kolejne okno do wypelnienia. Ciemny teal + jasna zielen, kontrasty
+   * policzone: zielen na tle 11,9:1, tekst 13,6:1, opis 7,4:1 (WCAG AA
+   * wymaga 4,5:1 dla tekstu). Bursztyn ostrzezenia: 10,4:1.
+   */
+  readonly property color barwaTla: "#0B3B39"
+  readonly property color barwaTekstu: "#EAF7EF"
+  readonly property color barwaSzara: "#9FC3BE"
+  readonly property color barwaGlowna: "#A8E86A"
+  readonly property color barwaUwagi: "#F5C542"
 
   parent: Overlay.overlay
   x: Math.round((parent.width - width) / 2)
@@ -84,6 +123,15 @@ Popup {
     });
   }
 
+  function pokazEkranPowitalny() {
+    wykonaj(function () {
+      if (ekranPowitalny)
+        ekranPowitalny.visible = true;
+      else
+        console.warn("WFG JakZaczac: brak ekranu powitalnego");
+    });
+  }
+
   function otworzOkno(okno, nazwa) {
     wykonaj(function () {
       if (okno && typeof okno.open === "function")
@@ -100,6 +148,26 @@ Popup {
     property string opis: ""
     Layout.fillWidth: true
     Layout.preferredHeight: Math.max(48, tresc.implicitHeight + 16)
+
+    /**
+     * WLASNE TLO. ItemDelegate ze stylu rysuje BIALY prostokat - na jasnym
+     * motywie niewidoczny, na ciemnym tealu bialy pas, na ktorym ginie jasny
+     * tytul. Zmierzone: piksel tla wiersza (255,255,255) przy tle okna
+     * (11,59,57). Stad przezroczyste tlo + delikatna kreska rozdzielajaca
+     * i rozjasnienie pod palcem, zeby dotkniecie bylo widac.
+     */
+    background: Rectangle {
+      color: wiersz.pressed ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+      Rectangle {
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: 12
+        anchors.rightMargin: 12
+        height: 1
+        color: Qt.rgba(1, 1, 1, 0.08)
+      }
+    }
     contentItem: RowLayout {
       spacing: 8
       ColumnLayout {
@@ -133,13 +201,45 @@ Popup {
     }
   }
 
+  /**
+   * Blok, ktory TLUMACZY i niczego nie otwiera. Celowo NIE jest wierszem
+   * z szewronem: szewron obiecuje, ze cos sie po dotknieciu stanie, a tu
+   * sie nie stanie. Dwa rozne ksztalty dla dwoch roznych obietnic.
+   */
+  component Wyjasnienie: ColumnLayout {
+    property string haslo: ""
+    property string tresc: ""
+    Layout.fillWidth: true
+    Layout.leftMargin: 12
+    Layout.rightMargin: 12
+    Layout.topMargin: 6
+    Layout.bottomMargin: 6
+    spacing: 2
+    Text {
+      Layout.fillWidth: true
+      text: parent.haslo
+      color: jakZaczac.barwaTekstu
+      font.pointSize: (Theme.defaultFont !== undefined ? Theme.defaultFont.pointSize : 12)
+      font.bold: true
+      wrapMode: Text.WordWrap
+    }
+    Text {
+      Layout.fillWidth: true
+      text: parent.tresc
+      color: jakZaczac.barwaSzara
+      font.pointSize: (Theme.defaultFont !== undefined ? Theme.defaultFont.pointSize : 12) - 1
+      wrapMode: Text.WordWrap
+      lineHeight: 1.15
+    }
+  }
+
   component Naglowek: Text {
     Layout.fillWidth: true
     Layout.topMargin: 12
     Layout.bottomMargin: 2
     Layout.leftMargin: 12
     Layout.rightMargin: 12
-    color: jakZaczac.barwaSzara
+    color: jakZaczac.barwaGlowna
     font.pointSize: (Theme.defaultFont !== undefined ? Theme.defaultFont.pointSize : 12) - 1
     font.bold: true
   }
@@ -159,7 +259,7 @@ Popup {
         spacing: 2
         Text {
           Layout.fillWidth: true
-          text: qsTr("Witaj w WorkFieldzie")
+          text: qsTr("Witaj w WorkFieldGIS")
           color: jakZaczac.barwaTekstu
           font.pointSize: (Theme.defaultFont !== undefined ? Theme.defaultFont.pointSize : 12) + 4
           font.bold: true
@@ -185,27 +285,124 @@ Popup {
         width: parent.width
         spacing: 0
 
+        // --- ostrzeżenie ---------------------------------------------
+        // PIERWSZE, co widać po otwarciu. Na dole ekranu byłoby uczciwe
+        // formalnie i bezużyteczne w praktyce — tester dowiaduje się
+        // o stanie programu ZANIM na nim popracuje.
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.margins: 12
+          Layout.preferredHeight: uwaga.implicitHeight + 20
+          radius: 6
+          color: Qt.rgba(jakZaczac.barwaUwagi.r, jakZaczac.barwaUwagi.g, jakZaczac.barwaUwagi.b, 0.12)
+          border.width: 1
+          border.color: Qt.rgba(jakZaczac.barwaUwagi.r, jakZaczac.barwaUwagi.g, jakZaczac.barwaUwagi.b, 0.45)
+
+          ColumnLayout {
+            id: uwaga
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: 3
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Wczesny etap rozwoju")
+              color: jakZaczac.barwaUwagi
+              font.pointSize: (Theme.defaultFont !== undefined ? Theme.defaultFont.pointSize : 12)
+              font.bold: true
+            }
+            Text {
+              Layout.fillWidth: true
+              text: qsTr("Program jest w budowie i zmienia się z tygodnia na tydzień. Używaj go z dużą ostrożnością tam, gdzie wynik ma znaczenie: sprawdzaj dane po każdym etapie, rób kopie zapasowe i nie opieraj na nim pracy, której nie dałoby się powtórzyć. Przy operatach, odbiorach i dokumentacji, za którą się odpowiada, traktuj go jako narzędzie pomocnicze — nie jako jedyne źródło.")
+              color: jakZaczac.barwaTekstu
+              font.pointSize: (Theme.defaultFont !== undefined ? Theme.defaultFont.pointSize : 12) - 1
+              wrapMode: Text.WordWrap
+              lineHeight: 1.15
+            }
+          }
+        }
+
+        // --- co to jest ------------------------------------------------
         Naglowek {
-          text: qsTr("ZACZNIJ OD JEDNEGO Z TRZECH")
+          text: qsTr("CO TO JEST")
+        }
+        Wyjasnienie {
+          haslo: qsTr("Projekt")
+          tresc: qsTr("Jedna praca, zamknięta w jednym folderze: plik QGIS, warstwy, formularze, słowniki, stylizacja i zdjęcia. Wszystko, czego ten plik potrzebuje, leży obok niego — dlatego projekt da się przenieść, spakować i oddać w całości, bez zbierania danych po katalogach. To, co założysz w biurze, w terenie działa bez zasięgu; to, co zbierzesz w terenie, wraca tą samą paczką. Projekt zakładasz od zera, z modułu albo z gotowego rysunku DXF.")
+        }
+        Wyjasnienie {
+          haslo: qsTr("Zlecenie")
+          tresc: qsTr("Grupa projektów, które mają być robione tak samo. W obrębie zlecenia pilnujemy dwóch rzeczy. Pierwsza to unifikacja: te same warstwy, te same formularze i słowniki, ta sama stylizacja w każdym projekcie — po to, żeby dane z kilkunastu projektów dały się złożyć w jedno opracowanie. Druga to obieg pracy: rozdanie projektów ludziom w terenie i odebranie ich z powrotem — kto co dostał, co już wróciło i czy wróciło kompletne.")
+        }
+
+        Naglowek {
+          text: qsTr("NA CZYM TO STOI")
+        }
+        QfPochodzenie {
+          Layout.fillWidth: true
+          Layout.leftMargin: 12
+          Layout.rightMargin: 12
+          Layout.topMargin: 2
+          Layout.bottomMargin: 4
+          wersjaQGIS: jakZaczac.wersjaQGIS
+          barwaTekstu: jakZaczac.barwaSzara
+          barwaLinku: jakZaczac.barwaGlowna
+          rozmiar: (Theme.defaultFont !== undefined ? Theme.defaultFont.pointSize : 12) - 1
+        }
+
+        Naglowek {
+          text: qsTr("OTWÓRZ PROJEKT")
         }
         Czynnosc {
-          text: qsTr("Otwórz projekt")
-          opis: qsTr("Z karty pamięci albo z katalogu zleceń")
-          onClicked: jakZaczac.otworzSekcje(1)
+          text: qsTr("Moje projekty")
+          opis: qsTr("Ekran powitalny z listą ostatnich i z kartą pamięci")
+          onClicked: jakZaczac.pokazEkranPowitalny()
         }
         Czynnosc {
           text: qsTr("Złóż projekt z modułu")
-          opis: qsTr("CAD, Inwentaryzacja drzew — warstwy i style powstaną same")
+          opis: qsTr("Prawa szuflada, zakładka Moduły — karty CAD i Inwentaryzacji")
           onClicked: jakZaczac.otworzZakladke(0)
         }
+
+        Naglowek {
+          text: qsTr("WCZYTAJ DANE")
+        }
         Czynnosc {
-          text: qsTr("Zlecenia i Magazyn")
-          opis: qsTr("Praca podzielona na zlecenia, kopie i zwroty z terenu")
-          onClicked: jakZaczac.otworzSekcje(0)
+          text: qsTr("Import z rysunku DXF")
+          opis: qsTr("Warstwy, bloki, opisy i warstwice — za jednym razem")
+          visible: jakZaczac.importCAD !== null
+          onClicked: jakZaczac.otworzOkno(jakZaczac.importCAD, "import DXF")
+        }
+        Czynnosc {
+          text: qsTr("Podkłady")
+          opis: qsTr("Ortofotomapa i mapy na obszar pracy, do użycia bez zasięgu")
+          visible: jakZaczac.podklady !== null
+          onClicked: jakZaczac.otworzOkno(jakZaczac.podklady, "podkłady")
+        }
+        Czynnosc {
+          text: qsTr("Dane wysokościowe")
+          opis: qsTr("NMT i NMPT, z nich liczy się CHM")
+          visible: jakZaczac.daneWysokosciowe !== null
+          onClicked: jakZaczac.otworzOkno(jakZaczac.daneWysokosciowe, "dane wysokościowe")
+        }
+        Czynnosc {
+          text: qsTr("Georeferencja obrazu")
+          opis: qsTr("Zdjęcie mapy albo szkic — wpasowanie w układ współrzędnych")
+          visible: jakZaczac.georeferencja !== null
+          onClicked: jakZaczac.otworzOkno(jakZaczac.georeferencja, "georeferencja")
         }
 
         Naglowek {
           text: qsTr("GDZIE CO JEST")
+        }
+        Czynnosc {
+          text: qsTr("Zlecenia")
+          opis: qsTr("Lewa szuflada — drzewo zleceń i projektów, stan pracy")
+          onClicked: jakZaczac.otworzSekcje(0)
+        }
+        Czynnosc {
+          text: qsTr("Projekt")
+          opis: qsTr("Lewa szuflada — zakładanie, zapis, szablony, pliki projektu")
+          onClicked: jakZaczac.otworzSekcje(1)
         }
         Czynnosc {
           text: qsTr("Warstwy")
@@ -216,22 +413,6 @@ Popup {
           text: qsTr("Stylizacja")
           opis: qsTr("Lewa szuflada — kolory, etykiety, symbole")
           onClicked: jakZaczac.otworzSekcje(3)
-        }
-        Czynnosc {
-          text: qsTr("Moduły")
-          opis: qsTr("Prawa szuflada, pierwsza zakładka — narzędzia dziedzinowe")
-          onClicked: jakZaczac.otworzZakladke(0)
-        }
-        Czynnosc {
-          text: qsTr("Narzędzia i Algorytmy")
-          opis: qsTr("Prawa szuflada — pomiary, przeliczenia, operacje na warstwach")
-          onClicked: jakZaczac.otworzZakladke(1)
-        }
-        Czynnosc {
-          text: qsTr("Podkłady i dane wysokościowe")
-          opis: qsTr("Ortofotomapa i NMT na obszar pracy, do użycia bez zasięgu")
-          visible: jakZaczac.podklady !== null
-          onClicked: jakZaczac.otworzOkno(jakZaczac.podklady, "podkłady")
         }
         Czynnosc {
           text: qsTr("Wtyczki")
@@ -247,7 +428,7 @@ Popup {
           Layout.fillWidth: true
           Layout.margins: 12
           Layout.topMargin: 4
-          text: qsTr("Numer wersji jest w nagłówku lewej szuflady — podaj go w zgłoszeniu. Tam też otwiera się „Co nowego” z listą zmian.")
+          text: qsTr("Numer wersji jest w nagłówku lewej szuflady — podaj go w zgłoszeniu. Tam też otwiera się „Co nowego” z listą zmian, a obok strzałki zamknięcia stoi znak zapytania, którym wrócisz na ten ekran. Uwagę wysyłasz z menu: Aplikacja → „Zgłoś uwagę”.")
           color: jakZaczac.barwaSzara
           font.pointSize: (Theme.defaultFont !== undefined ? Theme.defaultFont.pointSize : 12) - 1
           wrapMode: Text.WordWrap

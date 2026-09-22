@@ -22,6 +22,7 @@ set(QFIELD_APP_QML_FILES
     QfNyuki.qml
     QfPluginItem.qml
     QfPluginManagerSettings.qml
+    QfPochodzenie.qml
     QfPositioningSettings.qml
     QfScreenLocker.qml
     QfSettings.qml

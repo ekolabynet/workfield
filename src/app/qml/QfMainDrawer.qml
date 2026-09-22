@@ -62,6 +62,9 @@ Drawer {
   signal showMainMenu(point p)
   signal showBookmarks
   signal showPluginManager
+  //! WorkField 22.09.2026 — ekran „Jak zacząć?”. Sygnał, a nie
+  //! bezpośrednie wołanie okna: szuflada nie zna id-ków z QgisMobileapp.qml.
+  signal pokazJakZaczac
   signal showSettings
   signal showMessageLog
   signal lockScreen
@@ -734,7 +737,7 @@ Drawer {
 
         Text {
           Layout.fillWidth: true
-          text: qsTr("WorkField")
+          text: qsTr("WorkFieldGIS")
           font: Theme.strongFont
           color: Theme.mainTextColor
         }
@@ -775,6 +778,27 @@ Drawer {
                 changelogPopup.open();
             }
           }
+        }
+      }
+
+      // WFG-JAK-ZACZAC-PRZYCISK — WorkField 22.09.2026.
+      // Ekran „Jak zacząć?” pokazywał się raz, przy pierwszym uruchomieniu,
+      // i po pierwszym kliknięciu nie było do niego powrotu (uwaga
+      // z telefonu, 22.09). Przycisk stoi w nagłówku szuflady, czyli
+      // ponad zakładkami — widać go w każdej sekcji.
+      QfToolButton {
+        width: 36
+        height: 36
+        padding: 0
+        bgcolor: "transparent"
+        iconSource: Theme.getThemeVectorIcon("wfg_pytanie")
+        iconColor: Theme.mainTextColor
+        ToolTip.text: qsTr("Jak zacząć?")
+        ToolTip.delay: 400
+        ToolTip.visible: hovered && ToolTip.text !== ""
+        onClicked: {
+          dashBoard.close();
+          dashBoard.pokazJakZaczac();
         }
       }
 
@@ -1503,6 +1527,17 @@ Drawer {
         t: dashBoard.t
         szerokosc: dashBoard.width
 
+        // WFG-JAK-ZACZAC-POZYCJA — WorkField 22.09.2026.
+        // Druga droga do ekranu: wpis w menu, tam gdzie już stoi
+        // „Zgłoś uwagę”. Pierwszy w sekcji, bo dotyczy pierwszego dnia.
+        QfPozycjaMenu {
+          text: qsTr("Jak zacząć?")
+          ikona: "wfg_pytanie"
+          onClicked: {
+            dashBoard.close();
+            dashBoard.pokazJakZaczac();
+          }
+        }
         QfPozycjaMenu {
           text: qsTr("Folder aplikacji")
           ikona: "wfg_magazyn"
@@ -1525,7 +1560,7 @@ Drawer {
           onClicked: {
             // WorkField: zgloszenie z terenu — mail z gotowym kontekstem
             const adres = "workfield@ekolaby.net";
-            const temat = "WorkField " + appVersionStr + " — uwaga z terenu";
+            const temat = "WorkFieldGIS " + appVersionStr + " — uwaga z terenu";
             const tresc = qsTr("Opisz, co się działo (jedno zdanie wystarczy). Zrzut ekranu bardzo pomaga — dołącz go do tej wiadomości.") + "\n\n\n---\n" + "Wersja: " + appVersionStr + "\n" + "Projekt: " + (mainWindow.projectTitle !== "" ? mainWindow.projectTitle + " (" + FileUtils.fileName(projectSection.filePath) + ")" : FileUtils.fileName(projectSection.filePath)) + "\n" + "System: " + Qt.platform.os + "\n" + "Data: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm");
             Qt.openUrlExternally("mailto:" + adres + "?subject=" + encodeURIComponent(temat) + "&body=" + encodeURIComponent(tresc));
             displayToast(qsTr("Otwieram szkic zgłoszenia…"));
