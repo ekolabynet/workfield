@@ -3,10 +3,13 @@
   "nazwa": "Załączniki N:1 (multiodnośniki)",
   "wersja": 1,
   "rodzaj": "struktura",
-  "gdzie": ["biuro"],
+  "gdzie": [
+    "biuro",
+    "teren"
+  ],
   "odwracalny": false,
   "opis": "Tabele ZAL_<WARSTWA> w GeoPackage, relacje o sile kompozycji (ID_RODZICA → fid), galeria w formularzu i konwencja nazw plików zgodna z Mapit Spatial. Bez tego obiekt niesie jedno zdjęcie w polu FOTO.",
-  "grunt": "docs/ZALACZNIKI.md; skrypt jest idempotentny i nie rusza istniejących pól FOTO.",
+  "grunt": "docs/ZALACZNIKI.md; w terenie wykonuje to `ModulZalacznikow::zaloz` (src/core/moduly/zalaczniki.cpp), w biurze `skrypty/zaloz_zalaczniki.py` — jedna konwencja, dwie drogi. Idempotentny; nie rusza istniejących pól FOTO.",
   "skrypt": "skrypty/zaloz_zalaczniki.py",
   "kroki": [
     {

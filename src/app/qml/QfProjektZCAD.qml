@@ -159,7 +159,7 @@ Popup {
 
     Text {
       Layout.fillWidth: true
-      text: qsTr("Rysunek zostaje podkładem. Do niego dojdą trzy warstwy robocze: punkty, linie i poligony (hatch) — każda z opisem, datą i zdjęciem.")
+      text: qsTr("Rysunek zostaje podkładem. Do niego dojdą trzy warstwy robocze: punkty, linie i poligony — każda z opisem, datą i zdjęciem.")
       font: Theme.tipFont
       color: Theme.secondaryTextColor
       wrapMode: Text.WordWrap

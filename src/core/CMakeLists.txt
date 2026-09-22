@@ -119,6 +119,7 @@ set(QFIELD_CORE_SRCS
     moduly/cad.cpp
     moduly/dxfinwentaryzacja.cpp
     moduly/inwentaryzacjadrzew.cpp
+    moduly/zalaczniki.cpp
     utils/niebodziennik.cpp
     utils/spisplikow.cpp
     utils/kopiezapasowe.cpp
@@ -254,6 +255,7 @@ set(QFIELD_CORE_HDRS
     moduly/cad.h
     moduly/dxfinwentaryzacja.h
     moduly/inwentaryzacjadrzew.h
+    moduly/zalaczniki.h
     utils/kodowaniedxf.h
     utils/georeferencja.h
     utils/warstwice.h

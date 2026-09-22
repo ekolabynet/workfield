@@ -152,7 +152,11 @@ class Wyposazenie : public QObject
     QJsonObject opisModulu( const QString &modul ) const;
 
     //! Wykonuje jeden krok. Pusty ciag = niepowodzenie.
-    QString wykonajKrok( QgsProject *projekt, const QJsonObject &krok ) const;
+    //! \a powod (gdy podany) dostaje przyczyne niepowodzenia — bez tego
+    //! awaria kroku wyglada tak samo jak kazda inna i nie da sie jej
+    //! zdiagnozowac z telefonu.
+    QString wykonajKrok( QgsProject *projekt, const QJsonObject &krok,
+                         QString *powod = nullptr ) const;
 
     //! Cofa jeden krok. Pusty ciag = niepowodzenie.
     QString cofnijKrok( QgsProject *projekt, const QJsonObject &krok ) const;

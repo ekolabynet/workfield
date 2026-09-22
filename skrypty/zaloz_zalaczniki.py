@@ -117,6 +117,29 @@ ASCII = str.maketrans({'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
 def bez_ogonkow(tekst):
     return tekst.translate(ASCII)
 
+
+def czyste_miano(tekst):
+    """Nazwa warstwy sprowadzona do tego, co wolno wpisac w nazwe tabeli.
+
+    ZNALEZIONE 22.09.2026: kreator „Projekt z DXF" zakladal warstwe nazwana
+    „Poligony (hatch)", a stara regula (sam `bez_ogonkow` i `.upper()`)
+    robila z niej tabele `ZAL_POLIGONY (HATCH)` — ze spacja i nawiasami.
+    SQLite to przelyka w cudzyslowach i wszystko dziala, ale taka nazwa
+    gryzie przy kazdym recznym SQL-u, przy eksporcie i w cudzych
+    narzedziach, a indeks nazywa sie wtedy `idx_ZAL_POLIGONY (HATCH)_rodzic`.
+
+    Ta sama regula siedzi w `src/core/moduly/zalaczniki.cpp` (czysteMiano).
+    Zmieniajac tu, zmienic tam — rozjazd nie objawi sie bledem, tylko
+    druga tabela obok pelnej zdjec.
+    """
+    out = []
+    for z in bez_ogonkow(tekst):
+        if z.isascii() and z.isalnum():
+            out.append(z)
+        elif out and out[-1] != '_':
+            out.append('_')
+    return ''.join(out).strip('_') or 'WARSTWA'
+
 # ------------------------------------------------------------- zgodność API
 def _suppress_on():
     """Qgis.AttributeFormSuppression.On albo stara stała QgsEditFormConfig."""
@@ -473,7 +496,14 @@ def main(sciezka_projektu='', nazwy_warstw=None):
     for rodzic in wybrane:
         nazwa = rodzic.name()
         gpkg, _tab = gpkg_warstwy(rodzic)
-        tabela = PREFIKS_TABELI + bez_ogonkow(nazwa).upper()
+        tabela = PREFIKS_TABELI + czyste_miano(nazwa).upper()
+        # ZGODNOSC WSTECZ: projekt wyposazony starsza regula ma tabele pod
+        # nazwa nieoczyszczona. Jesli taka jest, uzywamy JEJ — inaczej
+        # powstalaby druga tabela obok pelnej zdjec.
+        tabela_stara = PREFIKS_TABELI + bez_ogonkow(nazwa).upper()
+        if (tabela_stara != tabela and not _tabela_istnieje(gpkg, tabela)
+                and _tabela_istnieje(gpkg, tabela_stara)):
+            tabela = tabela_stara
         nazwa_dziecka = 'zal_' + nazwa
         print('\n[%s]' % nazwa)
 
@@ -511,7 +541,14 @@ def main(sciezka_projektu='', nazwy_warstw=None):
         konfiguruj_dziecko(dziecko, nazwa)
         print('  widgety i konwencja nazw: ustawione')
 
-        rel_id = 'zal_' + nazwa
+        rel_id = 'zal_' + czyste_miano(nazwa)
+        rel_id_stary = 'zal_' + nazwa
+        if rel_id_stary != rel_id:
+            _stara = proj.relationManager().relation(rel_id_stary)
+            _nowa = proj.relationManager().relation(rel_id)
+            if (_stara is not None and _stara.isValid()
+                    and (_nowa is None or not _nowa.isValid())):
+                rel_id = rel_id_stary
         istniejaca = proj.relationManager().relation(rel_id)
         if istniejaca is not None and istniejaca.isValid():
             print('  relacja %s: już była' % rel_id)

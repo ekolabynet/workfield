@@ -424,8 +424,10 @@ ApplicationWindow {
    * Sklada projekt z rysunku CAD: podklad + trzy warstwy robocze.
    *
    * Warstwy w `dane.gpkg` obok projektu, kazda z OPIS / DATA / ZDJECIE.
-   * Nazwy po polsku i po CADowemu — "Poligony (hatch)", bo projektant
-   * tak nazywa obszary, a nie "powierzchnie".
+   * Nazwy po polsku i po CADowemu. „Poligony" bez dopisku "(hatch)":
+   * nawiasy w nazwie warstwy wchodza potem w nazwe tabeli zalacznikow
+   * (ZAL_<WARSTWA>), a tabela GeoPackage ze spacja i nawiasami gryzie
+   * przy kazdym recznym SQL-u. Uwaga Piotra, 22.09.2026.
    */
   /**
    * Rysunek DXF do OTWARTEGO projektu — zwraca liczbę dodanych warstw.
@@ -510,7 +512,7 @@ ApplicationWindow {
     const robocze = [
       { "nazwa": qsTr("Punkty"), "typ": "Point" },
       { "nazwa": qsTr("Linie"), "typ": "LineString" },
-      { "nazwa": qsTr("Poligony (hatch)"), "typ": "Polygon" }
+      { "nazwa": qsTr("Poligony"), "typ": "Polygon" }
     ];
 
     let zalozone = 0;

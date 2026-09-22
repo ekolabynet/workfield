@@ -8,6 +8,8 @@
  ***************************************************************************/
 #include "wyposazenie.h"
 
+#include "moduly/zalaczniki.h"
+
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonParseError>
@@ -235,6 +237,24 @@ static const QStringList COFAMY = {
   QStringLiteral( "wlasciwosc_warstwy" )
 };
 
+/**
+ * Czy aplikacja umie wykonac TEN krok — po tresci, nie po samym typie.
+ *
+ * `tabele_gpkg` to nie jeden krok, tylko RODZINA krokow: po jednym na
+ * rodzaj tabel, rozroznianych wzorcem nazwy. Wpisanie calego typu do
+ * `UMIEMY` byloby obietnica, ze umiemy zalozyc kazde tabele, jakie
+ * katalog kiedykolwiek wymysli — a umiemy dokladnie jedne.
+ */
+static bool umiemyKrok( const QJsonObject &krok )
+{
+  const QString typ = krok.value( QStringLiteral( "typ" ) ).toString();
+  if ( UMIEMY.contains( typ ) )
+    return true;
+  if ( typ == QLatin1String( "tabele_gpkg" ) )
+    return krok.value( QStringLiteral( "wzorzec" ) ).toString() == QLatin1String( "ZAL_%" );
+  return false;
+}
+
 QJsonObject Wyposazenie::opisModulu( const QString &modul ) const
 {
   QFile plik( QStringLiteral( ":/wyposazenie/katalog.json" ) );
@@ -278,17 +298,37 @@ QString Wyposazenie::mozeZalozyc( const QString &modul ) const
   for ( const QJsonValue &k : kroki )
   {
     const QString typ = k.toObject().value( QStringLiteral( "typ" ) ).toString();
-    if ( !UMIEMY.contains( typ ) )
+    if ( !umiemyKrok( k.toObject() ) )
       return tr( "krok \"%1\" wykonuje tylko biuro" ).arg( typ );
   }
   return QString();
 }
 
-QString Wyposazenie::wykonajKrok( QgsProject *projekt, const QJsonObject &krok ) const
+QString Wyposazenie::wykonajKrok( QgsProject *projekt, const QJsonObject &krok,
+                                  QString *powod ) const
 {
   const QString typ = krok.value( QStringLiteral( "typ" ) ).toString();
   const QString grupa = krok.value( QStringLiteral( "grupa" ) ).toString();
   const QString klucz = krok.value( QStringLiteral( "klucz" ) ).toString();
+
+  if ( typ == QLatin1String( "tabele_gpkg" ) )
+  {
+    if ( krok.value( QStringLiteral( "wzorzec" ) ).toString() != QLatin1String( "ZAL_%" ) )
+    {
+      if ( powod )
+        *powod = tr( "nie umiem zakladac tabel \"%1\"" )
+                   .arg( krok.value( QStringLiteral( "wzorzec" ) ).toString() );
+      return QString();
+    }
+    const ModulZalacznikow::Wynik z = ModulZalacznikow::zaloz( projekt );
+    if ( !z.ok )
+    {
+      if ( powod )
+        *powod = z.opis;
+      return QString();
+    }
+    return z.opis;
+  }
 
   if ( typ == QLatin1String( "wlasciwosc" ) )
   {
@@ -676,14 +716,52 @@ QVariantMap Wyposazenie::zaloz( QgsProject *projekt, const QString &modul ) cons
   w[QStringLiteral( "kopia" )] = kopia;
 
   const QJsonObject m = opisModulu( modul );
+
+  // KOPIA BAZY, nie tylko projektu. Do 22.09.2026 kopiowalismy sam
+  // `projekt.qgs` — i bylo to wystarczajace, bo wszystkie umiane kroki
+  // dotykaly wylacznie ustawien projektu. `tabele_gpkg` pisze do
+  // `dane.gpkg`, w ktorym leza dane z terenu, a modul jest NIEODWRACALNY.
+  // Bez tej kopii slowo "nieodwracalny" znaczyloby naprawde nieodwracalny.
+  QStringList doKopii;
+  for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
+  {
+    if ( k.toObject().value( QStringLiteral( "typ" ) ).toString() != QLatin1String( "tabele_gpkg" ) )
+      continue;
+    const QStringList b = ModulZalacznikow::bazy( projekt );
+    for ( const QString &p : b )
+    {
+      if ( !doKopii.contains( p ) )
+        doKopii << p;
+    }
+  }
+  QStringList kopieBaz;
+  for ( const QString &p : doKopii )
+  {
+    const QString cel = p + QStringLiteral( ".przed_" ) + znacznik;
+    if ( !QFile::exists( cel ) && !QFile::copy( p, cel ) )
+    {
+      w[QStringLiteral( "opis" )] =
+        tr( "Nie udalo sie zrobic kopii bazy %1 — nic nie zmieniam." ).arg( QFileInfo( p ).fileName() );
+      return w;
+    }
+    kopieBaz << cel;
+  }
+  if ( !kopieBaz.isEmpty() )
+    w[QStringLiteral( "kopiaBazy" )] = kopieBaz.join( QStringLiteral( ", " ) );
+
   QStringList zrobione;
   for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
   {
-    const QString opis = wykonajKrok( projekt, k.toObject() );
+    QString powod;
+    const QString opis = wykonajKrok( projekt, k.toObject(), &powod );
     if ( opis.isEmpty() )
     {
+      // Przyczyna, a nie sama porazka: "nie ma czego pokazac" i "nie udalo
+      // sie zrobic" to dwa rozne komunikaty (zasada z modulu CAD).
       w[QStringLiteral( "opis" )] =
-        tr( "Krok sie nie powiodl — projekt NIE zapisany, kopia: %1" ).arg( kopia );
+        powod.isEmpty()
+          ? tr( "Krok sie nie powiodl — projekt NIE zapisany, kopia: %1" ).arg( kopia )
+          : tr( "%1 Projekt NIE zapisany, kopia: %2" ).arg( powod, kopia );
       return w;
     }
     zrobione << opis;
