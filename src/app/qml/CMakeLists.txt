@@ -63,6 +63,7 @@ set(QFIELD_APP_QML_FILES
     QfSiatkaMenu.qml
     QfBlokiCAD.qml
     QfImportCAD.qml
+    QfJakZaczac.qml
     QfOpisyCAD.qml
     QfWarstwyRysunku.qml
     QfWarstwiceCAD.qml

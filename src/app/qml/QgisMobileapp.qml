@@ -4418,6 +4418,41 @@ ApplicationWindow {
     Component.onCompleted: focusstack.addFocusTaker(this)
   }
 
+  /**
+   * WorkField 22.09.2026 - ekran pierwszego kontaktu.
+   *
+   * Miejsca, ktore otwiera, dostaje we wlasciwosciach, bo sam nie zna
+   * zadnego z tych identyfikatorow - ma sie dac obejrzec osobno, bez
+   * calej aplikacji.
+   */
+  QfJakZaczac {
+    id: oknoJakZaczac
+    szufladaLewa: dashBoard
+    szufladaPrawa: dataDrawer
+    oknoWtyczek: pluginManagerSettings
+    podklady: oknoPodkladow
+  }
+
+  /**
+   * Wyzwalacz pierwszego uruchomienia. Zwloka 1,2 s, zeby ekran powitalny
+   * zdazyl sie ulozyc: okno modalne rzucone w trakcie skladania sceny
+   * laduje pod nia albo miga.
+   */
+  Timer {
+    id: wyzwalaczJakZaczac
+    interval: 1200
+    running: true
+    repeat: false
+    onTriggered: {
+      const pokazane = settings.valueBool('WorkField/jakZaczacPokazane', false);
+      const zawsze = settings.valueBool('WorkField/jakZaczacPokazuj', false);
+      if (!pokazane || zawsze) {
+        settings.setValue('WorkField/jakZaczacPokazane', true);
+        oknoJakZaczac.open();
+      }
+    }
+  }
+
   QfMainDrawer {
     id: dashBoard
     objectName: "dashBoard"

@@ -118,7 +118,7 @@ else
           -printf '%T@\t%p\n' 2>/dev/null \
         | sort -rn \
         | awk -F'\t' '{print $2}' \
-        | grep -i 'sign' \
+        | grep -i 'sign' | grep -vi 'unsigned' \
         | head -1 || true)
   # Jeśli żaden nie ma „sign" w nazwie, bierz po prostu najświeższy —
   # o podpis i tak pytam niżej, osobno.
