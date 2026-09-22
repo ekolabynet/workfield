@@ -14,7 +14,7 @@
 # Ten skrypt robi jedną rzecz: bierze ŚWIEŻO ZBUDOWANY APK i odkłada go
 # pod nazwą, która sama się tłumaczy:
 #
-#     WorkField-0.12.0-1200-arm64-20260921.apk
+#     WorkFieldGIS-0.12.1-1201-arm64-20260922.apk
 #                \     \    \       \
 #                 \     \    \       `- dzień budowania
 #                  \     \    `- architektura (triplet)
@@ -70,7 +70,7 @@ for a in "$@"; do
 done
 
 cd "$REPO"
-[ -f scripts/build.sh ] || { echo "STOP: brak scripts/build.sh — to nie jest katalog WorkFielda"; exit 1; }
+[ -f scripts/build.sh ] || { echo "STOP: brak scripts/build.sh — to nie jest katalog WorkFieldGIS"; exit 1; }
 echo "== repo: $(pwd)"
 
 # --- numer wersji, prosto ze źródła prawdy ----------------------------
@@ -188,7 +188,7 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 # --- numeracja w nazwie -----------------------------------------------
-PODSTAWA="WorkField-${WERSJA}-${KOD}-${ARCH}-${DZIEN}"
+PODSTAWA="WorkFieldGIS-${WERSJA}-${KOD}-${ARCH}-${DZIEN}"
 CEL="${DOCELOWY_KAT}/${PODSTAWA}.apk"
 N=1
 while [ -e "$CEL" ]; do
@@ -209,7 +209,7 @@ echo "   md5: $MD5"
 NOTATKA="${CEL%.apk}.txt"
 LINK_WYDANIE="https://github.com/ekolabynet/workfield/releases/tag/v${WERSJA}"
 {
-  echo "WorkField ${WERSJA}${NAZWA_KODOWA:+ „${NAZWA_KODOWA}”}  (build ${KOD}, ${ARCH}, $(date '+%Y-%m-%d'))"
+  echo "WorkFieldGIS ${WERSJA}${NAZWA_KODOWA:+ „${NAZWA_KODOWA}”}  (build ${KOD}, ${ARCH}, $(date '+%Y-%m-%d'))"
   echo
   echo "Plik:  $(basename "$CEL")"
   echo "MD5:   ${MD5}"
@@ -223,7 +223,7 @@ LINK_WYDANIE="https://github.com/ekolabynet/workfield/releases/tag/v${WERSJA}"
   echo "  2. Android zapyta o zgodę na instalację z tego źródła — zgódź się."
   echo "  3. Jeśli instalacja odmówi („aplikacja nie została zainstalowana”),"
   echo "     odinstaluj poprzednią wersję i spróbuj ponownie. Projekty i dane"
-  echo "     w pamięci telefonu zostają — WorkField trzyma je poza aplikacją."
+  echo "     w pamięci telefonu zostają — WorkFieldGIS trzyma je poza aplikacją."
   echo
   echo "Zgłaszanie uwag: podaj numer wersji z powyższej linijki (${WERSJA}, build ${KOD})."
   if [ ${#OSTRZEZENIA[@]} -gt 0 ]; then

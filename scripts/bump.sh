@@ -61,4 +61,4 @@ elif [ -f "$NOTA" ]; then
   echo "  nota: $NOTA  (juz jest)"
 fi
 
-bash -c 'source <(sed -n "1,20p" scripts/build.sh); echo "  $APP_VERSION_STR   kod $APK_VERSION_CODE"'
+bash -c 'source <(grep -E "^export APP_|^export APK_" scripts/build.sh); echo "  $APP_VERSION_STR   kod $APK_VERSION_CODE"'

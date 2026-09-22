@@ -4,11 +4,34 @@ set -e
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"/..
 
+# --- NUMER BUILDU ROSNIE PRZY KAZDYM BUILDZIE ------------------------
+# Decyzja Piotra 22.09.2026: „jestem za bumpowaniem fix przy buildach,
+# przynajmniej wiemy, co i kiedy mamy na stole”. Trzecia pozycja numeru
+# jest licznikiem buildow; `versionCode` liczy sie z niej sam, wiec rosnie
+# bez pilnowania — a musi rosnac, bo inaczej Android widzi te sama wersje
+# i `install -r` zachowuje sie nieprzewidywalnie.
+#
+# WARUNEK `BASH_SOURCE = $0` znaczy: TYLKO gdy ten plik jest URUCHAMIANY.
+# Przy `source <(...)` — a tak czyta ten naglowek `bump.sh` i skrypt
+# wydania — BASH_SOURCE wskazuje /dev/fd/NN i blok musi byc martwy,
+# inaczej wola bump.sh ze sciezki `/dev/fd/../scripts/bump.sh`.
+#
+# PRZELADOWANIE (`exec`) jest konieczne, nie ozdobne: numer jest LITERALEM
+# nizej, a `sed -i` podmienia plik przez zmiane nazwy — dzialajacy bash
+# czyta dalej STARA zawartosc i wzialby numer sprzed podbicia.
+#
+# Przebudowa tego samego numeru:  BUMP=0 ./scripts/build.sh
+if [ "${BASH_SOURCE[0]}" = "$0" ] && [ "${BUMP:-1}" = "1" ] && [ -z "${WFG_PO_BUMPIE:-}" ]; then
+  bash "$SRC_DIR/scripts/bump.sh"
+  export WFG_PO_BUMPIE=1
+  exec bash "$0" "$@"
+fi
+
 # Numer i nazwa kodowa rozdzielone SWIADOMIE: numer jest liczony (awk, CPack,
 # versionCode), nazwa tylko wyswietlana. Wpisanie "0.9.2 - Ancient Ash" do
 # APP_VERSION_STR dawalo APP_VERSION="v0.9.2 - Ancient Ash" (zepsuty link do
 # wydania) i dzialalo w awk tylko przez przypadek koercji.
-export APP_VERSION_NUM="${APP_VERSION_NUM:-0.12.0}"
+export APP_VERSION_NUM="${APP_VERSION_NUM:-0.12.1}"
 export APP_CODENAME="${APP_CODENAME:-Electronic Elm}"
 # APP_VERSION (CPack, link do wydania w oknie "O programie") z tego samego zrodla
 export APP_VERSION=${APP_VERSION:-v$APP_VERSION_NUM}
