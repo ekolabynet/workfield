@@ -275,6 +275,41 @@ Drawer {
   dragMargin: 10
   interactive: opened || !overlayFeatureFormDrawer.opened
 
+  // ── MODALNOŚĆ TYLKO NA TELEFONIE (25.09.2026) ───────────────────
+  //
+  // Decyzja Piotra: na komputerze prawa szuflada ma przestać być
+  // modalna. Ta klasa nie ustawiała ani `modal`, ani `dim`: domyślnie
+  // `modal` to prawda, a `dim` idzie za `modal`.
+  //
+  // ZASŁONA. Styl `org.kde.desktop` maluje ją JASNĄ, nie ciemną, więc
+  // mapa, górna belka i pasek stanu bladły przy każdym otwarciu
+  // (zmierzone na nagraniu: średnia jasność szła z 208,5 na 232,5
+  // i zostawała tam do zamknięcia). Wyglądało to na rosnącą
+  // przezroczystość mapy, a było zasłoną. Znosi ją samo `dim: modal`.
+  //
+  // MYSZ. Zmierzone na Qt 6.4 (Drawer, klik poza panelem):
+  //
+  //   modalna .................. zamyka się, mapa dostaje 0 kliknięć
+  //   niemodalna, domyślna polityka ... zamyka się, mapa dostaje klik
+  //   niemodalna + CloseOnEscape ..... zostaje, mapa dostaje kliknięcia
+  //
+  // Środkowy wiersz jest pułapką i dlatego `closePolicy` NIE zostaje
+  // domyślna: pierwsze kliknięcie w mapę zamykałoby szufladę, ale po
+  // drodze trafiałoby też w mapę — czyli mogłoby postawić wierzchołek
+  // albo wybrać obiekt przy okazji zamykania panelu.
+  //
+  // Zostaje więc wariant trzeci, dokładnie ten, co w lewej szufladzie
+  // (`QfMainDrawer`, te same trzy linijki): panel zostaje otwarty,
+  // mapa pod nim działa normalnie, a zamyka go strzałka w nagłówku
+  // albo Esc. To jest zmiana nawyku — za to obie szuflady zachowują
+  // się wreszcie TAK SAMO.
+  //
+  // Na telefonie modalność zostaje: tam jest na miejscu.
+  modal: Qt.platform.os === "android" || Qt.platform.os === "ios"
+  dim: modal
+  closePolicy: modal ? (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
+                     : Popup.CloseOnEscape
+
   // ── WYZEROWANE MARGINESY WEWNETRZNE (25.09.2026) ──────────────
   //
   // Naglowek tej szuflady stal 129 px nizej niz naglowek lewej

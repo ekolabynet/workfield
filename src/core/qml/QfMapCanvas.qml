@@ -221,11 +221,34 @@ Item {
       }
     }
 
+    // ── SKOK MAPY BEZ ANIMACJI (25.09.2026) ─────────────────────
+    //
+    // Uwaga Piotra: „nagle mapa się przesuwa (...) z jakimś płynnym
+    // przejściem. Trzeba zdecydowanie zminimalizować efekty wizualne
+    // przejść”.
+    //
+    // Tędy idą WSZYSTKIE skoki mapy: do zidentyfikowanego obiektu,
+    // do wyniku wyszukiwania, do zakładki, do pozycji GNSS. Każdy
+    // krok animacji woła `mapSettings.setCenter(...)`, czyli pełne
+    // przeliczenie kadru.
+    //
+    // Zmierzone na Qt 6.4 (ten sam Behavior, `qmltestrunner`):
+    //
+    //   duration: 500 ... 32 kroki, czyli 32 przerysowania na skok
+    //   duration: 0 ..... 1 krok, wartość końcowa od razu
+    //
+    // Stąd wrażenie szarpnięcia: to nie było przesunięcie obrazka,
+    // tylko trzydzieści kilka pełnych renderów pod rząd.
+    //
+    // GDYBY 0 BYŁO ZA OSTRE — tu jest ta jedna liczba. Wpisać np. 120
+    // i dawne zachowanie wraca, tylko krótsze; `easing` zostaje.
+    property int czasSkoku: 0
+
     Behavior on position {
       enabled: jumpDetails.enabled
       NumberAnimation {
         easing.type: Easing.InOutQuart
-        duration: 500
+        duration: jumpDetails.czasSkoku
       }
     }
   }

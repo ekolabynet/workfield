@@ -28,6 +28,24 @@
 #include <qgsquadrilateral.h>
 #include <qgsvectorlayer.h>
 
+#include <QLoggingCategory>
+
+// ── POMIARY SĄ CICHE, ALE ZOSTAJĄ (25.09.2026) ────────────────────
+//
+// Decyzja Piotra: „Tak. Wycisz.” — tych 6 wywołań zalewało konsolę
+// przy każdym narysowanym kształcie. Ani jedno NIE ZNIKA:
+// `ZASADY_LATEK.md` mówi wprost, że punkty pomiarowe zostają
+// w kodzie, bo pomiar okazał się tańszy niż trzecia próba naprawy.
+//
+// Zamiast kasowania — kategoria z progiem `QtWarningMsg`. Wszystkie
+// wywołania idą teraz przez `qCDebug`, czyli poniżej progu, więc
+// domyślnie milczą. Wracają jedną zmienną, bez przebudowy:
+//
+//     QT_LOGGING_RULES="workfield.*=true"       — wszystkie
+//     QT_LOGGING_RULES="workfield.ksztalty=true"       — same te
+//
+Q_LOGGING_CATEGORY( wfgKsztalty, "workfield.ksztalty", QtWarningMsg )
+
 ///@cond PRIVATE
 
 /**
@@ -938,7 +956,7 @@ static QVector<QgsPoint> punktyGumki( QObject *model, bool zZywym = false )
     if ( !juzPowiedziane )
     {
       juzPowiedziane = true;
-      qWarning( "WorkField/Ksztalty: nie umiem rozlozyc `vertices` — typ to \"%s\"; "
+      qCDebug( wfgKsztalty, "WorkField/Ksztalty: nie umiem rozlozyc `vertices` — typ to \"%s\"; "
                 "wskazanych() bedzie oddawac 0",
                 nazwa ? nazwa : "(brak)" );
     }
@@ -961,7 +979,7 @@ void Ksztalty::powiedz( const QString &gdzie, const QgsGeometry &geometria ) con
 {
   if ( geometria.isNull() )
   {
-    qWarning( "WorkField/Ksztalty %s: geometria PUSTA (null)", gdzie.toUtf8().constData() );
+    qCDebug( wfgKsztalty, "WorkField/Ksztalty %s: geometria PUSTA (null)", gdzie.toUtf8().constData() );
     return;
   }
 
@@ -984,7 +1002,7 @@ void Ksztalty::powiedz( const QString &gdzie, const QgsGeometry &geometria ) con
   }
 
   const QgsRectangle o = geometria.boundingBox();
-  qWarning( "WorkField/Ksztalty %s: typ=%s wierzcholkow=%d pole=%.3f obwiednia=%.2f x %.2f",
+  qCDebug( wfgKsztalty, "WorkField/Ksztalty %s: typ=%s wierzcholkow=%d pole=%.3f obwiednia=%.2f x %.2f",
             gdzie.toUtf8().constData(), typ, wierzcholkow, geometria.area(),
             o.width(), o.height() );
 }
@@ -993,7 +1011,7 @@ void Ksztalty::powiedzOGumce( const QString &gdzie, QObject *modelGumki ) const
 {
   if ( !modelGumki )
   {
-    qWarning( "WorkField/Ksztalty %s: gumki NIE MA", gdzie.toUtf8().constData() );
+    qCDebug( wfgKsztalty, "WorkField/Ksztalty %s: gumki NIE MA", gdzie.toUtf8().constData() );
     return;
   }
 
@@ -1003,12 +1021,12 @@ void Ksztalty::powiedzOGumce( const QString &gdzie, QObject *modelGumki ) const
 
   if ( wszystkie.isEmpty() )
   {
-    qWarning( "WorkField/Ksztalty %s: gumka PUSTA (vertexCount=%d)",
+    qCDebug( wfgKsztalty, "WorkField/Ksztalty %s: gumka PUSTA (vertexCount=%d)",
               gdzie.toUtf8().constData(), licznik );
     return;
   }
 
-  qWarning( "WorkField/Ksztalty %s: vertexCount=%d zywy=%d odczytanych=%d "
+  qCDebug( wfgKsztalty, "WorkField/Ksztalty %s: vertexCount=%d zywy=%d odczytanych=%d "
             "pierwszy=(%.2f %.2f) ostatni=(%.2f %.2f)",
             gdzie.toUtf8().constData(), licznik, zywy, wszystkie.size(),
             wszystkie.first().x(), wszystkie.first().y(),

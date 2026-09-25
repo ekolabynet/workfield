@@ -37,6 +37,24 @@
 #include <qgsvectorlayereditutils.h>
 #include <qgsvectorlayerutils.h>
 
+#include <QLoggingCategory>
+
+// ── POMIARY SĄ CICHE, ALE ZOSTAJĄ (25.09.2026) ────────────────────
+//
+// Decyzja Piotra: „Tak. Wycisz.” — tych 2 wywołań zalewało konsolę
+// przy każdym zapisie obiektu. Ani jedno NIE ZNIKA:
+// `ZASADY_LATEK.md` mówi wprost, że punkty pomiarowe zostają
+// w kodzie, bo pomiar okazał się tańszy niż trzecia próba naprawy.
+//
+// Zamiast kasowania — kategoria z progiem `QtWarningMsg`. Wszystkie
+// wywołania idą teraz przez `qCDebug`, czyli poniżej progu, więc
+// domyślnie milczą. Wracają jedną zmienną, bez przebudowy:
+//
+//     QT_LOGGING_RULES="workfield.*=true"       — wszystkie
+//     QT_LOGGING_RULES="workfield.obiekt=true"         — same te
+//
+Q_LOGGING_CATEGORY( wfgObiekt, "workfield.obiekt", QtWarningMsg )
+
 typedef QMap<QgsVectorLayer *, QfFeatureModel::RememberValues> Rememberings;
 Q_GLOBAL_STATIC( Rememberings, sRememberings )
 Q_GLOBAL_STATIC( QMutex, sMutex )
@@ -1036,7 +1054,7 @@ void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEd
   // Model wierzcholkow trzyma PUNKTY, nie luki. Jesli ktores
   // wywolanie przyjdzie z `fromVertexModel = true`, przebuduje
   // z pieciu punktow okregu zwykly czworobok.
-  qDebug( "WorkField/Obiekt: applyGeometry zZModelu=%s luki=%s wierzch=%d typ=%s",
+  qCDebug( wfgObiekt, "WorkField/Obiekt: applyGeometry zZModelu=%s luki=%s wierzch=%d typ=%s",
           fromVertexModel ? "TAK" : "nie",
           ( !geometry.isNull() && geometry.constGet()->hasCurvedSegments() ) ? "TAK" : "nie",
           geometry.isNull() ? -1 : geometry.constGet()->nCoordinates(),
@@ -1247,7 +1265,7 @@ void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEd
     }
   }
 
-  qDebug( "WorkField/Obiekt:   -> na obiekt IDZIE luki=%s wierzch=%d typ=%s",
+  qCDebug( wfgObiekt, "WorkField/Obiekt:   -> na obiekt IDZIE luki=%s wierzch=%d typ=%s",
           ( !geometry.isNull() && geometry.constGet()->hasCurvedSegments() ) ? "TAK" : "nie",
           geometry.isNull() ? -1 : geometry.constGet()->nCoordinates(),
           geometry.isNull() ? "(pusta)" : QgsWkbTypes::displayString( geometry.wkbType() ).toUtf8().constData() );

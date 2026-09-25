@@ -1383,8 +1383,29 @@ ApplicationWindow {
     /* Placement and size. Share right anchor with featureForm */
     anchors.top: parent.top
     anchors.left: parent.left
-    // WorkField: dokowany panel zsuwa mapę (płynnie, wraz z animacją)
-    anchors.leftMargin: Qt.platform.os !== "android" && Qt.platform.os !== "ios" ? dashBoard.width * dashBoard.position : 0
+    // WorkField 25.09.2026 — SZUFLADA WSUWA SIĘ NAD MAPĘ.
+    //
+    // Było: `leftMargin: dashBoard.width * dashBoard.position`, czyli
+    // mapa zwężała się o szerokość dokowanego panelu. `position` idzie
+    // płynnie od 0 do 1 w trakcie animacji, więc mapa PRZELICZAŁA KADR
+    // przy każdej klatce wysuwania — kilkadziesiąt przerysowań pod rząd
+    // i cała treść jechała w bok. Na nagraniu z 25.09 widać to jako
+    // falowanie ekranu (uwaga Piotra: „efekt jest bardzo niespokojny”).
+    //
+    // To nie była usterka, tylko skutek uboczny wcześniejszej decyzji
+    // („szuflada nie ma zakrywać mapy”), która brzmiała rozsądnie,
+    // dopóki nie zobaczyło się jej w ruchu.
+    //
+    // Cena jest znana i przyjęta: kawałek mapy pod szufladą jest
+    // zakryty i trzeba ją zamknąć, żeby tam zajrzeć.
+    //
+    // Gdyby kiedyś wracać do dokowania — NIE wiązać marginesu
+    // z `position`, tylko z `opened`. Mapa przeskoczy, ale RAZ,
+    // zamiast przeliczać kadr przez całą animację.
+    //
+    // Prawa szuflada i formularz obiektu są modalne i nakładały się na
+    // mapę od zawsze — nic tam nie zmieniamy.
+    anchors.leftMargin: 0
     anchors.right: parent.right
     anchors.bottom: parent.bottom
 
@@ -3624,7 +3645,7 @@ ApplicationWindow {
         if (!edycjaGeometrii && silnikKsztaltow.umieLuki(nazwa)) {
           const warstwaLuku = (typeof digitizingFeature !== 'undefined' && digitizingFeature.geometry) ? digitizingFeature.geometry.vectorLayer : null;
           // PUNKT POMIAROWY (25.09.2026) — cztery liczby w jednym miejscu.
-          console.log("WorkField/Luki: 1-umie=" + silnikKsztaltow.umieLuki(nazwa) + " edycja=" + edycjaGeometrii + " warstwa=" + (warstwaLuku ? warstwaLuku.name : "BRAK") + " przyjmie=" + silnikKsztaltow.warstwaPrzyjmieLuki(warstwaLuku));
+          console.log(logLuki, "WorkField/Luki: 1-umie=" + silnikKsztaltow.umieLuki(nazwa) + " edycja=" + edycjaGeometrii + " warstwa=" + (warstwaLuku ? warstwaLuku.name : "BRAK") + " przyjmie=" + silnikKsztaltow.warstwaPrzyjmieLuki(warstwaLuku));
           if (silnikKsztaltow.warstwaPrzyjmieLuki(warstwaLuku)) {
             const kandydat = silnikKsztaltow.zModeluLuk(rb, nazwa, promien > 0 ? promien : 0, true, rb.geometryType);
             silnikKsztaltow.powiedz("2-luk-kandydat", kandydat);
@@ -3635,7 +3656,7 @@ ApplicationWindow {
             mainToolbar.powiedzRazOLamanej(warstwaLuku);
           }
         }
-        console.log("WorkField/Luki: 3-po-liczeniu lukDoZapisu=" + (lukDoZapisu ? "JEST" : "BRAK"));
+        console.log(logLuki, "WorkField/Luki: 3-po-liczeniu lukDoZapisu=" + (lukDoZapisu ? "JEST" : "BRAK"));
         if (silnikKsztaltow.pusty(ksztalt)) {
           displayToast(qsTr("Nie da się zbudować tego kształtu z tych punktów"), "error");
           return false;
@@ -3670,14 +3691,14 @@ ApplicationWindow {
           if (lukDoZapisu) {
             digitizingFeature.geometry.ustawNadpisanie(lukDoZapisu);
           }
-          console.log("WorkField/Luki: 4-przed-applyGeometry nadpisanie=" + digitizingFeature.geometry.maNadpisanie());
+          console.log(logLuki, "WorkField/Luki: 4-przed-applyGeometry nadpisanie=" + digitizingFeature.geometry.maNadpisanie());
           digitizingFeature.applyGeometry();
-          console.log("WorkField/Luki: 5-po-applyGeometry nadpisanie=" + digitizingFeature.geometry.maNadpisanie());
+          console.log(logLuki, "WorkField/Luki: 5-po-applyGeometry nadpisanie=" + digitizingFeature.geometry.maNadpisanie());
           if (typeof overlayFeatureFormDrawer !== 'undefined' && overlayFeatureFormDrawer.featureModel) {
             overlayFeatureFormDrawer.featureModel.geometry = digitizingFeature.geometry;
             overlayFeatureFormDrawer.featureModel.applyGeometry();
           }
-          console.log("WorkField/Luki: 6-koniec-wlozKsztalt nadpisanie=" + digitizingFeature.geometry.maNadpisanie() + " — dalej idzie zatwierdzenie");
+          console.log(logLuki, "WorkField/Luki: 6-koniec-wlozKsztalt nadpisanie=" + digitizingFeature.geometry.maNadpisanie() + " — dalej idzie zatwierdzenie");
         }
         return true;
       }
@@ -6277,6 +6298,29 @@ ApplicationWindow {
   // kopiowac katalog szablonu. Patrz docs/WYPOSAZENIE.md.
   // WorkField: przy otwarciu projektu mowi glosno, czego mu brakuje.
   // Etap 1 — tylko czyta. Patrz QfKontrolaProjektu.qml.
+  // ── POMIARY ŁUKÓW SĄ CICHE, ALE ZOSTAJĄ (25.09.2026) ────────────
+  //
+  // Decyzja Piotra: „Tak. Wycisz.”. Pięć `console.log` poniżej opisuje
+  // drogę kształtu do pliku i ani jeden NIE ZNIKA — `ZASADY_LATEK.md`
+  // mówią wprost, że punkty pomiarowe zostają w kodzie, bo pomiar
+  // okazał się tańszy niż trzecia próba naprawy.
+  //
+  // NAZWA JEST TA SAMA, CO W C++ (`qfgeometry.cpp`) — celowo. Te
+  // linijki mają sens tylko czytane razem: co policzył silnik (tu),
+  // co oddała geometria i co poszło na obiekt (tam). Jedna reguła ma
+  // budzić całą historię:
+  //
+  //     QT_LOGGING_RULES="workfield.luki=true"
+  //
+  // Próg `Warning` znaczy, że `console.log` (poziom debug) jest pod
+  // progiem, czyli domyślnie milczy. Sprawdzone w `qmltestrunner`:
+  // bez reguł nie wychodzi, z regułą wraca.
+  LoggingCategory {
+    id: logLuki
+    name: "workfield.luki"
+    defaultLogLevel: LoggingCategory.Warning
+  }
+
   QfKontrolaProjektu {
     id: kontrolaProjektu
     ekranDocelowy: ekranWyposazenia

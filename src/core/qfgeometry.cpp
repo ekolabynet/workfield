@@ -19,6 +19,24 @@
 #include <qgspolygon.h>
 #include <qgsvectorlayer.h>
 
+#include <QLoggingCategory>
+
+// ── POMIARY SĄ CICHE, ALE ZOSTAJĄ (25.09.2026) ────────────────────
+//
+// Decyzja Piotra: „Tak. Wycisz.” — tych 6 wywołań zalewało konsolę
+// przy każdym zapisie kształtu z łukami. Ani jedno NIE ZNIKA:
+// `ZASADY_LATEK.md` mówi wprost, że punkty pomiarowe zostają
+// w kodzie, bo pomiar okazał się tańszy niż trzecia próba naprawy.
+//
+// Zamiast kasowania — kategoria z progiem `QtWarningMsg`. Wszystkie
+// wywołania idą teraz przez `qCDebug`, czyli poniżej progu, więc
+// domyślnie milczą. Wracają jedną zmienną, bez przebudowy:
+//
+//     QT_LOGGING_RULES="workfield.*=true"       — wszystkie
+//     QT_LOGGING_RULES="workfield.luki=true"           — same te
+//
+Q_LOGGING_CATEGORY( wfgLuki, "workfield.luki", QtWarningMsg )
+
 QfGeometry::QfGeometry( QObject *parent )
   : QObject( parent )
 {
@@ -48,7 +66,7 @@ QgsGeometry QfGeometry::asQgsGeometry() const
   // lamana z gumki i nia nadpisuje luk.
   static int ileRazy = 0;
   ++ileRazy;
-  qDebug( "WorkField/Luki: asQgsGeometry #%d nadpisanie=%s warstwa=%s",
+  qCDebug( wfgLuki, "WorkField/Luki: asQgsGeometry #%d nadpisanie=%s warstwa=%s",
           ileRazy,
           ( !mNadpisanie.isNull() && !mNadpisanie.isEmpty() ) ? "JEST" : "brak",
           mVectorLayer ? mVectorLayer->name().toUtf8().constData() : "(brak)" );
@@ -72,7 +90,7 @@ QgsGeometry QfGeometry::asQgsGeometry() const
     const int teraz = mRubberbandModel ? mRubberbandModel->vertexCount() : -1;
     if ( teraz <= 1 )
     {
-      qDebug( "WorkField/Luki:   -> nadpisanie PRZETERMINOWANE (gumka wyzerowana, ma %d)",
+      qCDebug( wfgLuki, "WorkField/Luki:   -> nadpisanie PRZETERMINOWANE (gumka wyzerowana, ma %d)",
               teraz );
       mNadpisanie = QgsGeometry();
       mNadpisanieWierzcholkow = -1;
@@ -84,7 +102,7 @@ QgsGeometry QfGeometry::asQgsGeometry() const
       {
         podlozona.convertToMultiType();
       }
-      qDebug( "WorkField/Luki:   -> oddaje PODLOZONA, wierzcholkow=%d luki=%s",
+      qCDebug( wfgLuki, "WorkField/Luki:   -> oddaje PODLOZONA, wierzcholkow=%d luki=%s",
               podlozona.constGet() ? podlozona.constGet()->nCoordinates() : -1,
               ( podlozona.constGet() && podlozona.constGet()->hasCurvedSegments() ) ? "TAK" : "nie" );
       return podlozona;
@@ -128,7 +146,7 @@ QgsGeometry QfGeometry::asQgsGeometry() const
     geometry.convertToMultiType();
   }
 
-  qDebug( "WorkField/Luki:   -> zlozona z gumki, wierzcholkow=%d",
+  qCDebug( wfgLuki, "WorkField/Luki:   -> zlozona z gumki, wierzcholkow=%d",
           geometry.constGet() ? geometry.constGet()->nCoordinates() : -1 );
 
   return geometry;
@@ -204,7 +222,7 @@ void QfGeometry::updateRubberband( const QgsGeometry &geometry )
     {
       mNadpisanie = przechowane;
       mNadpisanieWierzcholkow = mRubberbandModel->vertexCount();
-      qDebug( "WorkField/Luki: odswiezenie gumki — nadpisanie ZOSTAJE, nowy stempel %d",
+      qCDebug( wfgLuki, "WorkField/Luki: odswiezenie gumki — nadpisanie ZOSTAJE, nowy stempel %d",
               mNadpisanieWierzcholkow );
     }
   }
@@ -222,7 +240,7 @@ void QfGeometry::ustawNadpisanie( const QgsGeometry &geometria )
   mNadpisanie = geometria;
   // Termin waznosci — patrz `mNadpisanieWierzcholkow`.
   mNadpisanieWierzcholkow = mRubberbandModel ? mRubberbandModel->vertexCount() : -1;
-  qDebug( "WorkField/Luki: podlozone dla gumki o %d wierzcholkach", mNadpisanieWierzcholkow );
+  qCDebug( wfgLuki, "WorkField/Luki: podlozone dla gumki o %d wierzcholkach", mNadpisanieWierzcholkow );
 }
 
 bool QfGeometry::maNadpisanie() const

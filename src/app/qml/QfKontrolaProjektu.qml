@@ -39,6 +39,10 @@ import QtQuick
 import org.qfield
 import org.qfield.core
 import org.qgis
+// PLAKIETKA KONTROLI (25.09.2026) — kolor ostrzeżenia i rozmiar
+// przycisku biorą się z motywu, żeby plakietka była tej samej
+// wielkości co reszta ikon i bladła razem z ciemnym motywem.
+import Theme
 
 Item {
   id: kontrola
@@ -210,6 +214,76 @@ Item {
     }
   }
 
+  // ── PLAKIETKA W PRAWYM GÓRNYM ROGU (25.09.2026) ─────────────────
+  //
+  // Komunikat mówi swoje raz; potem zostaje ślad, który nie zasłania
+  // mapy i nie wymaga zamykania. Kliknięcie pokazuje to samo zdanie
+  // na żądanie — także wtedy, gdy odcisk jest już znany.
+  //
+  // Ta klasa była dotąd niewidoczna (`Item` bez rozmiaru). Rozciąga
+  // się na rodzica WYŁĄCZNIE po to, żeby mieć do czego przyczepić
+  // plakietkę; nic nie rysuje i nie łapie myszy poza nią samą.
+  anchors.fill: parent
+
+  //! Ustawiane na czas pokazania komunikatu z kliknięcia plakietki.
+  property bool naZadanie: false
+
+  //! Odcisk treści — po nim poznajemy, czy to JUŻ BYŁO powiedziane.
+  function odcisk(tresc) {
+    return tresc === null ? "" : (tresc.naglowek + "|" + tresc.tekst);
+  }
+
+  Rectangle {
+    id: plakietka
+
+    // `mainWindow` NIE jest własnością kontekstu głównego (jest nią
+    // `settings`, qgismobileapp.cpp:423), więc pytamy o nią ostrożnie
+    // i schodzimy do zera, gdy tej nazwy tu nie widać. Na komputerze
+    // te marginesy i tak są zerowe; na telefonie to wcięcie na pasek
+    // stanu.
+    anchors.top: parent ? parent.top : undefined
+    anchors.right: parent ? parent.right : undefined
+    anchors.topMargin: 8 + (typeof mainWindow !== 'undefined' ? mainWindow.sceneTopMargin : 0)
+    anchors.rightMargin: 8 + (typeof mainWindow !== 'undefined' ? mainWindow.sceneRightMargin : 0)
+
+    width: Theme.toolButtonSize
+    height: Theme.toolButtonSize
+    radius: width / 2
+    color: Theme.warningColor
+    visible: !kontrola.czysto
+    opacity: obszarPlakietki.pressed ? 0.7 : 1.0
+
+    Image {
+      id: znakPlakietki
+      anchors.centerIn: parent
+      width: parent.width * 0.55
+      height: width
+      fillMode: Image.PreserveAspectFit
+      sourceSize.width: width
+      sourceSize.height: width
+      source: Theme.getThemeVectorIcon("ic_alert_black_24dp")
+    }
+
+    // Gdyby ikony zabrakło, plakietka nie może zostać pustym kółkiem.
+    Text {
+      anchors.centerIn: parent
+      visible: znakPlakietki.status !== Image.Ready
+      text: "!"
+      color: "black"
+      font.bold: true
+      font.pixelSize: parent.height * 0.6
+    }
+
+    MouseArea {
+      id: obszarPlakietki
+      anchors.fill: parent
+      onClicked: {
+        kontrola.naZadanie = true;
+        opozniona.triggered();
+      }
+    }
+  }
+
   Timer {
     id: opozniona
     interval: 1500
@@ -219,6 +293,27 @@ Item {
       const tresc = kontrola.trescDymka();
       if (tresc === null)
         return;
+
+      // ── TYLKO ZA PIERWSZYM RAZEM (25.09.2026) ─────────────────
+      //
+      // Uwaga Piotra: „ostrzeżenie jest IRYTUJĄCE, bo pojawia się za
+      // każdym razem”. Trwały dymek witał człowieka przy KAŻDYM
+      // otwarciu tego samego projektu — a szum uczy przeklikiwać bez
+      // czytania, czyli odbiera tej kontroli jedyny powód istnienia.
+      //
+      // Pamiętamy ODCISK treści, nie sam fakt pokazania. Gdyby pamiętać
+      // fakt, to projekt, któremu w międzyczasie UBYŁO czegoś jeszcze,
+      // milczałby dalej — a to jest dokładnie ta sytuacja, dla której
+      // ta kontrola powstała.
+      //
+      // Odcisk jest osobny dla każdego projektu (klucz zawiera jego
+      // katalog), więc nowy projekt zawsze przedstawia się w całości.
+      const odcisk = kontrola.odcisk(tresc);
+      const kluczOdcisku = 'WorkField/kontrolaOdcisk/' + kontrola.katalogProjektu();
+      if (!kontrola.naZadanie && settings.value(kluczOdcisku, '') === odcisk)
+        return;
+      kontrola.naZadanie = false;
+      settings.setValue(kluczOdcisku, odcisk);
 
       // Komunikat, którego da się posłuchać: od razu prowadzi tam, gdzie
       // są czasowniki.

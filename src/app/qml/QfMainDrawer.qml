@@ -877,9 +877,34 @@ Drawer {
           Layout.preferredHeight: 34
           padding: 0
 
+          // ── ZAKŁADKI JAK W PRAWEJ SZUFLADZIE (25.09.2026) ─────────
+          //
+          // Zmierzone na zrzucie Piotra: tło obu szuflad jest takie samo
+          // (55, 71, 79), ale aktywna zakładka po lewej dostawała PEŁNY
+          // BLOK w kolorze marki (0, 105, 92), a po prawej — sam napis
+          // w tym kolorze i kreskę pod spodem.
+          //
+          // Powód rozjazdu: prawa szuflada używa stylowego `TabBar`-a,
+          // a lewa na komputerze ma własny rząd `ItemDelegate`
+          // (`TabBar` poniżej jest widoczny tylko na telefonie).
+          // Dwie różne kontrolki robiły to samo na dwa sposoby.
+          //
+          // Kolor zaznaczenia się NIE zmienia — to nadal `Theme.mainColor`,
+          // czyli dokładnie ta barwa, która wypełniała blok. Przestaje
+          // tylko być plamą.
           background: Rectangle {
-            color: przelacznikWidoku.aktywny ? Theme.mainColor : "transparent"
-            radius: 5
+            color: "transparent"
+
+            Rectangle {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              anchors.leftMargin: 6
+              anchors.rightMargin: 6
+              height: 2
+              color: Theme.mainColor
+              visible: przelacznikWidoku.aktywny
+            }
           }
 
           contentItem: RowLayout {
@@ -907,13 +932,13 @@ Drawer {
               Layout.preferredHeight: 16
               source: ikonaWidoku
               visible: ikonaWidoku.status === Image.Ready
-              color: przelacznikWidoku.aktywny ? "white" : Theme.mainTextColor
+              color: przelacznikWidoku.aktywny ? Theme.mainColor : Theme.mainTextColor
             }
 
             Text {
               text: przelacznikWidoku.modelData.nazwa
               font: Theme.tinyFont
-              color: przelacznikWidoku.aktywny ? "white" : Theme.mainTextColor
+              color: przelacznikWidoku.aktywny ? Theme.mainColor : Theme.mainTextColor
             }
 
             Item {
