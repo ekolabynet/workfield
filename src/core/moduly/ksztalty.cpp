@@ -13,6 +13,9 @@
 #include <vector>
 
 #include <QDebug>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QPointF>
 
 #include <qgsabstractgeometry.h>
@@ -1444,4 +1447,246 @@ QgsGeometry Ksztalty::zModeluLuk( QObject *modelGumki, const QString &ksztalt,
                          && static_cast<Qgis::GeometryType>( typDocelowy ) == Qgis::GeometryType::Polygon;
 
   return naTypLuk( zbudujLuk( ksztalt, jakoWarianty( punkty ), zamknieta ), typDocelowy );
+}
+
+/**
+ * Uklad wspolrzednych gumki, wziety PO NAZWIE TYPU.
+ *
+ * `v.value<QgsCoordinateReferenceSystem>()` wymaga metatypu, ktorego
+ * QGIS pod Qt5 nie deklaruje — a piaskownica stoi na Qt5. Droga po
+ * nazwie robi dokladnie to samo, co `value<T>()` w srodku, i kompiluje
+ * sie pod oboma (ZASADY_LATEK.md, „Metatypy").
+ */
+static QString ukladGumki( QObject *model )
+{
+  if ( !model )
+    return QString();
+
+  const QVariant v = model->property( "crs" );
+  if ( qstrcmp( v.typeName(), "QgsCoordinateReferenceSystem" ) == 0 && v.constData() )
+  {
+    const QgsCoordinateReferenceSystem *u =
+      reinterpret_cast<const QgsCoordinateReferenceSystem *>( v.constData() );
+    return u->authid();
+  }
+  return QString();
+}
+
+QString Ksztalty::opisKsztaltu( QObject *modelGumki, const QString &ksztalt,
+                                double promien, bool zPunktemZywym,
+                                int typDocelowy ) const
+{
+  const QVector<QgsPoint> punkty = punktyGumki( modelGumki, zPunktemZywym );
+  if ( punkty.isEmpty() )
+    return QString();
+
+  const QString k = klucz( ksztalt );
+
+  // TE SAME warunki, co w `zModelu` — inaczej opis nie odtworzylby tego,
+  // co naprawde poszlo do pliku.
+  const bool zamknieta = ( k == QLatin1String( "krzywa" ) || k == QLatin1String( "chmurka" ) )
+                         && static_cast<Qgis::GeometryType>( typDocelowy ) == Qgis::GeometryType::Polygon;
+  const bool zPromienia = promien > 0 && k == QLatin1String( "okrag" );
+
+  QJsonArray tablica;
+  // Przy okregu z dalmierza liczy sie WYLACZNIE srodek — reszta punktow
+  // nie brala udzialu w budowaniu i zapisana mowilaby nieprawde.
+  const int ile = zPromienia ? 1 : punkty.size();
+  for ( int i = 0; i < ile; ++i )
+  {
+    QJsonArray para;
+    para.append( QJsonValue( punkty.at( i ).x() ) );
+    para.append( QJsonValue( punkty.at( i ).y() ) );
+    tablica.append( para );
+  }
+
+  QJsonObject o;
+  o.insert( QStringLiteral( "w" ), 1 );     // wersja zapisu — format bedzie rosl
+  o.insert( QStringLiteral( "k" ), k );     // ksztalt, kluczem ASCII
+  o.insert( QStringLiteral( "p" ), tablica );
+
+  const QString uklad = ukladGumki( modelGumki );
+  if ( !uklad.isEmpty() )
+    o.insert( QStringLiteral( "u" ), uklad );
+
+  if ( zPromienia )
+    o.insert( QStringLiteral( "r" ), promien );
+  if ( zamknieta )
+    o.insert( QStringLiteral( "z" ), true );
+
+  // USTAWIENIA, KTORE ZMIENIAJA WYNIK przy tych samych punktach. Bez nich
+  // odtworzenie bylo by loteria: ten sam zestaw punktow daje inna krzywa
+  // przy innym przelaczniku.
+  if ( k == QLatin1String( "krzywa" ) )
+    o.insert( QStringLiteral( "pp" ), mKrzywaPrzezPunkty );
+  if ( k == QLatin1String( "chmurka" ) )
+    o.insert( QStringLiteral( "g" ), mChmurkaLuk );
+
+  return QString::fromUtf8( QJsonDocument( o ).toJson( QJsonDocument::Compact ) );
+}
+
+/**
+ * Rozklada opis na czesci. Zwraca falsz, gdy to nie jest nasz opis.
+ *
+ * Jedno miejsce dla wszystkich czterech odczytow — inaczej kazdy
+ * sprawdzalby wersje i klucze po swojemu i predzej czy pozniej jeden
+ * przestalby.
+ */
+static bool rozlozOpis( const QString &opis, QString &ksztalt,
+                        QVariantList &punkty, double &promien,
+                        bool &zamknieta, QVariantMap &ustawienia )
+{
+  ksztalt.clear();
+  punkty.clear();
+  promien = 0.0;
+  zamknieta = false;
+  ustawienia.clear();
+
+  if ( opis.trimmed().isEmpty() )
+    return false;
+
+  QJsonParseError blad;
+  const QJsonDocument d = QJsonDocument::fromJson( opis.toUtf8(), &blad );
+  if ( blad.error != QJsonParseError::NoError || !d.isObject() )
+    return false;
+
+  const QJsonObject o = d.object();
+
+  // Wersja zapisu. Nowszej NIE UDAJEMY, ze rozumiemy — lepiej oddac
+  // pustke niz ksztalt zbudowany z polowy parametrow.
+  const int wersja = o.value( QStringLiteral( "w" ) ).toInt( 0 );
+  if ( wersja < 1 || wersja > 1 )
+    return false;
+
+  ksztalt = o.value( QStringLiteral( "k" ) ).toString();
+  if ( ksztalt.isEmpty() )
+    return false;
+
+  const QJsonArray tablica = o.value( QStringLiteral( "p" ) ).toArray();
+  for ( int i = 0; i < tablica.size(); ++i )
+  {
+    const QJsonArray para = tablica.at( i ).toArray();
+    if ( para.size() < 2 )
+      continue;
+    QVariantList xy;
+    xy << para.at( 0 ).toDouble() << para.at( 1 ).toDouble();
+    punkty.append( QVariant( xy ) );
+  }
+  if ( punkty.isEmpty() )
+    return false;
+
+  promien = o.value( QStringLiteral( "r" ) ).toDouble( 0.0 );
+  zamknieta = o.value( QStringLiteral( "z" ) ).toBool( false );
+
+  if ( o.contains( QStringLiteral( "pp" ) ) )
+    ustawienia.insert( QStringLiteral( "pp" ), o.value( QStringLiteral( "pp" ) ).toBool() );
+  if ( o.contains( QStringLiteral( "g" ) ) )
+    ustawienia.insert( QStringLiteral( "g" ), o.value( QStringLiteral( "g" ) ).toDouble() );
+  if ( o.contains( QStringLiteral( "u" ) ) )
+    ustawienia.insert( QStringLiteral( "u" ), o.value( QStringLiteral( "u" ) ).toString() );
+
+  return true;
+}
+
+QString Ksztalty::ksztaltZOpisu( const QString &opis ) const
+{
+  QString k;
+  QVariantList p;
+  double r = 0.0;
+  bool z = false;
+  QVariantMap u;
+  if ( !rozlozOpis( opis, k, p, r, z, u ) )
+    return QString();
+  return k;
+}
+
+QVariantList Ksztalty::punktyZOpisu( const QString &opis ) const
+{
+  QString k;
+  QVariantList p;
+  double r = 0.0;
+  bool z = false;
+  QVariantMap u;
+  if ( !rozlozOpis( opis, k, p, r, z, u ) )
+    return QVariantList();
+  return p;
+}
+
+QString Ksztalty::ukladZOpisu( const QString &opis ) const
+{
+  QString k;
+  QVariantList p;
+  double r = 0.0;
+  bool z = false;
+  QVariantMap u;
+  if ( !rozlozOpis( opis, k, p, r, z, u ) )
+    return QString();
+  return u.value( QStringLiteral( "u" ) ).toString();
+}
+
+/**
+ * Wspolna droga dla obu odtworzen: przywraca ustawienia z opisu, buduje,
+ * oddaje ustawienia z powrotem.
+ *
+ * `mKrzywaPrzezPunkty` i `mChmurkaLuk` sa stanem OBIEKTU, a nie
+ * parametrem budowania — a opis niesie te wartosci, ktore obowiazywaly
+ * przy rysowaniu. Bez podmiany ksztalt odtworzylby sie wedlug tego, co
+ * akurat stoi w ustawieniach, czyli czegos innego.
+ *
+ * Podmiana idzie przez `const_cast`, bo obie metody sa `const` i maja
+ * takie zostac — dla wolajacego to jest funkcja czysta.
+ */
+QgsGeometry Ksztalty::zOpisuWspolnie( const QString &opis, int typDocelowy,
+                                      bool luki ) const
+{
+  QString k;
+  QVariantList p;
+  double r = 0.0;
+  bool z = false;
+  QVariantMap u;
+  if ( !rozlozOpis( opis, k, p, r, z, u ) )
+    return QgsGeometry();
+
+  Ksztalty *ja = const_cast<Ksztalty *>( this );
+  const bool bylaPrzezPunkty = mKrzywaPrzezPunkty;
+  const double bylChmurkaLuk = mChmurkaLuk;
+
+  if ( u.contains( QStringLiteral( "pp" ) ) )
+    ja->mKrzywaPrzezPunkty = u.value( QStringLiteral( "pp" ) ).toBool();
+  if ( u.contains( QStringLiteral( "g" ) ) )
+    ja->mChmurkaLuk = u.value( QStringLiteral( "g" ) ).toDouble();
+
+  QgsGeometry wynik;
+  if ( r > 0 && k == QLatin1String( "okrag" ) )
+  {
+    // Okrag z dalmierza: w opisie lezy SAM SRODEK i promien.
+    QgsPoint srodek;
+    if ( naPunkt( p.value( 0 ), srodek ) )
+    {
+      wynik = luki ? okragLukiem( srodek, r )
+                   : okragOPromieniu( p.value( 0 ), r, segmentowDlaOkregu( r ) );
+    }
+  }
+  else
+  {
+    wynik = luki ? zbudujLuk( k, p, z ) : zbuduj( k, p, z );
+  }
+
+  ja->mKrzywaPrzezPunkty = bylaPrzezPunkty;
+  ja->mChmurkaLuk = bylChmurkaLuk;
+
+  if ( wynik.isNull() || wynik.isEmpty() || typDocelowy < 0 )
+    return wynik;
+
+  return luki ? naTypLuk( wynik, typDocelowy ) : naTyp( wynik, typDocelowy );
+}
+
+QgsGeometry Ksztalty::zOpisu( const QString &opis, int typDocelowy ) const
+{
+  return zOpisuWspolnie( opis, typDocelowy, false );
+}
+
+QgsGeometry Ksztalty::zOpisuLuk( const QString &opis, int typDocelowy ) const
+{
+  return zOpisuWspolnie( opis, typDocelowy, true );
 }

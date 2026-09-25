@@ -3657,6 +3657,30 @@ ApplicationWindow {
           }
         }
         console.log(logLuki, "WorkField/Luki: 3-po-liczeniu lukDoZapisu=" + (lukDoZapisu ? "JEST" : "BRAK"));
+
+        // ── OPIS KSZTAŁTU DO ATRYBUTU (25.09.2026, etap 2a) ─────────
+        //
+        // Splajn o SZEŚCIU punktach sterujących ląduje w pliku jako
+        // łamana o 500 wierzchołkach — i tyle samo uchwytów widzi potem
+        // edytor. Biłuki zmniejszają to tylko dwukrotnie (zmierzone,
+        // `claude/SPLAJNY_pomiar_bilukow.md`), bo GeoPackage nie zna
+        // żadnego typu splajnowego: QGIS ma 55 typów geometrii i ani
+        // jednego.
+        //
+        // Geometria musi więc zostać przybliżeniem — ale PARAMETRY mogą
+        // leżeć obok, w atrybucie. Wtedy kształt zostaje edytowalny
+        // sześcioma punktami, jak „smart object” w CAD-zie.
+        //
+        // MUSI powstać TUTAJ, przed `setDataFromGeometry` — ta zamienia
+        // punkty sterujące na gęstą łamaną i po niej nie ma już czego
+        // opisywać. Dokładnie ten sam powód, co przy `lukDoZapisu`.
+        //
+        // Te same parametry, co przy budowaniu geometrii, z punktem
+        // żywym włącznie — inaczej opis mówiłby o innym kształcie niż
+        // ten, który poszedł do pliku.
+        const opisKsztaltu = edycjaGeometrii
+                             ? ""
+                             : silnikKsztaltow.opisKsztaltu(rb, nazwa, promien > 0 ? promien : 0, true, rb.geometryType);
         if (silnikKsztaltow.pusty(ksztalt)) {
           displayToast(qsTr("Nie da się zbudować tego kształtu z tych punktów"), "error");
           return false;
@@ -3694,6 +3718,30 @@ ApplicationWindow {
           console.log(logLuki, "WorkField/Luki: 4-przed-applyGeometry nadpisanie=" + digitizingFeature.geometry.maNadpisanie());
           digitizingFeature.applyGeometry();
           console.log(logLuki, "WorkField/Luki: 5-po-applyGeometry nadpisanie=" + digitizingFeature.geometry.maNadpisanie());
+
+          // PARAMETRY OBOK GEOMETRII — POPRAWKA z 25.09 wieczorem.
+          //
+          // Pierwsza wersja wkładała opis TUTAJ i mój własny komunikat
+          // mówił „ZAPISANY". Kłamał: `ustawAtrybut` oddaje prawdę już
+          // wtedy, gdy warstwa MA takie pole — o zapisie do pliku nie
+          // mówi nic. W pliku było `null` we wszystkich wierszach.
+          //
+          // Dwa niezależne powody, oba widać w `digitizingToolbar.confirm`:
+          //
+          //  1. Obiekt zapisuje `overlayFeatureFormDrawer.featureModel`,
+          //     a NIE `digitizingFeature` — `create()` i `save()` wołane
+          //     są na tamtym.
+          //  2. Tamten model dostaje `resetAttributes()` TUŻ PRZED
+          //     zapisem, więc cokolwiek by się w nim wcześniej położyło,
+          //     i tak by znikło.
+          //
+          // Dlatego opis tylko ODKŁADAMY. Wkłada go `wlozOpisKsztaltu()`
+          // po każdym `resetAttributes()` — w jedynym miejscu, w którym
+          // wartość dożyje do zapisu.
+          mainWindow.opisKsztaltuDoOdlozenia = opisKsztaltu;
+          if (opisKsztaltu !== "") {
+            console.log(logLuki, "WorkField/Luki: 5a-opis odlozony, dlugosc=" + opisKsztaltu.length);
+          }
           if (typeof overlayFeatureFormDrawer !== 'undefined' && overlayFeatureFormDrawer.featureModel) {
             overlayFeatureFormDrawer.featureModel.geometry = digitizingFeature.geometry;
             overlayFeatureFormDrawer.featureModel.applyGeometry();
@@ -4836,6 +4884,10 @@ ApplicationWindow {
                 overlayFeatureFormDrawer.featureModel.geometry = digitizingFeature.geometry;
                 overlayFeatureFormDrawer.featureModel.applyGeometry();
                 overlayFeatureFormDrawer.featureModel.resetAttributes();
+                // Opis kształtu wchodzi PO zerowaniu atrybutów — przed nim
+                // zniknąłby razem z resztą. Jednorazowo, patrz
+                // `wlozOpisKsztaltu` w oknie głównym.
+                mainWindow.wlozOpisKsztaltu(overlayFeatureFormDrawer.featureModel);
                 if (overlayFeatureFormDrawer.featureForm.model.constraintsHardValid && !overlayFeatureFormDrawer.featureForm.featureAdditionLocked) {
                   // when the constrainst are fulfilled
                   // indirect action, no need to check for success and display a toast, the log is enough
@@ -4931,6 +4983,10 @@ ApplicationWindow {
             overlayFeatureFormDrawer.featureModel.geometry = digitizingFeature.geometry;
             overlayFeatureFormDrawer.featureModel.applyGeometry();
             overlayFeatureFormDrawer.featureModel.resetAttributes();
+            // Opis kształtu wchodzi PO zerowaniu atrybutów — przed nim
+            // zniknąłby razem z resztą. Jednorazowo, patrz
+            // `wlozOpisKsztaltu` w oknie głównym.
+            mainWindow.wlozOpisKsztaltu(overlayFeatureFormDrawer.featureModel);
             overlayFeatureFormDrawer.open();
             overlayFeatureFormDrawer.state = "Add";
           } else {
@@ -4938,6 +4994,10 @@ ApplicationWindow {
               overlayFeatureFormDrawer.featureModel.geometry = digitizingFeature.geometry;
               overlayFeatureFormDrawer.featureModel.applyGeometry();
               overlayFeatureFormDrawer.featureModel.resetAttributes();
+              // Opis kształtu wchodzi PO zerowaniu atrybutów — przed nim
+              // zniknąłby razem z resztą. Jednorazowo, patrz
+              // `wlozOpisKsztaltu` w oknie głównym.
+              mainWindow.wlozOpisKsztaltu(overlayFeatureFormDrawer.featureModel);
               if (!overlayFeatureFormDrawer.featureForm.featureAdditionLocked) {
                 if (!overlayFeatureFormDrawer.featureModel.create()) {
                   displayToast(qsTr("Failed to create feature"), 'error');
@@ -6315,6 +6375,34 @@ ApplicationWindow {
   // Próg `Warning` znaczy, że `console.log` (poziom debug) jest pod
   // progiem, czyli domyślnie milczy. Sprawdzone w `qmltestrunner`:
   // bez reguł nie wychodzi, z regułą wraca.
+  // ── OPIS KSZTAŁTU CZEKA NA SWÓJ MODEL (25.09.2026) ──────────────
+  //
+  // Opis nie może pójść prosto do `digitizingFeature`: obiekt zapisuje
+  // `overlayFeatureFormDrawer.featureModel`, a ten dostaje
+  // `resetAttributes()` tuż przed `create()`. Wartość położona
+  // wcześniej ginie — sprawdzone w pliku, nie w logu.
+  //
+  // Więc `wlozKsztalt` tylko ODKŁADA opis tutaj, a wkłada go
+  // `wlozOpisKsztaltu()` po każdym `resetAttributes()`.
+  property string opisKsztaltuDoOdlozenia: ""
+
+  /**
+   * Wkłada odłożony opis do modelu, który NAPRAWDĘ zapisuje.
+   *
+   * JEDNORAZOWO — kasuje wartość, zanim jej użyje. Bez tego zwykły
+   * obiekt narysowany zaraz po kształcie odziedziczyłby cudze
+   * parametry, a to byłoby gorsze niż brak zapisu: nieprawdziwe.
+   */
+  function wlozOpisKsztaltu(model) {
+    if (opisKsztaltuDoOdlozenia === "" || !model) {
+      return;
+    }
+    const opis = opisKsztaltuDoOdlozenia;
+    opisKsztaltuDoOdlozenia = "";
+    const przyjete = model.ustawAtrybut("wfg_ksztalt", opis);
+    console.log(logLuki, "WorkField/Luki: 5b-opis " + (przyjete ? "wlozony do modelu zapisujacego" : "POMINIETY (warstwa bez pola wfg_ksztalt)") + ", dlugosc=" + opis.length);
+  }
+
   LoggingCategory {
     id: logLuki
     name: "workfield.luki"

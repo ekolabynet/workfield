@@ -236,15 +236,44 @@ Item {
   Rectangle {
     id: plakietka
 
-    // `mainWindow` NIE jest własnością kontekstu głównego (jest nią
-    // `settings`, qgismobileapp.cpp:423), więc pytamy o nią ostrożnie
-    // i schodzimy do zera, gdy tej nazwy tu nie widać. Na komputerze
-    // te marginesy i tak są zerowe; na telefonie to wcięcie na pasek
-    // stanu.
+    // ── ODSTĘP OD GÓRNEJ BELKI (poprawka 25.09.2026) ──────────────
+    //
+    // Zgłoszenie Piotra z telefonu: plakietka „chowa się za paskiem
+    // stanu (pod zębatką)”. Było `8 + mainWindow.sceneTopMargin`.
+    //
+    // Podejrzewałem najpierw, że `mainWindow` jest w tym pliku
+    // niewidoczne i że strażnik `typeof` po cichu bierze zero.
+    // SPRAWDZONE W qmltestrunner I NIEPRAWDA: komponent z osobnego
+    // pliku widzi identyfikator dokumentu, w którym go osadzono —
+    // nazwy schodzą w dół przez łańcuch kontekstów. Dlatego 103 pliki
+    // QML w tym drzewie mogą pisać `mainWindow.` i to działa.
+    //
+    // Prawdziwy powód: `sceneTopMargin` to ZŁA liczba. Na Androidzie
+    // okno ma `ExpandedClientAreaHint`, więc mapa sięga POD górną
+    // belkę — `sceneTopMargin` mówi o wcięciu na pasek stanu, a nie
+    // o wysokości tego, co nad mapą naprawdę leży.
+    //
+    // ── W JEDNYM RZĘDZIE Z LUPĄ (25.09.2026, druga runda) ─────────
+    //
+    // Formuła jest ta sama, co w `QfLocatorItem` i `mainMenuBar`;
+    // różni je tylko odstęp, czyli RZĄD:
+    //
+    //   +4  — pierwszy rząd, tuż pod belką: `mainMenuBar` (hamburger)
+    //   +40 — drugi rząd: `QfLocatorItem` (lupa)
+    //
+    // Plakietka dostała najpierw +4 i dotykała dolnej krawędzi belki
+    // (zgłoszenie Piotra: „zawadza o dolną belkę (...) Jak ikona
+    // wyszukiwania”). Idzie więc do drugiego rzędu — dokładnie na
+    // wysokość lupy, tylko przy prawej krawędzi.
+    //
+    // Równanie do czegoś, co już jest na ekranie, bije dobieranie
+    // liczby na oko: gdy belka urośnie o wiersz, oba przesuną się
+    // razem.
     anchors.top: parent ? parent.top : undefined
     anchors.right: parent ? parent.right : undefined
-    anchors.topMargin: 8 + (typeof mainWindow !== 'undefined' ? mainWindow.sceneTopMargin : 0)
-    anchors.rightMargin: 8 + (typeof mainWindow !== 'undefined' ? mainWindow.sceneRightMargin : 0)
+    anchors.topMargin: (mainWindow.header ? mainWindow.header.height
+                                          : mainWindow.sceneTopMargin) + 40
+    anchors.rightMargin: mainWindow.sceneRightMargin + 4
 
     width: Theme.toolButtonSize
     height: Theme.toolButtonSize

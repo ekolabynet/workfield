@@ -432,6 +432,79 @@ class Ksztalty : public QObject
      */
     Q_INVOKABLE QgsGeometry naTypLuk( const QgsGeometry &ksztalt, int typ ) const;
 
+    /**
+     * OPIS KSZTALTU — punkty sterujace i wszystko, co potrzebne, zeby
+     * zbudowac go od nowa. Zwraca zwiezly JSON albo pusty napis.
+     *
+     * Po co. Splajn o szesciu punktach sterujacych ladował w pliku jako
+     * lamana o 500 wierzcholkach — i tyle samo uchwytow widzial potem
+     * edytor. Pomiar z 25.09.2026 (`claude/SPLAJNY_pomiar_bilukow.md`)
+     * pokazal, ze biluki zmniejszaja te liczbe tylko dwukrotnie, bo
+     * GeoPackage nie zna zadnego typu splajnowego — QGIS ma 55 typow
+     * geometrii i ani jednego. Geometria musi wiec zostac przyblizeniem.
+     *
+     * Ale PARAMETRY moga zostac obok, w atrybucie. Wtedy geometria jest
+     * tym, czym musi byc, a ksztalt zostaje edytowalny szescioma
+     * punktami — tak, jak CAD-y robia „smart objects".
+     *
+     * Co jest w srodku (klucze krotkie, bo to siedzi w kazdym wierszu):
+     *
+     *   w   wersja zapisu (1) — format bedzie rosl
+     *   k   ksztalt, kluczem ASCII (`okrag`, `krzywa`, `chmurka`…)
+     *   p   punkty sterujace, `[[x,y],…]`, w ukladzie `u`
+     *   u   uklad wspolrzednych punktow (authid), gdy znany
+     *   r   promien — tylko okrag z dalmierza; wtedy `p` ma sam srodek
+     *   z   czy ksztalt byl domykany
+     *   pp  `krzywaPrzezPunkty` — przy `krzywa`
+     *   g   `chmurkaLuk` — przy `chmurka`
+     *
+     * `pp` i `g` sa tam, bo ZMIENIAJA WYNIK przy tych samych punktach.
+     * Bez nich odtworzenie byloby loteria.
+     *
+     * Parametry maja ten sam sens i te sama kolejnosc, co w `zModelu`
+     * i `zModeluLuk` — opis ma powstawac z DOKLADNIE tego wywolania, co
+     * geometria, inaczej opisywalby co innego, niz poszlo do pliku.
+     */
+    Q_INVOKABLE QString opisKsztaltu( QObject *modelGumki, const QString &ksztalt,
+                                      double promien = 0.0, bool zPunktemZywym = false,
+                                      int typDocelowy = -1 ) const;
+
+    /**
+     * ODWROTNOSC `opisKsztaltu` — ksztalt zbudowany od nowa z opisu.
+     *
+     * To NIE JEST rozpoznawanie luku w obrysie. Rozpoznawanie bylo by
+     * zgadywaniem, dla ktorego nie da sie zbudowac zestawu cechujacego
+     * (patrz `claude/CZASOWNIKI_geometrii.md`). Tu nie ma czego zgadywac:
+     * parametry sa zapisane, a liczy je ten sam silnik, ktory rysowal.
+     *
+     * Sprawdzian, ktory to musi przejsc: OBIEG ZAMKNIETY. Punkty →
+     * `opisKsztaltu` → `zOpisu` ma dac geometrie identyczna z ta, ktora
+     * `zbuduj` robi wprost z tych samych punktow.
+     */
+    Q_INVOKABLE QgsGeometry zOpisu( const QString &opis, int typDocelowy = -1 ) const;
+
+    //! Jak `zOpisu`, ale z prawdziwymi lukami — dla okregu i chmurki.
+    Q_INVOKABLE QgsGeometry zOpisuLuk( const QString &opis, int typDocelowy = -1 ) const;
+
+    /**
+     * Same punkty sterujace z opisu — dla edytora, ktory ma pokazac
+     * szesc uchwytow zamiast czterystu wierzcholkow.
+     */
+    Q_INVOKABLE QVariantList punktyZOpisu( const QString &opis ) const;
+
+    //! Nazwa ksztaltu z opisu (`okrag`, `krzywa`…) albo pusty napis.
+    Q_INVOKABLE QString ksztaltZOpisu( const QString &opis ) const;
+
+    /**
+     * Uklad wspolrzednych, w ktorym zapisano punkty.
+     *
+     * Wazne przy odtwarzaniu: jesli projekt ma dzis inny uklad niz w
+     * chwili rysowania, punkty trzeba przeliczyc, zanim pojda do silnika.
+     * Pusty napis znaczy „opis tego nie mowi" — wtedy zakladamy uklad
+     * biezacy, bo nic lepszego nie mamy.
+     */
+    Q_INVOKABLE QString ukladZOpisu( const QString &opis ) const;
+
   signals:
     //! \copydoc bokMetry
     void bokMetryChanged();
@@ -443,6 +516,17 @@ class Ksztalty : public QObject
     void chmurkaLukChanged();
 
   private:
+    /**
+     * Wspolna droga `zOpisu` i `zOpisuLuk`.
+     *
+     * `mKrzywaPrzezPunkty` i `mChmurkaLuk` sa stanem OBIEKTU, a nie
+     * parametrem budowania — a opis niesie wartosci, ktore obowiazywaly
+     * przy rysowaniu. Ta funkcja podmienia je na czas budowania i oddaje
+     * z powrotem, zeby dla wolajacego obie metody byly czyste.
+     */
+    QgsGeometry zOpisuWspolnie( const QString &opis, int typDocelowy,
+                                bool luki ) const;
+
     //! \copydoc bokMetry
     double mBokMetry = 0.25;
     //! \copydoc maksWierzcholkow
