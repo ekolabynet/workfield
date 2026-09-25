@@ -97,7 +97,9 @@ ApplicationWindow {
         kontrolaProjektu.sprawdz();
       naprawaProjektu.open();
     }
-    ustawieniaTerenowe: function () { terenSettings.open(); }
+    // Bylo `terenSettings.open()` — osobne okno nad mapa. Teraz to
+    // kategoria w Ustawieniach, otwierana tak samo jak GNSS.
+    ustawieniaTerenowe: function () { pokazUstawienia("teren"); }
     ustawieniaAplikacji: function () { qfieldSettings.visible = true; }
     zglosUwage: function () { Qt.openUrlExternally('https://github.com/ekolabynet/workfield/issues'); }
     oProgramie: function () { aboutDialog.open(); }
@@ -1178,6 +1180,15 @@ ApplicationWindow {
       property bool isDigitizing: false
       property int freehandStartVertexIndex: -1
       enabled: freehandButton.visible && freehandButton.freehandDigitizing && !digitizingToolbar.cogoEnabled && !digitizingToolbar.rubberbandModel.frozen && ((!featureListForm.visible && digitizingToolbar.digitizingAllowed) || digitizingToolbar.geometryRequested)
+      // COFNIETE 24.09.2026. Palec tu byl przez kwadrans i przez ten
+      // kwadrans mapa nie reagowala na dotyk.
+      //
+      // `dragThreshold: 0` znaczy, ze KAZDE dotkniecie od razu staje
+      // sie przeciagnieciem — na rysiku to bez znaczenia, bo rysik
+      // rzadko tylko stuka, ale palec stuka caly czas. Tapniecie nie
+      // mialo szans dojsc.
+      //
+      // Rysowanie palcem wroci z progiem wiekszym od zera.
       acceptedDevices: !qfieldSettings.mouseAsTouchScreen ? PointerDevice.Stylus | PointerDevice.Mouse : PointerDevice.Stylus
       grabPermissions: PointerHandler.CanTakeOverFromHandlersOfSameType | PointerHandler.CanTakeOverFromHandlersOfDifferentType | PointerHandler.ApprovesTakeOverByAnything
       dragThreshold: 0
@@ -1506,6 +1517,19 @@ ApplicationWindow {
       smooth: gnssButton.followActive && !mapCanvasMap.jumping
       previewJobsEnabled: qfieldSettings.previewJobsEnabled
       forceDeferredLayersRepaint: trackings.count > 0
+      // COFNIETE 24.09.2026 — i to byla grozniejsza z dwoch zmian.
+      //
+      // `QfMapCanvas` gasi tym swoje uchwyty przesuwania. Odkad
+      // wystarczal sam przycisk, przesuwanie wylaczalo sie od razu
+      // po wlaczeniu trybu — a `freehandHandler` ma wlasny, ostrzejszy
+      // warunek (`freehandButton.visible`) i wcale nie musial sie
+      // uaktywnic. Mapa nie przesuwala sie i nie rysowala.
+      //
+      // Najgorsze: ustawienie `/QField/Digitizing/FreehandActive`
+      // przezywa restart, wiec stan sam sie nie naprawial.
+      //
+      // Zasada na przyszlosc: nie rozbrajac mapy Z WYPRZEDZENIEM.
+      // Mapa ma oddawac dotyk dopiero temu, kto go NAPRAWDE wzial.
       freehandDigitizing: freehandButton.freehandDigitizing && freehandHandler.active
 
       property bool allowMargins: !gnssButton.followActive || !gnssButton.followOrientationActive
@@ -1774,12 +1798,66 @@ ApplicationWindow {
       visualGuides: digitizingToolbar.cogoExecutor.visualGuides
     }
 
+    /* WorkField 23.09.2026 — PODGLAD KSZTALTU.
+     *
+     * Druga gumka, bursztynowa, rysowana OBOK zwyklej.
+     *
+     * Zwykla zostaje lamana rozpieta na wskazanych punktach — jest teraz
+     * linia pomocnicza i widac na niej wierzcholki. Ta pokazuje, co z tych
+     * punktow wyjdzie.
+     *
+     * Liczy sie z punktem ZYWYM, tym chodzacym za celownikiem, wiec
+     * prostokat rozciaga sie W TRAKCIE celowania, a nie dopiero po
+     * tapnieciu. Do niedawna bylo odwrotnie i czlowiek widzial ksztalt
+     * po fakcie — czyli wtedy, gdy nie mial juz jak go poprawic.
+     */
+    QfRubberband {
+      id: podgladKsztaltu
+
+      mapSettings: mapCanvas.mapSettings
+      showVertices: false
+
+      // PROPOZYCJA JEST JASKRAWA, robocza stonowana. Blekit, a nie
+      // zielen: zielen ginie w koronach drzew, a wlasnie nad drzewami
+      // ta wtyczka pracuje najczesciej. Ciemna otoczka, zeby bylo
+      // widac takze na jasnej ortofotomapie.
+      //
+      // Grubsza od roboczej — to, co zaraz sie zapisze, ma dominowac.
+      color: "#00E5FF"
+      outlineColor: "#0D3B44"
+      lineWidth: 5
+
+      model: QfRubberbandModel {
+        // Zamrozona: ta gumka nie chodzi za celownikiem sama z siebie —
+        // dostaje gotowa geometrie z silnika.
+        frozen: true
+        crs: mapCanvas.mapSettings.destinationCrs
+        // Zawsze LINIA, takze dla warstw poligonowych: rysujemy obrys
+        // tego, co powstanie, a obrys jest domknietym pierscieniem.
+        geometryType: Qgis.GeometryType.Line
+      }
+
+      visible: stateMachine.state === "digitize" && mainToolbar.trybKsztaltu !== ""
+    }
+
     /** A rubberband for ditizing **/
     QfRubberband {
       id: digitizingRubberband
 
+      // LINIA ROBOCZA JEST STONOWANA. Domyslna ceglasta czerwien
+      // QFielda krzyczala tak samo glosno jak podglad ksztaltu
+      // i nie bylo wiadomo, ktora jest ktora.
+      //
+      // Jasny szary z CIEMNA OTOCZKA, a nie sam szary: na zdjeciu
+      // lotniczym pola uprawnego szary bez otoczki po prostu znika.
+      color: "#E0E0E0"
+      outlineColor: "#B3000000"
+      lineWidth: 3
+
       mapSettings: mapCanvas.mapSettings
-      showVertices: digitizingToolbar.cogoEnabled
+      // Przy uzbrojonym ksztalcie lamana jest LINIA POMOCNICZA, wiec
+      // musi byc widac punkty, na ktorych jest rozpieta.
+      showVertices: digitizingToolbar.cogoEnabled || mainToolbar.trybKsztaltu !== ""
 
       model: QfRubberbandModel {
         frozen: false
@@ -3160,6 +3238,473 @@ ApplicationWindow {
       anchors.topMargin: 8
       spacing: 4
 
+
+      // ===== WorkField 23.09.2026: ksztalty rysowane trzema tapnieciami ====
+      // Korona drzewa jest okregiem, plat prostokatem, sciezka krzywa —
+      // a kazde z nich obchodzilo sie dotad wierzcholek po wierzcholku.
+      //
+      // Silnik (`Ksztalty`) LICZY geometrie i niczego nie zapisuje. Gotowy
+      // ksztalt wpisujemy do gumki, a zatwierdza go ZWYKLA fajka. Dzieki
+      // temu czlowiek widzi, co powstalo, zanim trafi to do bazy, i moze
+      // porzucic tak samo jak kazdy inny rysunek.
+      Ksztalty {
+        id: silnikKsztaltow
+        // GESTOSC LUKOW z karty „Teren". Wiazanie, nie odczyt raz na
+        // starcie: zmiana w ustawieniach ma byc widac na nastepnym
+        // ksztalcie, a nie po ponownym uruchomieniu aplikacji.
+        bokMetry: qfieldSettings.ksztaltBok
+        maksWierzcholkow: qfieldSettings.ksztaltMaks
+        krzywaPrzezPunkty: qfieldSettings.krzywaPrzezPunkty
+      }
+
+      // Okrag z PROMIENIA — jeden tap na pien, reszta z dalmierza.
+      //
+      // W terenie promien korony czesciej sie ZNA, niz dochodzi sie do jego
+      // konca: dalmierz, tasma, albo zwykle „to mniej wiecej piec metrow".
+      // Obchodzenie korony pieszo jest przy inwentaryzacji najdrozsza
+      // czynnoscia dnia i to wlasnie ona ma tu zniknac.
+      QfDialog {
+        id: oknoPromienia
+        parent: mainWindow.contentItem
+        z: 10000
+
+        width: Math.min(mainWindow.width - Theme.popupScreenEdgeVerticalMargin * 2, 400)
+
+        title: qsTr("Okrąg z promienia")
+
+        // Wpisana liczba w metrach; NaN, gdy pole jest puste albo bez sensu.
+        readonly property real promien: polePromienia.text.length > 0 && !isNaN(polePromienia.text) ? parseFloat(polePromienia.text) : NaN
+
+        // Poprawki co pol metra, bo w rekawicach trafienie w pole jest
+        // trudniejsze niz tapniecie w duzy przycisk.
+        function zmien(o) {
+          const teraz = isNaN(oknoPromienia.promien) ? 0 : oknoPromienia.promien;
+          // Ponizej piatki centymetrow nie ma korony, a zaokraglamy do
+          // centymetra, bo dalmierz i tak nie daje wiecej.
+          polePromienia.text = Math.max(0.05, Math.round((teraz + o) * 100) / 100).toFixed(2);
+        }
+
+        Column {
+          width: parent.width
+          spacing: 12
+
+          Label {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            color: Theme.mainTextColor
+            text: qsTr("Środek: punkt, który przed chwilą wskazałeś. Promień wpisz albo zmierz dalmierzem.")
+          }
+
+          Row {
+            width: parent.width
+            spacing: 8
+
+            QfButton {
+              id: promienMniej
+              width: 64
+              text: "-0,5"
+              onClicked: oknoPromienia.zmien(-0.5)
+            }
+
+            QfTextField {
+              id: polePromienia
+              width: parent.width - promienMniej.width - promienWiecej.width - 16
+              font: Theme.strongFont
+              horizontalAlignment: TextInput.AlignHCenter
+              suffixText: qsTr("m")
+              inputMethodHints: Qt.ImhFormattedNumbersOnly
+              validator: DoubleValidator {
+                bottom: 0
+                locale: 'C'
+              }
+            }
+
+            QfButton {
+              id: promienWiecej
+              width: 64
+              text: "+0,5"
+              onClicked: oknoPromienia.zmien(0.5)
+            }
+          }
+
+          // Pole widac ZANIM cokolwiek powstanie. Z tej liczby idzie pozniej
+          // wycena, wiec lepiej zobaczyc ja teraz, niz zdziwic sie w biurze.
+          Label {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            font: Theme.tipFont
+            color: Theme.secondaryTextColor
+            text: oknoPromienia.promien > 0 ? qsTr("korona %1 m², obwód %2 m").arg((Math.PI * oknoPromienia.promien * oknoPromienia.promien).toFixed(1)).arg((2 * Math.PI * oknoPromienia.promien).toFixed(1)) : qsTr("wpisz promień w metrach")
+          }
+        }
+
+        // `onOpened`, a nie `onAboutToShow`: tego drugiego uzywa juz sam
+        // `QfDialog` do malowania przyciskow i nie ma powodu wchodzic mu
+        // w droge. Pole dostaje OSTATNIO UZYTA wartosc, bo korony w jednym
+        // drzewostanie sa do siebie podobne — czesto wystarczy tapnac OK.
+        onOpened: {
+          polePromienia.text = settings.value('WorkField/ksztaltPromien', '3.00');
+          polePromienia.selectAll();
+          polePromienia.forceActiveFocus();
+        }
+
+        onAccepted: {
+          if (!(oknoPromienia.promien > 0)) {
+            displayToast(qsTr("Promień musi być większy od zera"), "warning");
+            return;
+          }
+          settings.setValue('WorkField/ksztaltPromien', oknoPromienia.promien.toFixed(2));
+          mainToolbar.ksztaltNaMape("okrag", qsTr("Okrąg"), oknoPromienia.promien);
+        }
+      }
+
+      // Ile punktow czlowiek juz wskazal. `vertexCount` czytamy PO TO, zeby
+      // wiazanie mialo sie od czego odswiezac: `wskazanych()` jest zwyklym
+      // wywolaniem i samo z siebie niczego nie zglasza.
+      readonly property int wskazanePunkty: {
+        // `vertexCount` czytamy do ZMIENNEJ i naprawde jej uzywamy.
+        //
+        // Wczesniej bylo to napisane przecinkiem — „wez vertexCount, ale
+        // zwroc wskazanych()" — co wygladalo zgrabniej i BYLO ZLE:
+        // `qmlcachegen` kompiluje wiazania z wyprzedzeniem i ma pelne
+        // prawo wyrzucic wyrazenie, ktorego wynik jest porzucany. Razem
+        // z nim znika ZALEZNOSC, wiec wiazanie liczy sie raz, przy
+        // starcie, gdy punktow jeszcze nie ma — i zostaje na zerze na
+        // zawsze. Przyciski byly przez to martwe.
+        // OBIE gumki czytamy naprawde, nie tylko te uzywana. Inaczej
+        // wiazanie nie mialoby zaleznosci od tej drugiej i nie
+        // odswiezaloby sie po przejsciu do edytora — czyli dokladnie
+        // ta sama pulapka, ktora 23.09 zrobila z przyciskow martwe kolka.
+        const wRysowaniu = digitizingRubberband.model ? digitizingRubberband.model.vertexCount : 0;
+        const wEdycji = geometryEditorsRubberband.model ? geometryEditorsRubberband.model.vertexCount : 0;
+        const rb = mainToolbar.gumkaRobocza();
+        if (!rb) {
+          return 0;
+        }
+        const wierzcholkow = rb.vertexCount;
+        if (wierzcholkow <= 0) {
+          return 0;
+        }
+        return silnikKsztaltow.wskazanych(rb);
+      }
+
+      // Okrag z promienia potrzebuje TYLKO srodka, czyli jednego tapniecia —
+      // dlatego jego przycisk zapala sie juz przy jednym punkcie, a nie przy
+      // dwoch jak pozostale ksztalty.
+      function otworzPromien() {
+        const rb = digitizingRubberband.model;
+        if (!rb || silnikKsztaltow.wskazanych(rb) < 1) {
+          displayToast(qsTr("Najpierw wskaż środek — jedno tapnięcie w pień"), "warning");
+          return;
+        }
+        oknoPromienia.open();
+      }
+
+      // ===== PODGLAD KSZTALTU (23.09.2026) =====
+      //
+      // Przycisk ksztaltu UZBRAJA tryb, a nie buduje od razu. Od tapniecia
+      // zapala sie podglad i kazdy kolejny punkt go przerysowuje; drugie
+      // tapniecie w ten sam przycisk zatwierdza to, co widac.
+      property string trybKsztaltu: ""
+
+      // ── ŁUKI A WARSTWA (25.09.2026) ───────────────────────────
+      //
+      // Na warstwie zwykłej (POLYGON, LINESTRING) łuk ginie BEZ SŁOWA:
+      // sprawdzone — okrąg o pięciu wierzchołkach zapisuje się jako
+      // dziewięćdziesiąt jeden i nikt tego nie zgłasza. Cisza jest
+      // najgorszym objawem, więc mówimy o tym wprost.
+      //
+      // RAZ NA WARSTWĘ, nie przy każdym obiekcie. Przy dwudziestu
+      // drzewach pod rząd ten sam dymek dwadzieścia razy uczy
+      // przeklikiwać bez czytania — a wtedy przestaje cokolwiek znaczyć.
+      property var warstwyBezLukow: ({})
+
+      function powiedzRazOLamanej(warstwa) {
+        if (!warstwa) {
+          return;
+        }
+        const klucz = warstwa.id !== undefined ? String(warstwa.id) : "";
+        if (klucz === "" || warstwyBezLukow[klucz] === true) {
+          return;
+        }
+        warstwyBezLukow[klucz] = true;
+        displayToast(qsTr("Warstwa „%1” nie przyjmuje łuków — zapisano jako łamaną").arg(warstwa.name), "warning");
+      }
+      property string etykietaKsztaltu: ""
+
+      // ===== KSZTALTY TAKZE PRZY EDYCJI ISTNIEJACEGO OBIEKTU =====
+      //
+      // Ciecie, zmiana obrysu i dziura czytaja WSZYSTKIE z jednej
+      // wspolnej gumki edytorow i wolaja `...FromRubberband`. To ta sama
+      // droga, co przy rysowaniu — wiec ksztalt wchodzi tam bez zadnej
+      // nowej maszynerii. Trzeba tylko celowac we wlasciwa gumke.
+      readonly property bool edycjaGeometrii: geometryEditorsToolbar.stateVisible
+
+      //! Gumka, do ktorej ma trafic ksztalt: edytora albo rysowania.
+      //! JEDNO miejsce, ktore o tym wie — reszta pyta tutaj.
+      function gumkaRobocza() {
+        return edycjaGeometrii ? geometryEditorsRubberband.model : digitizingRubberband.model;
+      }
+
+      // Nazwa uzbrojonego ksztaltu MUSI byc widoczna spoza tego pliku:
+      // czytaja ja edytory geometrii, a identyfikatory nie przechodza
+      // miedzy plikami `.qml`. `settings` widzi kazdy — wiec tedy.
+      onTrybKsztaltuChanged: settings.setValue('WorkField/trybKsztaltu', trybKsztaltu)
+
+      // Gdyby aplikacje ubito z uzbrojonym ksztaltem, wpis przezylby
+      // restart i pierwsze ciecie po starcie wyszloby ksztaltem bez
+      // niczyjej wiedzy. Czyscimy przy kazdym uruchomieniu.
+      Component.onCompleted: settings.setValue('WorkField/trybKsztaltu', '')
+
+      // DLAWIENIE, a nie opoznienie — to byl caly problem.
+      //
+      // Wczesniej kazde drgniecie celownika robilo `restart()`, wiec
+      // zegar odliczal od nowa i nie strzelal ANI RAZU, dopoki palec
+      // sie nie zatrzymal. Podglad zjawial sie zawsze po fakcie —
+      // wygladalo to na za niska czestotliwosc, a bylo dlawieniem
+      // zrobionym na odwrot.
+      //
+      // Teraz zegar raz ruszony chodzi do konca i kolejne drgniecia
+      // go nie cofaja: wychodzi rowne dwadziescia piec klatek na
+      // sekunde, niezaleznie od tego, jak szybko rusza sie palec.
+      Timer {
+        id: zegarPodgladu
+        interval: 40
+        repeat: false
+
+        onTriggered: mainToolbar.przerysujPodglad()
+      }
+
+      // Podglad musi nadazac takze za gumka EDYTORA. Osobny nasluch,
+      // bo `Connections` sluchaja jednego celu.
+      Connections {
+        target: geometryEditorsRubberband.model
+        enabled: mainToolbar.trybKsztaltu !== "" && mainToolbar.edycjaGeometrii
+
+        function onVertexCountChanged() {
+          zegarPodgladu.stop();
+          mainToolbar.przerysujPodglad();
+        }
+
+        function onCurrentCoordinateChanged() {
+          if (!zegarPodgladu.running) {
+            zegarPodgladu.start();
+          }
+        }
+      }
+
+      Connections {
+        target: digitizingRubberband.model
+        enabled: mainToolbar.trybKsztaltu !== "" && !mainToolbar.edycjaGeometrii
+
+        function onVertexCountChanged() {
+          // Tapniecie to zdarzenie pojedyncze, nie strumien — rysujemy
+          // od razu. Czekanie czterdziestu milisekund po tapnieciu widac.
+          zegarPodgladu.stop();
+          mainToolbar.przerysujPodglad();
+        }
+
+        function onCurrentCoordinateChanged() {
+          if (!zegarPodgladu.running) {
+            zegarPodgladu.start();
+          }
+        }
+      }
+
+      function przerysujPodglad() {
+        const rb = gumkaRobocza();
+        const pg = podgladKsztaltu.model;
+        if (!rb || !pg || trybKsztaltu === "") {
+          return;
+        }
+        // PODGLAD ZAWSZE JAKO LINIA — i dlatego prostokat jest w koncu
+        // ZAMKNIETY w trakcie rysowania.
+        //
+        // Wczesniej podglad dostawal geometrie w typie warstwy. Na
+        // warstwie poligonowej `createPolylines` kladzie wierzcholki po
+        // kolei i NIE domyka pierscienia, a `PathPolyline` domyka tylko
+        // wypelnienie, nie kreske — prostokat miał wiec trzy boki
+        // i polprzezroczysta plame, przez ktora nie bylo widac terenu.
+        //
+        // `naTyp(..., Line)` oddaje pierscien zewnetrzny wielokata,
+        // a ten JEST domkniety: Polygon ((0 0, 10 0, 10 6, 0 6, 0 0))
+        // wychodzi jako LineString o pieciu punktach.
+        //
+        // Zapis liczy sie osobno, w typie warstwy — tego to nie rusza.
+        pg.geometryType = Qgis.GeometryType.Line;
+        // Typ warstwy podajemy JUZ PRZY BUDOWANIU, a nie dopiero
+        // przy przerabianiu gotowej geometrii. Dzieki temu krzywa na
+        // warstwie poligonowej powstaje od razu jako zamknieta
+        // i gladka, zamiast byc domykana akordem — a akord zostawial
+        // rog w punkcie, w ktory czlowiek tapnal najpierw.
+        const wTypieWarstwy = silnikKsztaltow.naTyp(silnikKsztaltow.zModelu(rb, trybKsztaltu, 0, true, rb.geometryType), rb.geometryType);
+        const g = silnikKsztaltow.naTyp(wTypieWarstwy, Qgis.GeometryType.Line);
+        if (silnikKsztaltow.pusty(g)) {
+          pg.reset(false);
+          return;
+        }
+        pg.setDataFromGeometry(g, rb.crs);
+      }
+
+      function uzbrojKsztalt(nazwa, etykieta) {
+        silnikKsztaltow.powiedzOGumce("0-uzbrojenie " + nazwa + " tryb=" + trybKsztaltu + " edycja=" + edycjaGeometrii, gumkaRobocza());
+        // DRUGIE TAPNIECIE GASI TRYB.
+        //
+        // Kiedys zatwierdzalo — z czasow, gdy fajka o ksztaltach nic
+        // nie wiedziala. Od kiedy wie, ten gest byl juz tylko pulapka:
+        // z triady nie dalo sie wyjsc, zawsze ktoras ikona zostawala
+        // zapalona i nastepny obiekt wychodzil ksztaltem wbrew woli.
+        if (trybKsztaltu === nazwa) {
+          rozbrojKsztalt();
+          displayToast(qsTr("%1 — wyłączony. Rysujesz zwykłą łamaną.").arg(etykieta));
+          return;
+        }
+        trybKsztaltu = nazwa;
+        etykietaKsztaltu = etykieta;
+        przerysujPodglad();
+        displayToast(silnikKsztaltow.podpowiedz(nazwa, silnikKsztaltow.wskazanych(gumkaRobocza(), true)) + qsTr(" Zatwierdź fajką; tapnij ten przycisk ponownie, żeby wyłączyć."));
+      }
+
+      function rozbrojKsztalt() {
+        trybKsztaltu = "";
+        if (podgladKsztaltu.model) {
+          podgladKsztaltu.model.reset(false);
+        }
+      }
+
+      // Wklada ksztalt do gumki — i nic wiecej. Zwraca true, gdy sie udalo.
+      //
+      // Osobna funkcja, bo ten sam ksztalt trzeba wlozyc z DWOCH miejsc:
+      // z drugiego tapniecia w przycisk ksztaltu i z FAJKI. Fajka jest
+      // wazniejsza: to nia czlowiek konczy w QFieldzie kazdy obiekt, od
+      // zawsze, i nikt nie zgadnie, ze akurat przy ksztalcie ma zrobic
+      // cos innego. Przez ten jeden brak bylo widac ksztalt na mapie
+      // (bo podglad rysuje sie od razu po uzbrojeniu), a do pliku szla
+      // robocza lamana.
+      //
+      // Funkcja NIE wola fajki — inaczej hak przy fajce wchodzilby sam
+      // w siebie.
+      function wlozKsztalt(nazwa, promien) {
+        const rb = gumkaRobocza();
+        if (!rb) {
+          displayToast(qsTr("Nie ma czego kształtować — najpierw zacznij rysować obiekt"), "warning");
+          return false;
+        }
+        // Z punktem zywym — DOKLADNIE tak, jak liczy podglad. Inaczej
+        // zapisaloby sie co innego, niz czlowiek widzial na ekranie.
+        const ile = silnikKsztaltow.wskazanych(rb, true);
+        const trzeba = silnikKsztaltow.potrzebaPunktow(nazwa);
+        if (!(promien > 0) && ile < trzeba) {
+          // Przy okregu dopisujemy druga droge, bo inaczej nikt sam nie
+          // wpadnie, ze przycisk cos robi po przytrzymaniu.
+          const dopisek = nazwa === "okrag" ? qsTr(" — albo przytrzymaj ten przycisk i wpisz promień") : "";
+          displayToast(silnikKsztaltow.podpowiedz(nazwa, ile) + qsTr(" — wskazano %1 z %2").arg(ile).arg(trzeba) + dopisek, "warning");
+          return false;
+        }
+        // Gumka przyjmie TYLKO geometrie swojego typu. Okrag na warstwie
+        // liniowej wchodzi wiec jako okragla linia, a krzywa na poligonowej
+        // domyka sie w pierscien — zamiast odmowy.
+        // Ten sam typ, co w podgladzie — inaczej zapisaloby sie co
+        // innego, niz czlowiek widzial na ekranie.
+        const ksztalt = silnikKsztaltow.naTyp(silnikKsztaltow.zModelu(rb, nazwa, promien > 0 ? promien : 0, true, rb.geometryType), rb.geometryType);
+        silnikKsztaltow.powiedz("1-zbudowany typGumki=" + rb.geometryType, ksztalt);
+        // PRAWDZIWY ŁUK — liczony TERAZ, z tych samych punktów co łamana.
+        //
+        // Musi powstać ZANIM `setDataFromGeometry` niżej nadpisze gumkę:
+        // po tamtej linijce nie ma w niej już wskazanych punktów, tylko
+        // gęsta łamana, i okrąg policzony z jej dwóch pierwszych
+        // wierzchołków byłby mikroskopijny.
+        //
+        // Te same parametry co wyżej, z punktem żywym włącznie — inaczej
+        // na ekranie byłby jeden okrąg, a w pliku drugi.
+        //
+        // Przy edycji geometrii łuku nie ma po co liczyć: edytory czytają
+        // z gumki przez `...FromRubberband`, a gumka trzyma punkty.
+        let lukDoZapisu = null;
+        if (!edycjaGeometrii && silnikKsztaltow.umieLuki(nazwa)) {
+          const warstwaLuku = (typeof digitizingFeature !== 'undefined' && digitizingFeature.geometry) ? digitizingFeature.geometry.vectorLayer : null;
+          // PUNKT POMIAROWY (25.09.2026) — cztery liczby w jednym miejscu.
+          console.log("WorkField/Luki: 1-umie=" + silnikKsztaltow.umieLuki(nazwa) + " edycja=" + edycjaGeometrii + " warstwa=" + (warstwaLuku ? warstwaLuku.name : "BRAK") + " przyjmie=" + silnikKsztaltow.warstwaPrzyjmieLuki(warstwaLuku));
+          if (silnikKsztaltow.warstwaPrzyjmieLuki(warstwaLuku)) {
+            const kandydat = silnikKsztaltow.zModeluLuk(rb, nazwa, promien > 0 ? promien : 0, true, rb.geometryType);
+            silnikKsztaltow.powiedz("2-luk-kandydat", kandydat);
+            if (!silnikKsztaltow.pusty(kandydat)) {
+              lukDoZapisu = kandydat;
+            }
+          } else {
+            mainToolbar.powiedzRazOLamanej(warstwaLuku);
+          }
+        }
+        console.log("WorkField/Luki: 3-po-liczeniu lukDoZapisu=" + (lukDoZapisu ? "JEST" : "BRAK"));
+        if (silnikKsztaltow.pusty(ksztalt)) {
+          displayToast(qsTr("Nie da się zbudować tego kształtu z tych punktów"), "error");
+          return false;
+        }
+        // `setDataFromGeometry` przelicza uklad, zdejmuje zdublowany
+        // wierzcholek domykajacy i sam radzi sobie z punktem zywym.
+        silnikKsztaltow.powiedzOGumce("2-gumka-PRZED", rb);
+        rb.setDataFromGeometry(ksztalt, rb.crs);
+        silnikKsztaltow.powiedzOGumce("3-gumka-PO-wlozeniu", rb);
+        // Rozbrajamy OD RAZU, zanim ktokolwiek zawola fajke.
+        rozbrojKsztalt();
+        // KSZTALT DO MODELU OBIEKTU, nie tylko do gumki. Przy wlaczonym
+        // autozapisie QField utworzyl obiekt juz w trakcie kreslenia,
+        // z LAMANEJ, i to jego potem zapisywal.
+        // Przy EDYCJI nie ma zadnego rysowanego obiektu do ruszania —
+        // ksztalt ma tylko wejsc do gumki, a reszte zrobi edytor.
+        if (!edycjaGeometrii && typeof digitizingFeature !== 'undefined' && digitizingFeature.geometry) {
+          digitizingFeature.geometry.applyRubberband();
+          // ŁUK PODKŁADANY RAZ — i ma tam ZOSTAĆ.
+          //
+          // Pomiar z 25.09 pokazał, że `asQgsGeometry()` woła się przy
+          // jednym kształcie CZTERY razy, a obiekt zapisują dwa OSTATNIE,
+          // już po tej funkcji, w drodze zatwierdzenia. Pierwsza wersja
+          // podkładała łuk dwa razy i wyrzucała go na końcu — do zapisu
+          // docierała łamana.
+          //
+          // Teraz nadpisanie nie zużywa się przy odczycie: jest ważne
+          // dopóki w gumce leży ten sam kształt, i gaśnie samo, gdy
+          // liczba wierzchołków się zmieni. Dlatego nie ma tu ani
+          // drugiego podłożenia, ani sprzątania na końcu — jedno i
+          // drugie było obejściem jednorazowości.
+          if (lukDoZapisu) {
+            digitizingFeature.geometry.ustawNadpisanie(lukDoZapisu);
+          }
+          console.log("WorkField/Luki: 4-przed-applyGeometry nadpisanie=" + digitizingFeature.geometry.maNadpisanie());
+          digitizingFeature.applyGeometry();
+          console.log("WorkField/Luki: 5-po-applyGeometry nadpisanie=" + digitizingFeature.geometry.maNadpisanie());
+          if (typeof overlayFeatureFormDrawer !== 'undefined' && overlayFeatureFormDrawer.featureModel) {
+            overlayFeatureFormDrawer.featureModel.geometry = digitizingFeature.geometry;
+            overlayFeatureFormDrawer.featureModel.applyGeometry();
+          }
+          console.log("WorkField/Luki: 6-koniec-wlozKsztalt nadpisanie=" + digitizingFeature.geometry.maNadpisanie() + " — dalej idzie zatwierdzenie");
+        }
+        return true;
+      }
+
+      function ksztaltNaMape(nazwa, etykieta, promien) {
+        if (!wlozKsztalt(nazwa, promien)) {
+          return;
+        }
+        // I OD RAZU KONCZYMY OBIEKT — tak samo, jak robi to narzedzie
+        // ksztaltu w QGIS-ie. Bez tego aplikacja zostawala w trybie
+        // kreslenia, wiec kazde kolejne tapniecie dokladalo zwykly
+        // odcinek do gotowego juz ksztaltu.
+        silnikKsztaltow.powiedzOGumce("4-gumka-przed-confirm", digitizingRubberband.model);
+        // Przy edycji obiekt konczy FAJKA EDYTORA, nie ta od rysowania.
+        // Ksztalt siedzi juz w gumce, wiec edytor przeczyta go sam.
+        if (edycjaGeometrii) {
+          displayToast(qsTr("%1 gotowy — zatwierdź fajką edytora").arg(etykieta));
+          return;
+        }
+        if (typeof digitizingToolbar !== 'undefined' && digitizingToolbar.confirm) {
+          digitizingToolbar.confirm();
+          silnikKsztaltow.powiedzOGumce("5-gumka-PO-confirm", digitizingRubberband.model);
+          return;
+        }
+        displayToast(qsTr("%1 gotowy — zatwierdź fajką albo cofnij").arg(etykieta));
+      }
+
       QfToolButtonDrawer {
         objectName: "digitizingDrawer"
         name: "digitizingDrawer"
@@ -3170,6 +3715,10 @@ ApplicationWindow {
         direction: QfToolButtonDrawer.Direction.Right
         bgcolor: QfTheme.toolButtonBackgroundColor
         iconSource: QfTheme.getThemeVectorIcon('ic_digitizing_settings_black_24dp')
+        // Nie szerzej niz ekran — inaczej ostatnie przyciski wyjezdzaja
+        // poza niego i nie da sie do nich dojsc. Reszte zalatwia
+        // przewijanie `ListView` w srodku szuflady.
+        maxSize: mainWindow.width - mainWindow.sceneLeftMargin - 12
         iconColor: QfTheme.toolButtonColor
         spacing: 4
         visible: stateMachine.state === "digitize" && dashBoard.activeLayer && dashBoard.activeLayer.isValid && (dashBoard.activeLayer.geometryType() === Qgis.GeometryType.Polygon || dashBoard.activeLayer.geometryType() === Qgis.GeometryType.Line || dashBoard.activeLayer.geometryType() === Qgis.GeometryType.Point)
@@ -3425,6 +3974,83 @@ ApplicationWindow {
           Component.onCompleted: {
             freehandDigitizing = settings.valueBool("/QField/Digitizing/FreehandActive", false);
           }
+        }
+
+        // --- ksztalty: prostokat, okrag, krzywa (23.09.2026) ---
+        QfToolButton {
+          id: ksztaltProstokatButton
+          width: QfTheme.toolButtonSize * 5 / 6
+          height: QfTheme.toolButtonSize * 5 / 6
+          padding: 2
+          round: true
+          // Uzbrojony ksztalt swieci jak wlaczone przyciaganie — to
+          // jedyny sposob, zeby bylo widac, ktory tryb chodzi.
+          iconSource: QfTheme.getThemeVectorIcon("wfg_prostokat")
+          iconColor: mainToolbar.trybKsztaltu === "prostokat" ? "#39ff14" : QfTheme.toolButtonColor
+          bgcolor: mainToolbar.trybKsztaltu === "prostokat" ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
+
+          onClicked: mainToolbar.uzbrojKsztalt("prostokat", qsTr("Prostokąt"))
+        }
+
+        QfToolButton {
+          id: ksztaltOkragButton
+          width: QfTheme.toolButtonSize * 5 / 6
+          height: QfTheme.toolButtonSize * 5 / 6
+          padding: 2
+          round: true
+          // Uzbrojony ksztalt swieci jak wlaczone przyciaganie — to
+          // jedyny sposob, zeby bylo widac, ktory tryb chodzi.
+          iconSource: QfTheme.getThemeVectorIcon("wfg_okrag")
+          iconColor: mainToolbar.trybKsztaltu === "okrag" ? "#39ff14" : QfTheme.toolButtonColor
+          bgcolor: mainToolbar.trybKsztaltu === "okrag" ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
+
+          onClicked: mainToolbar.uzbrojKsztalt("okrag", qsTr("Okrąg"))
+          onPressAndHold: mainToolbar.otworzPromien()
+        }
+
+        QfToolButton {
+          id: ksztaltKrzywaButton
+          width: QfTheme.toolButtonSize * 5 / 6
+          height: QfTheme.toolButtonSize * 5 / 6
+          padding: 2
+          round: true
+          // Uzbrojony ksztalt swieci jak wlaczone przyciaganie — to
+          // jedyny sposob, zeby bylo widac, ktory tryb chodzi.
+          iconSource: QfTheme.getThemeVectorIcon("wfg_krzywa")
+          iconColor: mainToolbar.trybKsztaltu === "krzywa" ? "#39ff14" : QfTheme.toolButtonColor
+          bgcolor: mainToolbar.trybKsztaltu === "krzywa" ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
+
+          onClicked: mainToolbar.uzbrojKsztalt("krzywa", qsTr("Krzywa"))
+          // Przytrzymanie PRZELACZA rodzaj krzywej. Dymek tylko
+          // opisywal — a opis, ktory znika po dwoch sekundach, nie jest
+          // do niczego potrzebny w terenie. Ustawienie jest takze
+          // w karcie „Teren", ale tam nikt nie pojdzie w polowie obrysu.
+          onPressAndHold: {
+            const przez = !qfieldSettings.krzywaPrzezPunkty;
+            qfieldSettings.krzywaPrzezPunkty = przez;
+            settings.setValue('WorkField/krzywaPrzezPunkty', przez);
+            mainToolbar.przerysujPodglad();
+            displayToast(przez ? qsTr("Krzywa PRZEZ wskazane punkty — trafia w każdy tapnięty") : qsTr("Krzywa gładka — biegnie obok punktów, one ją tylko przyciągają"), "info");
+          }
+        }
+
+        // --- chmurka rewizyjna (24.09.2026) ---
+        //
+        // Jak REVCLOUD w AutoCAD-zie: obrys z lancucha polokregow. Rysuje
+        // sie to tam, gdzie cos wymaga sprawdzenia, i ma byc widoczne na
+        // pierwszy rzut oka jako ADNOTACJA, a nie jako zmierzony obrys.
+        QfToolButton {
+          id: ksztaltChmurkaButton
+          width: QfTheme.toolButtonSize * 5 / 6
+          height: QfTheme.toolButtonSize * 5 / 6
+          padding: 2
+          round: true
+          iconSource: QfTheme.getThemeVectorIcon("wfg_chmurka")
+          iconColor: mainToolbar.trybKsztaltu === "chmurka" ? "#39ff14" : QfTheme.toolButtonColor
+          bgcolor: mainToolbar.trybKsztaltu === "chmurka" ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
+
+          onClicked: mainToolbar.uzbrojKsztalt("chmurka", qsTr("Chmurka"))
+          onPressAndHold: displayToast(qsTr("Chmurka: obrysuj miejsce do sprawdzenia. Wielkość ząbków ustawisz w Ustawieniach, w karcie Teren."), "info")
         }
 
         QfToolButton {
@@ -4230,6 +4856,26 @@ ApplicationWindow {
         }
 
         onConfirmed: {
+          // FAJKA ZATWIERDZA KSZTALT.
+          //
+          // Gdy tryb ksztaltu jest uzbrojony, to wlasnie fajka go domyka.
+          // Wczesniej trzeba bylo tapnac drugi raz w przycisk ksztaltu —
+          // wymyslone przeze mnie i ogloszone w dymku, ktory znika po
+          // dwoch sekundach. Nikt tak nie robil: czlowiek widzial podglad
+          // ksztaltu na mapie i konczyl obiekt fajka, jak zawsze, a do
+          // pliku szla robocza lamana.
+          //
+          // Wkladamy ksztalt do gumki TERAZ, przed wszystkim innym, zeby
+          // dalej plynela juz zwykla droga QFielda. `wlozKsztalt` sama
+          // rozbraja tryb, wiec nie wejdziemy tu drugi raz.
+          if (mainToolbar.trybKsztaltu !== "") {
+            if (!mainToolbar.wlozKsztalt(mainToolbar.trybKsztaltu, 0)) {
+              // Nie da sie zbudowac — ale zapisu NIE blokujemy. Czlowiek
+              // tapnal fajke, czyli konczy obiekt; dymek juz mu powiedzial,
+              // czego zabraklo. Gasimy tylko podglad.
+              mainToolbar.rozbrojKsztalt();
+            }
+          }
           // WorkField: przeplyw "najpierw zdjecie, potem geometria" - obiekt
           // ze zdjeciem sklada pasek szybkiego zapisu, rdzen oddaje mu pole
           if (!geometryRequested && quickCaptureBar.pendingGeomPhoto !== "" && quickCaptureBar.finishGeometryCapture(digitizingFeature)) {
@@ -5633,7 +6279,7 @@ ApplicationWindow {
   // Etap 1 — tylko czyta. Patrz QfKontrolaProjektu.qml.
   QfKontrolaProjektu {
     id: kontrolaProjektu
-    ekranNaprawy: naprawaProjektu
+    ekranDocelowy: ekranWyposazenia
   }
 
   QfNaprawaProjektu {
@@ -5680,6 +6326,17 @@ ApplicationWindow {
 
   function displayToast(message, type, action_text, action_function, stop_function, is_animation_enabled) {
     toast.show(message, type, action_text, action_function, stop_function, is_animation_enabled);
+  }
+
+  //! Dymek, ktory NIE GASNIE SAM — czeka na tapniecie, ma naglowek
+  //! i wlasne odsylacze. Uzywa go dymek startowy: wymienia po nazwie
+  //! kilka rzeczy naraz, prowadzi do DWOCH roznych okien i leci RAZ.
+  //! Reszta dymkow gasnie dalej sama po trzech sekundach.
+  //!
+  //! `akcje` to lista map { etykieta, akcja } — zero, jeden albo dwa
+  //! odsylacze, kazdy na jasnozielonym tle.
+  function displayToastTrwaly(naglowek, message, type, akcje) {
+    toast.pokazTrwaly(naglowek, message, type, akcje);
   }
 
   function closeToast() {
@@ -6750,9 +7407,12 @@ ApplicationWindow {
     t: Theme
   }
 
-  QfTerenSettings {
-    id: terenSettings
-  }
+  // WorkField 24.09.2026 — okno „Teren" przeniesione do Ustawien
+  // (kategoria „teren", plik `QfSettingsTeren.qml`).
+  //
+  // `QfTerenSettings.qml` ZOSTAJE na dysku i na liscie CMake, tylko
+  // nikt go juz nie tworzy. Gdyby okno nad mapa okazalo sie jednak
+  // wygodniejsze w terenie, powrot to trzy linijki.
 
   // WorkField 09.09.2026 — ODBIORNIK sygnalu `geometriaZniszczona`.
   // C++ wykrywa to od 25.08 (przyciecie do zera przez unikanie nakladania,
@@ -6796,6 +7456,7 @@ ApplicationWindow {
 
   QfWyposazenie {
     id: ekranWyposazenia
+    ekranUstawien: naprawaProjektu
   }
 
   QfSubLayerPicker {

@@ -54,6 +54,7 @@
 #include "captureattitude.h"
 #include "stozkiwidzenia.h"
 #include "wyposazenie.h"
+#include "moduly/ksztalty.h"
 #include "phototagstore.h"
 #include "tabelamodel.h"
 #include "procesystudio.h"
@@ -397,6 +398,7 @@ void QgisMobileapp::initDeclarative( QQmlEngine *engine )
   qmlRegisterType<CaptureAttitude>( "org.qfield.core", 1, 0, "CaptureAttitude" );
   qmlRegisterType<StozkiWidzenia>( "org.qfield.core", 1, 0, "StozkiWidzenia" );
   qmlRegisterType<Wyposazenie>( "org.qfield.core", 1, 0, "Wyposazenie" );
+  qmlRegisterType<Ksztalty>( "org.qfield.core", 1, 0, "Ksztalty" );
   qmlRegisterType<PhotoTagStore>( "org.qfield.core", 1, 0, "PhotoTagStore" );
   qmlRegisterType<TabelaModel>( "org.qfield.core", 1, 0, "TabelaModel" );
   qmlRegisterType<ProcesyStudio>( "org.qfield.core", 1, 0, "ProcesyStudio" );

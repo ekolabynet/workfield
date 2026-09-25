@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Ikona WorkField: plat z wierzcholkami, pole pomiaru z celownikiem,
-  wierzcholek biezacy z otoczka w jasnym tealu.
+  piec rownych wierzcholkow.
 
   KRZYZ zamiast kropki w srodku (18.09.2026): kropka mowila
   "obiekt", krzyz mowi "pomiar" — a to jest o tym ta aplikacja.
   Wierzcholki mniejsze o 20%, zeby nie konkurowaly z celownikiem.
 
   KRESKOWANA LINIA USUNIETA 21.09.2026 — przy 48 px byla trzema kropkami,
-  ktore czytalo sie jak brud. Otoczka wierzcholka robi to samo: mowi,
-  ktory wierzcholek jest biezacy.
+  ktore czytalo sie jak brud.
+
+  OTOCZKA WIERZCHOLKA USUNIETA 23.09.2026 z tego samego powodu, o jeden
+  krok dalej: przy 48 px pierscien o grubosci 1,6 dp byl zielonkawa smuga
+  przy rozowej kropce. Znaczenie („ten wierzcholek jest biezacy") bylo
+  prawdziwe w rysunku na ekranie i zadne w ikonie wielkosci paznokcia.
+  Zostaje plat o pieciu rownych wierzcholkach i celownik w srodku.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
@@ -35,11 +40,7 @@
       android:strokeLineCap="round"
       android:pathData="M46.24,54.49 L61.36,54.49 M53.80,46.93 L53.80,62.05" />
 
-  <!-- wierzcholek biezacy z poswiata -->
+  <!-- piaty wierzcholek platu (lewy) -->
   <path android:fillColor="#F60054"
       android:pathData="M25.86,40.42 a4.85,4.85 0 1,0 9.70,0 a4.85,4.85 0 1,0 -9.70,0" />
-  <!-- otoczka wierzcholka biezacego: pierscien, NA WIERZCHU -->
-  <path android:strokeColor="#64FFDA" android:strokeWidth="1.60"
-      android:fillColor="#00000000"
-      android:pathData="M21.78,40.42 a8.73,8.73 0 1,0 17.46,0 a8.73,8.73 0 1,0 -17.46,0" />
 </vector>

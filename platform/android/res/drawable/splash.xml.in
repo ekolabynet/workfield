@@ -1,8 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ekran powitalny. Do 23.09.2026 byla tu SAMA IKONA 192 dp na tle okna —
+  bez nazwy aplikacji i bez tla wlasnego, wiec pierwsza rzecz, jaka czlowiek
+  widzial po tapnieciu, zalezala od motywu systemu.
+
+  Teraz: wlasne ciemne tlo i znak z napisem „WorkFieldGIS" (splash_wfg.xml).
+
+  TLO JEST TU CELOWO. Bez niego splash bral barwe okna — na jasnym motywie
+  systemowym rozowo-zielony znak siedzial na bieli, czego nikt nie projektowal.
+-->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#0F1A17" />
+        </shape>
+    </item>
     <item
-    android:width="192dp"
-    android:height="192dp"
-    android:drawable="@AT@drawable/@APP_ICON@_vector"
+    android:width="200dp"
+    android:height="278dp"
+    android:drawable="@AT@drawable/splash_wfg"
     android:gravity="center" />
 </layer-list>

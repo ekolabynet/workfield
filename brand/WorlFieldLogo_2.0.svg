@@ -3,48 +3,8 @@
    viewBox="0 0 1024 1024"
    version="1.1"
    id="svg14"
-   sodipodi:docname="WorlFieldLogo_2.0.svg"
-   inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
-  <sodipodi:namedview
-     id="namedview14"
-     pagecolor="#ffffff"
-     bordercolor="#cccccc"
-     borderopacity="1"
-     inkscape:showpageshadow="0"
-     inkscape:pageopacity="1"
-     inkscape:pagecheckerboard="0"
-     inkscape:deskcolor="#d1d1d1"
-     inkscape:zoom="0.43896485"
-     inkscape:cx="5.6952169"
-     inkscape:cy="511.43048"
-     inkscape:window-width="1920"
-     inkscape:window-height="1128"
-     inkscape:window-x="0"
-     inkscape:window-y="0"
-     inkscape:window-maximized="1"
-     inkscape:current-layer="svg14" />
-  <defs
-     id="defs2">
-    <linearGradient
-       id="bg"
-       x1="0"
-       y1="0"
-       x2="1"
-       y2="1">
-      <stop
-         offset="0"
-         stop-color="#00695C"
-         id="stop1" />
-      <stop
-         offset="1"
-         stop-color="#003D33"
-         id="stop2" />
-    </linearGradient>
-  </defs>
   <rect
      style="fill:#007461;fill-opacity:1;stroke:#006656;stroke-width:12;stroke-opacity:1;stroke-dasharray:none"
      id="rect14"
@@ -102,25 +62,11 @@
        style="fill:#f60054;fill-opacity:1" />
   </g>
   <circle
-     cx="298"
-     cy="380"
-     r="60"
-     fill="none"
-     stroke="#FF4081"
-     stroke-width="12"
-     opacity="0.55"
-     id="circle14"
-     style="opacity:0.749482;stroke:#00f68e;stroke-width:20;stroke-dasharray:none;stroke-opacity:1" />
-  <circle
      cx="300"
      cy="380"
      r="34"
-     fill="#FF4081"
+     fill="#f60054"
      id="circle13" />
-  <path
-     style="opacity:0.749482;fill:#ff5555;stroke:#00f68e;stroke-width:20;stroke-opacity:1"
-     d="m -102.5139,111.62625 c -0.75937,9.49203 -1.64467,18.97482 -2.27809,28.47609 -0.51523,7.72844 0.68719,15.09941 1.13904,22.78086 0.17837,3.03221 -0.59569,6.13389 0,9.11235 0.56709,2.83541 2.58625,5.20369 3.41713,7.9733 0.327304,1.09101 -0.14128,2.28689 0,3.41713 0.580837,4.64667 2.325362,9.30144 3.417133,13.66852 1.935256,7.74103 9.295082,16.26945 10.25139,23.91992 0.329656,2.63724 0,5.31553 0,7.9733"
-     id="path1" />
   <path
      id="path3"
      style="opacity:1;fill:#ff5555;stroke:#f10052;stroke-width:24;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1"
@@ -128,7 +74,5 @@
   <path
      id="path3-6"
      style="opacity:1;fill:#ff5555;stroke:#f10052;stroke-width:24;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1"
-     d="M 632.77163,528.0246 434.512,527.86862"
-     inkscape:transform-center-x="-39.866518"
-     inkscape:transform-center-y="-28.476084" />
+     d="M 632.77163,528.0246 434.512,527.86862" />
 </svg>

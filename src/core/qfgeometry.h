@@ -36,6 +36,32 @@ class QfGeometry : public QObject
 
     QgsGeometry asQgsGeometry() const;
 
+    /**
+     * WorkField 25.09.2026 — JEDNORAZOWE NADPISANIE GEOMETRII.
+     *
+     * `asQgsGeometry()` sklada geometrie zawsze od nowa, z punktow gumki,
+     * przez `QgsLineString`/`QgsPolygon`. To wystarcza wszystkiemu, co
+     * rysuje sie odcinkami — i uniemozliwia zapisanie czegokolwiek
+     * innego. Ksztalty (okrag, chmurka) policzone jako prawdziwe luki
+     * wracaly stad jako lamane o kilkudziesieciu wierzcholkach.
+     *
+     * Tu mozna podlozyc gotowa geometrie, ktora pojdzie do obiektu
+     * ZAMIAST skladania z gumki. Gumka i podglad zostaja bez zmian —
+     * luk jest potrzebny dopiero w pliku.
+     *
+     * ZUZYWA SIE PRZY PIERWSZYM ODCZYCIE. Gdyby zostawalo, nastepny
+     * obiekt dostalby ksztalt poprzedniego; to ta sama klasa bledu, co
+     * „wypelnienie dziala tylko za pierwszym razem" z 24.09. Gasnie
+     * takze przy zmianie warstwy i przy porzuceniu rysowania.
+     */
+    Q_INVOKABLE void ustawNadpisanie( const QgsGeometry &geometria );
+
+    //! Czy cos czeka na podlozenie — do sprawdzenia w probach i w QML-u.
+    Q_INVOKABLE bool maNadpisanie() const;
+
+    //! Wyrzuca nieuzyte nadpisanie. Wolac przy porzuceniu rysowania.
+    Q_INVOKABLE void zapomnijNadpisanie();
+
     QfRubberbandModel *rubberbandModel() const;
     void setRubberbandModel( QfRubberbandModel *rubberbandModel );
     void updateRubberband( const QgsGeometry &geometry );
@@ -52,6 +78,32 @@ class QfGeometry : public QObject
   private:
     QfRubberbandModel *mRubberbandModel = nullptr;
     QPointer<QgsVectorLayer> mVectorLayer;
+
+    //! \copydoc ustawNadpisanie
+    //!
+    //! `mutable`, bo gasnie w `asQgsGeometry()`, ktore jest `const`.
+    mutable QgsGeometry mNadpisanie;
+
+    /**
+     * Ile wierzcholkow miala gumka, gdy nadpisanie zostalo podlozone.
+     *
+     * TO JEST TERMIN WAZNOSCI. Do 25.09.2026 nadpisanie bylo
+     * JEDNORAZOWE — zuzywalo sie przy pierwszym odczycie. Pomiar tego
+     * samego dnia pokazal, ze `asQgsGeometry()` wola sie przy jednym
+     * ksztalcie CZTERY razy, a obiekt zapisuja dwa OSTATNIE. Luk
+     * dochodzil wiec do dwoch pierwszych, po czym byl nadpisywany
+     * lamana.
+     *
+     * Poprawianie licznika bylo by powtorzeniem tego samego bledu:
+     * liczba wywolan to zalozenie o cudzym kodzie, a to wlasnie sie
+     * rozsypalo. Wiazemy wiec waznosc z tym, CZEGO nadpisanie dotyczy —
+     * z ksztaltem lezacym w gumce. Dopoki gumka ma te sama liczbe
+     * wierzcholkow, kazdy odczyt dostaje luk; gdy sie zmieni,
+     * nadpisanie gasnie samo.
+     *
+     * -1 znaczy „nic nie czeka".
+     */
+    mutable int mNadpisanieWierzcholkow = -1;
 };
 
 #endif // QFGEOMETRY_H

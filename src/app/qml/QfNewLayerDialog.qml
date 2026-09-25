@@ -16,12 +16,52 @@ Popup {
   property string targetMode: "gpkg"
   property string gpkgPath: ""
 
+  // WARSTWY ŁUKOWE (25.09.2026).
+  //
+  // Bez nich kształty łukowe (okrąg, chmurka) nie miały gdzie usiąść:
+  // na zwykłym POLYGON-ie łuk ginie bez słowa — sprawdzone, okrąg
+  // o pięciu wierzchołkach zapisuje się jako dziewięćdziesiąt jeden.
+  //
+  // Postacie MNOGIE, jak reszta listy. To nie jest tylko spójność:
+  // przy zapisie `QfGeometry` woła `convertToMultiType()`, gdy warstwa
+  // jest mnoga, a MultiCurve i MultiSurface to obsługują.
+  //
+  // `luki: true` znaczy „tylko GeoPackage" — patrz niżej.
   readonly property var geometryTypes: [
     { key: "Point", label: qsTr("Punkt") },
     { key: "MultiLineString", label: qsTr("Linia") },
     { key: "MultiPolygon", label: qsTr("Poligon") },
+    { key: "MultiCurve", label: qsTr("Linia łukowa"), luki: true },
+    { key: "MultiSurface", label: qsTr("Poligon łukowy"), luki: true },
     { key: "NoGeometry", label: qsTr("Bez geometrii") }
   ]
+
+  //! Czy podany klucz typu jest łukowy — jedno miejsce, dwa pytania.
+  function typLukowy(klucz) {
+    for (var i = 0; i < geometryTypes.length; i++) {
+      if (geometryTypes[i].key === klucz) {
+        return geometryTypes[i].luki === true;
+      }
+    }
+    return false;
+  }
+
+  // GEOJSON NIE ZNA ŁUKÓW — i nie mówi o tym ani słowa.
+  //
+  // Sprawdzone: okrąg zapisany do GeoJSON-a wychodzi jako zwykły
+  // `Polygon` o 91 współrzędnych. Warstwa nazywałaby się „łukowa”
+  // i cicho prostowała każdy kształt.
+  //
+  // Samo ukrycie przycisku nie wystarczy: zniknąłby przycisk,
+  // a `geometryType` zostałoby „MultiSurface”. Więc wybór schodzi
+  // na odpowiednik prosty i mówimy dlaczego.
+  onTargetModeChanged: {
+    if (targetMode === "gpkg" || !typLukowy(geometryType)) {
+      return;
+    }
+    geometryType = geometryType === "MultiCurve" ? "MultiLineString" : "MultiPolygon";
+    displayToast(qsTr("GeoJSON nie zna łuków — geometria zmieniona na prostą"), "warning");
+  }
 
   readonly property var fieldTypes: [
     { key: "text", label: qsTr("Tekst") },
@@ -112,6 +152,9 @@ Popup {
           text: modelData.label
           font.pointSize: t.tinyFont.pointSize
           checkable: true
+          // Łuki tylko w GeoPackage — GeoJSON prostuje je bez słowa.
+          // `Flow` pomija niewidoczne dzieci, więc rząd sam się zwiera.
+          visible: modelData.luki !== true || newLayerDialog.targetMode === "gpkg"
           checked: newLayerDialog.geometryType === modelData.key
           onClicked: newLayerDialog.geometryType = modelData.key
         }

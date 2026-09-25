@@ -72,15 +72,66 @@ QgsVectorLayer *NarzedziaProjektu::znajdzWarstwe( QgsProject *projekt, const QSt
   if ( !projekt || nazwaLubId.isEmpty() )
     return nullptr;
 
+  // Identyfikator jest jednoznaczny — jesli pasuje, nie ma o czym mowic.
   if ( QgsVectorLayer *warstwa = qobject_cast<QgsVectorLayer *>( projekt->mapLayer( nazwaLubId ) ) )
     return warstwa;
 
-  const QList<QgsMapLayer *> znalezione = projekt->mapLayersByName( nazwaLubId );
-  for ( QgsMapLayer *kandydat : znalezione )
+  // KONWENCJA QFieldSync. Po synchronizacji warstwa nazywa sie
+  // „plik — warstwa", wiec „tyczenie" staje sie „projekt — tyczenie".
+  //
+  // Pasek szybkiego zapisu wiedzial o tym od dawna
+  // (`QfQuickCaptureBar.findLayerByName`), a kontrola projektu nie —
+  // i 24.09.2026 zglosila „brak warstwy tyczenia" przy warstwie, ktora
+  // byla na miejscu i z ktorej kafel spokojnie korzystal. Dwa miejsca,
+  // dwa sposoby szukania tego samego: to musialo kiedys wyjsc.
+  //
+  // Kolejnosc jest OD NAJSCISLEJSZEJ, zeby luzniejsza regula nigdy nie
+  // wygrala z dokladna — inaczej „drzewa" mogloby trafic w „stare drzewa"
+  // przy dwoch warstwach o podobnych nazwach.
+  const QString szukana = nazwaLubId.trimmed();
+  QgsVectorLayer *koncowka = nullptr;
+  QgsVectorLayer *bezWielkosci = nullptr;
+  QgsVectorLayer *koncowkaBezWielkosci = nullptr;
+
+  const QString mysllnik = QStringLiteral( "\u2014 " ) + szukana;  // em dash + spacja
+  const QString dywiz = QStringLiteral( "- " ) + szukana;
+
+  const QList<QgsMapLayer *> wszystkie = projekt->mapLayers().values();
+  for ( QgsMapLayer *kandydat : wszystkie )
   {
-    if ( QgsVectorLayer *warstwa = qobject_cast<QgsVectorLayer *>( kandydat ) )
+    QgsVectorLayer *warstwa = qobject_cast<QgsVectorLayer *>( kandydat );
+    if ( !warstwa )
+      continue;
+
+    const QString nazwa = warstwa->name().trimmed();
+
+    if ( nazwa == szukana )
       return warstwa;
+
+    if ( !koncowka && ( nazwa.endsWith( mysllnik ) || nazwa.endsWith( dywiz ) ) )
+      koncowka = warstwa;
+
+    if ( !bezWielkosci && nazwa.compare( szukana, Qt::CaseInsensitive ) == 0 )
+      bezWielkosci = warstwa;
+
+    if ( !koncowkaBezWielkosci
+         && ( nazwa.endsWith( mysllnik, Qt::CaseInsensitive )
+              || nazwa.endsWith( dywiz, Qt::CaseInsensitive ) ) )
+      koncowkaBezWielkosci = warstwa;
   }
+
+  if ( koncowka )
+    return koncowka;
+  if ( bezWielkosci )
+    return bezWielkosci;
+  if ( koncowkaBezWielkosci )
+    return koncowkaBezWielkosci;
+
+  // Cisza jest najgorszym objawem — niech w logu zostanie, CZEGO szukano.
+  // Bez tego „brak warstwy X" nie mowi, czy warstwy nie ma, czy nazywa sie
+  // inaczej, niz ktokolwiek zakladal.
+  qWarning( "WorkField/NarzedziaProjektu: nie znalazlem warstwy \"%s\" wsrod %d warstw projektu",
+            szukana.toUtf8().constData(), static_cast<int>( wszystkie.size() ) );
 
   return nullptr;
 }
@@ -1706,16 +1757,75 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   QVariantList warstwy;
   QVariantList ostrzezenia;
 
-  auto ostrzez = [&ostrzezenia]( const QString &waga, const QString &tekst ) {
+  // ========================================================================
+  // KAZDE OSTRZEZENIE MOWI, CZEGO DOTYCZY — 23.09.2026
+  // ========================================================================
+  // Do dzis szly jedna lista i szuflada rysowala je jednym ciagiem pod
+  // wyposazeniem — czerwona linijka bez adresata, wygladajaca jak awaria
+  // calego projektu. A sa to trzy rozne rzeczy i wymagaja trzech roznych
+  // narzedzi:
+  //
+  //   "ustawienie"  ustawienie zle DLA TYCH danych. Szkody jeszcze nie ma,
+  //                 ale bedzie. Naprawa: przestawic ustawienie. PREWENCJA —
+  //                 wiesza sie przy module wyposazenia, ktorego dotyczy.
+  //   "dane"        blad JUZ POPELNIONY, z adresem obiektu. Naprawa wymaga
+  //                 innych narzedzi (poprawa geometrii) i zapisu do
+  //                 `dane.gpkg`. POST HOC — nie miesza sie z prewencja.
+  //   "projekt"     czegos brakuje w skladzie projektu (plik, sciezka).
+  //
+  // `modul` wskazuje modul wyposazenia, przy ktorym ostrzezenie ma wisiec.
+  // `warstwa` i `fid` adresuja obiekt — pod „Pokaz na mapie”, ktorego
+  // jeszcze nie ma, ale bez tych dwoch pol nie da sie go napisac.
+  // KAZDE OSTRZEZENIE MOWI TEZ, CO Z TYM ZROBIC (23.09.2026, uwaga Piotra:
+  // „ostrzezenia nie mowia konkretnie, co trzeba zrobic, zeby naprawic").
+  // Zdanie „przyciaganie lapie segment" opisuje objaw. Czlowiek w terenie
+  // potrzebuje czasownika: co przestawic, gdzie i na ile. `rada` niesie
+  // wlasnie to — osobno od opisu, bo opis tlumaczy, a rada kaze.
+  // CZASOWNIK PRZY OSTRZEZENIU, NIE ZGADYWANY Z TRESCI (23.09.2026).
+  //
+  // Okno naprawy musi wiedziec, KTORY przycisk pokazac przy ktorym wpisie.
+  // Rozpoznawanie tego po tresci zdania („czy zawiera slowo przyciaganie")
+  // dziala do pierwszej poprawki jezykowej — a te robimy co kilka dni.
+  //
+  //   ""              nie ma czasownika w terenie; zostaje notatka
+  //   "pokaz_obiekt"  przybliz mape do obiektu i zaznacz go (warstwa + fid)
+  //   "pokaz_warstwe" przybliz mape do warstwy (sama warstwa)
+  //   "przyciaganie"  przestaw prog / typ; `parametr` niesie zalecany prog
+  //   "topologia"     wylacz edycje topologiczna
+  //   "slownik"       pobierz wf_wskazniki.gpkg (Wyposazenie umie to od dzis)
+  auto ostrzez = [&ostrzezenia]( const QString &waga, const QString &rodzaj,
+                                 const QString &tekst, const QString &rada,
+                                 const QString &czasownik = QString(),
+                                 double parametr = 0.0,
+                                 const QString &modul = QString(),
+                                 const QString &warstwa = QString(),
+                                 qlonglong fid = -1 ) {
     QVariantMap o;
     o.insert( QStringLiteral( "waga" ), waga );
+    o.insert( QStringLiteral( "rodzaj" ), rodzaj );
     o.insert( QStringLiteral( "opis" ), tekst );
+    o.insert( QStringLiteral( "rada" ), rada );
+    o.insert( QStringLiteral( "czasownik" ), czasownik );
+    if ( parametr > 0 )
+      o.insert( QStringLiteral( "parametr" ), parametr );
+    if ( !modul.isEmpty() )
+      o.insert( QStringLiteral( "modul" ), modul );
+    if ( !warstwa.isEmpty() )
+      o.insert( QStringLiteral( "warstwa" ), warstwa );
+    if ( fid >= 0 )
+      o.insert( QStringLiteral( "fid" ), fid );
     ostrzezenia.append( o );
   };
 
   const QString katalog = QFileInfo( projekt->fileName() ).absolutePath();
   double najmniejszaObwiednia = -1.0;
   QString najmniejszyObiekt;
+  // Rozbite na czesci skladowe OBOK gotowego napisu: napis idzie do
+  // komunikatu, te dwa do przyszlego przyblizenia mapy. Wyciaganie fid
+  // z powrotem z tekstu „warstwa / fid 2253” bylo by proszeniem sie
+  // o klopoty przy pierwszej warstwie z ukosnikiem w nazwie.
+  QString najmniejszaWarstwa;
+  qlonglong najmniejszyFid = -1;
 
   const auto mapaWarstw = projekt->mapLayers();
   for ( auto it = mapaWarstw.constBegin(); it != mapaWarstw.constEnd(); ++it )
@@ -1747,9 +1857,13 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
                            && QFileInfo( zrodlo ).absolutePath().startsWith( katalog );
     w.insert( QStringLiteral( "wKatalogu" ), wKatalogu || zrodlo.isEmpty() );
     if ( !zrodlo.isEmpty() && !wKatalogu && wektor->providerType() == QLatin1String( "ogr" ) )
-      ostrzez( QStringLiteral( "uwaga" ),
+      ostrzez( QStringLiteral( "uwaga" ), QStringLiteral( "projekt" ),
                tr( "warstwa „%1” wskazuje poza katalog projektu — nie pojedzie w teren" )
-                 .arg( wektor->name() ) );
+                 .arg( wektor->name() ),
+               tr( "Skopiuj plik warstwy do katalogu projektu i podepnij ją "
+                   "od nowa, albo złóż projekt jeszcze raz w biurze. Tak jak "
+                   "jest, po przewiezieniu na telefon warstwa będzie pusta." ),
+               QString(), 0.0, QString(), wektor->name() );
 
     // Obiekty zwinięte do punktu i puste geometrie. Liczone Z DANYCH,
     // bo z samych ustawień tego nie widać.
@@ -1774,13 +1888,19 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
         {
           najmniejszaObwiednia = bok;
           najmniejszyObiekt = QStringLiteral( "%1 / fid %2" ).arg( wektor->name() ).arg( obiekt.id() );
+          najmniejszaWarstwa = wektor->name();
+          najmniejszyFid = obiekt.id();
         }
       }
       if ( puste > 0 )
-        ostrzez( QStringLiteral( "brak" ),
+        ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
                  tr( "„%1”: %2 obiektów z PUSTĄ geometrią — istnieją, "
                      "ale nie widać ich na mapie i nie da się ich zaznaczyć" )
-                   .arg( wektor->name() ).arg( puste ) );
+                   .arg( wektor->name() ).arg( puste ),
+                 tr( "Otwórz tabelę atrybutów warstwy „%1” i przejrzyj wiersze "
+                     "bez geometrii: albo narysuj im kształt, albo skasuj. "
+                     "Same nie znikną i pojadą do eksportu." ).arg( wektor->name() ),
+                 QStringLiteral( "pokaz_warstwe" ), 0.0, QString(), wektor->name() );
     }
 
     warstwy.append( w );
@@ -1832,10 +1952,17 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   // najmniejszego obiektu widać, że coś jest nie tak.
   if ( snap.enabled() && ( typyObowiazujace & Qgis::SnappingType::Segment )
        && najmniejszaObwiednia >= 0 && najmniejszaObwiednia < 2.0 )
-    ostrzez( QStringLiteral( "uwaga" ),
+    ostrzez( QStringLiteral( "uwaga" ), QStringLiteral( "ustawienie" ),
              tr( "przyciąganie łapie segment, a najmniejszy obiekt ma %1 m (%2) — "
                  "przy takich rozmiarach wierzchołki zlepiają się w jeden punkt" )
-               .arg( najmniejszaObwiednia, 0, 'f', 1 ).arg( najmniejszyObiekt ) );
+               .arg( najmniejszaObwiednia, 0, 'f', 1 ).arg( najmniejszyObiekt ),
+             tr( "Zejdź z tolerancją przyciągania do najwyżej %1 m — połowy "
+                 "najmniejszego obiektu — albo zostaw przyciąganie tylko "
+                 "do WIERZCHOŁKA, bez odcinka. Teraz próg obejmuje cały ten "
+                 "obiekt, więc każde dotknięcie zlepia go w punkt." )
+               .arg( std::max( 0.05, najmniejszaObwiednia / 2.0 ), 0, 'f', 2 ),
+             QStringLiteral( "przyciaganie" ), std::max( 0.05, najmniejszaObwiednia / 2.0 ),
+             QStringLiteral( "przyciaganie" ), najmniejszaWarstwa, najmniejszyFid );
 
   // Edycja topologiczna przy malych obiektach. TO odpowiedzialoby na pytanie
   // z 25.08 w sekunde: przy VertexMove wszystkie wierzcholki znalezione
@@ -1847,18 +1974,33 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   // tam, gdzie nie ma czego znalezc.
   if ( projekt->topologicalEditing() && najmniejszaObwiednia >= 0
        && najmniejszaObwiednia < 5.0 )
-    ostrzez( QStringLiteral( "uwaga" ),
+    // Bez `modul`: edycja topologiczna jest ustawieniem QGIS-a, ktorego
+    // katalog wyposazenia nie opisuje. Wiesza sie wiec pod lista modulow,
+    // nie przy zadnym z nich.
+    ostrzez( QStringLiteral( "uwaga" ), QStringLiteral( "ustawienie" ),
              tr( "edycja topologiczna WŁĄCZONA, a najmniejszy obiekt ma %1 m (%2). "
                  "Przy przesuwaniu wierzchołka wszystkie sąsiednie w promieniu "
                  "trafiają w ten sam punkt — obrys małego obiektu zwija się do zera. "
                  "Działa też przy TWORZENIU, nie tylko przy poprawianiu. "
                  "Promień jest ustawieniem aplikacji, nie projektu." )
-               .arg( najmniejszaObwiednia, 0, 'f', 1 ).arg( najmniejszyObiekt ) );
+               .arg( najmniejszaObwiednia, 0, 'f', 1 ).arg( najmniejszyObiekt ),
+             tr( "Wyłącz edycję topologiczną na czas pracy przy tych obiektach. "
+                 "Przy %1 m pilnuje wspólnych granic kosztem samego kształtu — "
+                 "zysk jest żaden, strata trwała." )
+               .arg( najmniejszaObwiednia, 0, 'f', 1 ),
+             QStringLiteral( "topologia" ), 0.0, QString(),
+             najmniejszaWarstwa, najmniejszyFid );
 
   if ( najmniejszaObwiednia >= 0 && najmniejszaObwiednia < 0.5 )
-    ostrzez( QStringLiteral( "brak" ),
+    ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
              tr( "obiekt o obwiedni %1 m (%2) — to nie jest płat, tylko zlepione wierzchołki" )
-               .arg( najmniejszaObwiednia, 0, 'f', 2 ).arg( najmniejszyObiekt ) );
+               .arg( najmniejszaObwiednia, 0, 'f', 2 ).arg( najmniejszyObiekt ),
+             tr( "Obejrzyj ten obiekt na mapie. Jeżeli to pomyłka — skasuj go. "
+                 "Jeżeli miał być płatem — narysuj od nowa; ratowanie zlepionych "
+                 "wierzchołków przez przeciąganie kończy się drugim takim samym. "
+                 "Zostawiony pójdzie do eksportu jako powierzchnia zero." ),
+             QStringLiteral( "pokaz_obiekt" ), 0.0, QString(),
+             najmniejszaWarstwa, najmniejszyFid );
 
   // ----------------------------------------------------------------- dane
   QVariantMap dane;
@@ -1870,12 +2012,18 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
                            && QFileInfo::exists( katalog + QStringLiteral( "/wf_wskazniki.gpkg" ) );
   dane.insert( QStringLiteral( "wskazniki" ), maWskazniki );
   if ( !maWskazniki )
-    ostrzez( QStringLiteral( "brak" ),
-             tr( "brak wf_wskazniki.gpkg — metadane gatunków i podpowiadanie nie zadziałają" ) );
+    ostrzez( QStringLiteral( "brak" ), QStringLiteral( "projekt" ),
+             tr( "brak wf_wskazniki.gpkg — metadane gatunków i podpowiadanie nie zadziałają" ),
+             tr( "Wyposażenie → Słownik gatunków → „Pobierz z sieci”. "
+                 "Potrzebny internet, więc zrób to przed wyjazdem." ),
+             QStringLiteral( "slownik" ) );
 
   if ( plik.isEmpty() )
-    ostrzez( QStringLiteral( "brak" ),
-             tr( "projekt nie ma pliku z danymi — dziennik Nieba nie ma dokąd pisać" ) );
+    ostrzez( QStringLiteral( "brak" ), QStringLiteral( "projekt" ),
+             tr( "projekt nie ma pliku z danymi — dziennik Nieba nie ma dokąd pisać" ),
+             tr( "Ten projekt nie zapisuje niczego trwale. Złóż go od nowa "
+                 "z szablonu albo dołóż warstwę w GeoPackage obok projekt.qgs "
+                 "— ZANIM zaczniesz zbierać dane." ) );
 
   wynik.insert( QStringLiteral( "warstwy" ), warstwy );
   wynik.insert( QStringLiteral( "pomiar" ), pomiar );

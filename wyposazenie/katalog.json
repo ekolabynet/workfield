@@ -15,17 +15,17 @@
     },
     {
       "id": "klawisze",
-      "wersja": 1,
+      "wersja": 2,
       "sciezka": "moduly/klawisze"
     },
     {
       "id": "tyczenie",
-      "wersja": 1,
+      "wersja": 2,
       "sciezka": "moduly/tyczenie"
     },
     {
       "id": "zalaczniki",
-      "wersja": 1,
+      "wersja": 2,
       "sciezka": "moduly/zalaczniki"
     }
   ]

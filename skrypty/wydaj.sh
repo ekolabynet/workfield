@@ -74,11 +74,13 @@ NOWA=""
 NAZWA=""
 ODNIESIENIE=""
 WYKONAJ=0
+NADPISZ=0
 PROGRAM="WorkFieldGIS"
 
 for a in "$@"; do
   case "$a" in
     --wykonaj)  WYKONAJ=1 ;;
+    --nadpisz)  NADPISZ=1 ;;
     --nazwa=*)  NAZWA="${a#--nazwa=}" ;;
     --od=*)     ODNIESIENIE="${a#--od=}" ;;
     --*)        echo "Nieznany przełącznik: $a"; exit 1 ;;
@@ -146,6 +148,14 @@ NOTA="docs/wydania/WhatsNew_${NOWA//./-}.md"
 # w build.sh jest już ten sam.
 if [ -z "$ODNIESIENIE" ]; then
   ODNIESIENIE=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+  # ZNALEZIONE 22.09.2026, na zywym repo: przy DRUGIM uruchomieniu na tej
+  # samej wersji najswiezszym tagiem jest tag TEJ wersji — i nota wychodzila
+  # „zmiany od 0.12.1” z jednym wpisem, ktorym byl komit wydania. Opisywala
+  # sama siebie. Cofamy sie wtedy o jeden tag.
+  if [ "$ODNIESIENIE" = "v${NOWA}" ]; then
+    ODNIESIENIE=$(git describe --tags --abbrev=0 --match 'v*' "${ODNIESIENIE}^" 2>/dev/null || true)
+    [ -n "$ODNIESIENIE" ] && echo "   (tag v${NOWA} już jest — liczę od poprzedniego: ${ODNIESIENIE})"
+  fi
 fi
 if [ -z "$ODNIESIENIE" ] && [ "$NOWA" != "$POPRZEDNIA" ]; then
   ODNIESIENIE=$(git log -S"APP_VERSION_NUM:-${POPRZEDNIA}" --format=%H -- scripts/build.sh 2>/dev/null | tail -1)
@@ -165,7 +175,14 @@ echo "== commitów od tamtej pory: $(git rev-list --count "${ODNIESIENIE}..HEAD"
 mkdir -p docs/wydania
 
 # --- nota -------------------------------------------------------------
-python3 - "$ODNIESIENIE" "$NOWA" "$POPRZEDNIA" "$NOTA" "$PROGRAM" "$NAZWA_DOCELOWA" <<'PYEOF'
+# Podtytul noty bierze nazwe FAKTYCZNEGO punktu odniesienia, nie numeru
+# z build.sh. Przy `--od=v0.12.0` nota mowila „zmiany od 0.12.1”, bo
+# `POPRZEDNIA` czyta sie z pliku, a punkt odniesienia byl inny. Tekst dla
+# uzytkownika nie ma prawa klamac o tym, co obejmuje.
+SKAD=$(git describe --tags --exact-match "$ODNIESIENIE" 2>/dev/null \
+       || git rev-parse --short "$ODNIESIENIE" 2>/dev/null || echo "$POPRZEDNIA")
+
+python3 - "$ODNIESIENIE" "$NOWA" "$SKAD" "$NOTA" "$PROGRAM" "$NAZWA_DOCELOWA" <<'PYEOF'
 # -*- coding: utf-8 -*-
 # Nota wydania z gita, pogrupowana po obszarach.
 #
@@ -173,7 +190,7 @@ python3 - "$ODNIESIENIE" "$NOWA" "$POPRZEDNIA" "$NOTA" "$PROGRAM" "$NAZWA_DOCELO
 # jeden commit dotyka zwykle i silnika, i QML-a, i skryptow, wiec podzial
 # po plikach rozsypalby go na trzy grupy. Temat commita mowi, CZEGO
 # dotyczyl - i to jest to, co czyta uzytkownik.
-import subprocess, sys, datetime
+import subprocess, sys, datetime, re
 
 od, nowa, poprzednia, nota, program, nazwa = sys.argv[1:7]
 
@@ -193,6 +210,16 @@ OBSZARY = [
 ]
 
 
+# Komit, ktory tylko podbija numer i pisze note, nie ma nic do powiedzenia
+# uzytkownikowi. W nocie 0.12.1 stanely az TRZY takie wpisy obok siebie
+# (trzy uruchomienia --wykonaj) i jeden z poprzedniego wydania.
+WYDANIE = re.compile(r'^(WorkField|WorkFieldGIS)\s+\d+\.\d+(\.\d+)?\b')
+
+
+def komitWydania(temat):
+    return bool(WYDANIE.match(temat.strip()))
+
+
 def obszar(temat):
     t = temat.lower()
     for n, klucze in OBSZARY:
@@ -204,11 +231,15 @@ def obszar(temat):
 wiersze = [w for w in git('log', '--format=%h\x1f%ad\x1f%s', '--date=short',
                           od + '..HEAD').splitlines() if w.strip()]
 grupy = {}
+pominiete = 0
 for w in wiersze:
     czesci = w.split('\x1f')
     if len(czesci) != 3:
         continue
     sha, data, temat = czesci
+    if komitWydania(temat):
+        pominiete += 1
+        continue
     grupy.setdefault(obszar(temat), []).append((sha, data, temat))
 
 kolejnosc = [n for n, _ in OBSZARY] + ['Pozostałe']
@@ -240,7 +271,9 @@ with open(nota, 'w', encoding='utf-8') as f:
             f.write('- … i %d więcej\n' % (len(stan) - 60))
         f.write('\n')
 
-print('  %s — %d commitów w %d grupach' % (nota, len(wiersze), len(grupy)))
+print('  %s — %d commitów w %d grupach%s'
+      % (nota, len(wiersze) - pominiete, len(grupy),
+         ', pominięto %d komitów wydania' % pominiete if pominiete else ''))
 if stan:
     print('  UWAGA: %d niezłożonych zmian w drzewie roboczym' % len(stan))
 PYEOF
@@ -311,6 +344,25 @@ Ostatnia linijka jest tą, która robi „Co nowego” W APLIKACJI —
 okno czyta wydania z GitHuba, nie z repozytorium.
 KONIEC
   exit 0
+fi
+
+# ISTNIEJACE WYDANIE NIE JEST NADPISYWANE PO CICHU.
+# 22.09.2026 drugie uruchomienie na tej samej wersji nadpisalo dobra note
+# tresc opisujaca sama siebie — a to jest DOKLADNIE to, co widzi uzytkownik
+# w oknie „Co nowego”. Lepiej stanac i zapytac.
+if [ "$NADPISZ" != "1" ] && git rev-parse -q --verify "v${NOWA}" >/dev/null 2>&1; then
+  echo
+  echo "STOP: tag v${NOWA} już istnieje — to wydanie było już robione."
+  echo "      Gdybym poszedł dalej, NADPISAŁBYM notę wydania na GitHubie,"
+  echo "      czyli to, co użytkownik widzi w oknie „Co nowego”."
+  echo
+  echo "  Chcesz tylko poprawić notę istniejącego wydania:"
+  echo "    bash skrypty/wydaj.sh --od=<poprzedni tag>     # złóż notę"
+  echo "    gh release edit v${NOWA} --notes-file ${NOTA}  # wyślij ją"
+  echo
+  echo "  Chcesz naprawdę nadpisać wydanie:  dodaj --nadpisz"
+  echo "  Chcesz nowe wydanie:               zbuduj (numer urośnie) i wydaj je"
+  exit 1
 fi
 
 echo "== składam, taguję i wydaję"

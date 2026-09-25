@@ -735,11 +735,20 @@ Drawer {
         Layout.fillWidth: true
         spacing: 0
 
+        // TYTUL SZUFLADY (25.09.2026) — patrz blizniak w QfDataDrawer.
+        // Sama nazwa programu tu byla; brakowalo roli, czyli tego, czym
+        // ta szuflada rozni sie od prawej.
+        //
+        // `elide` nie bylo tu wcale — dluzszy tytul wychodzilby poza
+        // szuflade, na przycisk zamkniecia.
         Text {
           Layout.fillWidth: true
-          text: qsTr("WorkFieldGIS")
+          text: qsTr("WorkFieldGIS — Dane")
           font: Theme.strongFont
+          fontSizeMode: Text.HorizontalFit
+          minimumPointSize: Theme.tipFont.pointSize
           color: Theme.mainTextColor
+          elide: Text.ElideRight
         }
 
         // Wersja pod nazwa, mala czcionka. Do 17.09.2026 sprawdzalo sie ja
@@ -811,6 +820,31 @@ Drawer {
         iconColor: Theme.mainTextColor
         onClicked: dashBoard.close()
       }
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 1
+      color: Theme.controlBorderColor
+    }
+
+    // PRZELACZNIK UKLADU W NAGLOWKU (25.09.2026).
+    //
+    // Stal w sekcji „Projekt". A `QfSiatkaMenu` jest w tej szufladzie
+    // szesc razy: w „Projekcie", w „Warstwach" (osobno „Dane" i „Aktywna
+    // warstwa") i w „Stylizacji". Czyli na karcie „Warstwy" uklad
+    // dzialal, a zmienic go stamtad nie bylo jak.
+    //
+    // Tu jest ponad zakladkami, czyli nad wszystkimi sekcjami, ktorych
+    // dotyczy. W prawej szufladzie rozwiazanie jest INNE — tam uklad
+    // rzadzi jedna zakladka, wiec przelacznik zostal w niej.
+    QfPrzelacznikUkladu {
+      t: dashBoard.t
+      Layout.fillWidth: true
+      Layout.leftMargin: 6
+      Layout.rightMargin: 6
+      Layout.topMargin: 4
+      Layout.bottomMargin: 4
     }
 
     Rectangle {
@@ -909,11 +943,16 @@ Drawer {
       // jest niewidoczny i nigdy sie nie zmienia, wiec zmiana jest tam bezczynna.
       onCurrentIndexChanged: dashBoard.sekcjaWymuszona = -1
 
-      TabButton {
-        // WorkField 18.08.2026: zakladka jest juz na obu platformach.
-        text: qsTr("Zlecenia")
-        font: Theme.tipFont
-      }
+      // WorkField 24.09.2026 — ZAKLADKA „ZLECENIA" ZNIKNELA.
+      //
+      // Wpis „Zlecenia" stoi juz jako pierwszy w „Wszystkich projektach"
+      // w tej wlasnie zakladce, wiec osobna byla powtorzeniem — a przez
+      // nia czwarty tytul nie miescil sie w szerokosci telefonu
+      // („Stylizacja" pokazywala sie jako „Stylizac…").
+      //
+      // TRESC SEKCJI ZOSTAJE. Wpis w „Projekcie" robi
+      // `sekcjaWymuszona = 0`, czyli przelacza na TA sekcje — gdyby
+      // wyciac ja ze stosu, jedyna droga do zlecen prowadzilaby donikad.
       TabButton {
         text: qsTr("Projekt")
         font: Theme.tipFont
@@ -933,7 +972,11 @@ Drawer {
 
       Layout.fillWidth: true
       Layout.fillHeight: true
-      currentIndex: dashBoard.sekcjaWymuszona >= 0 ? dashBoard.sekcjaWymuszona : dashTabs.currentIndex
+      // Zakladek jest trzy, a sekcji cztery: sekcja 0 („Zlecenia") nie
+      // ma juz swojego przycisku i wchodzi sie do niej wylacznie przez
+      // `sekcjaWymuszona` — z wpisu w „Projekcie" albo z menu. Stad
+      // przesuniecie o jeden: zakladka 0 to sekcja 1.
+      currentIndex: dashBoard.sekcjaWymuszona >= 0 ? dashBoard.sekcjaWymuszona : dashTabs.currentIndex + 1
 
       // ── Zlecenia (0, komputer i telefon) ────────────────────────
       // WorkField 18.08.2026: strona = samo drzewo. „Stan zleceń” wtopiony
@@ -1075,14 +1118,57 @@ Drawer {
 
         property int zgodnych: 0
         property int wszystkich: 0
+        //! Liczy TYLKO prewencję: ustawienia i skład projektu. Błędy
+        //! w danych mają własny wiersz i własny licznik.
         property int ostrzezen: 0
         property var moduly: []
         property var uwagi: []
+
+        // ====================================================================
+        // TRZY KUBEŁKI, NIE JEDEN — 23.09.2026
+        // ====================================================================
+        // Do dziś wszystkie ostrzeżenia szły jednym ciągiem pod wyposażeniem.
+        // Czerwona linijka „obiekt o obwiedni 0.09 m — to nie jest płat"
+        // wyglądała tam jak awaria CAŁEGO projektu, a jest uwagą o jednym
+        // obiekcie — i naprawa wymaga zupełnie innych narzędzi niż założenie
+        // brakującego modułu.
+        //
+        //   uwagiUstawien   ustawienie złe DLA TYCH danych. Szkody jeszcze
+        //                   nie ma. Wiesza się PRZY MODULE, którego dotyczy.
+        //   uwagiProjektu   czegoś brakuje w składzie projektu.
+        //   bledyDanych     błąd już popełniony, z adresem obiektu.
+        //                   Osobny wiersz, osobne okno, osobne narzędzia.
+        property var uwagiUstawien: []
+        property var uwagiProjektu: []
+        property var bledyDanych: []
+
+        //! Ostrzeżenia przypięte do TEGO modułu.
+        function uwagiModulu(id) {
+            const out = [];
+            for (let j = 0; j < uwagiUstawien.length; j++)
+                if (uwagiUstawien[j].modul === id)
+                    out.push(uwagiUstawien[j]);
+            return out;
+        }
+
+        //! Ostrzeżenia prewencyjne bez modułu — pod listą, nie przy niczym.
+        function uwagiBezModulu() {
+            const out = [];
+            for (let j = 0; j < uwagiUstawien.length; j++)
+                if (!uwagiUstawien[j].modul)
+                    out.push(uwagiUstawien[j]);
+            for (let j = 0; j < uwagiProjektu.length; j++)
+                out.push(uwagiProjektu[j]);
+            return out;
+        }
 
         function odswiez() {
           if (!qgisProject || qgisProject.homePath === "") {
             moduly = [];
             uwagi = [];
+            uwagiUstawien = [];
+            uwagiProjektu = [];
+            bledyDanych = [];
             zgodnych = 0;
             wszystkich = 0;
             ostrzezen = 0;
@@ -1111,7 +1197,25 @@ Drawer {
             u = [];
           }
           uwagi = u;
-          ostrzezen = u.length;
+
+          const uU = [];
+          const uP = [];
+          const uD = [];
+          for (let j = 0; j < u.length; j++) {
+            const r = u[j].rodzaj;
+            if (r === "dane")
+              uD.push(u[j]);
+            else if (r === "ustawienie")
+              uU.push(u[j]);
+            else
+              // „projekt" ORAZ wszystko, czego nie znamy. Starsza aplikacja
+              // bez pola `rodzaj` ma pokazać wszystko, a nie zgubić po cichu.
+              uP.push(u[j]);
+          }
+          uwagiUstawien = uU;
+          uwagiProjektu = uP;
+          bledyDanych = uD;
+          ostrzezen = uU.length + uP.length;
         }
       }
 
@@ -1130,10 +1234,12 @@ Drawer {
         radius: 4
         color: t.controlBackgroundColor
         border.width: 1
-        // Ostrzezenia o DANYCH przed brakami konfiguracji: pierwsze mowia
-        // o pracy, ktora moze byc stracona, drugie o ustawieniu do poprawienia.
+        // Ten pasek mówi o PREWENCJI: czy projekt jest przygotowany.
+        // Błędy w danych mają własny wiersz niżej i własną czerwień —
+        // do 23.09.2026 zapalały tę ramkę na czerwono, przez co brak
+        // modułu i zlepiony wierzchołek wyglądały tak samo.
         border.color: stanWyposazenia.ostrzezen > 0
-                      ? t.errorColor
+                      ? t.warningColor
                       : (stanWyposazenia.zgodnych < stanWyposazenia.wszystkich
                          ? t.warningColor : t.controlBorderColor)
 
@@ -1159,7 +1265,7 @@ Drawer {
                          .arg(stanWyposazenia.zgodnych)
                          .arg(stanWyposazenia.wszystkich))
             font: t.tinyFont
-            color: stanWyposazenia.ostrzezen > 0 ? t.errorColor : t.secondaryTextColor
+            color: stanWyposazenia.ostrzezen > 0 ? t.warningColor : t.secondaryTextColor
             elide: Text.ElideRight
           }
 
@@ -1205,31 +1311,80 @@ Drawer {
           Repeater {
             model: stanWyposazenia.moduly
 
-            RowLayout {
+            // Moduł i jego ostrzeżenia w jednej kolumnie: „przyciąganie
+            // łapie segment przy obiektach 0.1 m" ma wisieć POD
+            // „Przyciąganie w metrach", a nie luzem na dole listy. Tak
+            // widać, co przestawić — a to było jedyne pytanie, na które
+            // ta linijka miała odpowiedzieć.
+            ColumnLayout {
+              id: wierszModulu
+
               Layout.fillWidth: true
-              Layout.leftMargin: 8
-              Layout.rightMargin: 8
-              spacing: 6
+              spacing: 1
 
-              Rectangle {
-                Layout.preferredWidth: 8
-                Layout.preferredHeight: 8
-                radius: 4
-                color: modelData.stan === "zgodny" ? t.goodColor
-                     : modelData.stan === "starszy" ? t.warningColor
-                     : modelData.stan === "nowszy" ? t.warningColor
-                     : t.errorColor
-              }
+              readonly property var uwagiTegoModulu:
+                stanWyposazenia.uwagiModulu(modelData.modul)
 
-              Text {
+              RowLayout {
                 Layout.fillWidth: true
-                text: modelData.nazwa !== undefined ? modelData.nazwa : modelData.modul
-                font: t.tinyFont
-                color: t.mainTextColor
-                elide: Text.ElideRight
+                Layout.leftMargin: 8
+                Layout.rightMargin: 8
+                spacing: 6
+
+                Rectangle {
+                  Layout.preferredWidth: 8
+                  Layout.preferredHeight: 8
+                  radius: 4
+                  color: modelData.stan === "zgodny" ? t.goodColor
+                       : modelData.stan === "starszy" ? t.warningColor
+                       : modelData.stan === "nowszy" ? t.warningColor
+                       : t.errorColor
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  text: modelData.nazwa !== undefined ? modelData.nazwa : modelData.modul
+                  font: t.tinyFont
+                  // Moduł założony, ale z ostrzeżeniem, nie jest „w porządku”
+                  // — zielona kropka mówiłaby wtedy nieprawdę.
+                  color: wierszModulu.uwagiTegoModulu.length > 0
+                         ? t.warningColor : t.mainTextColor
+                  elide: Text.ElideRight
+                }
               }
 
-                          }
+              Repeater {
+                model: wierszModulu.uwagiTegoModulu
+
+                // Objaw i czasownik w dwóch linijkach. „Przyciąganie łapie
+                // segment" opisuje, co się dzieje; dopiero „zejdź z tolerancją
+                // do 0.05 m" mówi, co z tym zrobić — a o to chodzi w terenie.
+                ColumnLayout {
+                  Layout.fillWidth: true
+                  Layout.leftMargin: 22
+                  Layout.rightMargin: 8
+                  Layout.bottomMargin: 2
+                  spacing: 0
+
+                  Text {
+                    Layout.fillWidth: true
+                    text: "↳ " + modelData.opis
+                    font: t.tinyFont
+                    color: t.warningColor
+                    wrapMode: Text.WordWrap
+                  }
+
+                  Text {
+                    Layout.fillWidth: true
+                    visible: modelData.rada !== undefined && modelData.rada !== ""
+                    text: modelData.rada !== undefined ? modelData.rada : ""
+                    font: t.tinyFont
+                    color: t.secondaryTextColor
+                    wrapMode: Text.WordWrap
+                  }
+                }
+              }
+            }
           }
 
           // Pelny ekran zostaje: ma miejsce na czternascie warstw, dlugie
@@ -1247,30 +1402,93 @@ Drawer {
             }
           }
 
+          // Prewencja bez modułu: ustawienia, których katalog nie opisuje
+          // (edycja topologiczna), i braki w składzie projektu.
+          // BŁĘDY W DANYCH TU NIE WCHODZĄ — mają własny wiersz niżej.
           Repeater {
-            model: stanWyposazenia.uwagi
+            model: stanWyposazenia.uwagiBezModulu()
 
-            Text {
+            ColumnLayout {
               Layout.fillWidth: true
               Layout.leftMargin: 8
               Layout.rightMargin: 8
-              text: "· " + (modelData.opis !== undefined ? modelData.opis : String(modelData))
-              font: t.tinyFont
-              color: modelData.waga === "brak" ? t.errorColor : t.warningColor
-              wrapMode: Text.WordWrap
+              spacing: 0
+
+              Text {
+                Layout.fillWidth: true
+                text: "· " + (modelData.opis !== undefined ? modelData.opis : String(modelData))
+                font: t.tinyFont
+                color: modelData.waga === "brak" ? t.errorColor : t.warningColor
+                wrapMode: Text.WordWrap
+              }
+
+              Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: 10
+                visible: modelData.rada !== undefined && modelData.rada !== ""
+                text: modelData.rada !== undefined ? modelData.rada : ""
+                font: t.tinyFont
+                color: t.secondaryTextColor
+                wrapMode: Text.WordWrap
+              }
             }
           }
         }
       }
 
-      // ── przełącznik układu ──────────────────────────────────
-      // Ten sam komponent i ten sam wybór co w prawej szufladzie. Wcześniej
-      // lewa miała własny (▤/▦), dwa stany zamiast czterech i własne
-      // ustawienie WFGPanel/ukladMenu, o którym trzeba było pamiętać osobno.
-      QfPrzelacznikUkladu {
-        t: dashBoard.t
+      // ── błędy w danych: osobno, bo to inna robota ───────────
+      //
+      // „Tu powinny być sprawy prewencyjne. Analiza błędów post hoc i ich
+      // naprawa wymaga innych narzędzi" (uwaga Piotra, 23.09.2026).
+      //
+      // Wiersz jest WIDOCZNY NIEZALEŻNIE od tego, czy wyposażenie jest
+      // rozwinięte: błąd w danych to praca, która może być stracona, a nie
+      // szczegół do rozwinięcia na żądanie. I nie chowa się pod nagłówkiem
+      // „Wyposażenie", bo z wyposażeniem nie ma nic wspólnego.
+      Rectangle {
+        id: paskaBledow
+
         Layout.fillWidth: true
         Layout.topMargin: 6
+        Layout.preferredHeight: wierszBledow.implicitHeight + 10
+        visible: stanWyposazenia.bledyDanych.length > 0
+        radius: 4
+        color: t.controlBackgroundColor
+        border.width: 1
+        border.color: t.errorColor
+
+        RowLayout {
+          id: wierszBledow
+
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.margins: 8
+          spacing: 6
+
+          Text {
+            Layout.fillWidth: true
+            text: qsTr("Błędy w danych · %1").arg(stanWyposazenia.bledyDanych.length)
+            font: t.tinyFont
+            color: t.errorColor
+            elide: Text.ElideRight
+          }
+
+          Text {
+            text: "\u2192"
+            font: t.tinyFont
+            color: t.errorColor
+          }
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: {
+            dashBoard.close();
+            if (typeof wfAkcje !== 'undefined' && wfAkcje.stanProjektu)
+              wfAkcje.stanProjektu();
+          }
+        }
       }
 
       Text {
@@ -1861,7 +2079,16 @@ Drawer {
         }
 
         contentItem: RowLayout {
-          spacing: 8
+          // 25.09.2026 — odstep 8 -> 4. Osiem przerw miedzy olowkiem,
+          // nazwa, ikona geometrii, licznikiem, magnesem, okiem,
+          // etykietami i koszem zjadalo 64 px z 350 px szuflady.
+          // Same przyciski brały 202 px, wiec nazwie zostawalo 84 —
+          // siedem znakow. Po zmianie 116, czyli dziesiec.
+          //
+          // Nizej niz 4 nie schodzic: przyciski maja po 30 px i sa
+          // celami dotyku; zetkniete krawedziami zaczyna sie mylic
+          // sasiadow, a to sie robi w rekawicy.
+          spacing: 4
 
           // olowek: wybor warstwy do edycji (zastapil przelacznik trybu)
           QfToolButton {
@@ -1885,15 +2112,29 @@ Drawer {
             onClicked: dashBoard.przelaczRysowanie(model.VectorLayerPointer, model.Name)
           }
 
+          // NAZWA WARSTWY (25.09.2026) — jedna linia, skrot w SRODKU.
+          //
+          // Bylo: `Text.Wrap` + dwie linie + `ElideRight`, czyli lamanie
+          // w srodku slowa ORAZ ucinanie konca naraz („Symb / ole z…").
+          // `Text.Wrap` znaczy „lam na spacjach, a jak sie nie da, to
+          // gdziekolwiek" — przy ~84 px na nazwe „nie da sie" bylo regula.
+          //
+          // ElideMiddle, a nie ElideRight, bo w projekcie CAD sa warstwy
+          // roznaice sie WYLACZNIE koncowka („Rysunek — linie" kontra
+          // „Rysunek — poligony"). ElideRight pokazywal obie identycznie.
+          // Qt przy `maximumLineCount` dopuszcza tylko ElideRight, wiec
+          // dwulinijkowosc i skrot w srodku sie wykluczaja — wybor padl
+          // na to, zeby dalo sie odroznic warstwy od siebie.
+          //
+          // Skutek uboczny: wiersz nie rosnie juz do dwoch linii, wiec
+          // `Math.max(44, ...)` daje rowne 44 px dla kazdej warstwy.
           Text {
             id: layerNameText
             Layout.fillWidth: true
             text: model.Name
             font: t.tipFont
             color: isCurrent ? t.mainOverlayColor : t.mainTextColor
-            wrapMode: Text.Wrap
-            maximumLineCount: 2
-            elide: Text.ElideRight
+            elide: Text.ElideMiddle
           }
 
           // uklad odmienny od projektu: krotkie ostrzezenie tekstem

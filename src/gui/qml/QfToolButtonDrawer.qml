@@ -19,6 +19,19 @@ Container {
   property string name: ''
   property real size: QfTheme.toolButtonSize
   property int direction: QfToolButtonDrawer.Direction.Down
+
+  /*
+   * WorkField 23.09.2026 — GORNA GRANICA ROZWINIECIA.
+   *
+   * Szuflada rozwijala sie na PELNA dlugosc zawartosci, wiec kazdy kolejny
+   * przycisk wypychal ostatnie poza ekran i nie bylo jak do nich dojsc.
+   * `ListView` w srodku jest przewijalny od zawsze — brakowalo tylko, zeby
+   * mial sie o co oprzec.
+   *
+   * Domyslne `Infinity` zostawia stare zachowanie nietkniete: `Math.min`
+   * z nieskonczonoscia oddaje to, co bylo.
+   */
+  property real maxSize: Infinity
   property bool collapsed: true
   property alias round: toggleButton.round
   property alias bgcolor: toggleButton.bgcolor
@@ -36,14 +49,14 @@ Container {
       return size;
     case QfToolButtonDrawer.Direction.Left:
     case QfToolButtonDrawer.Direction.Right:
-      return collapsed ? size : size + content.contentWidth + container.spacing * 2;
+      return collapsed ? size : Math.min(size + content.contentWidth + container.spacing * 2, container.maxSize);
     }
   }
   height: {
     switch (container.direction) {
     case QfToolButtonDrawer.Direction.Up:
     case QfToolButtonDrawer.Direction.Down:
-      return collapsed ? size : size + content.contentHeight + container.spacing * 2;
+      return collapsed ? size : Math.min(size + content.contentHeight + container.spacing * 2, container.maxSize);
     case QfToolButtonDrawer.Direction.Left:
     case QfToolButtonDrawer.Direction.Right:
       return size;
@@ -81,14 +94,14 @@ Container {
           return container.size;
         case QfToolButtonDrawer.Direction.Left:
         case QfToolButtonDrawer.Direction.Right:
-          return content.contentWidth;
+          return Math.min(content.contentWidth, container.maxSize - container.size - container.spacing * 2);
         }
       }
       height: {
         switch (container.direction) {
         case QfToolButtonDrawer.Direction.Up:
         case QfToolButtonDrawer.Direction.Down:
-          return content.contentHeight;
+          return Math.min(content.contentHeight, container.maxSize - container.size - container.spacing * 2);
         case QfToolButtonDrawer.Direction.Left:
         case QfToolButtonDrawer.Direction.Right:
           return container.size;

@@ -92,7 +92,8 @@ Drawer {
       return;
     case "teren":
       dataDrawer.close();
-      terenSettings.open();
+      // Ta sama droga, co wpis GNSS linijke wyzej.
+      mainWindow.pokazUstawienia("teren");
       return;
     case "klawisze":
       dataDrawer.close();
@@ -121,6 +122,14 @@ Drawer {
       dataDrawer.close();
       dashBoard.computeChmAction();
       return;
+    case "ustawienia":
+      dataDrawer.close();
+      // Pusta kategoria CELOWO: `pokazUstawienia` wola `openCategory`
+      // tylko dla niepustego ciagu, wiec okno otwiera sie na tym, co
+      // bylo ostatnio. Odsylacz ma otworzyc Ustawienia, a nie wybierac
+      // za czlowieka, od ktorej kategorii ma zaczac.
+      mainWindow.pokazUstawienia("");
+      return;
     case "plugins":
       dashBoard.showPluginManager();
       dataDrawer.close();
@@ -146,6 +155,16 @@ Drawer {
   //! Pozycje zakładki „Narzędzia" — jedna lista, dwa układy.
   property var modelNarzedzi: [
     { "naglowek": qsTr("Aplikacja") },
+    // ODSYLACZ DO USTAWIEN (25.09.2026). Do 24.09 szuflada rysowala
+    // piec kategorii ustawien u siebie, wlasnym ukladem, a okno Ustawien
+    // rysowalo te sama piatke swoim — ta sama rzecz w dwoch wygladach.
+    // Tu jest jeden wiersz, ktory otwiera to okno; caly uklad zostaje
+    // po tamtej stronie, gdzie ma swoje miejsce.
+    //
+    // PIERWSZY W DZIALE, przed „Wtyczkami" — decyzja Piotra z 25.09:
+    // „niech bedzie wiadomo, ze sa poziom nizej, ale wazne". Kolejnosc
+    // w tym dziale niesie wage, nie alfabet; nie sortowac.
+    { "label": qsTr("Ustawienia aplikacji"), "action": "ustawienia", "ikona": "wfg_ustawienia" },
     { "label": qsTr("Wtyczki"), "action": "plugins", "ikona": "wfg_paczka" },
     { "label": qsTr("Zablokuj ekran"), "action": "lockScreen", "ikona": "wfg_zamek" },
     { "naglowek": qsTr("Na mapie") },
@@ -256,6 +275,32 @@ Drawer {
   dragMargin: 10
   interactive: opened || !overlayFeatureFormDrawer.opened
 
+  // ── WYZEROWANE MARGINESY WEWNETRZNE (25.09.2026) ──────────────
+  //
+  // Naglowek tej szuflady stal 129 px nizej niz naglowek lewej
+  // (zmierzone na zrzucie z 25.09). Przyczyna siegala 24.07.2026,
+  // czyli pierwszego dnia projektu: wtedy do `ApplicationWindow`
+  // wszedl `header: ToolBar` — nasza belka terenowa.
+  //
+  // `Drawer` jest `Popup`-em. W oknie, ktore MA naglowek, styl
+  // dokłada szufladzie wlasny `topPadding`, zeby jej tresc nie
+  // wjechala pod ten naglowek. Dziecko szuflady stoi na
+  // `anchors.fill: parent`, a tym rodzicem jest `contentItem` —
+  // obszar JUZ pomniejszony o padding.
+  //
+  // `QfMainDrawer` zerowal to od dawna, tymi samymi czterema
+  // linijkami. Tutaj ich nigdy nie bylo. Belka ma
+  // `Math.max(64, ...) + sceneTopMargin`, co przy dwoch pikselach
+  // urzadzenia na punkt daje 128 px — a zmierzone bylo 129.
+  //
+  // Boczne marginesy znikaja przy okazji: nikt ich nie zglaszal,
+  // bo nie bylo z czym porownac, a szuflada odzyskuje przez to
+  // kilkanascie pikseli szerokosci.
+  topPadding: 0
+  leftPadding: 0
+  rightPadding: 0
+  bottomPadding: 0
+
 
   // WorkField 22.08: bez wlasnego tla — Drawer bierze wtedy to samo, co lewa
   // szuflada. Wczesniej mainBackgroundColor dawalo czern obok szarosci.
@@ -266,16 +311,61 @@ Drawer {
     anchors.bottomMargin: mainWindow.sceneBottomMargin
     spacing: 0
 
+    // WorkFieldGIS 23.09.2026 — nagłówek miał nad sobą pas pustki
+    // (uwaga Piotra: „niepotrzebnie ma 10% pustego miejsca. Albo tam coś
+    // umieśćmy sensownego albo podnieśmy do góry"). Zrobione jedno i drugie:
+    //
+    //  * marginesy ściśnięte — górny z 8 na 2, bo nad nagłówkiem i tak jest
+    //    `sceneTopMargin`, czyli wcięcie na pasek stanu; dwa marginesy pod
+    //    rząd sumowały się w pas, którego nikt nie zaprojektował;
+    //  * WERSJA pod tytułem. To jedyne miejsce, w którym da się ją pokazać
+    //    w chwili, gdy jest potrzebna: ekran powitalny rysuje się, ZANIM Qt
+    //    wstanie, więc o wersji nie ma skąd wiedzieć. A przy bumpie co build
+    //    pytanie „co ja właściwie mam na telefonie" pada codziennie.
     RowLayout {
       Layout.fillWidth: true
-      Layout.margins: 8
+      Layout.leftMargin: 8
+      Layout.rightMargin: 8
+      Layout.topMargin: 2
+      Layout.bottomMargin: 6
       spacing: 8
 
-      Text {
+      ColumnLayout {
         Layout.fillWidth: true
-        text: qsTr("Narzędzia")
-        font: t.strongFont
-        color: t.mainTextColor
+        spacing: 0
+
+        // TYTUL SZUFLADY (25.09.2026) — najpierw program, potem strona.
+        // Bylo „Narzędzia", czyli nazwa JEDNEJ z trzech zakladek w roli
+        // tytulu calosci. Teraz obie szuflady przedstawiaja sie tak samo:
+        // po lewej dane, po prawej aplikacja.
+        //
+        // `HorizontalFit` zamiast samego `elide`: przy 360 px ten napis
+        // jest na granicy, a uciety tytul bylby dokladnie tym, na co
+        // poszla poprzednia latka. Czcionka zejdzie o krok, zanim
+        // cokolwiek zostanie zjedzone.
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("WorkFieldGIS — Aplikacja")
+          font: t.strongFont
+          fontSizeMode: Text.HorizontalFit
+          minimumPointSize: t.tipFont.pointSize
+          color: t.mainTextColor
+          elide: Text.ElideRight
+        }
+
+        Text {
+          Layout.fillWidth: true
+          // Wersja przychodzi z aplikacji i niesie już nazwę kodową
+          // („0.12.6 - Electronic Elm"). Strażnik `typeof` na wypadek,
+          // gdyby ten komponent budował się przed nią.
+          visible: text !== ""
+          text: typeof appVersionStr !== "undefined"
+                  ? appVersionStr
+                  : ""
+          font: t.tinyFont
+          color: t.secondaryTextColor
+          elide: Text.ElideRight
+        }
       }
 
       QfToolButton {
@@ -315,10 +405,6 @@ Drawer {
         text: qsTr("Algorytmy")
         font: t.tipFont
       }
-      TabButton {
-        text: qsTr("Ustawienia")
-        font: t.tipFont
-      }
     }
 
     StackLayout {
@@ -336,6 +422,34 @@ Drawer {
         szuflada: dataDrawer
       }
       // ── Narzędzia ───────────────────────────────────────────
+      ColumnLayout {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        spacing: 0
+
+        // PRZELACZNIK UKLADU PRZYPIETY (25.09.2026).
+        //
+        // Stal wewnatrz przewijacza, miedzy wtyczkami a pozycjami —
+        // zjezdzal z ekranu przy pierwszym przewinieciu i zeby zmienic
+        // uklad, trzeba bylo najpierw wrocic na gore.
+        //
+        // NAD zakladkami go nie ma i nie bedzie: uklad rzadzi wylacznie
+        // ta lista. „Moduly" rysuje QfSekcjaModulow, „Algorytmy" — lista
+        // algorytmow QGIS-a; zadne z nich `ukladPozycji` nie czyta.
+        // Kontrolka widoczna tam, gdzie nic nie robi, jest gorsza niz
+        // schowana (ZASADY_INTERFEJSU.md).
+        QfPrzelacznikUkladu {
+          t: dataDrawer.t
+          Layout.fillWidth: true
+          Layout.margins: 6
+        }
+
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 1
+          color: t.controlBorderColor
+        }
+
       //
       // WorkField 15.09.2026 — PRZEWIJANIE. Pozycji uzbieralo sie szesnascie
       // i ostatnie wychodzily pod dolna krawedz ekranu. Dokladalismy je przez
@@ -343,6 +457,11 @@ Drawer {
       // nieskonczonosc i nic o tym nie mowi.
       Flickable {
         id: przewijaczNarzedzi
+
+        // Byl bezposrednim dzieckiem StackLayoutu, ktory rozciaga dzieci
+        // sam. Teraz siedzi w kolumnie i musi o to poprosic.
+        Layout.fillWidth: true
+        Layout.fillHeight: true
 
         // `id` nie jest ozdoba: ScrollBar odwolywal sie do `parent`, a jego
         // rodzicem NIE jest przewijacz — warunek byl zawsze falszywy i pasek
@@ -439,14 +558,6 @@ Drawer {
           visible: sekcjaWtyczek.visible
         }
 
-        // ── przełącznik układu ──────────────────────────────────
-        // Ten sam komponent co w lewej szufladzie: wybor jest jeden.
-        QfPrzelacznikUkladu {
-          t: dataDrawer.t
-          Layout.fillWidth: true
-          Layout.margins: 6
-        }
-
         // ── pozycje: lista ──────────────────────────────────────
         ColumnLayout {
           Layout.fillWidth: true
@@ -518,7 +629,12 @@ Drawer {
                            : dataDrawer.uklad === "kafelki"
                              ? Math.floor((dataDrawer.width - 34) / 3)
                              : Math.floor((dataDrawer.width - 28) / 2)
-                    height: dataDrawer.uklad === "kafelki" ? 84 : dataDrawer.uklad === "ikony" ? 44 : 36
+                    // WYSOKOSCI TU NIE MA (25.09.2026). Stalo
+                    // „84 : 44 : 36" — przepisane liczby, ktore
+                    // QfPozycjaMenu zna sama, a trzecia z nich (36)
+                    // blokowalaby druga linie napisu. Loader bez
+                    // wlasnej wysokosci bierze ja z komponentu; lewa
+                    // szuflada robi tak od 21.09.
                     // Jeden komponent na cztery uklady - kafelekNarzedzia
                     // byl czwartym sposobem rysowania tej samej pozycji.
                     sourceComponent: pozycjaNarzedzia
@@ -528,9 +644,78 @@ Drawer {
             }
           }
         }
+        // ── O PROGRAMIE (25.09.2026) ────────────────────────
+        //
+        // 24.09 zjechala tu CALA zakladka „Ustawienia": piec kategorii
+        // plus te trzy pozycje. Kategorie odeszly dzien pozniej do
+        // odsylacza na gorze tej listy — byly doslownie ta sama piatka,
+        // ktora okno Ustawien pokazuje u siebie, tyle ze narysowana
+        // drugim ukladem.
+        //
+        // Te trzy zostaja, bo ustawieniami NIE SA i w oknie Ustawien
+        // ich nie ma — usuniete razem z kategoriami zniknelyby bez
+        // zadnej innej drogi. Naglowek mowi wiec, czym one sa naprawde.
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: 1
+          Layout.topMargin: 10
+          Layout.bottomMargin: 4
+          color: t.controlBorderColor
+        }
+
+        Text {
+          Layout.fillWidth: true
+          Layout.leftMargin: 8
+          Layout.bottomMargin: 2
+          text: qsTr("O programie")
+          font: t.strongTipFont
+          color: t.secondaryTextColor
+        }
+
+        QfPozycjaMenu {
+          t: dataDrawer.t
+          ikona: "ic_info_white_24dp"
+          text: qsTr("O aplikacji WorkFieldGIS")
+          onClicked: {
+            dashBoard.showAbout();
+            dataDrawer.close();
+          }
+        }
+
+        QfPozycjaMenu {
+          t: dataDrawer.t
+          ikona: "ic_message_log_black_24dp"
+          // WorkField 23.08.2026 — licznik nieprzeczytanych wedrowal razem
+          // z pozycja. W menu "..." siedziala przy niej plakietka; gdyby
+          // zostala tam, a pozycja tutaj, sygnal "cos sie stalo" znikalby
+          // z pola widzenia dokladnie wtedy, gdy jest potrzebny.
+          text: messageLog.unreadMessages ? qsTr("Dziennik komunikatów (%1)").arg(messageLog.unreadMessagesCount >= 10 ? "10+" : messageLog.unreadMessagesCount) : qsTr("Dziennik komunikatów")
+          onClicked: {
+            dashBoard.showMessageLog();
+            dataDrawer.close();
+          }
+        }
+
+        QfPozycjaMenu {
+          t: dataDrawer.t
+          ikona: "ic_send_white_24dp"
+          text: qsTr("Udostępnij dziennik (debug)")
+          onClicked: {
+            const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");
+            const path = iface.dataRoot() + "logs/workfield_log_" + stamp + ".txt";
+            if (iface.writeTextFile(path, messageLogModel.toPlainText())) {
+              displayToast(qsTr("Dziennik zapisany: %1").arg(path));
+              platformUtilities.sendDatasetTo(path);
+            } else {
+              displayToast(qsTr("Nie udało się zapisać dziennika"), "error");
+            }
+            dataDrawer.close();
+          }
+        }
 
       }
       }
+      } // koniec karty „Narzędzia" (25.09.2026)
 
       // ── Algorytmy ───────────────────────────────────────────
       ColumnLayout {
@@ -625,114 +810,6 @@ Drawer {
 
       }
 
-      // ── Ustawienia ──────────────────────────────────────────
-      // WorkField 22.08: sekcje ustawien wprost tutaj. Wczesniej droga do
-      // "Pozycji" prowadzila przez zebatke, System, Ustawienia aplikacji
-      // i ekran z indeksem — piec krokow i trzy jezyki wizualne. Teraz dwa.
-      ColumnLayout {
-        spacing: 0
-
-        // WorkField 23.08.2026 — DOKLADNIE ta sama lista, co po lewej stronie
-        // okna ustawien (QfSettings.kategorie). Wczesniej byly to dwie
-        // niezalezne listy i po polaczeniu kategorii szuflada zostala przy
-        // starym podziale: osiem pozycji prowadzacych do pieciu ekranow.
-        //
-        // Ikony ic_* to zestaw QFielda; nasze menu jedzie na Breeze (wfg_*),
-        // wiec tu tez.
-        Repeater {
-          model: [
-            {
-              "id": "positioning",
-              "nazwa": qsTr("Pozycja"),
-              "ikona": "wfg_sprawdz"
-            },
-            {
-              "id": "mapaRysowanie",
-              "nazwa": qsTr("Mapa i rysowanie"),
-              "ikona": "wfg_warstwy"
-            },
-            {
-              "id": "interface",
-              "nazwa": qsTr("Wygląd"),
-              "ikona": "wfg_stylizacja"
-            },
-            {
-              "id": "chmuraSiec",
-              "nazwa": qsTr("Chmura i sieć"),
-              "ikona": "wfg_chmura"
-            },
-            {
-              "id": "advanced",
-              "nazwa": qsTr("Zaawansowane"),
-              "ikona": "wfg_ustawienia"
-            }
-          ]
-
-          QfPozycjaMenu {
-            t: dataDrawer.t
-            text: modelData.nazwa
-            ikona: modelData.ikona
-            onClicked: {
-              mainWindow.pokazUstawienia(modelData.id);
-              dataDrawer.close();
-            }
-          }
-        }
-
-        // separator: nizej rzeczy, ktore nie sa ustawieniami
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 1
-          Layout.topMargin: 6
-          Layout.bottomMargin: 6
-          color: t.controlBorderColor
-        }
-
-        QfPozycjaMenu {
-          t: dataDrawer.t
-          ikona: "ic_info_white_24dp"
-          text: qsTr("O aplikacji WorkFieldGIS")
-          onClicked: {
-            dashBoard.showAbout();
-            dataDrawer.close();
-          }
-        }
-
-        QfPozycjaMenu {
-          t: dataDrawer.t
-          ikona: "ic_message_log_black_24dp"
-          // WorkField 23.08.2026 — licznik nieprzeczytanych wedrowal razem
-          // z pozycja. W menu "..." siedziala przy niej plakietka; gdyby
-          // zostala tam, a pozycja tutaj, sygnal "cos sie stalo" znikalby
-          // z pola widzenia dokladnie wtedy, gdy jest potrzebny.
-          text: messageLog.unreadMessages ? qsTr("Dziennik komunikatów (%1)").arg(messageLog.unreadMessagesCount >= 10 ? "10+" : messageLog.unreadMessagesCount) : qsTr("Dziennik komunikatów")
-          onClicked: {
-            dashBoard.showMessageLog();
-            dataDrawer.close();
-          }
-        }
-
-        QfPozycjaMenu {
-          t: dataDrawer.t
-          ikona: "ic_send_white_24dp"
-          text: qsTr("Udostępnij dziennik (debug)")
-          onClicked: {
-            const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");
-            const path = iface.dataRoot() + "logs/workfield_log_" + stamp + ".txt";
-            if (iface.writeTextFile(path, messageLogModel.toPlainText())) {
-              displayToast(qsTr("Dziennik zapisany: %1").arg(path));
-              platformUtilities.sendDatasetTo(path);
-            } else {
-              displayToast(qsTr("Nie udało się zapisać dziennika"), "error");
-            }
-            dataDrawer.close();
-          }
-        }
-
-        Item {
-          Layout.fillHeight: true
-        }
-      }
 
     }
 

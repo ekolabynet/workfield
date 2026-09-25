@@ -57,7 +57,9 @@ ToolBar {
     // WorkField 18.08.2026: bliźniak przełącznika widoków z lewej szuflady —
     // te same cztery zakładki, ikona + etykieta, podświetlenie aktywnej.
     Repeater {
-      model: [{ "nazwa": qsTr("Zlecenia"), "ikona": "wfg_magazyn", "sekcja": 0 }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }]
+      // WorkField 24.09.2026 — bez „Zlecen": wpis jest w „Projekcie".
+      // Numery sekcji zostaja, bo zmienil sie tylko zestaw przyciskow.
+      model: [{ "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }]
 
       delegate: Item {
         id: zakladkaBelki
@@ -186,11 +188,6 @@ ToolBar {
           "nazwa": qsTr("Algorytmy"),
           "ikona": "wfg_zbuduj",
           "zakladka": 2
-        },
-        {
-          "nazwa": qsTr("Ustawienia"),
-          "ikona": "wfg_ustawienia",
-          "zakladka": 3
         },
         {
           "nazwa": qsTr("Moduły"),

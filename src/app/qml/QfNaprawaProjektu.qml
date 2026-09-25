@@ -1,46 +1,141 @@
 /***************************************************************************
-  QfNaprawaProjektu.qml - naprawa braków wykrytych przy otwarciu projektu
+  QfNaprawaProjektu.qml - co jest nie tak i co z tym zrobic
 
  ---------------------
- WorkField: pokazuje listę braków z QfKontrolaProjektu i pozwala je usunąć.
+ WorkField: zrzut ustawień wczytanego projektu, czytany na miejscu.
 
- DWA CZASOWNIKI, NIE JEDEN — bo braki są dwóch rodzajów:
+ ======================================================================
+ TO JUŻ NIE JEST EKRAN NAPRAWY — 23.09.2026
+ ======================================================================
+ Do dziś ten ekran robił dwie rzeczy naraz: pokazywał stan projektu I
+ naprawiał braki („Załóż" dla kafli, „Pobierz z sieci" dla słownika).
+ Obie wyprowadziły się do Wyposażenia, bo tam siedzą wszystkie czasowniki,
+ tam jest kopia zapasowa i tam stempel zapisuje, co zrobiono.
 
-   ZAŁÓŻ        struktura. Aplikacja ma jej opis, więc umie ją odtworzyć.
-                Plik kafli powstaje z warstw, które w projekcie są.
-   POBIERZ      treść. Słownika gatunków żaden kod nie wymyśli — musi
-                przyjechać. Przycisk „Załóż" byłby tu kłamstwem: założyłby
-                pusty plik i wszystko wyglądałoby na naprawione.
+ Powód nie był porządkowy, tylko konkretny. `zbudujKlawisze()` brało
+ `nazwa.substring(0, 1)` bez sprawdzania kolizji — kreator „Projekt z DXF"
+ zakłada „Punkty" i „Poligony", więc OBA dostawały „P" i pasek wstawał
+ z dwoma identycznymi klawiszami. Do tego pisało CAŁY plik od nowa, więc
+ kafel dopisany ręcznie znikał przy następnym tapnięciu. `ModulKafli`
+ (src/core/moduly/kafle.cpp) dobiera etykiety i SCALA plik.
 
- PODZIAŁ PO RYZYKU. Ten ekran robi wyłącznie rzeczy, które zapisują pliki
- OBOK projektu. Nic nie pisze do wnętrza dane.gpkg, w którym siedzą dane
- z terenu — zakładanie warstw i tabel ZAL_ to osobny, ostrożniejszy krok
- (docs/WERSJONOWANIE.md, „trzy czasowniki, nie jeden").
+ Nazwa pliku zostaje, żeby nie ruszać czterech miejsc w QgisMobileapp.qml
+ dla samej kosmetyki. Nazwa OKNA mówi już, czym ono jest.
 
- Każda zmiana wymaga potwierdzenia, które mówi WPROST, co i gdzie powstanie.
- Bez ogólników „czy na pewno".
+ ======================================================================
+ PO CO TEN EKRAN ZOSTAŁ
+ ======================================================================
+ 25.08.2026: punkty nie siadały na miejscu przy małych płatach, a przyczynę
+ (`type=3`, edycja topologiczna) znaleźliśmy dopiero wieczorem, grepując
+ XML. W terenie nie było jak sprawdzić, co jest ustawione. To jedyny ekran,
+ który na to odpowiada — i dlatego nie zniknął razem z czasownikami.
+
+ ======================================================================
+ OD 23.09.2026 TO NIE JEST JUŻ TYLKO CZYTELNIA
+ ======================================================================
+ „Po co nam okno błędów, skoro nie mamy czasowników do ich poprawy?
+ To zostawia użytkowników z poczuciem bezsensu" (uwaga Piotra).
+
+ Racja — i to ta sama, przez którą rano `tyczenie` przestało tylko patrzeć.
+ Okno mówiące „przyciąganie łapie segment przy obiektach 0.1 m" i kończące
+ zdaniem „popraw w biurze" jest dokładnie tak samo bezużyteczne jak tamto
+ „w projekcie nie ma warstwy tyczenie".
+
+ Każde ostrzeżenie niesie teraz NAZWĘ CZASOWNIKA (`czasownik`), a to okno
+ stawia przy nim przycisk. Czasownik pusty = naprawdę nie ma co zrobić
+ w terenie; wtedy zostaje notatka i to jest uczciwe.
+
+ CZEGO TU NIE MA: KASOWANIA. Przybliżenie do zlepionego wierzchołka
+ i zaznaczenie go prowadzi do edytora geometrii, który QField ma od zawsze.
+ Kasowanie obiektu z terenu to pierwsza nieodwracalna czynność w tej
+ aplikacji i czeka na osobną decyzję.
  ***************************************************************************/
 
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtCore
 import org.qfield
 import Theme
 
 Popup {
   id: naprawa
 
-  //! instancja QfKontrolaProjektu
+  /**
+   * Instancja QfKontrolaProjektu.
+   *
+   * Nieużywana od 23.09.2026 — lista braków przeniosła się do Wyposażenia.
+   * Własność zostaje zadeklarowana, bo QgisMobileapp.qml ją podpina;
+   * usunięcie jej dałoby błąd wiązania, a nie oszczędność.
+   */
   property var kontrola: null
 
-  //! Ostatni blad pobierania — zostaje na ekranie, bo toast znika,
-  //! a przyczyna jest potrzebna dluzej niz dwie sekundy.
-  property string bladPobierania: ""
+  //! Wynik ostatniego czasownika — zostaje na ekranie, bo dymek gaśnie,
+  //! a „zrobione" trzeba przeczytać przy okazji patrzenia na listę.
+  property string komunikat: ""
+  property bool blad: false
 
-  property string _potwierdzenieRzecz: ""
-  property string _potwierdzenieOpis: ""
-  property string _potwierdzenieCel: ""
+  //! Katalog modułów: to on przestawia ustawienia, robi kopię projektu
+  //! i zapisuje. Okno tylko pyta i pokazuje wynik.
+  Wyposazenie {
+    id: wyposazenie
+  }
+
+  /**
+   * Wykonuje czasownik przy ostrzeżeniu.
+   *
+   * Przybliżenia mapy ZAMYKAJĄ okno — inaczej człowiek przybliża mapę
+   * i patrzy na popup, który ją zasłania. Zmiany ustawień okna NIE
+   * zamykają: po nich lista się odświeża i widać, że ostrzeżenie zniknęło.
+   */
+  function wykonaj(co, o) {
+    if (co === "pokaz_obiekt" || co === "pokaz_warstwe") {
+      const warstwy = qgisProject ? qgisProject.mapLayersByName(o.warstwa) : [];
+      if (warstwy.length === 0) {
+        naprawa.komunikat = qsTr("W projekcie nie ma już warstwy „%1”.").arg(o.warstwa);
+        naprawa.blad = true;
+        return;
+      }
+      if (typeof dashBoard === "undefined" || !dashBoard.mapSettings) {
+        naprawa.komunikat = qsTr("Nie mam dostępu do mapy.");
+        naprawa.blad = true;
+        return;
+      }
+      const udalo = co === "pokaz_obiekt"
+                      ? iface.zoomToFeature(warstwy[0], o.fid, dashBoard.mapSettings)
+                      : iface.zoomToLayer(warstwy[0], dashBoard.mapSettings);
+      if (!udalo) {
+        // Obiekt z PUSTĄ geometrią nie ma dokąd przybliżyć — i to jest
+        // dokładnie ten błąd, o którym mówi wpis. Milczenie wyglądałoby
+        // jak niedziałający przycisk.
+        naprawa.komunikat = qsTr("Nie ma do czego przybliżyć — ten obiekt nie ma geometrii.");
+        naprawa.blad = true;
+        return;
+      }
+      naprawa.close();
+      return;
+    }
+
+    let w = null;
+    if (co === "przyc_wierzcholek")
+      w = wyposazenie.ustawPrzyciaganie(qgisProject, 0, false);
+    else if (co === "przyc_prog")
+      w = wyposazenie.ustawPrzyciaganie(qgisProject,
+                                        o.parametr !== undefined ? o.parametr : 0.05, true);
+    else if (co === "topologia")
+      w = wyposazenie.ustawEdycjeTopologiczna(qgisProject, false);
+    else if (co === "slownik") {
+      naprawa.close();
+      if (typeof ekranWyposazenia !== "undefined")
+        ekranWyposazenia.otworz();
+      return;
+    }
+
+    if (w === null)
+      return;
+    naprawa.komunikat = w.opis;
+    naprawa.blad = !w.ok;
+    stanProjektu.odswiez();
+  }
 
   parent: mainWindow.contentItem
   x: Math.round((mainWindow.width - width) / 2)
@@ -78,128 +173,6 @@ Popup {
     klucz: "stanProjektu"
   }
 
-  Settings {
-    id: ustawieniaChmury
-    category: "WFGChmura"
-    //! Publiczny udział NextCloud z plikami wspólnymi (słowniki, wyposażenie)
-    property string udzialUrl: "https://ekolaby.net/cloud/index.php/s/tNFYcZP9zKyFxeM"
-    //! Podkatalog w udziale; pusty = korzeń udziału
-    property string podkatalog: ""
-  }
-
-  function katalog() {
-    return qgisProject ? qgisProject.homePath : "";
-  }
-
-  /**
-   * Adres pobrania pojedynczego pliku z publicznego udziału NextCloud.
-   * Postać `.../s/<token>/download?path=/<podkatalog>&files=<nazwa>` działa
-   * bez logowania i bez listowania — a nazwy plików wspólnych znamy z góry.
-   */
-  function adresPliku(nazwa) {
-    const baza = ustawieniaChmury.udzialUrl.replace(/\/+$/, "");
-    const sciezka = ustawieniaChmury.podkatalog === "" ? "/" : "/" + ustawieniaChmury.podkatalog;
-    return baza + "/download?path=" + encodeURIComponent(sciezka) + "&files=" + encodeURIComponent(nazwa);
-  }
-
-  // ----------------------------------------------------------- czasowniki
-
-  /**
-   * Kafle paska z warstw, które w projekcie SĄ. Warstwy punktowe dostają
-   * kafel ze zdjęciem, poligonowe i liniowe bez — obrys rysuje się dłużej
-   * niż trwa zdjęcie. Ostatni kafel to tyczenie, jeśli warstwa istnieje.
-   *
-   * PUŁAPKA: klucz to `etykieta`, NIE `nazwa`. QfQuickCaptureBar.loadDefinitions()
-   * przy złym kluczu wypisuje „definicje z pliku, 0 klawiszy" i pasek wstaje pusty.
-   */
-  function zbudujKlawisze() {
-    const warstwy = NarzedziaProjektu.warstwyRobocze(qgisProject);
-    const kolory = ["#2E7D32", "#00897B", "#F9A825", "#6A1B9A", "#C62828", "#1565C0"];
-    const kafle = [];
-    for (let i = 0; i < warstwy.length && kafle.length < 6; i++) {
-      const w = warstwy[i];
-      if (w.nazwa === "tyczenie")
-        continue;
-      kafle.push({
-        "etykieta": w.nazwa.substring(0, 1).toUpperCase(),
-        "warstwa": w.nazwa,
-        "kolor": kolory[kafle.length % kolory.length],
-        "zdjecie": w.punktowa === true
-      });
-    }
-    if (NarzedziaProjektu.warstwaPoNazwie(qgisProject, "tyczenie")) {
-      kafle.push({ "etykieta": "T", "warstwa": "tyczenie", "kolor": "#546E7A", "zdjecie": false });
-    }
-    return { "odleglosci": [25, 50, 100, 200], "klawisze": kafle };
-  }
-
-  function opisDzialania(rzecz) {
-    if (rzecz === "klawisze") {
-      const tresc = zbudujKlawisze();
-      if (tresc.klawisze.length === 0)
-        return { "mozliwe": false, "opis": qsTr("Projekt nie ma warstw roboczych — nie ma z czego zrobić kafli.") };
-      const etykiety = tresc.klawisze.map(k => k.etykieta + " → " + k.warstwa).join("\n   ");
-      return {
-        "mozliwe": true,
-        "przycisk": qsTr("Załóż"),
-        "cel": katalog() + "/workfield_klawisze.json",
-        "opis": qsTr("Powstanie plik:\n   %1\n\nz kaflami:\n   %2").arg(katalog() + "/workfield_klawisze.json").arg(etykiety)
-      };
-    }
-    if (rzecz === "wskazniki") {
-      return {
-        "mozliwe": true,
-        "przycisk": qsTr("Pobierz z sieci"),
-        "cel": katalog() + "/wf_wskazniki.gpkg",
-        "opis": qsTr("Zostanie pobrany plik:\n   %1\n\ndo:\n   %2\n\nPotrzebny internet.").arg(adresPliku("wf_wskazniki.gpkg")).arg(katalog() + "/wf_wskazniki.gpkg")
-      };
-    }
-    return { "mozliwe": false, "opis": qsTr("Ten brak usuwa się zakładaniem warstwy w GeoPackage — osobny krok, jeszcze niedostępny.") };
-  }
-
-  function wykonaj(rzecz) {
-    if (rzecz === "klawisze") {
-      const tresc = JSON.stringify(zbudujKlawisze(), null, 2);
-      if (NarzedziaProjektu.zapiszTekst(katalog() + "/workfield_klawisze.json", tresc)) {
-        displayToast(qsTr("Kafle paska założone"));
-        kontrola.sprawdz();
-        stanProjektu.odswiez();
-      } else {
-        displayToast(qsTr("Nie udało się zapisać pliku kafli"), "error");
-      }
-      return;
-    }
-    if (rzecz === "wskazniki") {
-      displayToast(qsTr("Pobieram słownik gatunków…"));
-      iface.downloadFile(adresPliku("wf_wskazniki.gpkg"), katalog() + "/wf_wskazniki.gpkg");
-      return;
-    }
-  }
-
-  Connections {
-    target: iface
-
-    function onDownloadFinished(path) {
-      if (path.indexOf("wf_wskazniki.gpkg") === -1)
-        return;
-      displayToast(qsTr("Słownik gatunków pobrany"));
-      naprawa.bladPobierania = "";
-      if (naprawa.kontrola)
-        naprawa.kontrola.sprawdz();
-      stanProjektu.odswiez();
-    }
-
-    // `downloadFile` emituje `downloadFailed` z trescia bledu — a ekran
-    // sluchal tylko powodzenia. Pobieranie zawodzilo W CISZY: przycisk
-    // tapniety, komunikat "Pobieram…", i nic wiecej do konca swiata.
-    function onDownloadFailed(error, path) {
-      if (path.indexOf("wf_wskazniki.gpkg") === -1)
-        return;
-      naprawa.bladPobierania = error;
-      displayToast(qsTr("Nie pobrano słownika: %1").arg(error), "error");
-    }
-  }
-
   // --------------------------------------------------------------- widok
 
   Text {
@@ -208,7 +181,7 @@ Popup {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    text: qsTr("Czego brakuje temu projektowi")
+    text: qsTr("Co jest nie tak i co z tym zrobić")
     font: Theme.strongTipFont
     color: Theme.mainTextColor
     elide: Text.ElideRight
@@ -238,69 +211,18 @@ Popup {
     width: przewijacz.width
     spacing: 10
 
-    Repeater {
-      model: naprawa.kontrola ? naprawa.kontrola.braki : []
-
-      delegate: RowLayout {
-        required property var modelData
-        Layout.fillWidth: true
-        spacing: 8
-
-        Text {
-          Layout.fillWidth: true
-          text: (modelData.waga === "brak" ? "✗  " : "•  ") + modelData.opis
-          font: Theme.tipFont
-          color: modelData.waga === "brak" ? Theme.errorColor : Theme.secondaryTextColor
-          wrapMode: Text.WordWrap
-        }
-
-        Button {
-          readonly property var dzialanie: naprawa.opisDzialania(modelData.rzecz)
-          visible: modelData.waga === "brak" && dzialanie.mozliwe === true
-          text: dzialanie.przycisk !== undefined ? dzialanie.przycisk : ""
-          onClicked: {
-            naprawa._potwierdzenieRzecz = modelData.rzecz;
-            naprawa._potwierdzenieOpis = dzialanie.opis;
-            naprawa._potwierdzenieCel = dzialanie.cel;
-            potwierdzenie.open();
-          }
-        }
-      }
-    }
-
     Text {
       Layout.fillWidth: true
-      visible: naprawa.kontrola && naprawa.kontrola.braki.length === 0
-      text: qsTr("Nic nie brakuje.")
+      visible: naprawa.komunikat !== ""
+      text: naprawa.komunikat
       font: Theme.tipFont
-      color: Theme.secondaryTextColor
+      color: naprawa.blad ? Theme.errorColor : "#9CCC65"
+      wrapMode: Text.WordWrap
     }
 
-    // ------------------------------------------------------ stan projektu
-    //
-    // 25.08.2026: punkty nie siadały na miejscu przy małych płatach,
-    // a przyczynę (`type=3`, edycja topologiczna) znaleźliśmy dopiero
-    // wieczorem, grepując XML. W terenie nie było jak sprawdzić, co jest
-    // ustawione. Ta sekcja odpowiada na to pytanie na miejscu.
-    //
     // Kolejność ODWROTNA wobec tego, co zwraca czasownik: najpierw
     // ostrzeżenia, bo to one mówią, czy coś jest nie tak. Warstwy na końcu
     // i zwinięte — najdłuższe i najrzadziej potrzebne.
-
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: Theme.controlBorderColor
-      opacity: 0.4
-    }
-
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Jak ten projekt jest ustawiony")
-      font: Theme.strongTipFont
-      color: Theme.mainTextColor
-      wrapMode: Text.WordWrap
-    }
 
     Item {
       id: stanProjektu
@@ -311,6 +233,61 @@ Popup {
         dane = qgisProject ? NarzedziaProjektu.stanProjektu(qgisProject) : ({});
       }
 
+      // ==================================================================
+      // BŁĘDY W DANYCH ODDZIELNIE OD USTAWIEŃ — 23.09.2026
+      // ==================================================================
+      // Jedna lista mieszała dwie rzeczy wymagające dwóch różnych czynności:
+      // „przyciąganie łapie segment przy obiektach 0.1 m" naprawia się
+      // przestawieniem ustawienia, a „obiekt o obwiedni 0.09 m (fid 2253)"
+      // — poprawieniem geometrii TEGO obiektu. Wymieszane wyglądały jak
+      // jedna kupa usterek projektu.
+      //
+      // `rodzaj` przychodzi z `NarzedziaProjektu::stanProjektu`. Starsza
+      // aplikacja bez tego pola wrzuci wszystko do ustawień — pokaże
+      // za dużo, ale nie zgubi niczego.
+      function wedlugRodzaju(czyDane) {
+        const wszystkie = dane.ostrzezenia !== undefined ? dane.ostrzezenia : [];
+        const out = [];
+        for (let i = 0; i < wszystkie.length; i++) {
+          if ((wszystkie[i].rodzaj === "dane") === czyDane)
+            out.push(wszystkie[i]);
+        }
+        return out;
+      }
+
+      /**
+       * Przyciski przy ostrzeżeniu. Lista, bo przy przyciąganiu są DWA
+       * wyjścia i żadne nie jest oczywiście lepsze: albo schodzimy z progu,
+       * albo zostawiamy sam wierzchołek. Wybór należy do człowieka.
+       */
+      function czasowniki(o) {
+        switch (o.czasownik) {
+        case "pokaz_obiekt":
+          return [{ "etykieta": qsTr("Pokaż na mapie"), "co": "pokaz_obiekt" }];
+        case "pokaz_warstwe":
+          return [{ "etykieta": qsTr("Pokaż warstwę"), "co": "pokaz_warstwe" }];
+        case "przyciaganie":
+          return [{ "etykieta": qsTr("Tylko wierzchołek"), "co": "przyc_wierzcholek" },
+                  { "etykieta": qsTr("Próg %1 m").arg(
+                      (o.parametr !== undefined ? o.parametr : 0.05).toFixed(2)),
+                    "co": "przyc_prog" }];
+        case "topologia":
+          return [{ "etykieta": qsTr("Wyłącz"), "co": "topologia" }];
+        case "slownik":
+          return [{ "etykieta": qsTr("Pobierz"), "co": "slownik" }];
+        }
+        return [];
+      }
+
+      //! Adres obiektu pod komunikatem — pod przyszłe „Pokaż na mapie".
+      function adres(o) {
+        if (o.warstwa === undefined || o.warstwa === "")
+          return "";
+        return o.fid !== undefined && o.fid >= 0
+                 ? qsTr("%1 · fid %2").arg(o.warstwa).arg(o.fid)
+                 : o.warstwa;
+      }
+
       // Odświeżamy przy każdym otwarciu ekranu, nie raz przy starcie:
       // ustawienia zmieniają się w trakcie pracy, a nieaktualny zrzut
       // jest gorszy niż jego brak.
@@ -318,29 +295,162 @@ Popup {
         target: naprawa
         function onOpened() {
           stanProjektu.odswiez();
-          // Blad pobierania zostaje na ekranie do konca sesji okna, ale
-          // przy KOLEJNYM otwarciu jest juz nieaktualny — wczoraj 404,
-          // dzis plik w chmurze jest.
-          naprawa.bladPobierania = "";
         }
       }
 
       Component.onCompleted: odswiez()
     }
 
-    // --- ostrzeżenia: liczone z DANYCH, nie z ustawień
+    // --- BŁĘDY W DANYCH: pierwsze, bo mówią o pracy, która może być stracona
+
+    Text {
+      Layout.fillWidth: true
+      visible: stanProjektu.wedlugRodzaju(true).length > 0
+      text: qsTr("Błędy w danych")
+      font: Theme.strongTipFont
+      color: Theme.errorColor
+      wrapMode: Text.WordWrap
+    }
 
     Repeater {
-      model: stanProjektu.dane.ostrzezenia !== undefined
-             ? stanProjektu.dane.ostrzezenia : []
+      model: stanProjektu.wedlugRodzaju(true)
 
-      delegate: Text {
+      delegate: ColumnLayout {
         required property var modelData
         Layout.fillWidth: true
-        text: (modelData.waga === "brak" ? "✗  " : "!  ") + modelData.opis
-        font: Theme.tipFont
-        color: modelData.waga === "brak" ? Theme.errorColor : Theme.warningColor
-        wrapMode: Text.WordWrap
+        spacing: 0
+
+        Text {
+          Layout.fillWidth: true
+          text: "×  " + modelData.opis
+          font: Theme.tipFont
+          color: Theme.errorColor
+          wrapMode: Text.WordWrap
+        }
+
+        // Adres obiektu osobno od zdania: zdanie tłumaczy, adres pozwala
+        // znaleźć. Stąd wyrośnie „Pokaż na mapie" — bez tych dwóch pól
+        // nie było z czego.
+        Text {
+          Layout.fillWidth: true
+          Layout.leftMargin: 18
+          visible: text !== ""
+          text: stanProjektu.adres(modelData)
+          font: Theme.tinyFont
+          color: Theme.secondaryTextColor
+          wrapMode: Text.WordWrap
+        }
+
+        // CO Z TYM ZROBIĆ. Opis mówi, co się stało; rada mówi, co zrobić.
+        // Bez niej człowiek dowiadywał się o usterce i zostawał z nią sam.
+        Text {
+          Layout.fillWidth: true
+          Layout.leftMargin: 18
+          Layout.topMargin: 2
+          visible: modelData.rada !== undefined && modelData.rada !== ""
+          text: "→ " + (modelData.rada !== undefined ? modelData.rada : "")
+          font: Theme.tipFont
+          color: Theme.mainTextColor
+          wrapMode: Text.WordWrap
+        }
+
+        // Czasownik przy ostrzeżeniu. Pusta lista = naprawdę nie ma co
+        // zrobić w terenie; wtedy zostaje sama rada i to jest uczciwe.
+        Flow {
+          Layout.fillWidth: true
+          Layout.leftMargin: 18
+          Layout.topMargin: 4
+          spacing: 8
+
+          Repeater {
+            model: stanProjektu.czasowniki(modelData)
+
+            QfButton {
+              required property var modelData
+              property var wpis: parent.parent.modelData
+              text: modelData.etykieta
+              topPadding: 6
+              bottomPadding: 6
+              leftPadding: 12
+              rightPadding: 12
+              onClicked: naprawa.wykonaj(modelData.co, wpis)
+            }
+          }
+        }
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      visible: stanProjektu.wedlugRodzaju(true).length > 0
+      text: qsTr("„Pokaż na mapie” przybliża i ZAZNACZA obiekt — dalej poprawiasz go edytorem wierzchołków, tym samym co zawsze. Kasowania tu nie ma i nie będzie bez osobnej decyzji.")
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 1
+      visible: stanProjektu.wedlugRodzaju(true).length > 0
+      color: Theme.controlBorderColor
+      opacity: 0.4
+    }
+
+    // --- USTAWIENIA I SKŁAD PROJEKTU: prewencja, da się przestawić teraz
+
+    Repeater {
+      model: stanProjektu.wedlugRodzaju(false)
+
+      delegate: ColumnLayout {
+        required property var modelData
+        Layout.fillWidth: true
+        spacing: 0
+
+        Text {
+          Layout.fillWidth: true
+          text: (modelData.waga === "brak" ? "×  " : "!  ") + modelData.opis
+          font: Theme.tipFont
+          color: modelData.waga === "brak" ? Theme.errorColor : Theme.warningColor
+          wrapMode: Text.WordWrap
+        }
+
+        Text {
+          Layout.fillWidth: true
+          Layout.leftMargin: 18
+          Layout.topMargin: 2
+          visible: modelData.rada !== undefined && modelData.rada !== ""
+          text: "→ " + (modelData.rada !== undefined ? modelData.rada : "")
+          font: Theme.tipFont
+          color: Theme.mainTextColor
+          wrapMode: Text.WordWrap
+        }
+
+        // Czasownik przy ostrzeżeniu. Pusta lista = naprawdę nie ma co
+        // zrobić w terenie; wtedy zostaje sama rada i to jest uczciwe.
+        Flow {
+          Layout.fillWidth: true
+          Layout.leftMargin: 18
+          Layout.topMargin: 4
+          spacing: 8
+
+          Repeater {
+            model: stanProjektu.czasowniki(modelData)
+
+            QfButton {
+              required property var modelData
+              property var wpis: parent.parent.modelData
+              text: modelData.etykieta
+              topPadding: 6
+              bottomPadding: 6
+              leftPadding: 12
+              rightPadding: 12
+              onClicked: naprawa.wykonaj(modelData.co, wpis)
+            }
+          }
+        }
+
+        Item { Layout.preferredHeight: 4 }
       }
     }
 
@@ -407,7 +517,7 @@ Popup {
         w.push(qsTr("Zapisuje do: %1")
                .arg(d.plikDanych !== "" ? d.plikDanych : qsTr("— brak pliku danych!")));
         w.push(qsTr("Słownik gatunków: %1")
-               .arg(d.wskazniki ? qsTr("jest") : qsTr("BRAK")));
+               .arg(d.wskazniki ? qsTr("jest") : qsTr("BRAK — pobierzesz w Wyposażeniu")));
         return w.join("\n");
       }
     }
@@ -473,16 +583,7 @@ Popup {
 
     Text {
       Layout.fillWidth: true
-      visible: naprawa.bladPobierania !== ""
-      text: qsTr("Ostatni błąd pobierania: %1").arg(naprawa.bladPobierania)
-      font: Theme.tinyFont
-      color: Theme.errorColor
-      wrapMode: Text.WordWrap
-    }
-
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Ten ekran zapisuje wyłącznie pliki obok projektu. Nie zmienia danych w dane.gpkg.")
+      text: qsTr("Zmiany ustawień robią kopię projektu obok, zanim cokolwiek ruszą. Zakładanie modułów siedzi w Wyposażeniu — tam dochodzi jeszcze stempel w bazie.")
       font: Theme.tinyFont
       color: Theme.secondaryTextColor
       wrapMode: Text.WordWrap
@@ -511,55 +612,6 @@ Popup {
       leftPadding: 10
       rightPadding: 10
       onClicked: naprawa.close()
-    }
-  }
-
-  // -------------------------------------------------- potwierdzenie zmiany
-
-  Popup {
-    id: potwierdzenie
-
-    parent: mainWindow.contentItem
-    x: Math.round((mainWindow.width - width) / 2)
-    y: Math.round((mainWindow.height - height) / 2)
-    width: Math.min(mainWindow.width - 32, 480)
-    modal: true
-
-    ColumnLayout {
-      width: parent.width
-      spacing: 10
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Potwierdź")
-        font: Theme.strongTipFont
-        color: Theme.mainTextColor
-      }
-
-      Text {
-        Layout.fillWidth: true
-        text: naprawa._potwierdzenieOpis
-        font: Theme.tinyFont
-        color: Theme.mainTextColor
-        wrapMode: Text.Wrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        Item { Layout.fillWidth: true }
-        Button {
-          text: qsTr("Anuluj")
-          flat: true
-          onClicked: potwierdzenie.close()
-        }
-        Button {
-          text: qsTr("Zrób to")
-          onClicked: {
-            potwierdzenie.close();
-            naprawa.wykonaj(naprawa._potwierdzenieRzecz);
-          }
-        }
-      }
     }
   }
 }

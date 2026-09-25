@@ -12,7 +12,39 @@ Popup {
   id: toast
 
   property string type: 'info'
-  property double edgeSpacing: 54
+
+  /**
+   * WorkFieldGIS 23.09.2026 — DYMEK, KTÓRY CZEKA NA TAPNIĘCIE.
+   *
+   * Dymek przy otwarciu projektu wymienia, czego brakuje — bywa, że trzy
+   * rzeczy. Trzy sekundy (pięć z przyciskiem) nie wystarczają, żeby to
+   * przeczytać w rękawicach i w słońcu, a drugi raz ten komunikat już nie
+   * przyjdzie: leci raz, półtorej sekundy po wczytaniu projektu.
+   *
+   * WŁĄCZANE OSOBNO, przez `pokazTrwaly()`. Zwykłe dymki („Przeglądanie",
+   * „Autozapis projektu") mają nadal gasnąć same — dymek wiszący po każdej
+   * drobnej czynności byłby gorszy od zbyt krótkiego.
+   *
+   * Trwały dymek jest SZERSZY (mniejszy margines), ma MNIEJSZĄ czcionkę
+   * i przycisk pod tekstem, a nie obok — bo mieści więcej niż jedno zdanie.
+   */
+  property bool trwaly: false
+
+  //! Nagłówek nad treścią — tylko przy trwałym. Dymek startowy wymienia
+  //! kilka rzeczy naraz i bez nagłówka czyta się jak jedno długie zdanie.
+  property string naglowek: ""
+
+  /**
+   * Odsyłacze pod treścią: lista map `{ etykieta, akcja }`.
+   *
+   * Zwykły dymek ma JEDEN przycisk („Pokaż") i to wystarcza. Dymek
+   * startowy mówi o dwóch różnych rzeczach — ustawieniach i błędach
+   * w danych — które naprawia się w dwóch różnych oknach. Jeden przycisk
+   * musiałby zgadnąć, do którego prowadzić.
+   */
+  property var akcje: []
+
+  property double edgeSpacing: trwaly ? 12 : 54
   property double bottomSpacing: 0
   property var act: undefined
   property var timeoutAct: undefined
@@ -34,7 +66,9 @@ Popup {
   z: 10001
 
   width: mainWindow.width - edgeSpacing * 2
-  height: toastMessage.contentHeight + 20
+  // Przy trwalym dymku tekst ma kilka linii I przycisk pod soba — wysokosc
+  // samego tekstu nie wystarcza, bo przycisk wyladowalby poza ramka.
+  height: trwaly ? toastContent.height + 20 : toastMessage.contentHeight + 20
   topMargin: 0
   leftMargin: 0
   rightMargin: 0
@@ -50,12 +84,16 @@ Popup {
     animationTimer.reset();
     toast.timeoutAct = undefined;
     timeoutFeedback = false;
+    // `trwaly` NIE jest tu zerowane. Zamkniecie idzie w parze z gasnieciem
+    // (250 ms), a zmiana `trwaly` w tej samej chwili przestawilaby szerokosc
+    // i czcionke W TRAKCIE animacji — dymek skakalby w polowie znikania.
+    // Zeruje to `show()`, czyli kazdy nastepny ZWYKLY dymek.
   }
 
   Rectangle {
     id: toastContent
 
-    property int contentPadding: 20
+    property int contentPadding: toast.trwaly ? 26 : 20
     property int topPadding: toastLayout.columns === 1 ? 8 : 10
     property int bottomPadding: toastLayout.columns === 1 ? 12 : 10
     property int actionWidth: toastAction.visible ? toastAction.width + 10 : 0
@@ -63,7 +101,10 @@ Popup {
     property int unrestrainedWidth: contentPadding * 2 + toastFontMetrics.boundingRect(toastMessage.text).width + actionWidth + 10
 
     z: 1
-    width: Math.min(unrestrainedWidth, toast.width - 20)
+    // Trwaly dymek bierze CALA dostepna szerokosc: ma do powiedzenia
+    // wiecej niz jedno zdanie i lamanie go w waski slupek jest gorsze.
+    width: toast.trwaly ? toast.width - 20
+                        : Math.min(unrestrainedWidth, toast.width - 20)
     height: toastLayout.height + topPadding + bottomPadding
     anchors.centerIn: parent
 
@@ -142,7 +183,20 @@ Popup {
       anchors.leftMargin: toastContent.contentPadding
       columnSpacing: 10
       rowSpacing: 12
-      columns: toastContent.absoluteMessageWidth > mainWindow.width * 1.75 ? 1 : 2
+      columns: toast.trwaly || toastContent.absoluteMessageWidth > mainWindow.width * 1.75 ? 1 : 2
+
+      Text {
+        id: toastNaglowek
+        Layout.fillWidth: true
+        visible: toast.trwaly && text !== ""
+        wrapMode: Text.Wrap
+        color: QfTheme.light
+        // Pojedyncze wlasnosci, nie `font:` — grupy i jej skladowej nie
+        // wolno przypisac na tym samym elemencie.
+        font.pointSize: QfTheme.defaultFont.pointSize
+        font.bold: true
+        horizontalAlignment: Text.AlignLeft
+      }
 
       Text {
         id: toastMessage
@@ -150,18 +204,23 @@ Popup {
         wrapMode: Text.Wrap
         color: QfTheme.light
 
-        font: QfTheme.defaultFont
+        // Mniejsza czcionka przy trwalym: tekst jest dluzszy, a dymek
+        // i tak nie znika sam, wiec nie trzeba go czytac w biegu.
+        font: toast.trwaly ? QfTheme.tipFont : QfTheme.defaultFont
         horizontalAlignment: Text.AlignLeft
       }
 
       QfButton {
         id: toastAction
         Layout.alignment: (toastLayout.columns === 1 ? Qt.AlignLeft : Qt.AlignHCenter) | Qt.AlignVCenter
-        visible: text != ''
         radius: 4
         bgcolor: "#00000000"
         color: QfTheme.mainColor
         font.pointSize: QfTheme.tipFont.pointSize
+        // JEDEN `visible`, nie dwa. Przy trwalym dymku odsylacze rysuje
+        // `toastAkcje` nizej, wiec ten przycisk ma zniknac — inaczej
+        // wyszlyby dwa rzedy przyciskow, jeden pusty.
+        visible: !toast.trwaly && text != ''
 
         onClicked: {
           if (toast.act !== undefined) {
@@ -169,6 +228,37 @@ Popup {
           }
           toast.close();
           toastContent.opacity = 0;
+        }
+      }
+
+      // Odsylacze trwalego dymka. JASNOZIELONE TLO, nie sam tekst w kolorze:
+      // na ciemnym dymku link rozniacy sie wylacznie barwa liter ginie
+      // w sloncu, a to jedyne swiatlo, w jakim ten dymek bywa czytany.
+      Flow {
+        id: toastAkcje
+
+        Layout.fillWidth: true
+        visible: toast.trwaly && toast.akcje.length > 0
+        spacing: 8
+
+        Repeater {
+          model: toast.akcje
+
+          QfButton {
+            text: modelData.etykieta
+            radius: 4
+            bgcolor: "#C8E6C9"
+            color: "#1B5E20"
+            font.pointSize: QfTheme.tipFont.pointSize
+
+            onClicked: {
+              if (modelData.akcja !== undefined) {
+                modelData.akcja();
+              }
+              toast.close();
+              toastContent.opacity = 0;
+            }
+          }
         }
       }
     }
@@ -237,6 +327,9 @@ Popup {
       }
     }
 
+    toast.trwaly = false;
+    toastNaglowek.text = '';
+    toast.akcje = [];
     toastMessage.text = text;
     toast.type = type || 'info';
     if (timeout_feedback !== undefined) {
@@ -265,5 +358,35 @@ Popup {
       animationTimer.reset();
       animationTimer.restart();
     }
+  }
+
+  /**
+   * Dymek, ktory NIE GASNIE SAM — czeka na tapniecie.
+   *
+   * Celowo osobna funkcja, a nie kolejny argument `show()`: ta ma ich
+   * juz szesc i siodmy byloby latwo wpisac przez pomylke w zwyklym
+   * wywolaniu. Tu trzeba napisac inna nazwe, zeby dostac inne zachowanie.
+   *
+   * `toastTimer` NIE JEST uruchamiany. Zamyka to tapniecie w dymek
+   * (MouseArea nizej) albo tapniecie w przycisk akcji.
+   */
+  function pokazTrwaly(naglowek, text, type, akcje) {
+    if (toastTimer.running) {
+      toastTimer.stop();
+    }
+    animationTimer.stop();
+    animationTimer.reset();
+
+    toast.trwaly = true;
+    toastNaglowek.text = naglowek !== undefined ? naglowek : '';
+    toastMessage.text = text;
+    toast.type = type || 'info';
+    toast.timeoutFeedback = false;
+    toast.timeoutAct = undefined;
+    toastAction.text = '';
+    toast.act = undefined;
+    toast.akcje = akcje !== undefined && akcje !== null ? akcje : [];
+    toastContent.opacity = 1;
+    toast.open();
   }
 }

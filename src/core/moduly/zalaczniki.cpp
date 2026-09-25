@@ -392,6 +392,110 @@ namespace
     return true;
   }
 
+  /**
+   * Pole z pojedynczym zdjeciem na warstwie rodzica; -1, gdy nie ma.
+   *
+   * Dwie nazwy, bo dwa rodowody: `ZDJECIE` w projektach z kreatora,
+   * `FOTO` w szablonach dendro.
+   */
+  int polePojedynczegoZdjecia( QgsVectorLayer *rodzic, QString *nazwaPola )
+  {
+    for ( const QString &kandydat : { QStringLiteral( "ZDJECIE" ), QStringLiteral( "FOTO" ),
+                                      QStringLiteral( "zdjecie" ), QStringLiteral( "foto" ) } )
+    {
+      const int i = rodzic->fields().indexOf( kandydat );
+      if ( i >= 0 )
+      {
+        if ( nazwaPola )
+          *nazwaPola = kandydat;
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * \brief Przenosi sciezki ze starego pola zdjecia do tabeli zalacznikow.
+   *
+   * ==========================================================================
+   * PO CO — I DLACZEGO DOPIERO TERAZ
+   * ==========================================================================
+   * 22.09.2026 zapisalem w `docs/ZALACZNIKI.md`, ze modul CELOWO nie rusza
+   * pola `ZDJECIE`: skasowanie go skasowaloby sciezki do plikow lezacych juz
+   * w DCIM. Rozumowanie bylo poprawne, wniosek za szeroki — „nie kasuj"
+   * nie znaczy „pokazuj obok".
+   *
+   * Skutek widac bylo w formularzu: DWA APARATY pod soba, „ZDJECIE"
+   * i „Zalaczniki". Uwaga Piotra, 23.09.2026: „warstwy, dla ktorych sa
+   * zakladane multizalaczniki, zachowuja stare pole zdjecie. I w sumie
+   * wyglada to dziwnie".
+   *
+   * ==========================================================================
+   * NIC NIE GINIE
+   * ==========================================================================
+   * Sciezka z `ZDJECIE` staje sie PIERWSZYM ZALACZNIKIEM obiektu, z `TYP`
+   * ustawionym na `foto` i adnotacja w `UWAGI`, skad przyszla. Samo pole
+   * ZOSTAJE W BAZIE — znika tylko z formularza (widget `Hidden`). Gdyby
+   * cokolwiek poszlo nie tak, wartosci sa tam, gdzie byly, a `Wyposazenie`
+   * zrobilo przedtem kopie `dane.gpkg`.
+   *
+   * IDEMPOTENCJA PO PARZE (rodzic, sciezka): drugie uruchomienie nie zrobi
+   * drugiego wiersza z tym samym zdjeciem. Rozpoznawanie po samym rodzicu
+   * bylo by zle — obiekt ma miec wiele zalacznikow, o to w tym wszystkim
+   * chodzi.
+   *
+   * Zwraca liczbe przeniesionych; -1 przy bledzie zapisu.
+   */
+  int przeniesStareZdjecia( QgsVectorLayer *rodzic, QgsVectorLayer *dziecko,
+                            const QString &nazwaPola, int idxPola )
+  {
+    // Co juz jest w tabeli — para rodzic|sciezka.
+    QSet<QString> juzSa;
+    QgsFeature istniejacy;
+    QgsFeatureIterator itd = dziecko->getFeatures();
+    while ( itd.nextFeature( istniejacy ) )
+    {
+      juzSa.insert( QStringLiteral( "%1|%2" )
+                      .arg( istniejacy.attribute( POLE_RODZIC ).toString(),
+                            istniejacy.attribute( POLE_SCIEZKA ).toString() ) );
+    }
+
+    QgsFeatureList nowe;
+    QgsFeature r;
+    QgsFeatureIterator itr = rodzic->getFeatures();
+    while ( itr.nextFeature( r ) )
+    {
+      const QString sciezka = r.attribute( idxPola ).toString().trimmed();
+      if ( sciezka.isEmpty() )
+        continue;
+      if ( juzSa.contains( QStringLiteral( "%1|%2" ).arg( r.id() ).arg( sciezka ) ) )
+        continue;
+
+      QgsFeature n( dziecko->fields() );
+      n.setAttribute( POLE_RODZIC, r.id() );
+      n.setAttribute( POLE_TYP, QStringLiteral( "foto" ) );
+      n.setAttribute( POLE_SCIEZKA, sciezka );
+      n.setAttribute( POLE_UWAGI,
+                      QObject::tr( "przeniesione z pola %1" ).arg( nazwaPola ) );
+      nowe << n;
+    }
+
+    if ( nowe.isEmpty() )
+      return 0;
+
+    // Przez API warstwy, nie przez sqlite3: warstwa-dziecko jest wczytana
+    // i trzyma wlasna pamiec podreczna. Dopisanie wierszy za jej plecami
+    // dawaloby galerie, ktora ich nie widzi az do przeladowania projektu.
+    if ( !dziecko->startEditing() )
+      return -1;
+    if ( !dziecko->addFeatures( nowe ) || !dziecko->commitChanges() )
+    {
+      dziecko->rollBack();
+      return -1;
+    }
+    return nowe.size();
+  }
+
   //! Warstwa techniczna: grupa „Załączniki", zwinieta, wylaczona na mapie.
   void doGrupy( QgsProject *projekt, QgsVectorLayer *warstwa )
   {
@@ -518,6 +622,7 @@ namespace ModulZalacznikow
     }
 
     int nowychTabel = 0;
+    int przeniesionychZdjec = 0;
     int nowychRelacji = 0;
     //! Dwie rozne nazwy warstw moga sprowadzic sie do jednej nazwy tabeli
     //! („Poligony (hatch)" i „Poligony hatch"). Wtedy druga warstwa
@@ -646,17 +751,47 @@ namespace ModulZalacznikow
       // --- 5. zakladka w formularzu rodzica ------------------------------
       const bool zakladka = dodajZakladke( rodzic, relId );
 
-      w.szczegoly << QObject::tr( "%1 → %2%3%4" )
+      // --- 6. stare pole ZDJECIE: przeniesc i ukryc ----------------------
+      QString nazwaPola;
+      const int idxZdjecia = polePojedynczegoZdjecia( rodzic, &nazwaPola );
+      QString oZdjeciu;
+      if ( idxZdjecia >= 0 )
+      {
+        const int przeniesione =
+          przeniesStareZdjecia( rodzic, dziecko, nazwaPola, idxZdjecia );
+        if ( przeniesione < 0 )
+        {
+          // NIE UKRYWAMY pola, ktorego zawartosci nie udalo sie przeniesc.
+          // Ukryte i nieprzeniesione zdjecia znikalyby bez sladu.
+          w.opis = QObject::tr( "Warstwa %1: nie udało się przenieść zdjęć "
+                                "z pola %2 do tabeli załączników. Pole zostaje "
+                                "widoczne, nic nie zginęło." )
+                     .arg( nazwa, nazwaPola );
+          return w;
+        }
+        const QgsEditorWidgetSetup ukryty( QStringLiteral( "Hidden" ), QVariantMap() );
+        rodzic->setEditorWidgetSetup( idxZdjecia, ukryty );
+        przeniesionychZdjec += przeniesione;
+        oZdjeciu = przeniesione > 0
+                     ? QObject::tr( ", %1 zdjęć z pola %2" ).arg( przeniesione ).arg( nazwaPola )
+                     : QObject::tr( ", pole %1 ukryte" ).arg( nazwaPola );
+      }
+
+      w.szczegoly << QObject::tr( "%1 → %2%3%4%5" )
                        .arg( nazwa, tabela,
                              nowa ? QObject::tr( " (tabela nowa)" ) : QString(),
-                             zakladka ? QObject::tr( ", zakładka" ) : QString() );
+                             zakladka ? QObject::tr( ", zakładka" ) : QString(),
+                             oZdjeciu );
     }
 
     w.ok = true;
-    w.opis = QObject::tr( "załączniki w %1 warstwach (nowych tabel: %2, relacji: %3)" )
+    w.opis = QObject::tr( "załączniki w %1 warstwach (nowych tabel: %2, relacji: %3%4)" )
                .arg( wybrane.size() )
                .arg( nowychTabel )
-               .arg( nowychRelacji );
+               .arg( nowychRelacji )
+               .arg( przeniesionychZdjec > 0
+                       ? QObject::tr( ", przeniesionych zdjęć: %1" ).arg( przeniesionychZdjec )
+                       : QString() );
     return w;
   }
 } // namespace ModulZalacznikow

@@ -116,8 +116,31 @@ class Wyposazenie : public QObject
      *
      * Zwraca mape: `ok` bool, `opis` QString (co zrobiono albo dlaczego nie),
      * `kopia` QString (sciezka kopii, gdy powstala).
+     *
+     * \a wybor niesie odpowiedzi czlowieka na pytania modulu — dzis jedno:
+     * `warstwy` (QStringList) dla kroku `kafle_warstw`. Pusty `wybor` znaczy
+     * „nie pytano” i krok robi tyle, ile umie bez odpowiedzi: SPRAWDZA.
+     * Dzieki temu stare wywolanie z dwoma argumentami dziala jak dotad.
      */
-    Q_INVOKABLE QVariantMap zaloz( QgsProject *projekt, const QString &modul ) const;
+    Q_INVOKABLE QVariantMap zaloz( QgsProject *projekt, const QString &modul,
+                                   const QVariantMap &wybor = QVariantMap() ) const;
+
+    /**
+     * Warstwy, ktorym moze przybyc kafel — do okna wyboru.
+     *
+     * Kazdy wpis: `warstwa`, `etykieta` (wolna, dobrana), `geometria`,
+     * `maKafel`. Okno zaznacza z gory te, ktore kafla NIE MAJA.
+     */
+    Q_INVOKABLE QVariantList kandydaciKafli( QgsProject *projekt ) const;
+
+    /**
+     * Co dokladnie powstanie, gdy zalozyc TEN modul — jedno zdanie do
+     * okienka z pytaniem. Pusty ciag, gdy modul o nic nie pyta.
+     *
+     * Pytanie „czy zalozyc warstwe?” bez wymienienia pol i kafla jest
+     * pytaniem o nic — czlowiek nie ma na co odpowiedziec.
+     */
+    Q_INVOKABLE QString zapowiedzModulu( const QString &modul ) const;
 
     /**
      * Czy modul da sie ZDJAC z aplikacji. Pusty ciag = wolno.
@@ -144,6 +167,35 @@ class Wyposazenie : public QObject
      */
     Q_INVOKABLE QVariantMap szkieletKlawiszy( QgsProject *projekt ) const;
 
+    // ======================================================================
+    // CZASOWNIKI NAPRAWCZE — 23.09.2026
+    // ======================================================================
+    // „Po co nam okno bledow, skoro nie mamy czasownikow do ich poprawy?
+    // To zostawia uzytkownikow z poczuciem bezsensu" (uwaga Piotra).
+    //
+    // Racja, i to ta sama, ktora rano kazala `tyczeniu` przestac tylko
+    // patrzec. Okno, ktore mowi „przyciaganie lapie segment przy obiektach
+    // 0.1 m" i konczy zdaniem „popraw w biurze", jest dokladnie tak samo
+    // bezuzyteczne jak tamto „w projekcie nie ma warstwy tyczenie".
+    //
+    // Te dwa ustawienia sa ODWRACALNE i widac je na miejscu — nie ma powodu,
+    // zeby czekaly do jutra. Kopia projektu powstaje tak samo jak przy
+    // zakladaniu modulu; stempla nie ruszamy, bo to nie jest modul.
+
+    /**
+     * Przestawia przyciaganie: prog i to, czy lapie odcinek.
+     *
+     *  tolerancja w jednostkach mapy; wartosc <= 0 zostawia prog bez zmian.
+     *  takzeOdcinek false = sam wierzcholek (to ratuje male obiekty).
+     */
+    Q_INVOKABLE QVariantMap ustawPrzyciaganie( QgsProject *projekt,
+                                               double tolerancja,
+                                               bool takzeOdcinek ) const;
+
+    //! Wlacza albo wylacza edycje topologiczna projektu.
+    Q_INVOKABLE QVariantMap ustawEdycjeTopologiczna( QgsProject *projekt,
+                                                     bool wlaczona ) const;
+
   private:
     //! Wersje ze stempla `WF_WYPOSAZENIE` w `dane.gpkg` projektu.
     QVariantMap stempel( QgsProject *projekt ) const;
@@ -155,8 +207,16 @@ class Wyposazenie : public QObject
     //! \a powod (gdy podany) dostaje przyczyne niepowodzenia — bez tego
     //! awaria kroku wyglada tak samo jak kazda inna i nie da sie jej
     //! zdiagnozowac z telefonu.
+    //! \a wybor niesie odpowiedzi czlowieka na pytania modulu (patrz `zaloz`).
     QString wykonajKrok( QgsProject *projekt, const QJsonObject &krok,
-                         QString *powod = nullptr ) const;
+                         QString *powod = nullptr,
+                         const QVariantMap &wybor = QVariantMap() ) const;
+
+    //! Kontrola `workfield_klawisze.json`. Pusty ciag = niepowodzenie,
+    //! \a powod dostaje przyczyne. Wywoluja ja DWA kroki — `kontrola_klawiszy`
+    //! i `kafle_warstw` — wiec mieszka w jednym miejscu.
+    QString kontrolaKafli( QgsProject *projekt, const QString &nazwaPliku,
+                           QString *powod ) const;
 
     //! Cofa jeden krok. Pusty ciag = niepowodzenie.
     QString cofnijKrok( QgsProject *projekt, const QJsonObject &krok ) const;

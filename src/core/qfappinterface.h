@@ -235,6 +235,15 @@ class QfAppInterface : public QObject
      */
     Q_INVOKABLE bool zoomToLayer( QgsMapLayer *layer, QgsQuickMapSettings *mapSettings );
 
+    /**
+     * WorkFieldGIS 23.09.2026 - przybliza mape do JEDNEGO obiektu
+     * i zaznacza go. Dla okna bledow: ostrzezenie mowilo „fid 2253"
+     * i na tym konczylo, a znalezienie tego obiektu przy dwunastu
+     * warstwach to bylo zadanie na kwadrans.
+     */
+    Q_INVOKABLE bool zoomToFeature( QgsVectorLayer *layer, qlonglong fid,
+                                    QgsQuickMapSettings *mapSettings );
+
     //! Short info label for a vector layer: geometry type and feature count.
     Q_INVOKABLE QString layerInfoLabel( QgsVectorLayer *layer ) const;
 

@@ -1,7 +1,7 @@
 {
   "id": "tyczenie",
   "nazwa": "Warstwa robocza tyczenia",
-  "wersja": 1,
+  "wersja": 2,
   "rodzaj": "struktura",
   "gdzie": [
     "biuro",
@@ -9,12 +9,31 @@
   ],
   "odwracalny": false,
   "opis": "Punktowa warstwa robocza do wyznaczania i nawigacji, plus kafel paska z \"zdjecie\": false. Kafel bez zdjęcia na warstwie punktowej odblokowuje trzy tryby naraz: punkt bez aparatu, serię wierzchołków pod długim przytrzymaniem i dokładanie wierzchołków z GNSS do rysowanej geometrii — bez niego nie obejdziesz obrysu grupy pieszo.",
-  "grunt": "QfQuickCaptureBar captureInto (l. 1114-1130). Wzorzec warstwy: DEN_TYCZENIE w szablonie dendro 1.1.",
+  "grunt": "QfQuickCaptureBar captureInto (l. 1114-1130). Wzorzec warstwy: DEN_TYCZENIE w szablonie dendro 1.1. Od wersji 2 aplikacja warstwę ZAKŁADA (ModulWarstwyRoboczej::zaloz, src/core/moduly/warstwarobocza.cpp) — do wersji 1 tylko sprawdzała, czy jest, co w terenie kończyło się niczym.",
   "skrypt": "skrypty/zaloz_tyczenie.py",
   "kroki": [
     {
-      "typ": "warstwa_istnieje",
-      "nazwa": "tyczenie"
+      "typ": "warstwa_robocza",
+      "nazwa": "tyczenie",
+      "geometria": "punkt",
+      "pola": [
+        {
+          "nazwa": "opis",
+          "typ": "tekst"
+        },
+        {
+          "nazwa": "data_czas",
+          "typ": "tekst",
+          "domyslnie": "format_date(now(),'yyyy-MM-dd HH:mm:ss')"
+        }
+      ],
+      "wyswietlaj": "coalesce(\"opis\", \"data_czas\", 'tyczenie')",
+      "kafel": {
+        "etykieta": "TY",
+        "kolor": "#546E7A",
+        "zdjecie": false
+      }
     }
-  ]
+  ],
+  "podpowiedz": "warstwa powstaje w dane.gpkg obok projektu; jeżeli projekt trzyma dane inaczej, warstwę trzeba dołożyć w biurze"
 }

@@ -1031,6 +1031,16 @@ void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEd
 
   QString error;
   QgsGeometry geometry = fromVertexModel ? mVertexModel->geometry() : mGeometry->asQgsGeometry();
+
+  // ── PUNKT POMIAROWY (25.09.2026) ────────────────────────────────
+  // Model wierzcholkow trzyma PUNKTY, nie luki. Jesli ktores
+  // wywolanie przyjdzie z `fromVertexModel = true`, przebuduje
+  // z pieciu punktow okregu zwykly czworobok.
+  qDebug( "WorkField/Obiekt: applyGeometry zZModelu=%s luki=%s wierzch=%d typ=%s",
+          fromVertexModel ? "TAK" : "nie",
+          ( !geometry.isNull() && geometry.constGet()->hasCurvedSegments() ) ? "TAK" : "nie",
+          geometry.isNull() ? -1 : geometry.constGet()->nCoordinates(),
+          geometry.isNull() ? "(pusta)" : QgsWkbTypes::displayString( geometry.wkbType() ).toUtf8().constData() );
   QgsFeatureIds modifiedFeatureIds;
   if ( mProject && mProject->topologicalEditing() && fromVertexModel )
   {
@@ -1236,6 +1246,11 @@ void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEd
         bok );
     }
   }
+
+  qDebug( "WorkField/Obiekt:   -> na obiekt IDZIE luki=%s wierzch=%d typ=%s",
+          ( !geometry.isNull() && geometry.constGet()->hasCurvedSegments() ) ? "TAK" : "nie",
+          geometry.isNull() ? -1 : geometry.constGet()->nCoordinates(),
+          geometry.isNull() ? "(pusta)" : QgsWkbTypes::displayString( geometry.wkbType() ).toUtf8().constData() );
 
   mFeature.setGeometry( geometry );
 }

@@ -15,6 +15,32 @@ import Theme
 Popup {
   id: terenSettings
 
+  // WorkField 24.09.2026 — GESTOSC LUKOW, czytana przez silnik ksztaltow.
+  //
+  // Wlasnosci na korzeniu, a nie odwolanie do `silnikKsztaltow` w srodku:
+  // identyfikatory z `QgisMobileapp.qml` NIE sa widoczne w osobnym pliku
+  // `.qml`, bo kazdy komponent ma wlasny zakres nazw. To `QgisMobileapp`
+  // podpina sie pod te wlasnosci, nie odwrotnie.
+  //
+  // Poczatkowa wartosc jest WIAZANIEM do ustawien; suwak ponizej
+  // przypisuje wprost i tym samym je zrywa — o to chodzi.
+  property real ksztaltBok: parseFloat(settings.value('WorkField/ksztaltBok', '0.25'))
+  property int ksztaltMaks: settings.valueInt('WorkField/ksztaltMaks', 512)
+
+  //! Ile wierzcholkow dostanie okrag o danym promieniu — do pokazania
+  //! czlowiekowi SKUTKU liczby, ktora wlasnie ustawil.
+  function wierzcholkowOkregu(promien) {
+    if (!(ksztaltBok > 0) || !(promien > 0)) {
+      return 72;
+    }
+    const polowa = ksztaltBok / (2 * promien);
+    if (polowa >= 1) {
+      return 8;
+    }
+    const ile = Math.ceil(2 * Math.PI / (2 * Math.asin(polowa)));
+    return Math.max(8, Math.min(ksztaltMaks, ile));
+  }
+
   parent: mainWindow.contentItem
   width: Math.min(520, mainWindow.width - 24)
   height: Math.min(mainWindow.height - 48, przewijak.contentHeight + 2)
@@ -181,6 +207,91 @@ Popup {
     Text {
       Layout.fillWidth: true
       text: qsTr("Rozmiar i okrągłość zaczną działać po ponownym uruchomieniu aplikacji. Siła wibracji działa od razu.")
+      color: "#B0BEC5"
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      text: qsTr("Kształty: gęstość łuków")
+      color: "#B0BEC5"
+      font: Theme.strongTipFont
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Text {
+        text: qsTr("Bok")
+        color: "white"
+        font: Theme.tipFont
+      }
+
+      Slider {
+        id: suwakBoku
+        Layout.fillWidth: true
+        from: 0.05
+        to: 2.0
+        stepSize: 0.05
+        value: terenSettings.ksztaltBok > 0 ? terenSettings.ksztaltBok : 0.25
+        onMoved: {
+          const bok = Math.round(value * 100) / 100;
+          terenSettings.ksztaltBok = bok;
+          settings.setValue('WorkField/ksztaltBok', bok.toFixed(2));
+        }
+      }
+
+      Text {
+        text: terenSettings.ksztaltBok.toFixed(2) + " m"
+        color: "white"
+        font: Theme.strongTipFont
+      }
+    }
+
+    // Liczba w metrach niewiele mowi, dopoki nie widac, ile z niej wyjdzie
+    // wierzcholkow. Korona i staw to dwa konce tej samej skali.
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Korona 3 m: %1 wierzchołków. Staw 50 m: %2. Odchyłka od łuku przy koronie: %3 cm.").arg(terenSettings.wierzcholkowOkregu(3)).arg(terenSettings.wierzcholkowOkregu(50)).arg((terenSettings.ksztaltBok * terenSettings.ksztaltBok / (8 * 3) * 100).toFixed(1))
+      color: "#B0BEC5"
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Text {
+        text: qsTr("Najwyżej")
+        color: "white"
+        font: Theme.tipFont
+      }
+
+      ComboBox {
+        id: wyborSufitu
+        Layout.fillWidth: true
+        model: [128, 256, 512, 1024, 2048]
+        currentIndex: Math.max(0, model.indexOf(terenSettings.ksztaltMaks))
+        onActivated: {
+          terenSettings.ksztaltMaks = model[currentIndex];
+          settings.setValue('WorkField/ksztaltMaks', model[currentIndex]);
+        }
+      }
+
+      Text {
+        text: qsTr("wierzchołków")
+        color: "#B0BEC5"
+        font: Theme.tipFont
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Bok to długość jednego odcinka, na jakie dzielone są okręgi i krzywe. Mniejszy bok to gładszy kształt i większy plik. Ogranicznik pilnuje, żeby duży obiekt nie urósł do kilku tysięcy wierzchołków.")
       color: "#B0BEC5"
       font: Theme.tinyFont
       wrapMode: Text.Wrap

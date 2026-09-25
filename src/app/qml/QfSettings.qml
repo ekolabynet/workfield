@@ -23,6 +23,18 @@ Page {
   onCurrentPanelChanged: if (currentPanel !== "")
     openCategory(currentPanel)
 
+  // WorkField 24.09.2026 — GESTOSC LUKOW. Siedzi na KORZENIU strony,
+  // a nie w sekcji „Teren", bo czyta to silnik ksztaltow
+  // z `QgisMobileapp.qml` (`qfieldSettings.ksztaltBok`), a
+  // identyfikatory nie przechodza miedzy plikami `.qml`.
+  //
+  // Poczatkowa wartosc jest WIAZANIEM do ustawien; suwak w sekcji
+  // przypisuje wprost i tym samym je zrywa — o to chodzi.
+  property real ksztaltBok: parseFloat(settings.value('WorkField/ksztaltBok', '0.25'))
+  property int ksztaltMaks: settings.valueInt('WorkField/ksztaltMaks', 512)
+  // Ktora krzywa: przez punkty czy obok nich. Patrz `Ksztalty`.
+  property bool krzywaPrzezPunkty: settings.valueBool('WorkField/krzywaPrzezPunkty', false)
+
   property alias projectAutoSaveInterval: registry.projectAutoSaveInterval
   property alias fastMode: registry.fastMode
   property alias cameraRotationOffset: registry.cameraRotationOffset
@@ -554,6 +566,13 @@ Page {
             visible: page.kategoria === "chmuraSiec"
             Layout.fillWidth: true
             settingsPage: page
+          }
+          QfSettingsTeren {
+            // WorkField 24.09.2026 — bylo osobnym oknem nad mapa.
+            visible: page.kategoria === "teren"
+            Layout.fillWidth: true
+            settingsPage: page
+            settingsRegistry: registry
           }
           QfSettingsAdvanced {
             visible: page.kategoria === "advanced"
@@ -1733,6 +1752,11 @@ Page {
       "ikona": "wfg_chmura"
     },
     {
+      "id": "teren",
+      "nazwa": qsTr("Teren"),
+      "ikona": "wfg_teren"
+    },
+    {
       "id": "advanced",
       "nazwa": qsTr("Zaawansowane"),
       "ikona": "wfg_ustawienia"
@@ -1760,6 +1784,7 @@ Page {
       "network": "chmuraSiec",
       "positioning": "positioning",
       "interface": "interface",
+      "teren": "teren",
       "advanced": "advanced"
     };
     page.kategoria = mapa[id] !== undefined ? mapa[id] : "positioning";

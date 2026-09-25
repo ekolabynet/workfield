@@ -69,7 +69,19 @@ Button {
 
   flat: true
   Layout.fillWidth: true
-  implicitHeight: pozycja.kafelek ? 84 : pozycja.uklad === "ikony" ? 44 : 34
+  // WYSOKOSC IDZIE ZA TEKSTEM (25.09.2026). Bylo zabetonowane 34 px,
+  // wiec zawijanie napisu nic by nie dalo — druga linia nie miescilaby
+  // sie w pozycji.
+  //
+  // Bez petli wiazan: `implicitHeight` zalezy od wysokosci napisu, ta od
+  // jego SZEROKOSCI, a szerokosc przychodzi z zewnatrz (QfSiatkaMenu
+  // rozdaje ja dzieciom, albo bierze sie z Layout.fillWidth). Wysokosc
+  // nigdzie nie wraca do szerokosci.
+  implicitHeight: pozycja.kafelek
+                  ? 84
+                  : pozycja.uklad === "ikony"
+                    ? 44
+                    : Math.max(34, napisPozycji.implicitHeight + 12)
   font.pointSize: t.tinyFont.pointSize
 
   // GridLayout, a nie dwa osobne układy: jedna kolumna kładzie ikonę NAD
@@ -100,7 +112,18 @@ Button {
       color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor
     }
 
+    // NAPIS ZAWIJA SIE (25.09.2026) — uwaga Piotra: „czy tekst
+    // odsylaczy nie moze sie po prostu zawijac". W ukladzie „dwie
+    // kolumny" pozycja ma polowe szerokosci szuflady, wiec „Podklady
+    // i dane wysokosciowe" konczylo sie jako „Podklady i dane …",
+    // a „Powieksz do warstwy" jako „Powieksz do wa…".
+    //
+    // WordWrap, nie Wrap: lamiemy na spacji, NIGDY w srodku slowa.
+    // `elide` zostaje jako ostatnia deska — dla pojedynczego slowa
+    // dluzszego niz cala kolumna.
     Text {
+      id: napisPozycji
+
       Layout.fillWidth: true
       Layout.fillHeight: pozycja.kafelek
       visible: !pozycja.samaIkona
@@ -108,8 +131,8 @@ Button {
       font: pozycja.font
       color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor
       elide: Text.ElideRight
-      wrapMode: pozycja.kafelek ? Text.WordWrap : Text.NoWrap
-      maximumLineCount: pozycja.kafelek ? 3 : 1
+      wrapMode: Text.WordWrap
+      maximumLineCount: pozycja.kafelek ? 3 : 2
       horizontalAlignment: pozycja.kafelek ? Text.AlignHCenter : Text.AlignLeft
       verticalAlignment: Text.AlignVCenter
     }

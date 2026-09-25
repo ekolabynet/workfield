@@ -8,6 +8,8 @@
  ***************************************************************************/
 #include "wyposazenie.h"
 
+#include "moduly/kafle.h"
+#include "moduly/warstwarobocza.h"
 #include "moduly/zalaczniki.h"
 
 #include <QFile>
@@ -46,6 +48,59 @@ namespace
     const QString p = dom + QStringLiteral( "/dane.gpkg" );
     return QFileInfo::exists( p ) ? p : QString();
   }
+}
+
+//! Typy krokow, ktore NICZEGO NIE ZMIENIAJA — tylko stwierdzaja stan.
+//
+// Modul zlozony wylacznie z takich krokow nie jest „zakladany”, tylko
+// SPRAWDZANY. Nie ma czego zapisac i nie ma przed czym robic kopii.
+// Do 23.09.2026 kazde tapniecie „Zaloz” na takim module zostawialo obok
+// projektu plik `projekt.qgs.przed_<data>` — kopie przed czynnoscia,
+// ktora z definicji niczego nie pisze.
+static const QStringList SPRAWDZAJACE = {
+  QStringLiteral( "warstwa_istnieje" ),
+  QStringLiteral( "kontrola_klawiszy" )
+};
+
+//! Kroki, ktore PYTAJA czlowieka, zanim cokolwiek zrobia — i o co.
+//
+// WorkFieldGIS 23.09.2026. Warstwa dolozona do cudzego projektu bez pytania
+// jest zmiana, ktorej nikt nie zamawial; kafle dla warstw wybranych za
+// czlowieka to pasek, ktorego nie rozpoznaje. Wartosc trafia do QML jako
+// pole `pyta` i decyduje, ktore okienko otworzyc przed `zaloz()`.
+static QString pytanieKroku( const QString &typ )
+{
+  if ( typ == QLatin1String( "kafle_warstw" ) )
+    return QStringLiteral( "warstwy_kafli" );
+  if ( typ == QLatin1String( "warstwa_robocza" ) )
+    return QStringLiteral( "potwierdzenie" );
+  return QString();
+}
+
+//! O co pyta ten modul; pusty ciag = o nic.
+static QString pytanieModulu( const QJsonObject &m )
+{
+  for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
+  {
+    const QString p = pytanieKroku( k.toObject().value( QStringLiteral( "typ" ) ).toString() );
+    if ( !p.isEmpty() )
+      return p;
+  }
+  return QString();
+}
+
+//! Czy modul sklada sie WYLACZNIE z krokow sprawdzajacych.
+static bool tylkoSprawdza( const QJsonObject &m )
+{
+  const QJsonArray kroki = m.value( QStringLiteral( "kroki" ) ).toArray();
+  if ( kroki.isEmpty() )
+    return false;
+  for ( const QJsonValue &k : kroki )
+  {
+    if ( !SPRAWDZAJACE.contains( k.toObject().value( QStringLiteral( "typ" ) ).toString() ) )
+      return false;
+  }
+  return true;
 }
 
 QVariantMap Wyposazenie::stempel( QgsProject *projekt ) const
@@ -113,6 +168,9 @@ QVariantList Wyposazenie::sprawdz( QgsProject *projekt ) const
     QString nazwa = mid;
     QString opis;
     QString gdzie;
+    bool sprawdzajacy = false;
+    QString pyta;
+    bool powtarzalny = false;
     QFile mf( QStringLiteral( ":/wyposazenie/%1/modul.json" ).arg( sciezka ) );
     if ( mf.open( QIODevice::ReadOnly ) )
     {
@@ -124,6 +182,9 @@ QVariantList Wyposazenie::sprawdz( QgsProject *projekt ) const
       for ( const QJsonValue &x : g )
         gl << x.toString();
       gdzie = gl.join( QStringLiteral( ", " ) );
+      sprawdzajacy = tylkoSprawdza( m );
+      pyta = pytanieModulu( m );
+      powtarzalny = m.value( QStringLiteral( "powtarzalny" ) ).toBool( false );
       mf.close();
     }
 
@@ -149,6 +210,18 @@ QVariantList Wyposazenie::sprawdz( QgsProject *projekt ) const
     r[QStringLiteral( "wProjekcie" )] = wProjekcie;
     r[QStringLiteral( "wAplikacji" )] = wKatalogu;
     r[QStringLiteral( "stan" )] = stan;
+    //! Modul, ktory tylko stwierdza stan — przycisk ma mowic „Sprawdz”,
+    //! nie „Zaloz”. Obietnica zalozenia czegos, czego kod nie zaklada,
+    //! jest gorsza od braku przycisku.
+    r[QStringLiteral( "tylkoSprawdza" )] = sprawdzajacy;
+    //! O co modul zapyta PRZED zalozeniem: "" | "potwierdzenie" | "warstwy_kafli".
+    //! Okno otwiera wtedy odpowiednie okienko i dopiero jego wynik wedruje
+    //! do `zaloz()` jako `wybor`.
+    r[QStringLiteral( "pyta" )] = pyta;
+    //! Modul, ktory warto uruchomic PONOWNIE mimo zgodnego stempla — kafle
+    //! dokladasz przy kazdej nowej warstwie, a stempel mowi tylko, ze plik
+    //! jest poprawny, nie ze jest kompletny.
+    r[QStringLiteral( "powtarzalny" )] = powtarzalny;
     r[QStringLiteral( "data" )] = wpisStempla.value( QStringLiteral( "data" ) );
     wynik.append( r );
   }
@@ -228,7 +301,15 @@ static const QStringList UMIEMY = {
   // wszedzie. Odkryte 15.09: `tyczenie` tylko patrzy, czy warstwa jest,
   // a `klawisze` czy plik kafli jest poprawny.
   QStringLiteral( "warstwa_istnieje" ),
-  QStringLiteral( "kontrola_klawiszy" )
+  QStringLiteral( "kontrola_klawiszy" ),
+  // WorkFieldGIS 23.09.2026 — kroki, ktore ZAKLADAJA, a nie tylko patrza.
+  // `tyczenie` i `klawisze` byly tu od 15.09 jako sprawdzajace i konczyly
+  // sie w terenie zdaniem „nie ma warstwy” albo „nie ma pliku”, po ktorym
+  // nie bylo co zrobic do jutra. Warstwa tyczenia jest TECHNICZNA (dwa
+  // pola, zadnej branzy), a kafle wskazuje czlowiek jednym tapnieciem —
+  // ani jedno, ani drugie nie wymaga biura.
+  QStringLiteral( "warstwa_robocza" ),
+  QStringLiteral( "kafle_warstw" )
 };
 
 //! Typy krokow, ktore da sie COFNAC. Reszta = modul nieodwracalny.
@@ -305,7 +386,7 @@ QString Wyposazenie::mozeZalozyc( const QString &modul ) const
 }
 
 QString Wyposazenie::wykonajKrok( QgsProject *projekt, const QJsonObject &krok,
-                                  QString *powod ) const
+                                  QString *powod, const QVariantMap &wybor ) const
 {
   const QString typ = krok.value( QStringLiteral( "typ" ) ).toString();
   const QString grupa = krok.value( QStringLiteral( "grupa" ) ).toString();
@@ -425,7 +506,12 @@ QString Wyposazenie::wykonajKrok( QgsProject *projekt, const QJsonObject &krok,
       else if ( k == QLatin1String( "intersection-snapping" ) )
         cfg.setIntersectionSnapping( v.toInt() != 0 );
       else
-        return QString();  // nieznany atrybut — nie zgadujemy
+      {
+        // Nieznany atrybut — NIE ZGADUJEMY. Ale mowimy ktory.
+        if ( powod )
+          *powod = tr( "nie znam ustawienia przyciągania „%1”" ).arg( k );
+        return QString();
+      }
     }
     projekt->setSnappingConfig( cfg );
     return QStringLiteral( "przyciaganie: " ) + opis.join( QStringLiteral( ", " ) );
@@ -438,44 +524,148 @@ QString Wyposazenie::wykonajKrok( QgsProject *projekt, const QJsonObject &krok,
     const QString nazwa = krok.value( QStringLiteral( "nazwa" ) ).toString();
     const auto warstwy = projekt->mapLayersByName( nazwa );
     if ( warstwy.isEmpty() )
+    {
+      // To jest NAJCZESTSZA odmowa w tym oknie i do 23.09.2026 wygladala
+      // jak awaria. Modul tylko SPRAWDZA — warstwy nie zaklada nikt poza
+      // czlowiekiem, wiec komunikat ma to powiedziec wprost.
+      if ( powod )
+        *powod = tr( "w projekcie nie ma warstwy „%1”. Ten moduł tylko SPRAWDZA, "
+                     "czy jest — warstwę zakłada się w biurze albo w zakładce Warstwy." )
+                   .arg( nazwa );
       return QString();
+    }
     return tr( "warstwa \"%1\" jest" ).arg( nazwa );
   }
 
+  if ( typ == QLatin1String( "warstwa_robocza" ) )
+  {
+    const ModulWarstwyRoboczej::Wynik r = ModulWarstwyRoboczej::zaloz( projekt, krok );
+    if ( !r.ok )
+    {
+      if ( powod )
+        *powod = r.opis;
+      return QString();
+    }
+    return r.opis;
+  }
+
+  if ( typ == QLatin1String( "kafle_warstw" ) )
+  {
+    // DWIE CZYNNOSCI W JEDNYM KROKU, w tej kolejnosci: najpierw dokladamy
+    // kafle dla warstw wskazanych przez czlowieka, potem sprawdzamy CALY
+    // plik ta sama kontrola co dotad. Dzieki temu stempel nadal znaczy
+    // „plik jest poprawny”, a nie „cos dopisalismy i nie wiemy co”.
+    const QStringList wybrane = wybor.value( QStringLiteral( "warstwy" ) ).toStringList();
+    QStringList zrobione;
+    if ( !wybrane.isEmpty() )
+    {
+      const ModulKafli::Wynik k = ModulKafli::zaloz( projekt, wybrane );
+      if ( !k.ok )
+      {
+        if ( powod )
+          *powod = k.opis;
+        return QString();
+      }
+      zrobione << k.opis;
+    }
+    const QString kontrola =
+      kontrolaKafli( projekt, krok.value( QStringLiteral( "nazwa" ) ).toString(), powod );
+    if ( kontrola.isEmpty() )
+      return QString();
+    zrobione << kontrola;
+    return zrobione.join( QStringLiteral( "; " ) );
+  }
+
   if ( typ == QLatin1String( "kontrola_klawiszy" ) )
+    return kontrolaKafli( projekt, krok.value( QStringLiteral( "nazwa" ) ).toString(), powod );
+
+  if ( powod )
+    *powod = tr( "nie umiem wykonać kroku „%1” — ten typ zostaje w biurze" ).arg( typ );
+  return QString();
+}
+
+/**
+ * Kontrola `workfield_klawisze.json` — czy pasek z niego wstanie.
+ *
+ * Wydzielona 23.09.2026, bo wywoluja ja DWA kroki: `kontrola_klawiszy`
+ * (sam sprawdza) i `kafle_warstw` (doklada, potem sprawdza). Skopiowana
+ * rozjechalaby sie przy pierwszej poprawce i jeden z krokow zaczalby
+ * przepuszczac plik, ktorego drugi nie przepuszcza.
+ */
+QString Wyposazenie::kontrolaKafli( QgsProject *projekt, const QString &nazwaPliku,
+                                    QString *powod ) const
+{
   {
     // Czytamy i sprawdzamy klucze. `nazwa` zamiast `etykieta` daje pasek
     // PUSTY, a dowiadujesz sie o tym dopiero w terenie — wiec sprawdzamy
     // dokladnie to, czego szuka QfQuickCaptureBar.loadDefinitions().
-    const QString plik = projekt->homePath() + QStringLiteral( "/" )
-                         + krok.value( QStringLiteral( "nazwa" ) ).toString();
+    const QString plik = projekt->homePath() + QStringLiteral( "/" ) + nazwaPliku;
     QFile f( plik );
     if ( !f.open( QIODevice::ReadOnly ) )
+    {
+      // „Nie ma” i „nie umiem przeczytac” to dwie rozne sprawy: pierwsza
+      // znaczy „napisz ten plik”, druga „sprawdz uprawnienia”.
+      if ( powod )
+        *powod = QFile::exists( plik )
+                   ? tr( "nie mogę odczytać %1 obok projektu" ).arg( nazwaPliku )
+                   : tr( "nie ma pliku %1 obok projektu" ).arg( nazwaPliku );
       return QString();
+    }
     QJsonParseError blad;
     const QJsonDocument d = QJsonDocument::fromJson( f.readAll(), &blad );
     f.close();
     if ( blad.error != QJsonParseError::NoError )
+    {
+      if ( powod )
+        *powod = tr( "%1 nie jest poprawnym JSON-em: %2 (znak %3)" )
+                   .arg( nazwaPliku, blad.errorString() )
+                   .arg( blad.offset );
       return QString();
+    }
     const QJsonArray kafle = d.object().value( QStringLiteral( "klawisze" ) ).toArray();
     if ( kafle.isEmpty() )
-      return QString();
-    int dobre = 0;
-    for ( const QJsonValue &k : kafle )
     {
-      const QJsonObject o = k.toObject();
-      if ( !o.contains( QStringLiteral( "etykieta" ) )
-           || !o.contains( QStringLiteral( "warstwa" ) ) )
+      if ( powod )
+        *powod = tr( "%1 nie ma ani jednego kafla — lista „klawisze” jest pusta albo jej brak" )
+                   .arg( nazwaPliku );
+      return QString();
+    }
+    int dobre = 0;
+    for ( int i = 0; i < kafle.size(); ++i )
+    {
+      const QJsonObject o = kafle.at( i ).toObject();
+      // NUMER I ETYKIETA wadliwego kafla, nie samo „cos nie tak”: plik bywa
+      // na dwadziescia kafli, a szukanie tego jednego po omacku to wieczor.
+      const QString ktory = o.contains( QStringLiteral( "etykieta" ) )
+                              ? tr( "kafel %1 („%2”)" ).arg( i + 1 )
+                                  .arg( o.value( QStringLiteral( "etykieta" ) ).toString() )
+                              : tr( "kafel %1" ).arg( i + 1 );
+      if ( !o.contains( QStringLiteral( "etykieta" ) ) )
+      {
+        if ( powod )
+          *powod = tr( "%1 w %2 nie ma klucza „etykieta” — pasek wstanie PUSTY. "
+                       "Częsta pomyłka: „nazwa” zamiast „etykieta”." )
+                     .arg( ktory, nazwaPliku );
         return QString();
-      if ( projekt->mapLayersByName(
-             o.value( QStringLiteral( "warstwa" ) ).toString() ).isEmpty() )
+      }
+      if ( !o.contains( QStringLiteral( "warstwa" ) ) )
+      {
+        if ( powod )
+          *powod = tr( "%1 w %2 nie ma klucza „warstwa”" ).arg( ktory, nazwaPliku );
         return QString();
+      }
+      const QString w = o.value( QStringLiteral( "warstwa" ) ).toString();
+      if ( projekt->mapLayersByName( w ).isEmpty() )
+      {
+        if ( powod )
+          *powod = tr( "%1 wskazuje na warstwę „%2”, której w tym projekcie nie ma" )
+                     .arg( ktory, w );
+        return QString();
+      }
       ++dobre;
     }
     return tr( "kafli: %1, wszystkie wskazuja na istniejace warstwy" ).arg( dobre );
   }
-
-  return QString();
 }
 
 QString Wyposazenie::cofnijKrok( QgsProject *projekt, const QJsonObject &krok ) const
@@ -545,7 +735,12 @@ QVariantMap Wyposazenie::zdejmij( QgsProject *projekt, const QString &modul ) co
   const QString znacznik =
     QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmmss" ) );
   const QString kopia = projekt->fileName() + QStringLiteral( ".przed_" ) + znacznik;
-  if ( !QFile::copy( projekt->fileName(), kopia ) )
+  // ZNALEZIONE W PROBIE 22.09.2026: `QFile::copy` ODMAWIA, gdy plik docelowy
+  // juz jest, a znacznik ma rozdzielczosc jednej sekundy. Dwa moduly zalozone
+  // w tej samej sekundzie — albo ten sam dwa razy — konczyly sie komunikatem
+  // "Nie udalo sie zrobic kopii", ktory brzmi jak awaria dysku, a znaczy
+  // "kopia juz jest". Kopia z tej samej sekundy to ten sam plik.
+  if ( !QFile::exists( kopia ) && !QFile::copy( projekt->fileName(), kopia ) )
   {
     w[QStringLiteral( "opis" )] = tr( "Nie udalo sie zrobic kopii — nic nie zmieniam." );
     return w;
@@ -650,6 +845,133 @@ QVariantMap Wyposazenie::szkieletKlawiszy( QgsProject *projekt ) const
   return w;
 }
 
+// ==========================================================================
+// CZASOWNIKI NAPRAWCZE
+// ==========================================================================
+//
+// Obie zmiany dotycza USTAWIEN PROJEKTU, nie danych — sa odwracalne jednym
+// tapnieciem w druga strone. Mimo to robimy kopie `projekt.qgs`: kosztuje
+// pol megabajta, a bez niej „cofnij" znaczy „pamietaj, co tam bylo".
+//
+// STEMPLA NIE RUSZAMY. Stempel mowi, ktore MODULY sa zalozone; przestawienie
+// progu przyciagania nie zaklada ani nie zdejmuje zadnego modulu. Wpisanie
+// tego do `WF_WYPOSAZENIE` kazaloby pozniej zgadywac, czy modul `przyciaganie`
+// jest w wersji z katalogu, czy w wersji „ktos pomajstrowal w terenie".
+
+//! Kopia projektu przed zmiana ustawienia. Pusty ciag = nie udalo sie.
+static QString kopiaProjektu( QgsProject *projekt )
+{
+  const QString kopia = projekt->fileName() + QStringLiteral( ".przed_" )
+                        + QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmmss" ) );
+  // `QFile::copy` odmawia, gdy cel juz jest, a znacznik ma rozdzielczosc
+  // jednej sekundy — patrz ta sama pulapka w `zaloz()`.
+  if ( !QFile::exists( kopia ) && !QFile::copy( projekt->fileName(), kopia ) )
+    return QString();
+  return kopia;
+}
+
+QVariantMap Wyposazenie::ustawPrzyciaganie( QgsProject *projekt, double tolerancja,
+                                            bool takzeOdcinek ) const
+{
+  QVariantMap w;
+  w[QStringLiteral( "ok" )] = false;
+  if ( !projekt || projekt->fileName().isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie ma otwartego projektu." );
+    return w;
+  }
+
+  const QString kopia = kopiaProjektu( projekt );
+  if ( kopia.isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie udało się zrobić kopii projektu — nic nie zmieniam." );
+    return w;
+  }
+
+  QgsSnappingConfig cfg = projekt->snappingConfig();
+  QStringList zrobione;
+
+  if ( tolerancja > 0 )
+  {
+    cfg.setTolerance( tolerancja );
+    // Prog w JEDNOSTKACH MAPY, nie w pikselach. Przy pikselach prog rosnie
+    // razem z oddaleniem mapy i na widoku ogolnym siega kilkunastu metrow —
+    // stad 28 zlepionych platow w PTR (16.09.2026).
+    cfg.setUnits( Qgis::MapToolUnit::Project );
+    zrobione << tr( "próg %1 j. mapy" ).arg( tolerancja, 0, 'f', 2 );
+  }
+
+  Qgis::SnappingTypes typy = cfg.typeFlag();
+  if ( takzeOdcinek )
+  {
+    typy |= Qgis::SnappingType::Segment;
+    zrobione << tr( "łapie też odcinek" );
+  }
+  else
+  {
+    typy &= ~static_cast<Qgis::SnappingTypes>( Qgis::SnappingType::Segment );
+    // Bez wierzcholka przyciaganie nie ma sensu — gdyby ktos zdjal oba,
+    // zostalby wlaczony mechanizm, ktory nie lapie niczego.
+    typy |= Qgis::SnappingType::Vertex;
+    zrobione << tr( "tylko wierzchołek" );
+  }
+  cfg.setTypeFlag( typy );
+  cfg.setEnabled( true );
+  projekt->setSnappingConfig( cfg );
+
+  if ( !projekt->write() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Zmieniłem, ale NIE ZAPISAŁEM projektu — kopia: %1" ).arg( kopia );
+    return w;
+  }
+
+  w[QStringLiteral( "ok" )] = true;
+  w[QStringLiteral( "kopia" )] = kopia;
+  w[QStringLiteral( "opis" )] = tr( "Przyciąganie: %1." ).arg( zrobione.join( QStringLiteral( ", " ) ) );
+  return w;
+}
+
+QVariantMap Wyposazenie::ustawEdycjeTopologiczna( QgsProject *projekt, bool wlaczona ) const
+{
+  QVariantMap w;
+  w[QStringLiteral( "ok" )] = false;
+  if ( !projekt || projekt->fileName().isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie ma otwartego projektu." );
+    return w;
+  }
+  if ( projekt->topologicalEditing() == wlaczona )
+  {
+    // Nic do zrobienia — i mowimy o tym zamiast robic pusta kopie.
+    w[QStringLiteral( "ok" )] = true;
+    w[QStringLiteral( "opis" )] = wlaczona
+                                    ? tr( "Edycja topologiczna już była włączona." )
+                                    : tr( "Edycja topologiczna już była wyłączona." );
+    return w;
+  }
+
+  const QString kopia = kopiaProjektu( projekt );
+  if ( kopia.isEmpty() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Nie udało się zrobić kopii projektu — nic nie zmieniam." );
+    return w;
+  }
+
+  projekt->setTopologicalEditing( wlaczona );
+  if ( !projekt->write() )
+  {
+    w[QStringLiteral( "opis" )] = tr( "Zmieniłem, ale NIE ZAPISAŁEM projektu — kopia: %1" ).arg( kopia );
+    return w;
+  }
+
+  w[QStringLiteral( "ok" )] = true;
+  w[QStringLiteral( "kopia" )] = kopia;
+  w[QStringLiteral( "opis" )] = wlaczona
+                                  ? tr( "Edycja topologiczna WŁĄCZONA." )
+                                  : tr( "Edycja topologiczna wyłączona." );
+  return w;
+}
+
 bool Wyposazenie::ostempluj( QgsProject *projekt, const QString &modul, int wersja ) const
 {
   const QString baza = bazaProjektu( projekt );
@@ -686,7 +1008,25 @@ bool Wyposazenie::ostempluj( QgsProject *projekt, const QString &modul, int wers
   return ok;
 }
 
-QVariantMap Wyposazenie::zaloz( QgsProject *projekt, const QString &modul ) const
+QVariantList Wyposazenie::kandydaciKafli( QgsProject *projekt ) const
+{
+  return ModulKafli::kandydaci( projekt );
+}
+
+QString Wyposazenie::zapowiedzModulu( const QString &modul ) const
+{
+  const QJsonObject m = opisModulu( modul );
+  for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
+  {
+    const QJsonObject krok = k.toObject();
+    if ( krok.value( QStringLiteral( "typ" ) ).toString() == QLatin1String( "warstwa_robocza" ) )
+      return ModulWarstwyRoboczej::zapowiedz( krok );
+  }
+  return QString();
+}
+
+QVariantMap Wyposazenie::zaloz( QgsProject *projekt, const QString &modul,
+                                const QVariantMap &wybor ) const
 {
   QVariantMap w;
   w[QStringLiteral( "ok" )] = false;
@@ -703,19 +1043,34 @@ QVariantMap Wyposazenie::zaloz( QgsProject *projekt, const QString &modul ) cons
     return w;
   }
 
-  // Kopia ZAWSZE, tak samo jak w biurze. `projekt.qgs` to pol megabajta,
-  // wiec jest tania — a bez niej nie ma z czego wrocic.
+  const QJsonObject m = opisModulu( modul );
+  // MODUL, KTORY TYLKO SPRAWDZA, NIE DOSTAJE KOPII. Do 23.09.2026 kazde
+  // tapniecie „Zaloz” na `tyczeniu` albo `kaflach` zostawialo obok projektu
+  // `projekt.qgs.przed_<data>` — kopie przed czynnoscia, ktora z definicji
+  // niczego nie zapisuje. Po kilku probach katalog projektu byl ich pelen.
+  const bool samoSprawdzenie = tylkoSprawdza( m );
+
+  // Kopia przy kazdej zmianie, tak samo jak w biurze. `projekt.qgs` to pol
+  // megabajta, wiec jest tania — a bez niej nie ma z czego wrocic.
   const QString znacznik =
     QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmmss" ) );
-  const QString kopia = projekt->fileName() + QStringLiteral( ".przed_" ) + znacznik;
-  if ( !QFile::copy( projekt->fileName(), kopia ) )
+  const QString kopia = samoSprawdzenie
+                          ? QString()
+                          : projekt->fileName() + QStringLiteral( ".przed_" ) + znacznik;
+  // ZNALEZIONE W PROBIE 22.09.2026: `QFile::copy` ODMAWIA, gdy plik docelowy
+  // juz jest, a znacznik ma rozdzielczosc jednej sekundy. Dwa moduly zalozone
+  // w tej samej sekundzie — albo ten sam dwa razy — konczyly sie komunikatem
+  // "Nie udalo sie zrobic kopii", ktory brzmi jak awaria dysku, a znaczy
+  // "kopia juz jest". Kopia z tej samej sekundy to ten sam plik.
+  if ( !samoSprawdzenie )
   {
-    w[QStringLiteral( "opis" )] = tr( "Nie udalo sie zrobic kopii projektu — nic nie zmieniam." );
-    return w;
+    if ( !QFile::exists( kopia ) && !QFile::copy( projekt->fileName(), kopia ) )
+    {
+      w[QStringLiteral( "opis" )] = tr( "Nie udalo sie zrobic kopii projektu — nic nie zmieniam." );
+      return w;
+    }
+    w[QStringLiteral( "kopia" )] = kopia;
   }
-  w[QStringLiteral( "kopia" )] = kopia;
-
-  const QJsonObject m = opisModulu( modul );
 
   // KOPIA BAZY, nie tylko projektu. Do 22.09.2026 kopiowalismy sam
   // `projekt.qgs` — i bylo to wystarczajace, bo wszystkie umiane kroki
@@ -725,13 +1080,24 @@ QVariantMap Wyposazenie::zaloz( QgsProject *projekt, const QString &modul ) cons
   QStringList doKopii;
   for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
   {
-    if ( k.toObject().value( QStringLiteral( "typ" ) ).toString() != QLatin1String( "tabele_gpkg" ) )
-      continue;
-    const QStringList b = ModulZalacznikow::bazy( projekt );
-    for ( const QString &p : b )
+    const QString typKroku = k.toObject().value( QStringLiteral( "typ" ) ).toString();
+    if ( typKroku == QLatin1String( "tabele_gpkg" ) )
     {
-      if ( !doKopii.contains( p ) )
-        doKopii << p;
+      const QStringList b = ModulZalacznikow::bazy( projekt );
+      for ( const QString &p : b )
+      {
+        if ( !doKopii.contains( p ) )
+          doKopii << p;
+      }
+    }
+    // WorkFieldGIS 23.09.2026: `warstwa_robocza` takze pisze do `dane.gpkg`
+    // — zaklada w niej tabele. Bez tej kopii slowo „nieodwracalny” w opisie
+    // modulu znaczyloby naprawde nieodwracalny.
+    else if ( typKroku == QLatin1String( "warstwa_robocza" ) )
+    {
+      const QString b = ModulWarstwyRoboczej::baza( projekt );
+      if ( !b.isEmpty() && !doKopii.contains( b ) )
+        doKopii << b;
     }
   }
   QStringList kopieBaz;
@@ -753,15 +1119,29 @@ QVariantMap Wyposazenie::zaloz( QgsProject *projekt, const QString &modul ) cons
   for ( const QJsonValue &k : m.value( QStringLiteral( "kroki" ) ).toArray() )
   {
     QString powod;
-    const QString opis = wykonajKrok( projekt, k.toObject(), &powod );
+    const QString opis = wykonajKrok( projekt, k.toObject(), &powod, wybor );
     if ( opis.isEmpty() )
     {
       // Przyczyna, a nie sama porazka: "nie ma czego pokazac" i "nie udalo
       // sie zrobic" to dwa rozne komunikaty (zasada z modulu CAD).
+      // PODPOWIEDZ Z OPISU MODULU. Kazdy modul niesie w `modul.json` pole
+      // `podpowiedz` — zdanie napisane dla czlowieka, ktory wlasnie utknal
+      // („klucz to 'etykieta', NIE 'nazwa'”). Do 23.09.2026 nie pokazywalismy
+      // go NIGDY, choc jest to najbardziej uzyteczne zdanie w calym opisie.
+      const QString podpowiedz = m.value( QStringLiteral( "podpowiedz" ) ).toString();
+      const QString rada = podpowiedz.isEmpty()
+                             ? QString()
+                             : tr( " Podpowiedź: %1." ).arg( podpowiedz );
+      // Przy samym sprawdzeniu nie bylo czego zapisac ani kopiowac, wiec
+      // zdanie „Projekt NIE zapisany, kopia: …” byloby halasem — a gorzej,
+      // sugerowaloby, ze cos sie psulo.
+      const QString ogon = samoSprawdzenie
+                             ? QString()
+                             : tr( " Projekt NIE zapisany, kopia: %1" ).arg( kopia );
       w[QStringLiteral( "opis" )] =
         powod.isEmpty()
-          ? tr( "Krok sie nie powiodl — projekt NIE zapisany, kopia: %1" ).arg( kopia )
-          : tr( "%1 Projekt NIE zapisany, kopia: %2" ).arg( powod, kopia );
+          ? tr( "Krok sie nie powiodl.%1%2" ).arg( rada, ogon )
+          : tr( "%1%2%3" ).arg( powod, rada, ogon );
       return w;
     }
     zrobione << opis;

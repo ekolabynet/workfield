@@ -166,7 +166,7 @@ class QFIELD_CORE_EXPORT QfRubberbandModel : public QObject
      * Sets the model data to match a given \a geometry
      * \note rings and multiparts are discarded
      */
-    void setDataFromGeometry( QgsGeometry geometry, const QgsCoordinateReferenceSystem &crs = QgsCoordinateReferenceSystem() );
+    Q_INVOKABLE void setDataFromGeometry( QgsGeometry geometry, const QgsCoordinateReferenceSystem &crs = QgsCoordinateReferenceSystem() );
 
     //! Returns whether there is at least one vertex in the model
     bool isEmpty() const;

@@ -1316,6 +1316,78 @@ bool QfAppInterface::zoomToProjectData( QgsQuickMapSettings *mapSettings )
   return true;
 }
 
+#include <qgsfeature.h>
+#include <qgsfeatureiterator.h>
+#include <qgsfeaturerequest.h>
+#include <qgsgeometry.h>
+
+/**
+ * WorkFieldGIS 23.09.2026 — przybliza mape do JEDNEGO obiektu i zaznacza go.
+ *
+ * Powstalo dla okna bledow: ostrzezenie „obiekt o obwiedni 0.09 m (fid 2253)"
+ * mowilo, ktory obiekt jest zepsuty, i na tym konczylo. Znalezienie go na
+ * mapie zostawalo czlowiekowi — przy dwunastu warstwach i platku wielkosci
+ * paznokcia to zadanie na kwadrans.
+ *
+ * ZAZNACZA, nie tylko przybliza. Samo przybliżenie do obwiedni 9 cm daje
+ * ekran jednolitej barwy; zaznaczenie mowi, KTORY to obiekt takze wtedy,
+ * gdy leza na sobie trzy.
+ */
+bool QfAppInterface::zoomToFeature( QgsVectorLayer *layer, qlonglong fid,
+                                    QgsQuickMapSettings *mapSettings )
+{
+  if ( !layer || !mapSettings || !layer->isValid() )
+    return false;
+
+  QgsFeature obiekt;
+  QgsFeatureIterator iterator =
+    layer->getFeatures( QgsFeatureRequest( static_cast<QgsFeatureId>( fid ) ) );
+  if ( !iterator.nextFeature( obiekt ) )
+    return false;
+
+  const QgsGeometry geom = obiekt.geometry();
+  if ( geom.isNull() || geom.isEmpty() )
+  {
+    // Obiekt Z PUSTA GEOMETRIA to jeden z bledow, o ktorych mowi okno —
+    // nie da sie do niego przybliżyc i trzeba to powiedziec, a nie
+    // zostawiac mapy bez ruchu i czlowieka w niepewnosci, czy tapnal.
+    return false;
+  }
+
+  QgsRectangle zasieg = geom.boundingBox();
+  try
+  {
+    const QgsCoordinateTransform przeksztalcenie( layer->crs(), mapSettings->destinationCrs(),
+                                                  QgsProject::instance() );
+    zasieg = przeksztalcenie.transformBoundingBox( zasieg );
+  }
+  catch ( const QgsCsException & )
+  {
+    return false;
+  }
+
+  // Obiekt, do ktorego tu przybliżamy, jest Z DEFINICJI MALY — to o nim
+  // mowi ostrzezenie. `scale(1.1)` na obwiedni 9 cm dalby okno dziesieciu
+  // centymetrow: zoom w jeden piksel, po ktorym nie wiadomo, gdzie sie jest.
+  const double bok = std::max( zasieg.width(), zasieg.height() );
+  if ( bok < 10.0 )
+  {
+    const QgsPointXY srodek = zasieg.center();
+    zasieg = QgsRectangle( srodek.x() - 5, srodek.y() - 5,
+                           srodek.x() + 5, srodek.y() + 5 );
+  }
+  else
+  {
+    zasieg.scale( 1.4 );
+  }
+
+  layer->removeSelection();
+  layer->selectByIds( QgsFeatureIds() << obiekt.id() );
+  mapSettings->setExtent( zasieg );
+  return true;
+}
+
+
 bool QfAppInterface::zoomToLayer( QgsMapLayer *layer, QgsQuickMapSettings *mapSettings )
 {
   if ( !layer || !mapSettings || !layer->isValid() )

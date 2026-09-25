@@ -17,6 +17,10 @@
     <qresource prefix="/">
         <file>themes/qfield/nodpi/ic_text_black_24dp.svg</file>
         <file>themes/workfield/wfg_info.svg</file>
+        <file>themes/workfield/wfg_prostokat.svg</file>
+        <file>themes/workfield/wfg_okrag.svg</file>
+        <file>themes/workfield/wfg_krzywa.svg</file>
+        <file>themes/workfield/wfg_chmurka.svg</file>
         <file>themes/workfield/wfg_pytanie.svg</file>
         <file>themes/workfield/wfg_aktualizacja.svg</file>
         <file>themes/workfield/wfg_chmura.svg</file>

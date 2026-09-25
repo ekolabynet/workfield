@@ -9,6 +9,13 @@ QfGeometryEditorBase {
 
   property bool screenHovering: false //<! if the stylus pen is used, one should not use the add button
 
+  // Wlasny silnik ksztaltow: ten plik nie widzi tego z paska.
+  // `Ksztalty` nie trzyma zadnego stanu poza ustawieniami gestosci,
+  // wiec drugi egzemplarz nic nie kosztuje.
+  Ksztalty {
+    id: silnikKsztaltowEdytora
+  }
+
   readonly property bool blocking: drawPolygonToolbar.isDigitizing
 
   property alias addPolygonDialog: addPolygonDialog
@@ -49,6 +56,23 @@ QfGeometryEditorBase {
     }
 
     onConfirmed: {
+      // KSZTALT TEZ TUTAJ (WorkField 24.09.2026).
+      //
+      // Ten edytor czyta z gumki i wola `...FromRubberband`. Jesli pasek
+      // ksztaltow jest uzbrojony, zamieniamy lamana na ksztalt ZANIM
+      // edytor zdazy ja przeczytac — dalej plynie juz przetarta droga
+      // QFielda, bez zadnej zmiany.
+      //
+      // Nazwa ksztaltu idzie przez USTAWIENIA, bo ten plik nie widzi
+      // ani paska ksztaltow, ani jego silnika: identyfikatory nie
+      // przechodza miedzy plikami `.qml`. `settings` widzi kazdy.
+      //
+      // `zamien()` bierze typ geometrii Z SAMEJ GUMKI, wiec ciecie
+      // dostaje linie, a zmiana obrysu wielokat — bez rozgalezien tutaj.
+      const trybKsztaltu = settings.value('WorkField/trybKsztaltu', '');
+      if (trybKsztaltu !== '') {
+        silnikKsztaltowEdytora.zamien(rubberbandModel, trybKsztaltu);
+      }
       digitizingLogger.writeCoordinates();
       rubberbandModel.frozen = true;
       var result = QfGeometryUtils.addRingFromRubberband(featureModel.currentLayer, featureModel.feature.id, rubberbandModel);
@@ -121,6 +145,25 @@ QfGeometryEditorBase {
   function fillWithPolygon() {
     var polygonGeometry = QfGeometryUtils.polygonFromRubberband(drawPolygonToolbar.rubberbandModel, featureModel.currentLayer.crs, featureModel.currentLayer.wkbType());
     var feature = QfFeatureUtils.createBlankFeature(featureModel.currentLayer.fields, polygonGeometry);
+
+    // ODPINAMY, ZANIM PODEPNIEMY (WorkField 24.09.2026).
+    //
+    // Bylo tu samo `connect`, przy KAZDYM wypelnieniu i ani jednego
+    // `disconnect`. Drugie wypelnienie wolalo wiec `commitRingFeature`
+    // dwa razy, trzecie trzy — a drugi `commitChanges()` idzie juz do
+    // warstwy bez bufora edycji. Stad „wypelnienie udalo sie tylko za
+    // pierwszym razem".
+    //
+    // Nasze wlasne miejsca w tym repozytorium robia to parami
+    // (QfWarstwiceCAD, QfOpisyCAD, QfWarstwyRysunku) — tutaj para sie
+    // rozjechala. `disconnect` na niepodpietym uchwycie rzuca
+    // wyjatkiem, wiec w `try`.
+    try {
+      formPopupLoader.onFeatureSaved.disconnect(commitRingFeature);
+    } catch (e) {}
+    try {
+      formPopupLoader.onFeatureCancelled.disconnect(cancelRingFeature);
+    } catch (e) {}
 
     formPopupLoader.onFeatureSaved.connect(commitRingFeature);
     formPopupLoader.onFeatureCancelled.connect(cancelRingFeature);

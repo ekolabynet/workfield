@@ -75,6 +75,7 @@ set(QFIELD_APP_QML_FILES
     QfSettingsIndex.qml
     QfSettingsInterface.qml
     QfSettingsMapCanvas.qml
+    QfSettingsTeren.qml
     QfStudioSection.qml
     QfSubLayerPicker.qml
     QfTerenSettings.qml

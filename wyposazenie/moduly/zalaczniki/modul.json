@@ -1,20 +1,21 @@
 {
   "id": "zalaczniki",
   "nazwa": "Załączniki N:1 (multiodnośniki)",
-  "wersja": 1,
+  "wersja": 2,
   "rodzaj": "struktura",
   "gdzie": [
     "biuro",
     "teren"
   ],
   "odwracalny": false,
-  "opis": "Tabele ZAL_<WARSTWA> w GeoPackage, relacje o sile kompozycji (ID_RODZICA → fid), galeria w formularzu i konwencja nazw plików zgodna z Mapit Spatial. Bez tego obiekt niesie jedno zdjęcie w polu FOTO.",
-  "grunt": "docs/ZALACZNIKI.md; w terenie wykonuje to `ModulZalacznikow::zaloz` (src/core/moduly/zalaczniki.cpp), w biurze `skrypty/zaloz_zalaczniki.py` — jedna konwencja, dwie drogi. Idempotentny; nie rusza istniejących pól FOTO.",
+  "opis": "Tabele ZAL_<WARSTWA> w GeoPackage, relacje o sile kompozycji (ID_RODZICA → fid), galeria w formularzu i konwencja nazw plików zgodna z Mapit Spatial. Od wersji 2 stare pole ZDJECIE/FOTO jest PRZENOSZONE do tabeli jako pierwszy załącznik i znika z formularza — dwa aparaty pod sobą myliły.",
+  "grunt": "docs/ZALACZNIKI.md; w terenie wykonuje to `ModulZalacznikow::zaloz` (src/core/moduly/zalaczniki.cpp), w biurze `skrypty/zaloz_zalaczniki.py` — jedna konwencja, dwie drogi. Idempotentny po parze (rodzic, ścieżka), więc drugie uruchomienie nie dubluje przeniesionych zdjęć. Pole ZDJECIE zostaje w bazie, dostaje tylko widget Hidden.",
   "skrypt": "skrypty/zaloz_zalaczniki.py",
   "kroki": [
     {
       "typ": "tabele_gpkg",
       "wzorzec": "ZAL_%"
     }
-  ]
+  ],
+  "podpowiedz": "przeniesione zdjęcia mają w UWAGI adnotację, skąd przyszły; samo pole ZDJECIE zostaje w bazie i da się je odsłonić, zmieniając widget"
 }
