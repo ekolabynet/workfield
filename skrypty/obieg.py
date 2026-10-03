@@ -308,8 +308,12 @@ def pobierz(dev, projekt, docelowy=None):
         ".roboczy",       # kopia robocza edytora
         "~",              # kopia zapasowa QGIS-a
         ".zip",           # projekt_attachments.zip
-        "-shm",           # dziennik pustej bazy — `gugik.gpkg-shm` bez tresci
     )
+    # `dane.gpkg-shm` i `-wal` MUSZA przyjechac: scalamy dziennik na dysku
+    # przez `wal_checkpoint`. Dzienniki INNYCH baz sa bez znaczenia.
+    ZOSTAJA_DZIENNIKI = ("gugik.gpkg-shm", "gugik.gpkg-wal",
+                         "foto_tagi.gpkg-shm", "foto_tagi.gpkg-wal",
+                         "wf_wskazniki.gpkg-shm", "wf_wskazniki.gpkg-wal")
     # Kopie robione przed kazda zmiana w projekcie (konsola, wyposazenie).
     # 17.09.2026 zwrot przywiozl ich cztery po 571 kB — 2,3 MB smieci.
     ZOSTAJA_WZORCE = (".przed_",)
@@ -324,6 +328,8 @@ def pobierz(dev, projekt, docelowy=None):
         if any(nazwa.endswith(k) for k in ZOSTAJA_NA_TELEFONIE):
             continue
         if any(w in nazwa for w in ZOSTAJA_WZORCE):
+            continue
+        if nazwa in ZOSTAJA_DZIENNIKI:
             continue
         do_pobrania.append(nazwa)
 
