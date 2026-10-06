@@ -54,7 +54,35 @@ Popup {
     id: procesy
   }
 
+  // WorkField 29.09.2026 — KORZEN MAGAZYNU NA ANDROIDZIE.
+  //
+  // StandardPaths.HomeLocation na Androidzie NIE jest katalogiem
+  // uzytkownika — jest PRYWATNYM katalogiem procesu,
+  // /data/user/0/<pakiet>/files. Zalozony tam projekt jest niewidoczny
+  // dla listy projektow, dla menedzera plikow i dla kabla; `run-as`
+  // odmawia dostepu, bo APK jest wydaniowy.
+  //
+  // Zmierzone 29.09.2026 w logcat, po zgloszeniu testera „Nowy projekt
+  // nic nie zaklada":
+  //
+  //   AppInterface loading file: file:/data/user/0/ch.opengis.qfield_home
+  //     /files/WorkField/t3st_test_26_prj/projekt.qgs
+  //
+  // Projekt POWSTAWAL i aplikacja go OTWIERALA — tylko nikt go wiecej
+  // nie widzial. Drugi skutek tego samego: `znajdzProjekty` skanowalo
+  // pusty katalog, wiec kaskada zleceniodawca/teren/zlecenie zostawala
+  // pusta i przycisk „Utworz" byl martwy.
+  //
+  // Lista projektow czyta `iface.dataRoot() + "Imported Projects"` —
+  // i tylko tam wolno zakladac. Na komputerze zostaje magazyn
+  // (~/WorkField), bo tam HomeLocation jest tym, czym ma byc; powod
+  // tamtego wyboru opisuje komentarz przy `ustawieniaMagazynu`.
+  //
+  // iOS-a NIE dotykamy: objaw jest zmierzony na Androidzie, wydania
+  // na iOS nie robimy, a zgadywanie jest tanie tylko z pozoru.
   function korzenMagazynu() {
+    if (Qt.platform.os === "android")
+      return iface.dataRoot() + "Imported Projects";
     return ustawieniaMagazynu.korzenProjektow !== "" ? ustawieniaMagazynu.korzenProjektow : iface.dataRoot();
   }
 
@@ -94,7 +122,9 @@ Popup {
     if (katalogSzablonow === "")
       katalogSzablonow = korzenMagazynu() + "/szablony";
     if (katalogProjektow === "")
-      katalogProjektow = NarzedziaProjektu.katalogZadan(korzenMagazynu());
+      katalogProjektow = Qt.platform.os === "android"
+        ? iface.dataRoot() + "Imported Projects"
+        : NarzedziaProjektu.katalogZadan(korzenMagazynu());
     if (katalogProjektow === "")
       katalogProjektow = iface.dataRoot() + "Imported Projects";
     komunikat.text = "";
