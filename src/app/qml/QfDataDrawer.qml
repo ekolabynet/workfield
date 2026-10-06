@@ -735,6 +735,7 @@ Drawer {
           t: dataDrawer.t
           ikona: "ic_send_white_24dp"
           text: qsTr("Udostępnij dziennik (debug)")
+          polka: "eksperymentalna"
           onClicked: {
             const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");
             const path = iface.dataRoot() + "logs/workfield_log_" + stamp + ".txt";

@@ -98,6 +98,7 @@ QfPopup {
 
   onClosed: {
     index = undefined;
+    edycjaNazwy.visible = false; // WF-NAZWA-ZAMKNIJ
   }
 
   onIndexChanged: {
@@ -136,6 +137,7 @@ QfPopup {
 
       Label {
         id: titleLabel
+        visible: !edycjaNazwy.visible // WF-NAZWA-NAPIS
         Layout.fillWidth: true
         Layout.leftMargin: reloadDataButtonVisible ? zoomInButton.width + headerLayout.spacing : 0
         topPadding: 6
@@ -146,12 +148,45 @@ QfPopup {
         elide: Text.ElideMiddle
         maximumLineCount: 1
       }
+      // WorkField 6.10.2026 [WF-NAZWA-POLE] — pole nazwy i trzy przyciski:
+      // pisaczek otwiera pole, ptaszek zatwierdza, krzyżyk porzuca.
+      TextField {
+        id: edycjaNazwy
+        visible: false
+        Layout.fillWidth: true
+        font: Theme.strongFont
+        selectByMouse: true
+        onAccepted: zatwierdzNazwe()
+      }
+      QfToolButton {
+        Layout.alignment: Qt.AlignTop
+        round: true
+        visible: !edycjaNazwy.visible && index !== undefined && layerTree.data(index, QfFlatLayerTreeModel.Type) === QfFlatLayerTreeModel.Layer
+        bgcolor: "transparent"
+        iconSource: QfTheme.getThemeVectorIcon('ic_create_white_24dp')
+        iconColor: QfTheme.mainTextColor
+        onClicked: zacznijZmianeNazwy()
+      }
+      Button {
+        visible: edycjaNazwy.visible
+        flat: true
+        text: qsTr("Zapisz") // WF-NAZWA-NAPIS-ZAPISZ
+        font: QfTheme.tipFont
+        onClicked: zatwierdzNazwe()
+      }
+      Button {
+        visible: edycjaNazwy.visible
+        flat: true
+        text: qsTr("Anuluj") // WF-NAZWA-NAPIS-ANULUJ
+        font: QfTheme.tipFont
+        onClicked: edycjaNazwy.visible = false
+      }
       QfToolButton {
         id: zoomInButton
         Layout.alignment: Qt.AlignTop
         Layout.rightMargin: 0
         round: true
-        visible: reloadDataButtonVisible
+        visible: reloadDataButtonVisible && !edycjaNazwy.visible
 
         bgcolor: "transparent"
         iconSource: QfTheme.getThemeVectorIcon('refresh_24dp')
@@ -181,6 +216,19 @@ QfPopup {
         spacing: 4
 
 
+        // WorkField 6.10.2026 [WF-NAZWA-PODPIS] — w trakcie edycji nazwy
+        // jedno zdanie: co ta zmiana robi, a czego nie.
+        Text {
+          visible: edycjaNazwy.visible
+          Layout.fillWidth: true
+          Layout.bottomMargin: 6
+          wrapMode: Text.WordWrap
+          font: QfTheme.tipFont
+          color: QfTheme.secondaryTextColor
+          text: zrodloDanych.opis && zrodloDanych.opis.warstwa !== ""
+                ? qsTr("Zmieniasz nazwę w legendzie. Tabela %1 w bazie zostaje bez zmian.").arg(zrodloDanych.opis.warstwa)
+                : qsTr("Zmieniasz nazwę w legendzie. Dane warstwy zostają bez zmian.")
+        }
         FontMetrics {
           id: fontMetrics
           font: lockText.font
@@ -1637,6 +1685,43 @@ QfPopup {
         updateTitle();
       }
     }
+  }
+
+  /**
+   * WorkField 6.10.2026 — ZMIANA NAZWY WARSTWY [WF-NAZWA-FUNKCJE].
+   *
+   * Zmienia nazwę warstwy w PROJEKCIE (to, co widać w legendzie).
+   * Tabela w dane.gpkg zostaje, jak była. Okno samo niczego nie
+   * zapisuje do projektu, więc zapis jest tu jawny — i jego wynik
+   * idzie na ekran, bo zmiana bez zapisu znika po zamknięciu.
+   */
+  function zacznijZmianeNazwy() {
+    const ml = index !== undefined ? layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer) : null;
+    if (!ml)
+      return;
+    edycjaNazwy.text = String(ml.name);
+    edycjaNazwy.visible = true;
+    edycjaNazwy.forceActiveFocus();
+    edycjaNazwy.selectAll();
+  }
+
+  function zatwierdzNazwe() {
+    const ml = index !== undefined ? layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer) : null;
+    const nowa = edycjaNazwy.text.trim();
+    edycjaNazwy.visible = false;
+    if (!ml || nowa === "" || nowa === String(ml.name))
+      return;
+    ml.name = nowa;
+    if (String(ml.name) !== nowa) {
+      displayToast(qsTr("Nie udało się zmienić nazwy warstwy"), "error");
+      return;
+    }
+    updateTitle();
+    const zapisano = typeof ProjectUtils !== "undefined" && ProjectUtils.saveProject(qgisProject);
+    if (zapisano)
+      displayToast(qsTr("Nowa nazwa: %1 — projekt zapisany").arg(nowa));
+    else
+      displayToast(qsTr("Nazwa zmieniona, ale projektu NIE zapisano — zniknie po zamknięciu"), "error");
   }
 
   function updateTitle() {

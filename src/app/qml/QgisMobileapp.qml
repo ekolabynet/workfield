@@ -418,6 +418,20 @@ ApplicationWindow {
 
   onUkladPozycjiChanged: settings.setValue("WorkField/szufladaUklad", ukladPozycji)
 
+  // WorkField 6.10.2026 — FUNKCJE EKSPERYMENTALNE W MENU: pokazuj / ukryj.
+  // Ten sam wzór co `ukladPozycji` wyżej: jedno ustawienie na oknie
+  // głównym, czytane przez obie szuflady (QfPozycjaMenu), przełączane
+  // w Ustawieniach.
+  //
+  // NAPIS, NIE BOOL: `settings.value()` oddaje z pliku tekst, a tekst
+  // "false" jest w JavaScripcie prawdą. Przełącznik zapisany jako
+  // wyłączony włączałby się po restarcie.
+  //
+  // Domyślnie UKRYTE — tester dostaje aplikację, która ma działać.
+  property string menuEksperymentalne: settings.value("WorkField/menuEksperymentalne", "ukryj")
+  onMenuEksperymentalneChanged: settings.setValue("WorkField/menuEksperymentalne", menuEksperymentalne)
+  readonly property bool pokazujEksperymentalne: menuEksperymentalne === "pokazuj"
+
   property string cadRysunek: ""
   property string cadUklad: ""
   property string cadKatalog: ""

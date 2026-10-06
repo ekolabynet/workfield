@@ -45,6 +45,26 @@ Button {
    */
   property string uklad: "lista"
 
+  /**
+   * WorkField 6.10.2026 — PÓŁKA: "core" | "eksperymentalna".
+   *
+   * Jedna definicja, dwóch czytelników: tło wiersza i widoczność.
+   * Gdyby tło brało się skądinąd niż widoczność, rozjechałyby się.
+   *
+   * Eksperymentalne: można bez nich żyć, poprawiamy spokojnie.
+   * Ukryte, dopóki w Ustawieniach nie włączysz „Pokazuj funkcje
+   * eksperymentalne”. Ustawienie mieszka na `mainWindow`, żeby obie
+   * szuflady widziały zmianę od razu, bez restartu.
+   *
+   * `=== true`, bo wcześnie przy starcie `mainWindow` może jeszcze
+   * nie mieć tej właściwości — a `undefined` przypisane do
+   * `visible` daje ostrzeżenie zamiast wartości.
+   */
+  property string polka: "core"
+  readonly property bool eksperymentalna: polka === "eksperymentalna"
+
+  visible: !pozycja.eksperymentalna || mainWindow.pokazujEksperymentalne === true
+
   //! Ikona NAD napisem, oba wyśrodkowane.
   readonly property bool kafelek: uklad === "kafelki"
 
@@ -57,7 +77,7 @@ Button {
   ToolTip.visible: pozycja.samaIkona && pozycja.hovered && pozycja.text !== ""
 
   background: Rectangle {
-    color: pozycja.wybrana ? Qt.rgba(pozycja.t.mainColor.r, pozycja.t.mainColor.g, pozycja.t.mainColor.b, 0.45) : pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : pozycja.kafelek ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+    color: pozycja.wybrana ? Qt.rgba(pozycja.t.mainColor.r, pozycja.t.mainColor.g, pozycja.t.mainColor.b, 0.45) : pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : pozycja.eksperymentalna ? Qt.rgba(pozycja.t.warningColor.r, pozycja.t.warningColor.g, pozycja.t.warningColor.b, 0.13) : pozycja.kafelek ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
     radius: pozycja.kafelek ? 6 : 4
 
     Behavior on color {

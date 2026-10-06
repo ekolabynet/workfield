@@ -29,6 +29,12 @@ QfPopup {
   property var listaMigawek: []
   property int zaznaczona: -1
 
+  // Pelna kopia zamiast roznicowej to godziny i dziesiatki GB. 06.10.2026
+  // kosztowalo to 185,7 GB i ponad dwie godziny za jedno przelaczenie
+  // zakresu — ostrzezenie BYLO, ale jako trzecia zolta linia z rzedu.
+  // Stad zbrojenie: pierwszy klik nazywa koszt, drugi zaczyna.
+  property bool pelnaZbrojona: false
+
   readonly property var nosnik: wybrany >= 0 && wybrany < nosniki.length ? nosniki[wybrany] : null
   readonly property var migawka: zaznaczona >= 0 && zaznaczona < listaMigawek.length
                                  ? listaMigawek[zaznaczona] : null
@@ -88,6 +94,10 @@ QfPopup {
       l.push(qsTr("błędów\t%1").arg(migawka.bledow));
       if (migawka.dowiazaniaPowod !== undefined && migawka.dowiazaniaPowod !== "")
         l.push(qsTr("dlaczego\t%1").arg(migawka.dowiazaniaPowod));
+      // Powod to zdanie, a decyzje podejmuje sie na liczbie. 05.10.2026.
+      if (migawka.dlaczegoNieDowiazano !== undefined
+          && migawka.dlaczegoNieDowiazano.innyCzas > 0)
+        l.push(qsTr("z tego inny czas\t%1").arg(migawka.dlaczegoNieDowiazano.innyCzas));
       l.push(qsTr("ścieżka\t%1").arg(migawka.sciezka));
       // Wynik sprawdzenia albo kopii idzie razem — to zwykle po to się kopiuje.
       if (wynik !== null && wynik.linie !== undefined) {
@@ -109,6 +119,21 @@ QfPopup {
                          : qsTr("Tabela migawek skopiowana do schowka"));
   }
 
+  /**
+   * Nazwa zakresu dla czlowieka.
+   *
+   * "dane" to nazwa techniczna — idzie do KOPIA.json i do nazwy katalogu
+   * migawki. "nieodtwarzalne" to nazwa dla czlowieka. Przeklad lezal
+   * przepisany w trzech miejscach tego pliku; wystarczy poprawic go
+   * w dwoch, zeby panel mowil dwoma jezykami o tej samej rzeczy.
+   *
+   * Katalog na dysku zostaje `_dane` świadomie: przemianowanie zerwaloby
+   * lancuch dowiazan do migawek, ktore juz tam leza.
+   */
+  function nazwaZakresu(z) {
+    return z === "dane" ? qsTr("nieodtwarzalne") : qsTr("wszystko");
+  }
+
   function odswiez() {
     nosniki = KopieZapasowe.nosniki();
     if (wybrany >= nosniki.length)
@@ -119,6 +144,7 @@ QfPopup {
   }
 
   function zbadaj() {
+    pelnaZbrojona = false;   // kazda zmiana zakresu albo nosnika rozbraja
     if (!nosnik) {
       rozpoznanie = null;
       return;
@@ -235,6 +261,14 @@ QfPopup {
   function kopiuj() {
     if (!nosnik)
       return;
+
+    // Lancuch pusty znaczy: ta kopia pojdzie W CALOSCI. Pierwszy klik
+    // tylko nazywa koszt na przycisku, drugi zaczyna.
+    if (nowyLancuch() && !pelnaZbrojona) {
+      pelnaZbrojona = true;
+      return;
+    }
+    pelnaZbrojona = false;
 
     // Nazwa PRZED kopiowaniem: migawka zapisuje w KOPIA.json, na którym
     // nośniku powstała, więc nośnik musi mieć wtedy tożsamość.
@@ -510,7 +544,14 @@ QfPopup {
       Button {
         id: przyciskWykonaj
 
-        text: qsTr("Wykonaj kopię")
+        // Napis mowi, co sie stanie PO KLIKNIECIU — a przy pustym lancuchu
+        // stanie sie cos znacznie drozszego niz zwykla kopia.
+        text: kopiaPanel.pelnaZbrojona
+              ? qsTr("Na pewno? Pełna kopia %1")
+                  .arg(kopiaPanel.rozpoznanie
+                       ? FileUtils.representFileSize(kopiaPanel.rozpoznanie.bajtow)
+                       : "")
+              : qsTr("Wykonaj kopię")
         font: Theme.strongTipFont
         enabled: !KopieZapasowe.pracuje && kopiaPanel.nosnik !== null
         Layout.preferredHeight: 34
@@ -568,7 +609,7 @@ QfPopup {
         // byłoby poprawne, więc odruch przenosi się niezauważony.
         if (kopiaPanel.nowyLancuch())
           s += "\n" + qsTr("⚠ Na tym nośniku nie ma jeszcze kompletnej migawki o zakresie „%1”. Ta kopia pójdzie w całości — dowiązywać się nie ma do czego. Migawki innego zakresu, które tu leżą, nie zostaną użyte.")
-                        .arg(kopiaPanel.zakres === "dane" ? qsTr("nieodtwarzalne") : qsTr("wszystko"));
+                        .arg(kopiaPanel.nazwaZakresu(kopiaPanel.zakres));
         return s;
       }
       font: Theme.tinyFont
@@ -729,7 +770,7 @@ QfPopup {
               Text {
                 Layout.preferredWidth: 100
                 visible: kopiaPanel.szeroko
-                text: modelData.zakres === "dane" ? qsTr("nieodtwarzalne") : qsTr("wszystko")
+                text: kopiaPanel.nazwaZakresu(modelData.zakres)
                 font: Theme.tinyFont
                 color: Theme.secondaryTextColor
                 elide: Text.ElideRight
@@ -744,7 +785,11 @@ QfPopup {
               Text {
                 Layout.preferredWidth: 58
                 horizontalAlignment: Text.AlignRight
-                text: modelData.plikow
+                // `plikow` to PLAN, `skopiowanych` to WYNIK. Przerwana
+                // migawka z 2,7 GB na dysku stala w tabeli jako 73 109
+                // plikow i 185,7 GB, bo pokazywalismy plan. 06.10.2026.
+                text: modelData.przerwane ? modelData.skopiowanych
+                                          : modelData.plikow
                 font: Theme.tinyFont
                 color: Theme.secondaryTextColor
               }
@@ -812,6 +857,10 @@ QfPopup {
         text: qsTr("Sprawdź")
         font: Theme.tinyFont
         flat: true
+        // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
+        // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
+        // w ogole dziala. 06.10.2026.
+        opacity: enabled ? 1.0 : 0.35   // A
         enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
         onClicked: kopiaPanel.sprawdzMigawke(kopiaPanel.migawka, false)
       }
@@ -819,6 +868,10 @@ QfPopup {
         text: qsTr("…z sumami")
         font: Theme.tinyFont
         flat: true
+        // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
+        // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
+        // w ogole dziala. 06.10.2026.
+        opacity: enabled ? 1.0 : 0.35   // B
         enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
         onClicked: kopiaPanel.sprawdzMigawke(kopiaPanel.migawka, true)
       }
@@ -826,8 +879,20 @@ QfPopup {
         text: qsTr("Napraw czasy")
         font: Theme.tinyFont
         flat: true
+        // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
+        // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
+        // w ogole dziala. 06.10.2026.
+        opacity: enabled ? 1.0 : 0.35   // C
+        // Warunek mowi „jest co naprawiac”, nie „migawka jest cala zepsuta”.
+        // Migawka z 04.10.2026 ma dowiazanych 10344 i jednoczesnie innyCzas
+        // 20787 — zepsuta w polowie. Stary warunek `dowiazanych === 0`
+        // blokowal naprawe dokladnie tam, gdzie byla potrzebna. Pierwszy
+        // czlon zostaje dla migawek sprzed instrumentacji, ktore rozkladu
+        // w KOPIA.json jeszcze nie maja. 05.10.2026.
         enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
-                 && kopiaPanel.migawka.dowiazanych === 0
+                 && (kopiaPanel.migawka.dowiazanych === 0
+                     || (kopiaPanel.migawka.dlaczegoNieDowiazano !== undefined
+                         && kopiaPanel.migawka.dlaczegoNieDowiazano.innyCzas > 0))
         onClicked: kopiaPanel.napraw(kopiaPanel.migawka)
       }
       Button {

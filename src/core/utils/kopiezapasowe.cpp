@@ -99,28 +99,42 @@ namespace
     return rc == SQLITE_OK;
   }
 
-  //! `PRAGMA quick_check` na skopiowanej bazie.
-  bool bazaZdrowa( const QString &gpkg )
+  //! `PRAGMA quick_check` na skopiowanej bazie — TRZY stany.
+  //!
+  //! Dlaczego trzy, a nie `bool`: `wf_wskazniki.gpkg` ma osierocona tabele
+  //! RTree i pragma wywraca sie na niej BLEDEM ZAPYTANIA, a nie odpowiedzia
+  //! o uszkodzeniu. Przy dwoch stanach „nie dalo sie zapytac” bylo nie do
+  //! odroznienia od „uszkodzona” — i osiem zdrowych kopii kasowalo sie przy
+  //! kazdym przebiegu od 24.08.2026.
+  //!
+  //!   ok          — pragma odpowiedziala „ok”
+  //!   uwaga       — nie dalo sie zapytac (zwykle osierocony indeks)
+  //!   USZKODZONA  — pragma odpowiedziala czyms innym niz „ok”
+  //!
+  //! Zaden z tych stanow NIE kasuje kopii. Kasuje tylko niezgodnosc md5.
+  QString stanBazy( const QString &gpkg )
   {
     sqlite3 *baza = nullptr;
     if ( sqlite3_open_v2( gpkg.toUtf8().constData(), &baza, SQLITE_OPEN_READONLY, nullptr ) != SQLITE_OK )
     {
       if ( baza )
         sqlite3_close( baza );
-      return false;
+      return QStringLiteral( "uwaga" );
     }
 
-    bool ok = false;
+    QString stan = QStringLiteral( "uwaga" );
     sqlite3_stmt *zapytanie = nullptr;
     if ( sqlite3_prepare_v2( baza, "PRAGMA quick_check", -1, &zapytanie, nullptr ) == SQLITE_OK
          && sqlite3_step( zapytanie ) == SQLITE_ROW )
     {
       const QString odpowiedz = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( zapytanie, 0 ) ) );
-      ok = odpowiedz.compare( QLatin1String( "ok" ), Qt::CaseInsensitive ) == 0;
+      stan = odpowiedz.compare( QLatin1String( "ok" ), Qt::CaseInsensitive ) == 0
+               ? QStringLiteral( "ok" )
+               : QStringLiteral( "USZKODZONA" );
     }
     sqlite3_finalize( zapytanie );
     sqlite3_close( baza );
-    return ok;
+    return stan;
   }
 
   QString sumaMd5( const QString &sciezka )
@@ -428,20 +442,37 @@ class RobotnikKopii : public QObject
 
           QJsonObject opisBazy;
           opisBazy.insert( QStringLiteral( "plik" ), wzgledna );
-          const bool zdrowa = bazaZdrowa( cel );
-          opisBazy.insert( QStringLiteral( "quick_check" ), zdrowa ? QStringLiteral( "ok" ) : QStringLiteral( "BLAD" ) );
-          if ( zdrowa )
+          // O POPRAWNOSCI KOPII ROZSTRZYGA ZGODNOSC BAJTOW ZE ZRODLEM
+          // I NIC INNEGO. Reguła z 24.08.2026 — kod jej nie wykonywal:
+          // md5 liczyl tylko dla kopii i nigdy nie porownywal ze zrodlem,
+          // a kasowal to, czego nie przepuscil `quick_check`. Przez to
+          // osiem zdrowych `wf_wskazniki` ginelo przy kazdym przebiegu.
+          opisBazy.insert( QStringLiteral( "quick_check" ), stanBazy( cel ) );
+
+          // md5 zapisujemy ZAWSZE. Dotad bazy ze stanem innym niz „ok” nie
+          // mialy w spisie zadnej sumy — czyli akurat tych, o ktore warto sie
+          // martwic, nie dalo sie po latach sprawdzic wobec spisu.
+          const QString md5Zrodla = sumaMd5( zrodlo );
+          const QString md5Kopii = sumaMd5( cel );
+          opisBazy.insert( QStringLiteral( "md5" ), md5Kopii );
+
+          if ( md5Kopii.isEmpty() || md5Zrodla.isEmpty() || md5Kopii != md5Zrodla )
           {
-            opisBazy.insert( QStringLiteral( "md5" ), sumaMd5( cel ) );
-          }
-          else
-          {
-            // Kopia, ktora nie przeszla sprawdzenia, jest kasowana. Lepiej
-            // brak kopii niz kopia, ktorej nie da sie odtworzyc.
+            // Jedyny powod kasowania: kopia nie jest kopia.
             QFile::remove( cel );
             --skopiowanych;
             ++pominietych;
-            bledy.append( tr( "%1 — kopia nie przeszła sprawdzenia i została skasowana" ).arg( wzgledna ) );
+            bledy.append( tr( "%1 — kopia różni się od źródła (md5), skasowana" ).arg( wzgledna ) );
+          }
+          else if ( opisBazy.value( QStringLiteral( "quick_check" ) ).toString()
+                      != QLatin1String( "ok" ) )
+          {
+            // Zglaszamy, ale NIE kasujemy: kopia jest zgodna co do bajtu.
+            // Jesli uszkodzony jest naprawde oryginal, to tym bardziej
+            // trzeba go miec skopiowanego.
+            bledy.append( tr( "%1 — quick_check: %2 (kopia zgodna co do bajtu, zostaje)" )
+                            .arg( wzgledna )
+                            .arg( opisBazy.value( QStringLiteral( "quick_check" ) ).toString() ) );
           }
           bazyOpis.append( opisBazy );
           continue;
@@ -768,9 +799,17 @@ QVariantList KopieZapasowe::migawki( const QString &sciezkaNosnika ) const
     wpis.insert( QStringLiteral( "data" ), opis.value( QStringLiteral( "data" ) ).toString() );
     wpis.insert( QStringLiteral( "zakres" ), opis.value( QStringLiteral( "zakres" ) ).toString() );
     wpis.insert( QStringLiteral( "plikow" ), opis.value( QStringLiteral( "plikow" ) ).toInt() );
+    // `plikow` to plan, `skopiowanych` to wynik. Przerwana migawka musi
+    // moc pokazac wynik, inaczej klamie o swoim rozmiarze. 06.10.2026.
+    wpis.insert( QStringLiteral( "skopiowanych" ), opis.value( QStringLiteral( "skopiowanych" ) ).toInt() );
     wpis.insert( QStringLiteral( "bajtow" ), opis.value( QStringLiteral( "bajtow" ) ).toDouble() );
     wpis.insert( QStringLiteral( "dowiazanych" ), opis.value( QStringLiteral( "dowiazanych" ) ).toInt() );
     wpis.insert( QStringLiteral( "dowiazaniaPowod" ), opis.value( QStringLiteral( "dowiazaniaPowod" ) ).toString() );
+    // Rozklad powodow, a nie tylko zdanie o nich: panel musi umiec
+    // zapytac ILE plikow odpadlo z powodu czasu, zeby wiedziec, czy
+    // naprawa czasow ma co ratowac. 05.10.2026.
+    wpis.insert( QStringLiteral( "dlaczegoNieDowiazano" ),
+                 opis.value( QStringLiteral( "dlaczegoNieDowiazano" ) ).toObject().toVariantMap() );
     wpis.insert( QStringLiteral( "przerwane" ), opis.value( QStringLiteral( "przerwane" ) ).toBool() );
     wpis.insert( QStringLiteral( "spis" ), opis.value( QStringLiteral( "spis" ) ).toString() );
     wpis.insert( QStringLiteral( "bledow" ), opis.value( QStringLiteral( "bledy" ) ).toArray().size() );

@@ -127,6 +127,28 @@ QgsVectorLayer *NarzedziaProjektu::znajdzWarstwe( QgsProject *projekt, const QSt
   if ( koncowkaBezWielkosci )
     return koncowkaBezWielkosci;
 
+  // WorkField 6.10.2026 [WF-NAZWA-TABELI] — OSTATNIA, NAJLUZNIEJSZA REGULA:
+  // po nazwie TABELI w GeoPackage (`layername=` w zrodle warstwy).
+  //
+  // Od 6.10 nazwe w legendzie mozna zmienic w oknie wlasciwosci warstwy,
+  // a przepisy szablonow znaja warstwy po nazwie tabeli („punkty”). Bez
+  // tej reguly doposazanie nie poznaloby przemianowanej warstwy i probowaloby
+  // zalozyc tabele, ktora juz jest — z danymi w srodku. Tabela sie nie
+  // zmienia razem z legenda, wiec po niej warstwe poznajemy zawsze.
+  for ( QgsMapLayer *kandydat : wszystkie )
+  {
+    QgsVectorLayer *warstwa = qobject_cast<QgsVectorLayer *>( kandydat );
+    if ( !warstwa || warstwa->providerType() != QLatin1String( "ogr" ) )
+      continue;
+
+    const QStringList czesci = warstwa->source().split( QLatin1Char( '|' ), Qt::SkipEmptyParts );
+    for ( const QString &czesc : czesci )
+    {
+      if ( czesc.startsWith( QLatin1String( "layername=" ) ) && czesc.mid( 10 ) == szukana )
+        return warstwa;
+    }
+  }
+
   // Cisza jest najgorszym objawem — niech w logu zostanie, CZEGO szukano.
   // Bez tego „brak warstwy X" nie mowi, czy warstwy nie ma, czy nazywa sie
   // inaczej, niz ktokolwiek zakladal.

@@ -863,7 +863,11 @@ Drawer {
       spacing: 2
 
       Repeater {
-        model: [{ "nazwa": qsTr("Zlecenia"), "ikona": "wfg_magazyn", "sekcja": 0 }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }]
+        model: [{ "nazwa": qsTr("Zlecenia"), "ikona": "wfg_magazyn", "sekcja": 0, "polka": "eksperymentalna" }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }].filter(function (z) {
+          // WorkField 6.10.2026 — zakładka niesie swoją półkę jak pozycja menu.
+          // Numery sekcji się nie przesuwają: każda zakładka trzyma swój.
+          return z.polka !== "eksperymentalna" || mainWindow.pokazujEksperymentalne === true;
+        })
 
         delegate: ItemDelegate {
           id: przelacznikWidoku
@@ -1529,6 +1533,7 @@ Drawer {
 
         QfPozycjaMenu {
           text: qsTr("Zlecenia")
+          polka: "eksperymentalna"
           ikona: "wfg_magazyn"
           onClicked: dashBoard.sekcjaWymuszona = 0
         }
@@ -1590,6 +1595,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Zapisz jako szablon")
+          polka: "eksperymentalna"
           ikona: "wfg_paczka"
           enabled: qgisProject && qgisProject.homePath !== ""
           onClicked: {
@@ -1628,6 +1634,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Importuj projekt (ZIP)")
+          polka: "eksperymentalna"
           ikona: "wfg_paczka"
           onClicked: {
             dashBoard.close();
@@ -1636,6 +1643,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Pobierz szablony")
+          polka: "eksperymentalna"
           ikona: "wfg_chmura"
           onClicked: {
             dashBoard.close();
@@ -1644,6 +1652,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Ekran startowy")
+          polka: "eksperymentalna"
           ikona: "wfg_dom"
           onClicked: {
             dashBoard.close();
@@ -1668,6 +1677,7 @@ Drawer {
           // WorkField 18.08.2026: przyszło ze Zleceń — dotyczy projektu
           // OTWARTEGO. Wymaga projektu zapisanego na dysku, bo kopiujemy katalog.
           text: qsTr("Zamień na szablon")
+          polka: "eksperymentalna"
           ikona: "wfg_paczka"
           enabled: projectSection.filePath !== "" && qgisProject && qgisProject.homePath !== ""
           onClicked: {
@@ -1691,6 +1701,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Zapisz jako…")
+          polka: "eksperymentalna"
           ikona: "wfg_zapisz_jako"
           enabled: projectSection.filePath !== ""
           onClicked: projectNameDialog.openFor("saveas")
@@ -1720,6 +1731,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Wymiana lokalna")
+          polka: "eksperymentalna"
           ikona: "wfg_wymiana"
           onClicked: {
             dashBoard.close();
@@ -1743,6 +1755,7 @@ Drawer {
         // ma własną listę i nie czyta z rejestru. To dług — patrz handoff.
         QfPozycjaMenu {
           text: qsTr("Stan projektu")
+          polka: "eksperymentalna"
           ikona: "wfg_lupa"
           enabled: projectSection.filePath !== ""
           onClicked: {

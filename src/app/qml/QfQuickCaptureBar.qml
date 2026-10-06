@@ -997,6 +997,17 @@ Column {
         return l;
       }
     }
+    // WorkField 6.10.2026 [WF-NAZWA-TABELA] — trzecie podejście: po nazwie
+    // TABELI w bazie projektu. Nazwę w legendzie można dziś zmienić
+    // w oknie właściwości warstwy; tabela zostaje, więc klawisz trafia dalej.
+    for (const id2 in wszystkie) {
+      const l2 = wszystkie[id2];
+      if (!l2)
+        continue;
+      const z = NarzedziaProjektu.zrodloWarstwy(l2);
+      if (z && z.ok === true && z.wBazieProjektu === true && String(z.warstwa) === nazwa)
+        return l2;
+    }
     return null;
   }
 

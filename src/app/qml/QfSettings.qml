@@ -311,6 +311,20 @@ Page {
     }
   }
 
+  // WorkField 6.10.2026 — kategoria „Funkcje eksperymentalne”.
+  // Osobny model, bo osobna kategoria. Przełącznik przeniesiony
+  // z „Wyglądu”, żeby rzucał się w oczy i miał gdzie zebrać
+  // kolejne przełączniki warsztatowe.
+  ListModel {
+    id: eksperymentalneSettingsModel
+    ListElement {
+      title: qsTr("Pokazuj funkcje eksperymentalne")
+      description: qsTr("Pozycje menu, bez których można na ogół żyć i które poprawiamy spokojnie. W menu mają nieco inne tło.")
+      settingAlias: "menuEksperymentalne"
+      isVisible: true
+    }
+  }
+
   ListModel {
     id: advancedSettingsModel
     ListElement {
@@ -383,7 +397,7 @@ Page {
         width: parent ? parent.width - 16 : undefined
         height: isVisible ? line.height : 0
         radius: 4
-        color: registry[settingAlias] ? Qt.rgba(QfTheme.mainColor.r, QfTheme.mainColor.g, QfTheme.mainColor.b, obszarWiersza.pressed ? 0.55 : 0.35) : obszarWiersza.pressed ? Qt.rgba(1, 1, 1, 0.10) : "transparent"
+        color: page.wlaczone(settingAlias) ? Qt.rgba(QfTheme.mainColor.r, QfTheme.mainColor.g, QfTheme.mainColor.b, obszarWiersza.pressed ? 0.55 : 0.35) : obszarWiersza.pressed ? Qt.rgba(1, 1, 1, 0.10) : "transparent"
         clip: true
 
         Behavior on color {
@@ -440,8 +454,18 @@ Page {
             // Odsuniecie od prawej robi teraz rightMargin samego Row przez
             // szerokosc Column, a wysrodkowanie pionowe `anchors`.
             anchors.verticalCenter: parent.verticalCenter
-            checked: registry[settingAlias]
-            onPrzelaczono: registry[settingAlias] = !checked
+            // WorkField 6.10.2026 — jeden klucz mieszka poza `registry`.
+            // `menuEksperymentalne` czytają obie szuflady i muszą zobaczyć
+            // zmianę od razu. `registry` jest lokalny dla tej strony, a drugi
+            // obiekt `Settings` z tym samym kluczem nie powiadomiłby menu
+            // do restartu. Dlatego ten jeden czyta i pisze `mainWindow`.
+            checked: page.wlaczone(settingAlias)
+            onPrzelaczono: {
+              if (settingAlias === "menuEksperymentalne")
+                mainWindow.menuEksperymentalne = checked ? "ukryj" : "pokazuj";
+              else
+                registry[settingAlias] = !checked;
+            }
           }
         }
       }
@@ -581,6 +605,46 @@ Page {
             settingsRegistry: registry
             settingsModel: advancedSettingsModel
             rowDelegate: listItem
+          }
+          // WorkField 6.10.2026 — FUNKCJE EKSPERYMENTALNE.
+          // Nie klon QfSettingsInterface: ten ma w środku Motyw i czcionki.
+          // Wiersze rysuje ten sam `listItem` co we wszystkich kategoriach,
+          // w `ListView` — tak jak QfSettingsAdvanced, bo delegat jest
+          // pisany pod widok listy. `interactive: false` i wysokość z treści,
+          // bo przewija cały panel, nie ta lista.
+          ColumnLayout {
+            visible: page.kategoria === "eksperymentalne"
+            Layout.fillWidth: true
+            spacing: 4
+
+            Label {
+              Layout.fillWidth: true
+              Layout.leftMargin: 20
+              Layout.rightMargin: 20
+              Layout.topMargin: 12
+              text: qsTr("Funkcje eksperymentalne")
+              font.pointSize: QfTheme.tipFont.pointSize * 1.15
+              font.bold: true
+              color: QfTheme.mainTextColor
+              wrapMode: Text.WordWrap
+            }
+            Label {
+              Layout.fillWidth: true
+              Layout.leftMargin: 20
+              Layout.rightMargin: 20
+              Layout.bottomMargin: 6
+              text: qsTr("Można bez nich żyć i poprawiamy je spokojnie. Włączone mają w menu nieco inne tło. Tester dostaje aplikację z tym przełącznikiem wyłączonym.")
+              font: QfTheme.tipFont
+              color: QfTheme.secondaryTextColor
+              wrapMode: Text.WordWrap
+            }
+            ListView {
+              Layout.fillWidth: true
+              Layout.preferredHeight: contentHeight
+              interactive: false
+              model: eksperymentalneSettingsModel
+              delegate: listItem
+            }
           }
           Loader {
             active: page.kategoria === "positioning"
@@ -1728,6 +1792,24 @@ Page {
   // uzytkownika w menu, ktorego juz nigdzie nie ma.
   property bool wprostZSzuflady: false
 
+  /**
+   * WorkField 6.10.2026 — CZY TO USTAWIENIE JEST WŁĄCZONE. Jedno pytanie,
+   * jedna odpowiedź: pytają ją i kółko przełącznika, i tło wiersza.
+   *
+   * Większość ustawień mieszka w `registry`. Wyjątki mieszkają na oknie
+   * głównym, bo czytają je inne części aplikacji i muszą widzieć zmianę
+   * od razu. Następny taki wyjątek dopisuje się TUTAJ — w jednym miejscu,
+   * a nie w każdej linii delegatu, która czyta stan.
+   */
+  function wlaczone(alias) {
+    if (alias === "menuEksperymentalne")
+      return mainWindow.pokazujEksperymentalne === true;
+    // `!!`, nie `=== true`: dotąd delegat brał wartość z `registry`
+    // tak, jak była. Poprawka ma naprawić jeden wiersz, nie zmienić
+    // po cichu oceny osiemnastu innych.
+    return !!registry[alias];
+  }
+
   //! Kategorie ustawien — jedna lista, jedno miejsce. Etykiety ZGODNE
   //! z prawa szuflada; kategorie zbyt male zostaly polaczone.
   readonly property var kategorie: [
@@ -1760,6 +1842,12 @@ Page {
       "id": "advanced",
       "nazwa": qsTr("Zaawansowane"),
       "ikona": "wfg_ustawienia"
+    },
+    {
+      // WorkField 6.10.2026 — warsztat, nie aplikacja.
+      "id": "eksperymentalne",
+      "nazwa": qsTr("Funkcje eksperymentalne"),
+      "ikona": "wfg_zbuduj"
     }
   ]
 
