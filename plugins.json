@@ -1,5 +1,15 @@
 [
   {
+    "uuid": "workfield-grzyby",
+    "name": "WorkField Grzyby",
+    "description": "Rozpoznawanie grzybow ze zdjecia przez mushroom.id (Kindwise): ostrzezenia o trujacych, sobowtory, cechy (v0.3)",
+    "version": "0.3",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-grzyby-v0.3.zip",
+    "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_grzyby.svg",
+    "homepage": "https://github.com/ekolabynet/workfield",
+    "author": "ekolabynet"
+  },
+  {
     "uuid": "workfield-gugik",
     "name": "WorkField GUGiK",
     "description": "Pobieranie dzialek i budynkow z uslugi ULDK (GUGiK) tapnieciem w mape (v0.6)",
