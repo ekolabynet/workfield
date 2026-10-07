@@ -99,6 +99,7 @@ QfPopup {
   onClosed: {
     index = undefined;
     edycjaNazwy.visible = false; // WF-NAZWA-ZAMKNIJ
+    panelDuplikatu.visible = false; // WF-DUPLIKAT-ZAMKNIJ
   }
 
   onIndexChanged: {
@@ -313,6 +314,76 @@ QfPopup {
             font: QfTheme.tinyFont
             color: QfTheme.secondaryTextColor
             elide: Text.ElideRight
+          }
+        }
+
+        // WorkField 6.10.2026 [WF-DUPLIKAT-PANEL] — „Duplikuj warstwę”.
+        // Tylko dla warstw z bazy projektu: z pliku spoza projektu
+        // duplikat bylby kopia czegos, co i tak nie jedzie ze zwrotem.
+        QfButton {
+          Layout.fillWidth: true
+          visible: !panelDuplikatu.visible && zrodloDanych.visible && zrodloDanych.opis !== null && zrodloDanych.opis.wBazieProjektu === true
+          text: qsTr("Duplikuj warstwę")
+          onClicked: otworzDuplikat()
+        }
+
+        ColumnLayout {
+          id: panelDuplikatu
+          visible: false
+          Layout.fillWidth: true
+          Layout.bottomMargin: 8
+          spacing: 4
+
+          Text {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            font: QfTheme.tipFont
+            color: QfTheme.mainTextColor
+            text: qsTr("Nowa tabela w bazie projektu: te same pola, styl i formularz. Relacje (np. załączniki) nie są kopiowane.")
+          }
+
+          TextField {
+            id: nazwaDuplikatu
+            Layout.fillWidth: true
+            selectByMouse: true
+            placeholderText: qsTr("nazwa_tabeli")
+            onAccepted: duplikuj()
+          }
+
+          Text {
+            Layout.fillWidth: true
+            visible: text !== ""
+            wrapMode: Text.WordWrap
+            font: QfTheme.tipFont
+            color: QfTheme.errorColor
+            text: panelDuplikatu.visible ? bladNazwyDuplikatu(nazwaDuplikatu.text.trim()) : ""
+          }
+
+          CheckBox {
+            id: zObiektamiBox
+            text: qsTr("Razem z obiektami")
+            font: QfTheme.tipFont
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            Item {
+              Layout.fillWidth: true
+            }
+            Button {
+              flat: true
+              text: qsTr("Anuluj")
+              font: QfTheme.tipFont
+              onClicked: panelDuplikatu.visible = false
+            }
+            Button {
+              flat: true
+              text: qsTr("Duplikuj")
+              font: QfTheme.tipFont
+              enabled: bladNazwyDuplikatu(nazwaDuplikatu.text.trim()) === ""
+              opacity: enabled ? 1.0 : 0.35
+              onClicked: duplikuj()
+            }
           }
         }
 
@@ -1722,6 +1793,42 @@ QfPopup {
       displayToast(qsTr("Nowa nazwa: %1 — projekt zapisany").arg(nowa));
     else
       displayToast(qsTr("Nazwa zmieniona, ale projektu NIE zapisano — zniknie po zamknięciu"), "error");
+  }
+
+  // WorkField 6.10.2026 [WF-DUPLIKAT-JS] — duplikat warstwy.
+  function otworzDuplikat() {
+    const tabela = zrodloDanych.opis ? String(zrodloDanych.opis.warstwa) : "";
+    nazwaDuplikatu.text = tabela !== "" ? tabela + "_kopia" : "";
+    zObiektamiBox.checked = false;
+    panelDuplikatu.visible = true;
+    nazwaDuplikatu.forceActiveFocus();
+    nazwaDuplikatu.selectAll();
+  }
+
+  function bladNazwyDuplikatu(n) {
+    if (n === "")
+      return qsTr("Podaj nazwę tabeli.");
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(n))
+      return qsTr("Tylko litery bez polskich znaków, cyfry i _. Bez spacji, nie od cyfry.");
+    return "";
+  }
+
+  function duplikuj() {
+    const vl = index !== undefined ? layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer) : null;
+    const n = nazwaDuplikatu.text.trim();
+    if (!vl || bladNazwyDuplikatu(n) !== "")
+      return;
+    const w = NarzedziaProjektu.duplikujWarstwe(qgisProject, vl, n, zObiektamiBox.checked);
+    if (!w.ok) {
+      displayToast(w.blad || qsTr("Nie udało się zduplikować warstwy"), "error");
+      return;
+    }
+    panelDuplikatu.visible = false;
+    const zapisano = typeof ProjectUtils !== "undefined" && ProjectUtils.saveProject(qgisProject);
+    if (zapisano)
+      displayToast(qsTr("Nowa warstwa %1 — obiektów: %2. Projekt zapisany.").arg(n).arg(w.obiektow));
+    else
+      displayToast(qsTr("Nowa warstwa %1 jest, ale projektu NIE zapisano — zniknie po zamknięciu").arg(n), "error");
   }
 
   function updateTitle() {

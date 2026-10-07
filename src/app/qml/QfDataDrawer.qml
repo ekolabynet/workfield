@@ -427,18 +427,57 @@ Drawer {
       currentIndex: 0
 
       TabButton {
+        id: zakladkaModuly
         // WorkField 20.09.2026 - moduly dziedzinowe: zintegrowane narzedzia,
         // ich zawartosc (warstwy w grupie modulu) jest po lewej
         text: qsTr("Moduły")
         font: t.tipFont
+        // WorkFieldGIS 07.10.2026 — jasna plakietka pod aktywna zakladka,
+        // jak w lewej szufladzie: ciemny teal na ciemnym tle byl nieczytelny.
+        background: Rectangle {
+          color: "transparent"
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: 3
+            radius: 4
+            color: Qt.rgba(1, 1, 1, 0.9)
+            visible: zakladkaModuly.checked
+          }
+        }
       }
       TabButton {
+        id: zakladkaNarzedzia
         text: qsTr("Narzędzia")
         font: t.tipFont
+        // WorkFieldGIS 07.10.2026 — jasna plakietka pod aktywna zakladka,
+        // jak w lewej szufladzie: ciemny teal na ciemnym tle byl nieczytelny.
+        background: Rectangle {
+          color: "transparent"
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: 3
+            radius: 4
+            color: Qt.rgba(1, 1, 1, 0.9)
+            visible: zakladkaNarzedzia.checked
+          }
+        }
       }
       TabButton {
+        id: zakladkaAlgorytmy
         text: qsTr("Algorytmy")
         font: t.tipFont
+        // WorkFieldGIS 07.10.2026 — jasna plakietka pod aktywna zakladka,
+        // jak w lewej szufladzie: ciemny teal na ciemnym tle byl nieczytelny.
+        background: Rectangle {
+          color: "transparent"
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: 3
+            radius: 4
+            color: Qt.rgba(1, 1, 1, 0.9)
+            visible: zakladkaAlgorytmy.checked
+          }
+        }
       }
     }
 

@@ -14,6 +14,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QDomDocument> // WF-DUPLIKAT
+#include <QRegularExpression> // WF-DUPLIKAT
 
 #include <sqlite3.h>
 
@@ -35,6 +37,7 @@
 #include <qgsfieldconstraints.h>
 #include <qgsgeometry.h>
 #include <qgslayertree.h>
+#include <qgsreadwritecontext.h> // WF-DUPLIKAT
 #include <qgslayertreegroup.h>
 #include <qgsrelation.h>
 #include <qgsrelationcontext.h>
@@ -2217,7 +2220,8 @@ QVariantMap NarzedziaProjektu::migawkaBazy( const QString &gpkg, const QString &
 
 QVariantMap NarzedziaProjektu::importujWarstwe( const QString &zrodloUri,
                                                 const QString &celGpkg,
-                                                const QString &nazwaDocelowa ) const
+                                                const QString &nazwaDocelowa,
+                                                bool bezObiektow ) const
 {
   QVariantMap wynik;
   wynik.insert( QStringLiteral( "ok" ), false );
@@ -2278,6 +2282,14 @@ QVariantMap NarzedziaProjektu::importujWarstwe( const QString &zrodloUri,
   argv = CSLAddString( argv, nazwaDocelowa.toUtf8().constData() );
   if ( QFile::exists( celGpkg ) )
     argv = CSLAddString( argv, "-update" );
+  // WorkField 6.10.2026 [WF-DUPLIKAT-LIMIT] — sama budowa tabeli. Liczbe
+  // obiektow i tak sprawdzamy nizej, po fakcie, wiec gdyby GDAL kiedys
+  // potraktowal -limit 0 inaczej, wyjdzie to w wyniku, nie w danych.
+  if ( bezObiektow )
+  {
+    argv = CSLAddString( argv, "-limit" );
+    argv = CSLAddString( argv, "0" );
+  }
   if ( !warstwaZrodlowa.isEmpty() )
     argv = CSLAddString( argv, warstwaZrodlowa.toUtf8().constData() );
 
@@ -2321,6 +2333,104 @@ QVariantMap NarzedziaProjektu::importujWarstwe( const QString &zrodloUri,
   wynik.insert( QStringLiteral( "nazwa" ), nazwaDocelowa );
   wynik.insert( QStringLiteral( "obiektow" ), obiektow );
   wynik.insert( QStringLiteral( "gpkg" ), celGpkg );
+  return wynik;
+}
+
+// ---------------------------------------------------------------------------
+// WorkField 6.10.2026 [WF-DUPLIKAT-FUNKCJA] — duplikat warstwy w bazie projektu.
+// Opis przy deklaracji w naglowku.
+// ---------------------------------------------------------------------------
+QVariantMap NarzedziaProjektu::duplikujWarstwe( QgsProject *projekt, QgsVectorLayer *zrodlo,
+                                                const QString &nowaNazwa, bool zObiektami ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p || !zrodlo || !zrodlo->isValid() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie ma warstwy do zduplikowania." ) );
+    return wynik;
+  }
+
+  // Nazwa TABELI. Spacje i polskie litery w nazwie tabeli psuja SQL
+  // w QGIS-ie na komputerze i nazwy plikow przy eksporcie — w legendzie
+  // mozna je potem nadac jako nazwe wyswietlana.
+  const QString nazwa = nowaNazwa.trimmed();
+  static const QRegularExpression wzor( QStringLiteral( "^[A-Za-z_][A-Za-z0-9_]*$" ) );
+  if ( !wzor.match( nazwa ).hasMatch() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nazwa tabeli: litery bez polskich znaków, cyfry i _, bez spacji, nie od cyfry." ) );
+    return wynik;
+  }
+
+  const QVariantMap zr = zrodloWarstwy( zrodlo );
+  const QString tabelaZrodla = zr.value( QStringLiteral( "warstwa" ) ).toString();
+  if ( !zr.value( QStringLiteral( "wBazieProjektu" ) ).toBool() || tabelaZrodla.isEmpty() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Duplikować można tylko warstwę z bazy projektu." ) );
+    return wynik;
+  }
+  const QString gpkg = QDir::fromNativeSeparators( zr.value( QStringLiteral( "plik" ) ).toString() );
+
+  // Zajeta w PROJEKCIE (po nazwie albo po tabeli — patrz znajdzWarstwe).
+  // Zajeta w BAZIE sprawdza importujWarstwe i odmawia sama.
+  if ( znajdzWarstwe( p, nazwa ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "W projekcie jest już warstwa „%1”." ).arg( nazwa ) );
+    return wynik;
+  }
+
+  const qint64 oczekiwano = zObiektami ? zrodlo->featureCount() : 0;
+  wynik.insert( QStringLiteral( "oczekiwano" ), oczekiwano );
+
+  const QVariantMap imp = importujWarstwe( zrodlo->source(), gpkg, nazwa, !zObiektami );
+  if ( !imp.value( QStringLiteral( "ok" ) ).toBool() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), imp.value( QStringLiteral( "blad" ) ) );
+    return wynik;
+  }
+
+  // LICZNIKI ROZSTRZYGAJA. Niezgodnosc = do projektu nic nie wchodzi;
+  // tabela zostaje w bazie, zeby dalo sie obejrzec, co sie stalo.
+  const qint64 obiektow = imp.value( QStringLiteral( "obiektow" ) ).toLongLong();
+  wynik.insert( QStringLiteral( "obiektow" ), obiektow );
+  if ( oczekiwano >= 0 && obiektow != oczekiwano )
+  {
+    wynik.insert( QStringLiteral( "blad" ),
+                  tr( "Tabela %1 powstała, ale ma %2 obiektów zamiast %3. Nie dodaję jej do projektu." )
+                    .arg( nazwa ).arg( obiektow ).arg( oczekiwano ) );
+    return wynik;
+  }
+
+  QgsVectorLayer *nowa = new QgsVectorLayer( gpkg + QStringLiteral( "|layername=" ) + nazwa, nazwa, QStringLiteral( "ogr" ) );
+  if ( !nowa->isValid() )
+  {
+    delete nowa;
+    wynik.insert( QStringLiteral( "blad" ), tr( "Tabela %1 jest w bazie, ale nie daje się otworzyć jako warstwa." ).arg( nazwa ) );
+    return wynik;
+  }
+
+  // Styl i formularz W CALOSCI: symbole, etykiety, aliasy, widzety,
+  // wartosci domyslne, ograniczenia, wlasciwosci niestandardowe.
+  QDomDocument dokument;
+  QString komunikat;
+  zrodlo->exportNamedStyle( dokument, komunikat );
+  const bool styl = nowa->importNamedStyle( dokument, komunikat );
+  wynik.insert( QStringLiteral( "styl" ), styl );
+
+  // Zaraz pod oryginalem, w tej samej grupie.
+  p->addMapLayer( nowa, false );
+  QgsLayerTree *korzen = p->layerTreeRoot();
+  QgsLayerTreeLayer *wezel = korzen->findLayer( zrodlo->id() );
+  QgsLayerTreeGroup *rodzic = wezel ? qobject_cast<QgsLayerTreeGroup *>( wezel->parent() ) : nullptr;
+  if ( !rodzic )
+    rodzic = korzen;
+  const int miejsce = wezel ? static_cast<int>( rodzic->children().indexOf( static_cast<QgsLayerTreeNode *>( wezel ) ) ) + 1 : 0;
+  rodzic->insertLayer( miejsce, nowa );
+
+  wynik.insert( QStringLiteral( "ok" ), true );
+  wynik.insert( QStringLiteral( "nazwa" ), nazwa );
   return wynik;
 }
 

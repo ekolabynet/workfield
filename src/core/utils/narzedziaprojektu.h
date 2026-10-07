@@ -376,11 +376,34 @@ class NarzedziaProjektu : public QObject
      * powstala i ile ma obiektow — liczba wraca w wyniku, zeby dalo sie ja
      * porownac z oryginalem, a nie tylko uwierzyc.
      *
+     * \a bezObiektow = true kopiuje SAMA budowe tabeli (ogr2ogr -limit 0)
+     * — tak duplikuje sie warstwe. [WF-DUPLIKAT-OPIS]
+     *
      * Zwraca mape: ok, nazwa, obiektow, blad.
      */
     Q_INVOKABLE QVariantMap importujWarstwe( const QString &zrodloUri,
                                              const QString &celGpkg,
-                                             const QString &nazwaDocelowa ) const;
+                                             const QString &nazwaDocelowa,
+                                             bool bezObiektow = false ) const;
+
+    /**
+     * DUPLIKAT warstwy w bazie projektu — WorkField 6.10.2026.
+     *
+     * Projekt z uniwersalnego szablonu ma warstwe „punkty”; z niej robi sie
+     * „drzewa”, „gniazda”. Nowa tabela ma wlasciwa nazwe od urodzenia, wiec
+     * nic istniejacego nie jest przemianowywane.
+     *
+     * Tabela idzie przez importujWarstwe (nie nadpisuje, liczy po fakcie).
+     * Gdy liczba obiektow nie zgadza sie z oryginalem, warstwa NIE wchodzi
+     * do projektu — tabela zostaje w bazie do obejrzenia, niczego nie
+     * kasujemy. Styl i formularz przechodza w calosci; relacje nie (to
+     * rzecz projektu). Nowa warstwa staje zaraz pod oryginalem.
+     *
+     * \a nowaNazwa to nazwa TABELI: litery bez polskich znakow, cyfry, _.
+     * Zwraca mape: ok, nazwa, obiektow, oczekiwano, styl, blad.
+     */
+    Q_INVOKABLE QVariantMap duplikujWarstwe( QgsProject *projekt, QgsVectorLayer *zrodlo,
+                                             const QString &nowaNazwa, bool zObiektami = false ) const;
 
     /**
      * SKAD warstwa naprawde bierze dane — do pokazania czlowiekowi.

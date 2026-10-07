@@ -36,6 +36,131 @@ Drawer {
   property var pendingBlankCenter: null
   property bool pendingBlankSetup: false
 
+  /**
+   * WorkField 6.10.2026 [WF-NOWY-PROJEKT] — PROJEKT OD RAZU KOMPLETNY.
+   *
+   * Po wczytaniu pustego projektu: przepis uniwersalny (sześć warstw
+   * w dane.gpkg), wszystkie moduły wyposażenia, ładne nazwy w legendzie,
+   * metryczka ZADANIE.json. Wyposażenie zakładane PRZY NARODZINACH
+   * projektu — w pustym projekcie nie ma czego zdublować (awaria PGRS
+   * 2.10 wzięła się z doposażania projektu z danymi).
+   *
+   * Tabele mają nazwy ASCII (punkty, linie_krzywe…), legenda — polskie.
+   * Szablony i doposażanie znają warstwy po tabeli, więc ładna nazwa
+   * niczego nie psuje (czwarta reguła znajdzWarstwe).
+   */
+  property var pendingMetryczka: null
+
+  readonly property var nazwyUniwersalne: ({
+      "punkty": "Punkty",
+      "linie": "Linie",
+      "linie_krzywe": "Linie krzywe",
+      "poligony": "Poligony",
+      "poligony_krzywe": "Poligony krzywe",
+      "zasieg_opracowania": "Zasięg opracowania"
+    })
+
+  function przepisUniwersalny() {
+    const pola = [
+      { "name": "NAZWA", "type": "text" },
+      { "name": "OPIS", "type": "text" },
+      { "name": "DATA", "type": "datetime" }
+    ];
+    function warstwa(nazwa, geometria) {
+      return {
+        "nazwa": nazwa,
+        "geometria": geometria,
+        "pola": pola,
+        "aliasy": { "NAZWA": "Nazwa", "OPIS": "Opis", "DATA": "Data" },
+        "widgety": { "OPIS": { "typ": "TextEdit", "opcje": { "IsMultiline": true, "UseHtml": false } } },
+        "domyslne": { "DATA": "now()" }
+      };
+    }
+    // kolejność = kolejność dokładania; ostatnia ląduje na wierzchu legendy
+    return {
+      "id": "uniwersalny",
+      "wersja": 1,
+      "uklad": "EPSG:2178",
+      "dane": "dane.gpkg",
+      "zrodlo": "wbudowany",
+      "warstwy": [
+        warstwa("zasieg_opracowania", "Polygon"),
+        warstwa("poligony", "Polygon"),
+        warstwa("poligony_krzywe", "CurvePolygon"),
+        warstwa("linie", "LineString"),
+        warstwa("linie_krzywe", "CompoundCurve"),
+        warstwa("punkty", "Point")
+      ]
+    };
+  }
+
+  function urzadzNowyProjekt(sciezka, nazwa) {
+    const przepis = przepisUniwersalny();
+    if (!mainWindow.przepisy.zastosuj(przepis, sciezka)) {
+      displayToast(qsTr("Projekt %1 powstał, ale warstw uniwersalnych nie udało się założyć").arg(nazwa), "error");
+      return;
+    }
+
+    // Wyposażenie: wszystkie moduły, dwie rundy — moduł, który czeka na
+    // inny (pole „wymaga”), dostaje drugą szansę po pierwszym przejściu.
+    // WorkField 7.10.2026 [WF-KAFLE-KOLEJNOSC] — kafle w kolejności legendy
+    // (od góry). Przepis dokłada od dołu, więc odwracamy.
+    const tabele = przepis.warstwy.map(function (x) { return x.nazwa; }).reverse();
+    let zostaly = ["przyciaganie", "bez_nakladania", "zalaczniki", "klawisze", "tyczenie"];
+    let bledy = {};
+    for (let runda = 0; runda < 2 && zostaly.length > 0; runda++) {
+      const nastepne = [];
+      bledy = {};
+      for (let i = 0; i < zostaly.length; i++) {
+        const modul = zostaly[i];
+        const w = wyposazenieProjektu.zaloz(qgisProject, modul, modul === "klawisze" ? { "warstwy": tabele } : {});
+        if (!w.ok) {
+          nastepne.push(modul);
+          bledy[modul] = w.opis;
+        }
+      }
+      zostaly = nastepne;
+    }
+
+    // WorkField 7.10.2026 [WF-TYCZENIE-GRUPA] — `tyczenie` to warstwa
+    // techniczna modułu: do zwiniętej grupy „Techniczne” na dole drzewa.
+    // Dalej się rysuje — chowamy ją z oczu, nie wyłączamy.
+    const tyczenie = NarzedziaProjektu.warstwaPoNazwie(qgisProject, "tyczenie");
+    if (tyczenie) {
+      NarzedziaProjektu.doGrupy(qgisProject, tyczenie, qsTr("Techniczne"), true, true);
+      NarzedziaProjektu.grupaNaDol(qgisProject, qsTr("Techniczne"));
+    }
+
+    for (const tabela in nazwyUniwersalne) {
+      const l = NarzedziaProjektu.warstwaPoNazwie(qgisProject, tabela);
+      if (l)
+        l.name = nazwyUniwersalne[tabela];
+    }
+
+    const katalog = sciezka.substring(0, sciezka.lastIndexOf("/"));
+    const m = pendingMetryczka || {};
+    pendingMetryczka = null;
+    NarzedziaProjektu.zapiszTekst(katalog + "/ZADANIE.json", JSON.stringify({
+        "nazwa": nazwa,
+        "utworzono": new Date().toISOString(),
+        "szablon": "uniwersalny",
+        "zrodlo_szablonu": "wbudowany: uniwersalny v1",
+        "zleceniodawca": m.zleceniodawca || "",
+        "teren": m.teren || "",
+        "zlecenie": m.zlecenie || ""
+      }, null, 2));
+
+    const zapisano = ProjectUtils.saveProject(qgisProject);
+    if (zostaly.length === 0 && zapisano) {
+      displayToast(qsTr("Projekt %1 gotowy: 6 warstw, wyposażenie 5/5").arg(nazwa));
+    } else {
+      const opis = zostaly.map(function (x) { return x + ": " + bledy[x]; }).join("; ");
+      displayToast(qsTr("Projekt %1: wyposażenie %2/5%3%4").arg(nazwa).arg(5 - zostaly.length)
+                   .arg(opis !== "" ? " — " + opis : "")
+                   .arg(zapisano ? "" : qsTr(" — projektu NIE zapisano")), "error");
+    }
+  }
+
   function requestDem(demType) {
     demDownloader.request(demType);
   }
@@ -690,6 +815,10 @@ Drawer {
       dashBoard.pendingBlankSetup = false;
       iface.setProjectCrs("EPSG:2178");
       iface.addXyzBasemap("Esri World Imagery", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", 19);
+      // WorkField 6.10.2026 [WF-NOWY-PODKLADY] — OSM POD ESRI: addXyzBasemap
+      // dokłada na sam dół legendy, więc drugi dodany ląduje pod pierwszym.
+      iface.addXyzBasemap("OpenStreetMap", "https://tile.openstreetmap.org/{z}/{x}/{y}.png", 19);
+      dashBoard.urzadzNowyProjekt(path, name);
       if (dashBoard.pendingBlankCenter) {
         const c = iface.transformPointToProjectCrs(dashBoard.pendingBlankCenter.x, dashBoard.pendingBlankCenter.y, "EPSG:2180");
         if (c.x !== undefined) {
@@ -863,7 +992,7 @@ Drawer {
       spacing: 2
 
       Repeater {
-        model: [{ "nazwa": qsTr("Zlecenia"), "ikona": "wfg_magazyn", "sekcja": 0, "polka": "eksperymentalna" }, { "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }].filter(function (z) {
+        model: [{ "nazwa": qsTr("Projekt"), "ikona": "wfg_nowe", "sekcja": 1 }, { "nazwa": qsTr("Warstwy"), "ikona": "wfg_warstwy", "sekcja": 2 }, { "nazwa": qsTr("Stylizacja"), "ikona": "wfg_stylizacja", "sekcja": 3 }].filter(function (z) {
           // WorkField 6.10.2026 — zakładka niesie swoją półkę jak pozycja menu.
           // Numery sekcji się nie przesuwają: każda zakładka trzyma swój.
           return z.polka !== "eksperymentalna" || mainWindow.pokazujEksperymentalne === true;
@@ -898,6 +1027,17 @@ Drawer {
           // tylko być plamą.
           background: Rectangle {
             color: "transparent"
+
+            // WorkField 7.10.2026 [WF-JASNA-ZAKLADKA] — teal na ciemnym tle
+            // szuflady był nieczytelny (ok. 1,6:1). Jasna plakietka pod
+            // aktywną zakładką daje ten sam teal przy kontraście ok. 7:1.
+            Rectangle {
+              anchors.fill: parent
+              anchors.margins: 3
+              radius: 4
+              color: Qt.rgba(1, 1, 1, 0.9)
+              visible: przelacznikWidoku.aktywny
+            }
 
             Rectangle {
               anchors.left: parent.left
@@ -1532,17 +1672,45 @@ Drawer {
         szerokosc: dashBoard.width
 
         QfPozycjaMenu {
-          text: qsTr("Zlecenia")
+          // WorkField 7.10.2026 [WF-PRZEGLAD-PROJEKTOW] — dawne „Zlecenia”.
+          // Piotr: „to teraz po prostu przegląd projektów”. Osobnej
+          // zakładki już nie ma; jedyne wejście do sekcji 0 jest tutaj.
+          text: qsTr("Przegląd projektów")
           polka: "eksperymentalna"
           ikona: "wfg_magazyn"
           onClicked: dashBoard.sekcjaWymuszona = 0
         }
         QfPozycjaMenu {
-          // WorkField 18.08.2026: osobne okno z kaskada z istniejacych
-          // wartosci (zleceniodawca→teren→zlecenie). Wybor z listy zamiast
-          // dziedziczenia po jednym otwartym projekcie — dziala takze, gdy
-          // nic nie jest otwarte, i nie myli sie o zlecenie.
+          // WorkField 7.10.2026 [WF-OTWORZ-Z-DYSKU-CORE] — z menu „⋯” belki
+          // komputera. Na komputerze: systemowe okno wyboru pliku; obok
+          // „Otwórz projekty” — przeglądarka katalogu projektów. CORE
+          // (decyzja Piotra, 7.10).
+          text: qsTr("Otwórz z dysku…")
+          ikona: "wfg_otworz"
+          onClicked: {
+            dashBoard.close();
+            wfAkcje.otworzProjekt();
+          }
+        }
+        QfPozycjaMenu {
+          // WorkField 6.10.2026 [WF-NOWY-PROJEKT-MENU] — „Nowy projekt” to
+          // CORE: jedno obowiązkowe pole (nazwa), metryczka nieobowiązkowa,
+          // projekt od razu kompletny (warstwy uniwersalne, całe wyposażenie,
+          // podkłady). Decyzja Piotra z 6.10: zleceniodawca/teren/zlecenie
+          // nie są warunkiem założenia — są metadanymi do grupowania.
           text: qsTr("Nowy projekt")
+          ikona: "wfg_nowe"
+          onClicked: {
+            dashBoard.close();
+            projectNameDialog.openFor("blank");
+          }
+        }
+        QfPozycjaMenu {
+          // Dawny „Nowy projekt”: kaskada zleceniodawca → teren → zlecenie
+          // z istniejących zleceń (18.08.2026). Zostaje, ale na półce
+          // eksperymentalnej, razem ze Zleceniami, z których wyrasta.
+          text: qsTr("Nowy projekt w zleceniu")
+          polka: "eksperymentalna"
           ikona: "wfg_nowe"
           onClicked: {
             dashBoard.close();
@@ -1606,7 +1774,7 @@ Drawer {
           }
         }
         QfPozycjaMenu {
-          text: qsTr("Otwórz projekt")
+          text: qsTr("Otwórz projekty") // WF-OTWORZ-PROJEKTY: otwiera katalog projektów
           ikona: "wfg_otworz"
           onClicked: {
             dashBoard.close();
@@ -2382,6 +2550,9 @@ Drawer {
 
     function openFor(newMode) {
       mode = newMode;
+      metZleceniodawca.text = ""; // WF-METRYCZKA-CZYSC
+      metTeren.text = "";
+      metZlecenie.text = "";
       projectNameField.text = (mode === "blank" ? qsTr("Projekt") : FileUtils.fileName(projectSection.filePath).replace(/\.(qgs|qgz)$/, "") + " kopia") + " " + new Date().toISOString().slice(0, 10);
       open();
     }
@@ -2398,7 +2569,7 @@ Drawer {
 
       Text {
         Layout.fillWidth: true
-        text: projectNameDialog.mode === "blank" ? qsTr("Nowy pusty projekt")
+        text: projectNameDialog.mode === "blank" ? qsTr("Nowy projekt") /* WF-NOWY-TYTUL */
             : projectNameDialog.mode === "szablon" ? qsTr("Zapisz jako szablon")
             : qsTr("Zapisz projekt jako")
         font: t.strongFont
@@ -2409,6 +2580,38 @@ Drawer {
         id: projectNameField
         Layout.fillWidth: true
         font: t.defaultFont
+      }
+
+      // WorkField 6.10.2026 [WF-METRYCZKA] — nieobowiązkowa. Wypełniona
+      // trafia do ZADANIE.json i posłuży do grupowania projektów.
+      Text {
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        text: qsTr("Metryczka — nieobowiązkowa. Wypełniona pozwoli później grupować projekty.")
+        font: t.tipFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+      TextField {
+        id: metZleceniodawca
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        font: t.defaultFont
+        placeholderText: qsTr("Zleceniodawca")
+      }
+      TextField {
+        id: metTeren
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        font: t.defaultFont
+        placeholderText: qsTr("Teren")
+      }
+      TextField {
+        id: metZlecenie
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        font: t.defaultFont
+        placeholderText: qsTr("Zlecenie")
       }
 
       RowLayout {
@@ -2479,13 +2682,33 @@ Drawer {
             }
 
             if (projectNameDialog.mode === "blank") {
-              platformUtilities.createDir(root + "Imported Projects", safeName);
+              // WorkField 6.10.2026 [WF-NOWY-KATALOG] — ta sama reguła co
+              // „Nowe zlecenie” po poprawce z 29.09: na Androidzie „Imported
+              // Projects” (lista projektów, menedżer plików, kabel), na
+              // komputerze katalog zadań magazynu (~/WorkField/wydania).
+              // Dotąd pusty projekt szedł zawsze do iface.dataRoot().
+              let katalogNowych = Qt.platform.os === "android"
+                ? root + "Imported Projects"
+                : NarzedziaProjektu.katalogZadan(drzewoZlecen.korzen);
+              if (katalogNowych === "")
+                katalogNowych = root + "Imported Projects";
+              const celNowego = katalogNowych + "/" + safeName;
+              if (FileUtils.fileExists(celNowego + "/projekt.qgs")) {
+                displayToast(qsTr("Projekt %1 już istnieje — zmień nazwę").arg(safeName), "error");
+                return;
+              }
+              platformUtilities.createDir(katalogNowych, safeName);
               const centerPoints = iface.visibleExtentPointsIn2180(dashBoard.mapSettings, 2);
               dashBoard.pendingBlankCenter = centerPoints.length > 4 ? centerPoints[4] : null;
               dashBoard.pendingBlankSetup = true;
-              if (iface.createBlankProject(destination + "/projekt.qgs")) {
+              dashBoard.pendingMetryczka = {
+                "zleceniodawca": metZleceniodawca.text.trim(),
+                "teren": metTeren.text.trim(),
+                "zlecenie": metZlecenie.text.trim()
+              };
+              if (iface.createBlankProject(celNowego + "/projekt.qgs")) {
                 dataDrawer.close();
-                iface.loadFile(destination + "/projekt.qgs", name);
+                iface.loadFile(celNowego + "/projekt.qgs", name);
               } else {
                 displayToast(qsTr("Nie udało się utworzyć projektu"));
               }

@@ -22,22 +22,6 @@ ToolBar {
 
   property var akcje: wfAkcje
 
-  //! WorkField 18.08.2026: płaska lista wszystkich czynności z nagłówkami grup,
-  //! do menu „⋯". Trzymamy je dostępne, dopóki nie mają miejsca w szufladzie.
-  readonly property var pozycjeWiecej: {
-    const wynik = [];
-    const grupy = akcje ? akcje.grupy : [];
-    for (const g of grupy) {
-      const lista = akcje.wGrupie(g.id);
-      if (!lista || lista.length === 0)
-        continue;
-      wynik.push({ "naglowek": true, "nazwa": g.nazwa, "akcja": null });
-      for (const a of lista)
-        wynik.push({ "naglowek": false, "nazwa": "", "akcja": a });
-    }
-    return wynik;
-  }
-
   //! zachowane dla zgodności wywołania; chrom nie zmienia się na starcie
   property bool ekranStartowy: false
 
@@ -117,58 +101,10 @@ ToolBar {
       }
     }
 
-    // WorkField 18.08.2026: czynności z grup Zarządzanie/Pomoc nie mają
-    // (jeszcze) miejsca w szufladzie — Sprzęt, Kto co robił, Ustawienia
-    // terenowe i aplikacji byłyby bez tego menu NIEDOSTĘPNE. Chowamy je,
-    // nie kasujemy. Do usunięcia dopiero, gdy trafią do szuflady.
-    Item {
-      Layout.preferredWidth: 34
-      Layout.fillHeight: true
-
-      Rectangle {
-        anchors.fill: parent
-        color: "white"
-        opacity: obszarWiecej.containsMouse || menuWiecej.opened ? 0.12 : 0
-      }
-
-      Text {
-        anchors.centerIn: parent
-        text: "\u22ef"
-        font: Theme.strongTipFont
-        color: "white"
-      }
-
-      MouseArea {
-        id: obszarWiecej
-        anchors.fill: parent
-        hoverEnabled: true
-        onClicked: menuWiecej.opened ? menuWiecej.close() : menuWiecej.open()
-      }
-
-      Menu {
-        id: menuWiecej
-        y: parent.height
-
-        Repeater {
-          model: chrom.pozycjeWiecej
-
-          delegate: MenuItem {
-            required property var modelData
-
-            text: modelData.naglowek ? "— " + modelData.nazwa + " —" : modelData.akcja.nazwa
-            enabled: modelData.naglowek ? false
-                                        : (chrom.akcje ? chrom.akcje.dostepna(modelData.akcja) : false)
-            icon.source: modelData.naglowek ? "" : Theme.getThemeVectorIcon(modelData.akcja.ikona)
-            icon.width: 18
-            icon.height: 18
-            onTriggered: {
-              if (!modelData.naglowek)
-                modelData.akcja.wykonaj();
-            }
-          }
-        }
-      }
-    }
+    // WorkField 7.10.2026 [WF-BEZ-MENU-WIECEJ] — menu „⋯” usunięte (decyzja
+    // Piotra). Było przechowalnią czynności bez miejsca w szufladach;
+    // każda ma już swoje miejsce albo była atrapą („Sprzęt”, „Kto co robił”
+    // — tylko „wkrótce”). „Otwórz z dysku…” przeszło do lewej szuflady.
 
     Item {
       Layout.fillWidth: true
