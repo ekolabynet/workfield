@@ -2,9 +2,9 @@
   {
     "uuid": "workfield-domiary",
     "name": "WorkField Domiary (eksperymentalna)",
-    "description": "EKSPERYMENTALNA - wyniki sprawdzaj niezaleznie. Domiary dalmierzem od punktow RTK: przeciecie liniowe, punkt na prostej i przedluzenie, wciecie liniowe z 3+ punktow (MNK, ocena dokladnosci); zapis do warstwy Domiary i dziennika CSV (v0.1)",
-    "version": "0.1",
-    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-domiary-v0.1.zip",
+    "description": "EKSPERYMENTALNA - wyniki sprawdzaj niezaleznie. Domiary dalmierzem od punktow RTK: przeciecie liniowe, punkt na prostej i przedluzenie, wciecie liniowe z 3+ punktow (MNK, ocena dokladnosci); zapis do warstwy Domiary i dziennika CSV (v0.4)",
+    "version": "0.4",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-domiary-v0.4.zip",
     "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_domiary.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
