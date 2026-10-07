@@ -50,6 +50,16 @@
     "author": "ekolabynet"
   },
   {
+    "uuid": "workfield-zakres",
+    "name": "WorkField Zakres ODGiK",
+    "description": "Zakres obszaru do wniosku w ODGiK (np. mapa zasadnicza): z widoku mapy, narysowany albo z obiektu; GML, SHP, DXF, KML, wykaz wspolrzednych PL-2000, obraz mapy, ZIP (v0.2)",
+    "version": "0.2",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-zakres-v0.2.zip",
+    "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_zakres.svg",
+    "homepage": "https://github.com/ekolabynet/workfield",
+    "author": "ekolabynet"
+  },
+  {
     "uuid": "workfield-zrobione",
     "name": "WorkField Zrobione",
     "description": "Odhaczanie poligonow tapnieciem: NIE / CZESCIOWO / KOMPLET (v0.6)",
