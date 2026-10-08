@@ -23,6 +23,370 @@ Drawer {
 
   property var t: Theme
 
+  /**
+   * WorkField 8.10.2026 [WF-EKSPORT-PROJEKTU] — eksport bieżącego projektu.
+   *   "paczka": ZIP + systemowe okno udostępniania (telefon),
+   *   "dysk":   katalog w wybrane miejsce.
+   * Na komputerze nie ma systemowego „udostępnij”: paczka zapisuje plik .zip
+   * we wskazanym folderze [WF-EKSPORT-PACZKA-KOMPUTER], „na dysk” kopiuje
+   * katalog przez zwykłe okno folderu.
+   *
+   * [WF-EKSPORT-DANYCH] Przed eksportem pytanie: „Cały projekt” czy „Tylko
+   * dane” (bazy z obiektami, zdjęcia, projekt, ODGIK/DOMIARY/style/klawisze —
+   * bez ortofotomap, kopii .przed_*, katalogów IN i kopie, miniatur,
+   * wf_wskazniki). „Tylko dane” składa C++ (NarzedziaProjektu.
+   * eksportDanychProjektu): bazy kopiowane przez API SQLite, więc z ostatnimi
+   * zapisami, i sprawdzane quick_check. Na telefonie składamy je w
+   * Documents/WorkField/do_wyslania/<projekt>_dane_<czas> i stamtąd wysyłamy.
+   */
+  function eksportujProjekt(rodzaj) {
+    const katalog = qgisProject ? qgisProject.homePath : "";
+    if (katalog === "") {
+      displayToast(qsTr("Najpierw otwórz projekt."), "warning");
+      return;
+    }
+    // zapis przed pakowaniem: inaczej poleciałby stan sprzed ostatnich zmian
+    let zapisano = false;
+    try {
+      zapisano = ProjectUtils.saveProject(qgisProject);
+    } catch (e) {
+      zapisano = false;
+    }
+    if (!zapisano)
+      displayToast(qsTr("Nie udało się zapisać projektu — eksportuję stan z dysku."), "warning");
+
+    let rozmiary = null;
+    try {
+      rozmiary = NarzedziaProjektu.eksportDanychProjektu(katalog, "", true);
+    } catch (e) {
+      rozmiary = null;
+    }
+    pytanieEksportu.otworz(rodzaj, katalog, rozmiary);
+  }
+
+  function rozmiarCzytelny(bajty) {
+    if (bajty === undefined || bajty === null)
+      return "";
+    if (bajty >= 1073741824)
+      return (bajty / 1073741824).toFixed(1).replace(".", ",") + " GB";
+    if (bajty >= 1048576)
+      return Math.round(bajty / 1048576) + " MB";
+    return Math.max(1, Math.round(bajty / 1024)) + " kB";
+  }
+
+  //! Czy system ma własne okno dla tego rodzaju eksportu (telefon), czy robimy to sami (komputer).
+  //! Rozstrzyga system, nie same zdolności: wersja na komputer też zgłasza
+  //! CustomSend, a ścieżka telefonu (Documents/WorkField) tam nie istnieje
+  //! — 8.10.2026 u Piotra „Nie da się utworzyć katalogu /storage/emulated/0/…”.
+  function systemoweOkno(rodzaj) {
+    if (Qt.platform.os !== "android" && Qt.platform.os !== "ios")
+      return false;
+    return rodzaj === "paczka"
+        ? (platformUtilities.capabilities & PlatformUtilities.CustomSend) !== 0
+        : (platformUtilities.capabilities & PlatformUtilities.CustomExport) !== 0;
+  }
+
+  function eksportujCaly(rodzaj, katalog) {
+    if (rodzaj === "paczka") {
+      if (systemoweOkno("paczka")) {
+        platformUtilities.sendCompressedFolderTo(katalog);
+      } else {
+        // [WF-EKSPORT-PACZKA-KOMPUTER] komputer: plik .zip we wskazanym folderze
+        oknoFolderuEksportu.tryb = "paczka";
+        oknoFolderuEksportu.open();
+      }
+      return;
+    }
+    if (platformUtilities.capabilities & PlatformUtilities.CustomExport) {
+      platformUtilities.exportFolderTo(katalog);
+      return;
+    }
+    oknoFolderuEksportu.tryb = "caly";
+    oknoFolderuEksportu.open();
+  }
+
+  //! Składa „Tylko dane” w katalogu cel; zwraca true, gdy wszystko się udało.
+  function zlozDane(katalog, cel) {
+    let w = null;
+    try {
+      w = NarzedziaProjektu.eksportDanychProjektu(katalog, cel, false);
+    } catch (e) {
+      w = { "ok": false, "blad": String(e) };
+    }
+    if (!w || !w.ok) {
+      displayToast(qsTr("Nie udało się przygotować danych: %1").arg(w && w.blad ? w.blad : "?"), "error");
+      return false;
+    }
+    return true;
+  }
+
+  function nazwaEksportuDanych(katalog) {
+    return FileUtils.fileName(katalog) + "_dane_" + Qt.formatDateTime(new Date(), "yyyy-MM-dd_HHmmss");
+  }
+
+  function eksportujDane(rodzaj, katalog) {
+    if (!systemoweOkno(rodzaj)) {
+      oknoFolderuEksportu.tryb = rodzaj === "paczka" ? "paczkaDane" : "dane";
+      oknoFolderuEksportu.open();
+      return;
+    }
+    // telefon: najpierw do do_wyslania (ta sama brama co „Wymiana lokalna”)
+    const cel = "/storage/emulated/0/Documents/WorkField/do_wyslania/" + nazwaEksportuDanych(katalog);
+    if (!zlozDane(katalog, cel))
+      return;
+    if (rodzaj === "paczka")
+      platformUtilities.sendCompressedFolderTo(cel);
+    else
+      platformUtilities.exportFolderTo(cel);
+  }
+
+  FolderDialog {
+    id: oknoFolderuEksportu
+    property string tryb: "caly"
+    title: tryb === "paczka" || tryb === "paczkaDane" ? qsTr("Gdzie zapisać paczkę ZIP?")
+         : tryb === "dane" ? qsTr("Dokąd wyeksportować dane projektu?") : qsTr("Dokąd wyeksportować projekt?")
+    onAccepted: {
+      const katalog = qgisProject ? qgisProject.homePath : "";
+      if (katalog === "")
+        return;
+      const folder = String(selectedFolder).replace(/^file:\/\//, "");
+      if (tryb === "paczka" || tryb === "paczkaDane") {
+        const tylkoDane = tryb === "paczkaDane";
+        const zip = folder + "/" + (tylkoDane ? dashBoard.nazwaEksportuDanych(katalog)
+                                              : FileUtils.fileName(katalog) + "_" + Qt.formatDateTime(new Date(), "yyyy-MM-dd_HHmmss")) + ".zip";
+        pytanieEksportu.pracujPotem(function () {
+          let w = null;
+          try {
+            w = NarzedziaProjektu.spakujProjekt(katalog, zip, tylkoDane);
+          } catch (e) {
+            w = { "ok": false, "blad": String(e) };
+          }
+          if (w && w.ok)
+            displayToast(qsTr("Paczka zapisana: %1 (%2)").arg(zip).arg(dashBoard.rozmiarCzytelny(w.rozmiarZip)));
+          else
+            displayToast(qsTr("Nie udało się spakować projektu: %1").arg(w && w.blad ? w.blad : "?"), "error");
+        }, qsTr("Pakuję projekt do ZIP… Przy dużej ortofotomapie to może potrwać kilka minut."));
+        return;
+      }
+      if (tryb === "dane") {
+        const cel = folder + "/" + dashBoard.nazwaEksportuDanych(katalog);
+        pytanieEksportu.pracujPotem(function () {
+          if (dashBoard.zlozDane(katalog, cel))
+            displayToast(qsTr("Dane wyeksportowane: %1").arg(cel));
+        });
+        return;
+      }
+      const cel = folder + "/" + FileUtils.fileName(katalog);
+      if (FileUtils.copyRecursively(katalog, cel, null, false))
+        displayToast(qsTr("Projekt wyeksportowany: %1").arg(cel));
+      else
+        displayToast(qsTr("Nie udało się skopiować projektu do %1").arg(cel), "error");
+    }
+  }
+
+  //! Pytanie „Cały projekt / Tylko dane” (Piotr 8.10.2026: przy obu eksportach).
+  Popup {
+    id: pytanieEksportu
+
+    property string rodzaj: "dysk"
+    property string katalog: ""
+    property var rozmiary: null
+    property bool pracuje: false
+    property var zadanie: null
+    property string opisPracy: ""
+
+    function otworz(nowyRodzaj, nowyKatalog, noweRozmiary) {
+      rodzaj = nowyRodzaj;
+      katalog = nowyKatalog;
+      rozmiary = noweRozmiary;
+      pracuje = false;
+      open();
+    }
+
+    //! Kopiowanie zdjęć chwilę trwa — najpierw pokazujemy „Przygotowuję…”,
+    //! dopiero w następnej klatce ruszamy z robotą (inaczej ekran zamarza bez słowa).
+    function pracujPotem(funkcja, opis) {
+      zadanie = funkcja;
+      opisPracy = opis || qsTr("Przygotowuję dane… Bazy i zdjęcia są kopiowane, to może chwilę potrwać.");
+      pracuje = true;
+      if (!opened)
+        open();
+      opoznienie.restart();
+    }
+
+    parent: mainWindow.contentItem
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(mainWindow.width - 40, 420)
+    modal: true
+    closePolicy: pracuje ? Popup.NoAutoClose : Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    padding: 16
+
+    background: Rectangle {
+      color: t.mainBackgroundColor
+      radius: 10
+      border.width: 1
+      border.color: t.controlBorderColor
+    }
+
+    Timer {
+      id: opoznienie
+      interval: 150
+      onTriggered: {
+        const f = pytanieEksportu.zadanie;
+        pytanieEksportu.zadanie = null;
+        try {
+          if (f)
+            f();
+        } finally {
+          pytanieEksportu.pracuje = false;
+          pytanieEksportu.close();
+        }
+      }
+    }
+
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 10
+
+      Text {
+        Layout.fillWidth: true
+        text: pytanieEksportu.rodzaj === "paczka" ? qsTr("Eksportuj paczkę") : qsTr("Eksportuj na dysk")
+        font: t.strongFont
+        color: t.mainTextColor
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        visible: pytanieEksportu.pracuje
+        spacing: 10
+        BusyIndicator {
+          running: pytanieEksportu.pracuje
+          Layout.preferredWidth: 40
+          Layout.preferredHeight: 40
+        }
+        Text {
+          Layout.fillWidth: true
+          text: pytanieEksportu.opisPracy
+          font: t.tipFont
+          color: t.mainTextColor
+          wrapMode: Text.WordWrap
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        visible: !pytanieEksportu.pracuje
+        text: qsTr("Co wyeksportować?")
+        font: t.defaultFont
+        color: t.mainTextColor
+      }
+
+      Button {
+        id: przyciskCaly
+        Layout.fillWidth: true
+        padding: 12
+        background: Rectangle {
+          radius: 8
+          color: parent.down ? Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.30) : Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.12)
+          border.width: 1
+          border.color: t.mainColor
+          opacity: parent.enabled ? 1 : 0.4
+        }
+        visible: !pytanieEksportu.pracuje
+        contentItem: ColumnLayout {
+          spacing: 2
+          Text {
+            Layout.fillWidth: true
+            text: qsTr("Cały projekt")
+            font: t.strongFont
+            color: t.mainTextColor
+          }
+          Text {
+            Layout.fillWidth: true
+            text: pytanieEksportu.rozmiary
+                  ? qsTr("Wszystko z katalogu projektu, razem z ortofotomapą — %1").arg(dashBoard.rozmiarCzytelny(pytanieEksportu.rozmiary.calosc))
+                  : qsTr("Wszystko z katalogu projektu, razem z ortofotomapą")
+            font: t.tinyFont
+            color: t.secondaryTextColor
+            wrapMode: Text.WordWrap
+          }
+        }
+        onClicked: {
+          const r = pytanieEksportu.rodzaj;
+          const k = pytanieEksportu.katalog;
+          pytanieEksportu.close();
+          dashBoard.eksportujCaly(r, k);
+        }
+      }
+
+      Button {
+        id: przyciskDane
+        Layout.fillWidth: true
+        padding: 12
+        background: Rectangle {
+          radius: 8
+          color: parent.down ? Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.30) : Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.12)
+          border.width: 1
+          border.color: t.mainColor
+          opacity: parent.enabled ? 1 : 0.4
+        }
+        visible: !pytanieEksportu.pracuje
+        enabled: pytanieEksportu.rozmiary !== null
+        contentItem: ColumnLayout {
+          spacing: 2
+          Text {
+            Layout.fillWidth: true
+            text: qsTr("Tylko dane")
+            font: t.strongFont
+            color: t.mainTextColor
+          }
+          Text {
+            Layout.fillWidth: true
+            text: pytanieEksportu.rozmiary
+                  ? qsTr("Bazy z obiektami, zdjęcia, projekt, ODGIK, domiary, style — %1. Bez ortofotomap i kopii.").arg(dashBoard.rozmiarCzytelny(pytanieEksportu.rozmiary.bajty))
+                  : qsTr("Niedostępne")
+            font: t.tinyFont
+            color: t.secondaryTextColor
+            wrapMode: Text.WordWrap
+          }
+        }
+        onClicked: {
+          const r = pytanieEksportu.rodzaj;
+          const k = pytanieEksportu.katalog;
+          if (dashBoard.systemoweOkno(r)) {
+            pytanieEksportu.pracujPotem(function () {
+              dashBoard.eksportujDane(r, k);
+            });
+          } else {
+            pytanieEksportu.close();
+            dashBoard.eksportujDane(r, k);
+          }
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        visible: !pytanieEksportu.pracuje
+        Item {
+          Layout.fillWidth: true
+        }
+        Button {
+          flat: true
+          font.pointSize: t.tinyFont.pointSize
+          contentItem: Text {
+            text: qsTr("Anuluj")
+            font: parent.font
+            color: t.mainTextColor
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+          }
+          onClicked: pytanieEksportu.close()
+        }
+      }
+    }
+  }
+
   onOpenedChanged: {
     if (opened) {
       projectSection.refresh();
@@ -1895,6 +2259,38 @@ Drawer {
             // zawartosci zamiast przegladarki QFielda
             dashBoard.close();
             photoGallery.openFiles(qgisProject ? qgisProject.homePath : "");
+          }
+        }
+        // WorkField 8.10.2026 [WF-EKSPORT-PROJEKTU] — dwie pozycje CORE, wyjęte
+        // z „Wymiany lokalnej” (półka eksperymentalna). Piotr: „to muszą być
+        // opcje CORE, a paczka na telefonie ma od razu otwierać wysyłanie”.
+        // Obie najpierw ZAPISUJĄ projekt — paczka bez ostatnich zmian byłaby
+        // gorsza niż żadna. Działanie rusza po zamknięciu szuflady (komunikat
+        // ginął pod jej animacją — lekcja z eksportu DXF).
+        QfPozycjaMenu {
+          text: qsTr("Eksportuj paczkę")
+          ikona: "wfg_paczka"
+          enabled: projectSection.filePath !== ""
+          onClicked: {
+            const wykonaj = function () {
+              dashBoard.closed.disconnect(wykonaj);
+              dashBoard.eksportujProjekt("paczka");
+            };
+            dashBoard.closed.connect(wykonaj);
+            dashBoard.close();
+          }
+        }
+        QfPozycjaMenu {
+          text: qsTr("Eksportuj na dysk")
+          ikona: "wfg_eksport"
+          enabled: projectSection.filePath !== ""
+          onClicked: {
+            const wykonaj = function () {
+              dashBoard.closed.disconnect(wykonaj);
+              dashBoard.eksportujProjekt("dysk");
+            };
+            dashBoard.closed.connect(wykonaj);
+            dashBoard.close();
           }
         }
         QfPozycjaMenu {

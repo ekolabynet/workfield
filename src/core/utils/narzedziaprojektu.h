@@ -475,6 +475,38 @@ class NarzedziaProjektu : public QObject
     //! Zapisuje tekst jako UTF-8 (np. workfield_klawisze.json obok projektu).
     Q_INVOKABLE bool zapiszTekst( const QString &sciezka, const QString &tresc ) const;
 
+    /**
+     * WorkField 8.10.2026 [WF-EKSPORT-DANYCH] — eksport „Tylko dane”.
+     *
+     * Kopiuje z katalogu projektu do katalogDocelowy to, czego nie da się
+     * odtworzyć: bazy z obiektami (przez API kopii SQLite — z ostatnimi
+     * zapisami z dziennika WAL — i z quick_check), zdjęcia, plik projektu,
+     * ODGIK, DOMIARY, style, workfield_klawisze.json. Pomija: rastry (.tif,
+     * .vrt, .jp2, .ecw… i GeoPackage z samymi kafelkami), kopie .przed_*
+     * i katalog kopie/, katalog IN/, miniatury .qgz.png i .aux.xml,
+     * wf_wskazniki.gpkg. Zakres ustalony z Piotrem 8.10.2026.
+     *
+     * proba=true niczego nie kopiuje, tylko liczy (do pytania przed eksportem).
+     * Katalog docelowy musi nie istnieć albo być pusty. Obok danych zapisuje
+     * _EKSPORT_DANYCH.txt z listą pominiętych plików.
+     *
+     * Zwraca {ok, katalog, plikow, bajty, bazy, pominietych, bajtyPominiete,
+     * calosc, bledy, blad}.
+     */
+    Q_INVOKABLE QVariantMap eksportDanychProjektu( const QString &katalogProjektu, const QString &katalogDocelowy, bool proba ) const;
+
+    /**
+     * WorkField 8.10.2026 [WF-EKSPORT-PACZKA-KOMPUTER] — paczka ZIP na komputerze.
+     *
+     * Pakuje katalog projektu (albo, gdy tylkoDane, wynik eksportDanychProjektu
+     * złożony w katalogu tymczasowym) do pliku plikZip. W archiwum jeden
+     * katalog główny o nazwie projektu / paczki, podkatalogi zachowane.
+     * Nie nadpisuje istniejącego pliku; paczka nie może powstać w projekcie.
+     *
+     * Zwraca {ok, sciezka, plikow, bajty, rozmiarZip, blad}.
+     */
+    Q_INVOKABLE QVariantMap spakujProjekt( const QString &katalogProjektu, const QString &plikZip, bool tylkoDane ) const;
+
   private:
     //! Indeks pola albo -1.
     static int indeksPola( const QgsVectorLayer *warstwa, const QString &pole );

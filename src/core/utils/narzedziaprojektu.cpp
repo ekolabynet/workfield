@@ -2218,6 +2218,464 @@ QVariantMap NarzedziaProjektu::migawkaBazy( const QString &gpkg, const QString &
   return wynik;
 }
 
+// WorkField 8.10.2026 [WF-EKSPORT-DANYCH] — „Tylko dane”: to, czego nie da
+// się odtworzyć (bazy z obiektami, zdjęcia, projekt, wyniki wtyczek), bez
+// ortofotomap i kopii. Zakres ustalony z Piotrem 8.10.2026.
+#include <QDirIterator>
+
+namespace
+{
+  //! Co mówi gpkg_contents: "wektor", "raster" albo "" (nie GeoPackage / nie da się czytać).
+  QString rodzajGeoPackage( const QString &plik )
+  {
+    QString rodzaj;
+    sqlite3 *baza = nullptr;
+    if ( sqlite3_open_v2( plik.toUtf8().constData(), &baza, SQLITE_OPEN_READONLY, nullptr ) == SQLITE_OK )
+    {
+      sqlite3_busy_timeout( baza, 5000 );
+      sqlite3_stmt *zapytanie = nullptr;
+      if ( sqlite3_prepare_v2( baza, "SELECT DISTINCT lower(data_type) FROM gpkg_contents", -1, &zapytanie, nullptr ) == SQLITE_OK )
+      {
+        bool wektor = false;
+        bool raster = false;
+        while ( sqlite3_step( zapytanie ) == SQLITE_ROW )
+        {
+          const QString typ = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( zapytanie, 0 ) ) );
+          if ( typ == QLatin1String( "tiles" ) || typ == QLatin1String( "2d-gridded-coverage" ) )
+            raster = true;
+          else
+            wektor = true; // features, attributes i wszystko inne — to dane
+        }
+        // baza z samymi kafelkami = podkład; mieszana albo pusta = dane
+        rodzaj = ( raster && !wektor ) ? QStringLiteral( "raster" ) : QStringLiteral( "wektor" );
+      }
+      sqlite3_finalize( zapytanie );
+    }
+    if ( baza )
+      sqlite3_close( baza );
+    return rodzaj;
+  }
+
+  //! Czy plik zaczyna się nagłówkiem SQLite (GeoPackage, SpatiaLite…).
+  bool toSqlite( const QString &plik )
+  {
+    QFile f( plik );
+    if ( !f.open( QIODevice::ReadOnly ) )
+      return false;
+    return f.read( 16 ) == QByteArray( "SQLite format 3\0", 16 );
+  }
+
+  //! Kopia bazy przez API kopii zapasowej SQLite: czyta także to, co siedzi
+  //! jeszcze w dzienniku WAL, więc ostatnie zapisy nie giną, nawet gdy
+  //! QField trzyma bazę otwartą. Potem sprawdzenie quick_check.
+  QString zapieczetujBaze( const QString &zrodlo, const QString &cel )
+  {
+    sqlite3 *wej = nullptr;
+    sqlite3 *wyj = nullptr;
+    QString blad;
+    if ( sqlite3_open_v2( zrodlo.toUtf8().constData(), &wej, SQLITE_OPEN_READONLY, nullptr ) != SQLITE_OK )
+      blad = QStringLiteral( "nie da się otworzyć" );
+    else if ( sqlite3_open_v2( cel.toUtf8().constData(), &wyj, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr ) != SQLITE_OK )
+      blad = QStringLiteral( "nie da się utworzyć kopii" );
+    else
+    {
+      sqlite3_busy_timeout( wej, 5000 );
+      sqlite3_backup *kopia = sqlite3_backup_init( wyj, "main", wej, "main" );
+      if ( !kopia )
+        blad = QString::fromUtf8( sqlite3_errmsg( wyj ) );
+      else
+      {
+        int stan = SQLITE_OK;
+        int proby = 0;
+        do
+        {
+          stan = sqlite3_backup_step( kopia, -1 );
+          if ( stan == SQLITE_BUSY || stan == SQLITE_LOCKED )
+            sqlite3_sleep( 100 );
+        } while ( ( stan == SQLITE_BUSY || stan == SQLITE_LOCKED ) && ++proby < 50 );
+        sqlite3_backup_finish( kopia );
+        if ( stan != SQLITE_DONE )
+          blad = QStringLiteral( "kopia przerwana (%1)" ).arg( stan );
+      }
+    }
+
+    if ( blad.isEmpty() )
+    {
+      // u odbiorcy jeden plik, bez dziennika obok
+      sqlite3_exec( wyj, "PRAGMA journal_mode=DELETE", nullptr, nullptr, nullptr );
+      bool zdrowa = false;
+      sqlite3_stmt *zapytanie = nullptr;
+      if ( sqlite3_prepare_v2( wyj, "PRAGMA quick_check", -1, &zapytanie, nullptr ) == SQLITE_OK
+           && sqlite3_step( zapytanie ) == SQLITE_ROW )
+      {
+        const QString odpowiedz = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( zapytanie, 0 ) ) );
+        zdrowa = odpowiedz.compare( QLatin1String( "ok" ), Qt::CaseInsensitive ) == 0;
+      }
+      sqlite3_finalize( zapytanie );
+      if ( !zdrowa )
+        blad = QStringLiteral( "kopia nie przeszła sprawdzenia" );
+    }
+
+    if ( wej )
+      sqlite3_close( wej );
+    if ( wyj )
+      sqlite3_close( wyj );
+    if ( !blad.isEmpty() )
+      QFile::remove( cel );
+    return blad;
+  }
+} // namespace
+
+QVariantMap NarzedziaProjektu::eksportDanychProjektu( const QString &katalogProjektu, const QString &katalogDocelowy, bool proba ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+
+  const QString zrodlo = QDir::cleanPath( katalogProjektu );
+  if ( zrodlo.isEmpty() || !QFileInfo( zrodlo ).isDir() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie ma katalogu projektu." ) );
+    return wynik;
+  }
+
+  const QString cel = QDir::cleanPath( katalogDocelowy );
+  if ( !proba )
+  {
+    if ( cel.isEmpty() )
+    {
+      wynik.insert( QStringLiteral( "blad" ), tr( "Nie wskazano, dokąd kopiować." ) );
+      return wynik;
+    }
+    if ( cel == zrodlo || cel.startsWith( zrodlo + QLatin1Char( '/' ) ) )
+    {
+      wynik.insert( QStringLiteral( "blad" ), tr( "Folder docelowy nie może leżeć wewnątrz projektu." ) );
+      return wynik;
+    }
+    // Nie dokładamy do cudzego katalogu i niczego nie nadpisujemy.
+    if ( QFileInfo::exists( cel ) && !QDir( cel ).isEmpty( QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden ) )
+    {
+      wynik.insert( QStringLiteral( "blad" ), tr( "Folder %1 już istnieje i nie jest pusty." ).arg( cel ) );
+      return wynik;
+    }
+    if ( !QDir().mkpath( cel ) )
+    {
+      wynik.insert( QStringLiteral( "blad" ), tr( "Nie da się utworzyć katalogu %1" ).arg( cel ) );
+      return wynik;
+    }
+  }
+
+  static const QStringList rastry = {
+    QStringLiteral( "tif" ), QStringLiteral( "tiff" ), QStringLiteral( "vrt" ), QStringLiteral( "jp2" ),
+    QStringLiteral( "j2k" ), QStringLiteral( "ecw" ), QStringLiteral( "sid" ), QStringLiteral( "mbtiles" ),
+    QStringLiteral( "ovr" ), QStringLiteral( "img" )
+  };
+  static const QStringList bazy = { QStringLiteral( "gpkg" ), QStringLiteral( "sqlite" ), QStringLiteral( "db" ) };
+
+  qint64 bajty = 0;
+  qint64 bajtyPominiete = 0;
+  int plikow = 0;
+  int pominietych = 0;
+  int zapieczetowanych = 0;
+  QStringList pominiete; // „ścieżka — powód”, do pliku-opisu
+  QStringList bledy;
+
+  auto pomin = [&]( const QString &wzgledna, qint64 rozmiar, const QString &powod ) {
+    bajtyPominiete += rozmiar;
+    ++pominietych;
+    pominiete << QStringLiteral( "%1 — %2" ).arg( wzgledna, powod );
+  };
+  auto rozmiarKatalogu = []( const QString &sciezka ) {
+    qint64 suma = 0;
+    QDirIterator it( sciezka, QDir::Files | QDir::Hidden | QDir::NoSymLinks, QDirIterator::Subdirectories );
+    while ( it.hasNext() )
+    {
+      it.next();
+      suma += it.fileInfo().size();
+    }
+    return suma;
+  };
+
+  QStringList doObejscia = { QString() }; // ścieżki względne katalogów
+  while ( !doObejscia.isEmpty() )
+  {
+    const QString wzgKatalog = doObejscia.takeFirst();
+    const QDir katalog( wzgKatalog.isEmpty() ? zrodlo : zrodlo + QLatin1Char( '/' ) + wzgKatalog );
+    const QFileInfoList wpisy = katalog.entryInfoList( QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::NoSymLinks, QDir::Name );
+    for ( const QFileInfo &wpis : wpisy )
+    {
+      const QString nazwa = wpis.fileName();
+      const QString male = nazwa.toLower();
+      const QString wzgledna = wzgKatalog.isEmpty() ? nazwa : wzgKatalog + QLatin1Char( '/' ) + nazwa;
+
+      if ( wpis.isDir() )
+      {
+        if ( wzgKatalog.isEmpty() && male == QLatin1String( "in" ) )
+          pomin( wzgledna + QLatin1Char( '/' ), rozmiarKatalogu( wpis.absoluteFilePath() ), QStringLiteral( "materiały wejściowe" ) );
+        else if ( male == QLatin1String( "kopie" ) || male.contains( QLatin1String( ".przed_" ) ) )
+          pomin( wzgledna + QLatin1Char( '/' ), rozmiarKatalogu( wpis.absoluteFilePath() ), QStringLiteral( "kopie" ) );
+        else
+          doObejscia << wzgledna;
+        continue;
+      }
+
+      const QString rozszerzenie = wpis.suffix().toLower();
+      const qint64 rozmiar = wpis.size();
+
+      if ( male.contains( QLatin1String( ".przed_" ) ) || male.endsWith( QLatin1Char( '~' ) ) )
+      {
+        pomin( wzgledna, rozmiar, QStringLiteral( "kopia" ) );
+        continue;
+      }
+      if ( male.endsWith( QLatin1String( ".qgz.png" ) ) || male.endsWith( QLatin1String( ".qgs.png" ) ) || male.endsWith( QLatin1String( ".aux.xml" ) ) )
+      {
+        pomin( wzgledna, rozmiar, QStringLiteral( "miniatura / plik pomocniczy" ) );
+        continue;
+      }
+      if ( male.endsWith( QLatin1String( "-wal" ) ) || male.endsWith( QLatin1String( "-shm" ) ) || male.endsWith( QLatin1String( "-journal" ) ) )
+      {
+        if ( male.endsWith( QLatin1String( "-wal" ) ) )
+          bajty += rozmiar; // zawartość dziennika trafia do kopii bazy
+        continue;
+      }
+      if ( rastry.contains( rozszerzenie ) )
+      {
+        pomin( wzgledna, rozmiar, QStringLiteral( "raster" ) );
+        continue;
+      }
+      if ( rozszerzenie == QLatin1String( "gpkg" ) && male.startsWith( QLatin1String( "wf_wskazniki" ) ) )
+      {
+        pomin( wzgledna, rozmiar, QStringLiteral( "wskaźniki (odtwarzalne)" ) );
+        continue;
+      }
+
+      if ( rozszerzenie == QLatin1String( "gpkg" ) && rodzajGeoPackage( wpis.absoluteFilePath() ) == QLatin1String( "raster" ) )
+      {
+        pomin( wzgledna, rozmiar, QStringLiteral( "raster w GeoPackage" ) );
+        continue;
+      }
+
+      ++plikow;
+      bajty += rozmiar;
+      if ( proba )
+        continue;
+
+      const QString docelowy = cel + QLatin1Char( '/' ) + wzgledna;
+      QDir().mkpath( QFileInfo( docelowy ).absolutePath() );
+      bool udane = false;
+      if ( bazy.contains( rozszerzenie ) && toSqlite( wpis.absoluteFilePath() ) )
+      {
+        const QString problem = zapieczetujBaze( wpis.absoluteFilePath(), docelowy );
+        udane = problem.isEmpty();
+        if ( udane )
+          ++zapieczetowanych;
+        else
+          bledy << QStringLiteral( "%1: %2" ).arg( wzgledna, problem );
+      }
+      else
+      {
+        udane = QFile::copy( wpis.absoluteFilePath(), docelowy );
+        if ( !udane )
+          bledy << QStringLiteral( "%1: kopiowanie nie powiodło się" ).arg( wzgledna );
+      }
+      // u odbiorcy pliki mają być czytelne (kopie z telefonu bywały 600)
+      if ( udane )
+        QFile::setPermissions( docelowy, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther );
+    }
+  }
+
+  if ( !proba )
+  {
+    QFile opis( cel + QStringLiteral( "/_EKSPORT_DANYCH.txt" ) );
+    if ( opis.open( QIODevice::WriteOnly | QIODevice::Text ) )
+    {
+      QStringList linie;
+      linie << QStringLiteral( "WorkFieldGIS — eksport „Tylko dane”" )
+            << QStringLiteral( "Projekt: %1" ).arg( zrodlo )
+            << QStringLiteral( "Czas: %1" ).arg( QDateTime::currentDateTime().toString( QStringLiteral( "yyyy-MM-dd HH:mm" ) ) )
+            << QStringLiteral( "Skopiowano plików: %1 (%2 MB), w tym zapieczętowanych baz: %3" ).arg( plikow ).arg( bajty / 1048576.0, 0, 'f', 1 ).arg( zapieczetowanych )
+            << QString()
+            << QStringLiteral( "Pominięte (warstwy z nich w projekcie będą puste, dopóki nie dołożysz plików):" );
+      for ( const QString &p : std::as_const( pominiete ) )
+        linie << QStringLiteral( "  " ) + p;
+      if ( !bledy.isEmpty() )
+      {
+        linie << QString() << QStringLiteral( "BŁĘDY:" );
+        for ( const QString &b : std::as_const( bledy ) )
+          linie << QStringLiteral( "  " ) + b;
+      }
+      opis.write( ( linie.join( QLatin1Char( '\n' ) ) + QLatin1Char( '\n' ) ).toUtf8() );
+      opis.close();
+    }
+  }
+
+  wynik.insert( QStringLiteral( "ok" ), bledy.isEmpty() );
+  wynik.insert( QStringLiteral( "katalog" ), cel );
+  wynik.insert( QStringLiteral( "plikow" ), plikow );
+  wynik.insert( QStringLiteral( "bajty" ), bajty );
+  wynik.insert( QStringLiteral( "bazy" ), zapieczetowanych );
+  wynik.insert( QStringLiteral( "pominietych" ), pominietych );
+  wynik.insert( QStringLiteral( "bajtyPominiete" ), bajtyPominiete );
+  wynik.insert( QStringLiteral( "calosc" ), bajty + bajtyPominiete );
+  wynik.insert( QStringLiteral( "bledy" ), bledy );
+  if ( !bledy.isEmpty() )
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie wszystko się skopiowało: %1" ).arg( bledy.first() ) );
+  return wynik;
+}
+
+// WorkField 8.10.2026 [WF-EKSPORT-PACZKA-KOMPUTER] — paczka ZIP na komputerze.
+// Na komputerze nie ma systemowego „udostępnij”, więc „Eksportuj paczkę”
+// zapisuje plik .zip we wskazanym folderze. libzip — ta sama, której używa
+// QfFileUtils::unzip. Ścieżki w archiwum zachowują katalogi (QgsZipUtils::zip
+// je spłaszcza: zdjęcia z DCIM/ wylądowałyby w korzeniu).
+#include <QTemporaryDir>
+#include <zip.h>
+
+QVariantMap NarzedziaProjektu::spakujProjekt( const QString &katalogProjektu, const QString &plikZip, bool tylkoDane ) const
+{
+  QVariantMap wynik;
+  wynik.insert( QStringLiteral( "ok" ), false );
+
+  const QString zrodlo = QDir::cleanPath( katalogProjektu );
+  if ( zrodlo.isEmpty() || !QFileInfo( zrodlo ).isDir() )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie ma katalogu projektu." ) );
+    return wynik;
+  }
+  if ( plikZip.isEmpty() || QFileInfo::exists( plikZip ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Plik %1 już istnieje — nie nadpisuję." ).arg( plikZip ) );
+    return wynik;
+  }
+  if ( QDir::cleanPath( plikZip ).startsWith( zrodlo + QLatin1Char( '/' ) ) )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Paczka nie może powstać wewnątrz projektu." ) );
+    return wynik;
+  }
+
+  // „Tylko dane”: najpierw składamy je w katalogu tymczasowym (sam się
+  // sprząta po wyjściu z funkcji), dopiero ten katalog idzie do ZIP-a.
+  const QString nazwa = QFileInfo( plikZip ).completeBaseName();
+  // Jawny wzorzec: domyślny bierze nazwę aplikacji, a ta w WorkField
+  // potrafi zepsuć ścieżkę (8.10.2026: „nie da się utworzyć katalogu
+  // tymczasowego” na komputerze Piotra). Gdy /tmp zawiedzie — katalog
+  // roboczy obok paczki, tworzony od zera i sprzątany na końcu.
+  QTemporaryDir tymczasowy( QDir::tempPath() + QStringLiteral( "/wf_eksport-XXXXXX" ) );
+  QString obokPaczki;
+  QString doSpakowania = zrodlo;
+  if ( tylkoDane )
+  {
+    QString roboczy;
+    if ( tymczasowy.isValid() )
+    {
+      roboczy = tymczasowy.path();
+    }
+    else
+    {
+      obokPaczki = QFileInfo( plikZip ).absolutePath() + QStringLiteral( "/.wf_eksport_" ) + nazwa;
+      if ( QFileInfo::exists( obokPaczki ) || !QDir().mkpath( obokPaczki ) )
+      {
+        wynik.insert( QStringLiteral( "blad" ), tr( "Nie da się utworzyć katalogu roboczego (%1; %2)." ).arg( tymczasowy.errorString(), obokPaczki ) );
+        return wynik;
+      }
+      roboczy = obokPaczki;
+    }
+    doSpakowania = roboczy + QLatin1Char( '/' ) + nazwa;
+    const QVariantMap dane = eksportDanychProjektu( zrodlo, doSpakowania, false );
+    if ( !dane.value( QStringLiteral( "ok" ) ).toBool() )
+    {
+      if ( !obokPaczki.isEmpty() )
+        QDir( obokPaczki ).removeRecursively();
+      return dane;
+    }
+  }
+  // sprząta katalog roboczy obok paczki przy każdym wyjściu niżej
+  struct Sprzatacz
+  {
+      QString sciezka;
+      ~Sprzatacz()
+      {
+        if ( !sciezka.isEmpty() )
+          QDir( sciezka ).removeRecursively();
+      }
+  } sprzatacz { obokPaczki };
+
+  int kod = 0;
+  zip_t *archiwum = zip_open( plikZip.toUtf8().constData(), ZIP_CREATE | ZIP_EXCL, &kod );
+  if ( !archiwum )
+  {
+    zip_error_t blad;
+    zip_error_init_with_code( &blad, kod );
+    wynik.insert( QStringLiteral( "blad" ), tr( "Nie da się utworzyć %1: %2" ).arg( plikZip, QString::fromUtf8( zip_error_strerror( &blad ) ) ) );
+    zip_error_fini( &blad );
+    return wynik;
+  }
+
+  // już skompresowane — szkoda czasu na ponowne ściskanie
+  static const QStringList bezKompresji = {
+    QStringLiteral( "jpg" ), QStringLiteral( "jpeg" ), QStringLiteral( "png" ), QStringLiteral( "heic" ),
+    QStringLiteral( "mp4" ), QStringLiteral( "zip" ), QStringLiteral( "qgz" ), QStringLiteral( "jp2" ),
+    QStringLiteral( "ecw" ), QStringLiteral( "sid" ), QStringLiteral( "mbtiles" )
+  };
+
+  const QDir baza( doSpakowania );
+  const QString przedrostek = tylkoDane ? nazwa : QFileInfo( zrodlo ).fileName();
+  int plikow = 0;
+  qint64 bajty = 0;
+  QString problem;
+  QDirIterator it( doSpakowania, QDir::Files | QDir::Hidden | QDir::NoSymLinks, QDirIterator::Subdirectories );
+  while ( it.hasNext() && problem.isEmpty() )
+  {
+    const QString sciezka = it.next();
+    const QFileInfo info = it.fileInfo();
+    const QString wArchiwum = przedrostek + QLatin1Char( '/' ) + baza.relativeFilePath( sciezka );
+    zip_source_t *zrodloPliku = zip_source_file( archiwum, sciezka.toUtf8().constData(), 0, -1 );
+    if ( !zrodloPliku )
+    {
+      problem = tr( "%1: %2" ).arg( wArchiwum, QString::fromUtf8( zip_strerror( archiwum ) ) );
+      break;
+    }
+    const zip_int64_t indeks = zip_file_add( archiwum, wArchiwum.toUtf8().constData(), zrodloPliku, ZIP_FL_ENC_UTF_8 );
+    if ( indeks < 0 )
+    {
+      zip_source_free( zrodloPliku );
+      problem = tr( "%1: %2" ).arg( wArchiwum, QString::fromUtf8( zip_strerror( archiwum ) ) );
+      break;
+    }
+    if ( bezKompresji.contains( info.suffix().toLower() ) )
+      zip_set_file_compression( archiwum, static_cast<zip_uint64_t>( indeks ), ZIP_CM_STORE, 0 );
+    ++plikow;
+    bajty += info.size();
+  }
+
+  if ( problem.isEmpty() && plikow == 0 )
+    problem = tr( "Nie ma czego spakować." );
+
+  if ( !problem.isEmpty() )
+  {
+    zip_discard( archiwum );
+    QFile::remove( plikZip );
+    wynik.insert( QStringLiteral( "blad" ), problem );
+    return wynik;
+  }
+
+  // Właściwe pakowanie dzieje się dopiero tutaj.
+  if ( zip_close( archiwum ) != 0 )
+  {
+    wynik.insert( QStringLiteral( "blad" ), tr( "Pakowanie nie powiodło się: %1" ).arg( QString::fromUtf8( zip_strerror( archiwum ) ) ) );
+    zip_discard( archiwum );
+    QFile::remove( plikZip );
+    return wynik;
+  }
+  QFile::setPermissions( plikZip, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup | QFileDevice::ReadOther );
+
+  wynik.insert( QStringLiteral( "ok" ), true );
+  wynik.insert( QStringLiteral( "sciezka" ), plikZip );
+  wynik.insert( QStringLiteral( "plikow" ), plikow );
+  wynik.insert( QStringLiteral( "bajty" ), bajty );
+  wynik.insert( QStringLiteral( "rozmiarZip" ), QFileInfo( plikZip ).size() );
+  return wynik;
+}
+
 QVariantMap NarzedziaProjektu::importujWarstwe( const QString &zrodloUri,
                                                 const QString &celGpkg,
                                                 const QString &nazwaDocelowa,

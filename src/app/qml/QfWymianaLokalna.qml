@@ -19,9 +19,11 @@ import Theme
  *   Documents/WorkField/przychodzace/  ← co wnosimy do telefonu
  *
  * Oba widać po podłączeniu telefonu do komputera i w każdym menedżerze plików,
- * więc oddanie zwrotu nie wymaga niczyjej pomocy. Systemowy wybór miejsca
- * („Wyślij do…", „Eksportuj do folderu…") zostaje jako druga droga — przydaje
- * się, gdy dane mają iść od razu do chmury albo na komunikator.
+ * więc oddanie zwrotu nie wymaga niczyjej pomocy.
+ *
+ * WorkField 8.10.2026 [WF-EKSPORT-PROJEKTU] — „Wyślij jako paczkę…” i „Eksportuj
+ * do wybranego folderu…” przeniesione do lewej szuflady jako pozycje CORE
+ * „Eksportuj paczkę” i „Eksportuj na dysk”. Tu zostaje podpowiedź, gdzie są.
  */
 Popup {
   id: wymiana
@@ -241,27 +243,13 @@ Popup {
         onClicked: wymiana.wyniesProjekt()
       }
 
-      Button {
-        Layout.fillWidth: true
-        enabled: wymiana.projectDir !== "" && (platformUtilities.capabilities & PlatformUtilities.CustomSend)
-        text: qsTr("Wyślij jako paczkę…")
-        font: wymiana.t.tipFont
-        onClicked: {
-          platformUtilities.sendCompressedFolderTo(wymiana.projectDir);
-          wymiana.stan = qsTr("Wybierz, dokąd wysłać paczkę.");
-        }
-      }
-
-      Button {
+      Text {
         Layout.fillWidth: true
         Layout.columnSpan: 2
-        enabled: wymiana.projectDir !== "" && (platformUtilities.capabilities & PlatformUtilities.CustomExport)
-        text: qsTr("Eksportuj do wybranego folderu…")
-        font: wymiana.t.tipFont
-        onClicked: {
-          platformUtilities.exportFolderTo(wymiana.projectDir);
-          wymiana.stan = qsTr("Wskaż folder docelowy.");
-        }
+        wrapMode: Text.WordWrap
+        text: qsTr("Paczkę do wysłania i eksport na dysk znajdziesz w menu projektu: „Eksportuj paczkę” i „Eksportuj na dysk”.")
+        font: wymiana.t.tinyFont
+        color: wymiana.t.secondaryTextColor
       }
     }
 
