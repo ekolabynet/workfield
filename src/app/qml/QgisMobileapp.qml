@@ -432,6 +432,19 @@ ApplicationWindow {
   onMenuEksperymentalneChanged: settings.setValue("WorkField/menuEksperymentalne", menuEksperymentalne)
   readonly property bool pokazujEksperymentalne: menuEksperymentalne === "pokazuj"
 
+  // WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — trzecia półka: ZAAWANSOWANE.
+  // Działa i jest pewne, ale nie każdy tego potrzebuje (wydruki, wtyczki,
+  // moduły, diagnostyka). Ten sam wzór co `menuEksperymentalne`: napis, nie
+  // bool, jedno ustawienie na oknie głównym.
+  //
+  // Domyślnie UKRYTE — decyzja Piotra z 8.10.2026 (zmieniona tego samego
+  // dnia): „pierwsze otwarcie aplikacji powinno być w wersji CORE”. Kto
+  // raz przełączył, ma swój wybór zapisany i nic mu się nie zmienia.
+  // `!== "ukryj"` zostaje: każdy inny ZAPISANY napis pokazuje funkcje.
+  property string menuZaawansowane: settings.value("WorkField/menuZaawansowane", "ukryj")
+  onMenuZaawansowaneChanged: settings.setValue("WorkField/menuZaawansowane", menuZaawansowane)
+  readonly property bool pokazujZaawansowane: menuZaawansowane !== "ukryj"
+
   property string cadRysunek: ""
   property string cadUklad: ""
   property string cadKatalog: ""
@@ -5421,7 +5434,7 @@ ApplicationWindow {
       font: QfTheme.defaultFont
       icon.source: QfTheme.getThemeVectorIcon("ic_sensor_on_black_24dp")
       height: visible ? 48 : 0
-      visible: sensorListInstantiator.count > 0
+      visible: sensorListInstantiator.count > 0 && mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
       leftPadding: QfTheme.menuItemLeftPadding
       rightPadding: 40
 
@@ -5666,7 +5679,9 @@ ApplicationWindow {
       leftPadding: 2
       rightPadding: 2
       spacing: 2
-      height: children.length > 0 ? addBookmarkItem.height : 0
+      // [WF-POLKA-ZAAWANSOWANE] było addBookmarkItem.height — a ta pozycja
+      // potrafi teraz zniknąć (półka zaawansowana) i zabrałaby pasek wtyczek.
+      height: children.length > 0 ? 48 : 0
       clip: true
 
       property color hoveredColor: Qt.hsla(QfTheme.mainTextColor.hslHue, QfTheme.mainTextColor.hslSaturation, QfTheme.mainTextColor.hslLightness, 0.2)
@@ -5694,13 +5709,16 @@ ApplicationWindow {
 
     MenuSeparator {
       width: parent.width
+      visible: mainWindow.pokazujZaawansowane
+      height: visible ? undefined : 0
     }
 
     MenuItem {
       id: addBookmarkItem
       text: qsTr("Add Bookmark")
       icon.source: QfTheme.getThemeVectorIcon("ic_add_bookmark_black_24dp")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemLeftPadding
       font: QfTheme.defaultFont
 
@@ -5721,7 +5739,8 @@ ApplicationWindow {
       id: setDestinationItem
       text: qsTr("Set as Destination")
       icon.source: QfTheme.getThemeVectorIcon("ic_navigation_flag_purple_24dp")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemLeftPadding
       font: QfTheme.defaultFont
 
@@ -5732,12 +5751,15 @@ ApplicationWindow {
 
     MenuSeparator {
       width: parent.width
+      visible: mainWindow.pokazujZaawansowane
+      height: visible ? undefined : 0
     }
 
     MenuItem {
       id: lockMapRotation
       text: qsTr("Enable Map Rotation")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemCheckLeftPadding
       font: QfTheme.defaultFont
       checkable: true
@@ -5755,7 +5777,8 @@ ApplicationWindow {
 
       font: QfTheme.defaultFont
       icon.source: QfTheme.getThemeVectorIcon("ic_lock_black_24dp")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: {
@@ -5810,7 +5833,8 @@ ApplicationWindow {
           font: QfTheme.defaultFont
           icon.source: QfTheme.getThemeVectorIcon("ic_baseline-list_white_24dp")
           leftPadding: QfTheme.menuItemLeftPadding
-          height: 48
+          visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+          height: visible ? 48 : 0
 
           onTriggered: {
             featureListForm.model.setFeatures(menu.featureLayer, '@id = ' + menu.fid);
@@ -5973,7 +5997,8 @@ ApplicationWindow {
 
     MenuItem {
       text: qsTr("Always Show Precise View")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemCheckLeftPadding
       font: QfTheme.defaultFont
 
@@ -5988,6 +6013,8 @@ ApplicationWindow {
 
     MenuSeparator {
       width: parent.width
+      visible: mainWindow.pokazujZaawansowane
+      height: visible ? undefined : 0
     }
 
     MenuItem {
@@ -6044,8 +6071,9 @@ ApplicationWindow {
 
     MenuItem {
       text: qsTr("Enable NTRIP Corrections")
-      visible: positionSource.ntripSettings.isValid && positionSource.deviceCapabilities & QfAbstractGnssReceiver.NtripCorrection
-      height: positionSource.ntripSettings.isValid && positionSource.deviceCapabilities & QfAbstractGnssReceiver.NtripCorrection ? 48 : 0
+      // [WF-POLKA-ZAAWANSOWANE] warunek odbiornika zostaje, dochodzi półka
+      visible: (positionSource.ntripSettings.isValid && (positionSource.deviceCapabilities & QfAbstractGnssReceiver.NtripCorrection) ? true : false) && mainWindow.pokazujZaawansowane
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemCheckLeftPadding
       font: QfTheme.defaultFont
 
@@ -6085,11 +6113,14 @@ ApplicationWindow {
 
     MenuSeparator {
       width: parent.width
+      visible: mainWindow.pokazujZaawansowane
+      height: visible ? undefined : 0
     }
 
     MenuItem {
       text: qsTr("Show Position Information")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemCheckLeftPadding
       font: QfTheme.defaultFont
 
@@ -6105,7 +6136,8 @@ ApplicationWindow {
 
     MenuItem {
       text: qsTr("Lock Coordinate Cursor to Location")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemCheckLeftPadding
       font: QfTheme.defaultFont
       enabled: positionSource.active && positionSource.positionInformation && positionSource.positionInformation.latitudeValid
@@ -6123,7 +6155,8 @@ ApplicationWindow {
 
     MenuItem {
       text: qsTr("Lock Map Canvas to Location")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemCheckLeftPadding
       font: QfTheme.defaultFont
       enabled: positionSource.active && positionSource.positionInformation && positionSource.positionInformation.latitudeValid
@@ -6142,7 +6175,8 @@ ApplicationWindow {
     MenuItem {
       text: qsTr("Add Bookmark at Location")
       icon.source: QfTheme.getThemeVectorIcon("ic_add_bookmark_black_24dp")
-      height: 48
+      visible: mainWindow.pokazujZaawansowane // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemLeftPadding
       font: QfTheme.defaultFont
       enabled: positionSource.active && positionSource.positionInformation && positionSource.positionInformation.latitudeValid

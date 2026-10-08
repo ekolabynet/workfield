@@ -311,7 +311,8 @@ QfEditorWidgetBase {
     MenuItem {
       id: printAtlasChildFeature
       enabled: QfLayerUtils.isAtlasCoverageLayer(relationEditorModel.relation.referencingLayer)
-      visible: enabled
+      // WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — wydruki na półce zaawansowanej
+      visible: enabled && mainWindow.pokazujZaawansowane !== false
 
       font: QfTheme.defaultFont
       width: parent.width

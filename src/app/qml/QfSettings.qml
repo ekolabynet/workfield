@@ -317,9 +317,17 @@ Page {
   // kolejne przełączniki warsztatowe.
   ListModel {
     id: eksperymentalneSettingsModel
+    // WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — druga półka obok
+    // eksperymentalnej, osobny przełącznik (decyzja Piotra).
+    ListElement {
+      title: qsTr("Pokazuj funkcje zaawansowane")
+      description: qsTr("Wydruki, wtyczki, moduły, diagnostyka i inne pozycje, których nie każdy potrzebuje. Działają i są pewne. W menu mają niebieski pasek przy lewej krawędzi.")
+      settingAlias: "menuZaawansowane"
+      isVisible: true
+    }
     ListElement {
       title: qsTr("Pokazuj funkcje eksperymentalne")
-      description: qsTr("Pozycje menu, bez których można na ogół żyć i które poprawiamy spokojnie. W menu mają nieco inne tło.")
+      description: qsTr("Pozycje menu, bez których można na ogół żyć i które poprawiamy spokojnie. W menu mają pomarańczowy pasek przy lewej krawędzi.")
       settingAlias: "menuEksperymentalne"
       isVisible: true
     }
@@ -463,6 +471,8 @@ Page {
             onPrzelaczono: {
               if (settingAlias === "menuEksperymentalne")
                 mainWindow.menuEksperymentalne = checked ? "ukryj" : "pokazuj";
+              else if (settingAlias === "menuZaawansowane") // [WF-POLKA-ZAAWANSOWANE]
+                mainWindow.menuZaawansowane = checked ? "ukryj" : "pokazuj";
               else
                 registry[settingAlias] = !checked;
             }
@@ -622,7 +632,7 @@ Page {
               Layout.leftMargin: 20
               Layout.rightMargin: 20
               Layout.topMargin: 12
-              text: qsTr("Funkcje eksperymentalne")
+              text: qsTr("Funkcje w menu")
               font.pointSize: QfTheme.tipFont.pointSize * 1.15
               font.bold: true
               color: QfTheme.mainTextColor
@@ -633,7 +643,7 @@ Page {
               Layout.leftMargin: 20
               Layout.rightMargin: 20
               Layout.bottomMargin: 6
-              text: qsTr("Można bez nich żyć i poprawiamy je spokojnie. Włączone mają w menu nieco inne tło. Tester dostaje aplikację z tym przełącznikiem wyłączonym.")
+              text: qsTr("Trzy półki: CORE jest zawsze widoczne. ZAAWANSOWANE (niebieski pasek) działają i są pewne, ale nie każdy ich potrzebuje. EKSPERYMENTALNE (pomarańczowy pasek) poprawiamy spokojnie. Po instalacji obie są wyłączone — aplikacja startuje w wersji CORE.")
               font: QfTheme.tipFont
               color: QfTheme.secondaryTextColor
               wrapMode: Text.WordWrap
@@ -1804,6 +1814,8 @@ Page {
   function wlaczone(alias) {
     if (alias === "menuEksperymentalne")
       return mainWindow.pokazujEksperymentalne === true;
+    if (alias === "menuZaawansowane") // [WF-POLKA-ZAAWANSOWANE]
+      return mainWindow.pokazujZaawansowane !== false;
     // `!!`, nie `=== true`: dotąd delegat brał wartość z `registry`
     // tak, jak była. Poprawka ma naprawić jeden wiersz, nie zmienić
     // po cichu oceny osiemnastu innych.
@@ -1846,7 +1858,7 @@ Page {
     {
       // WorkField 6.10.2026 — warsztat, nie aplikacja.
       "id": "eksperymentalne",
-      "nazwa": qsTr("Funkcje eksperymentalne"),
+      "nazwa": qsTr("Funkcje w menu"), // [WF-POLKA-ZAAWANSOWANE] było „Funkcje eksperymentalne”
       "ikona": "wfg_zbuduj"
     }
   ]

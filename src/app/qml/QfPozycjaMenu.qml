@@ -63,7 +63,23 @@ Button {
   property string polka: "core"
   readonly property bool eksperymentalna: polka === "eksperymentalna"
 
-  visible: !pozycja.eksperymentalna || mainWindow.pokazujEksperymentalne === true
+  /**
+   * WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — trzecia półka.
+   * "zaawansowana": działa i jest pewne, ale nie każdy tego potrzebuje.
+   * Własny przełącznik w Ustawieniach, domyślnie WIDOCZNE — stąd
+   * `!== false`: dopóki okno główne nie ma właściwości, pozycja stoi.
+   */
+  readonly property bool zaawansowana: polka === "zaawansowana"
+
+  /**
+   * KOLOR PÓŁKI (8.10.2026). Było: kolor ostrzeżeń motywu w 13% —
+   * w słońcu „brąz, którego nie widać” (Piotr). Teraz pasek pełnego
+   * koloru przy lewej krawędzi i lekko zabarwione tło; wariant wybrany
+   * przez Piotra w formularzu „Półki menu WorkField”.
+   */
+  readonly property color kolorPolki: zaawansowana ? "#1e88e5" : eksperymentalna ? "#ff6d00" : "transparent"
+
+  visible: (!pozycja.eksperymentalna || mainWindow.pokazujEksperymentalne === true) && (!pozycja.zaawansowana || mainWindow.pokazujZaawansowane !== false)
 
   //! Ikona NAD napisem, oba wyśrodkowane.
   readonly property bool kafelek: uklad === "kafelki"
@@ -77,8 +93,20 @@ Button {
   ToolTip.visible: pozycja.samaIkona && pozycja.hovered && pozycja.text !== ""
 
   background: Rectangle {
-    color: pozycja.wybrana ? Qt.rgba(pozycja.t.mainColor.r, pozycja.t.mainColor.g, pozycja.t.mainColor.b, 0.45) : pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : pozycja.eksperymentalna ? Qt.rgba(pozycja.t.warningColor.r, pozycja.t.warningColor.g, pozycja.t.warningColor.b, 0.13) : pozycja.kafelek ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+    color: pozycja.wybrana ? Qt.rgba(pozycja.t.mainColor.r, pozycja.t.mainColor.g, pozycja.t.mainColor.b, 0.45) : pozycja.down ? Qt.rgba(1, 1, 1, 0.14) : pozycja.hovered ? Qt.rgba(1, 1, 1, 0.07) : (pozycja.eksperymentalna || pozycja.zaawansowana) ? Qt.rgba(pozycja.kolorPolki.r, pozycja.kolorPolki.g, pozycja.kolorPolki.b, 0.14) : pozycja.kafelek ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
     radius: pozycja.kafelek ? 6 : 4
+    clip: true
+
+    // [WF-POLKA-ZAAWANSOWANE] pasek półki: 5 px pełnego koloru przy lewej
+    // krawędzi. Widać go w słońcu i nie zależy od rozróżniania odcieni tła.
+    Rectangle {
+      anchors.left: parent.left
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      width: 5
+      color: pozycja.kolorPolki
+      visible: pozycja.eksperymentalna || pozycja.zaawansowana
+    }
 
     Behavior on color {
       ColorAnimation {

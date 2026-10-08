@@ -123,14 +123,20 @@ ToolBar {
         {
           "nazwa": qsTr("Algorytmy"),
           "ikona": "wfg_zbuduj",
-          "zakladka": 2
+          "zakladka": 2,
+          "polka": "zaawansowana"
         },
         {
           "nazwa": qsTr("Moduły"),
           "ikona": "wfg_paczka",
-          "zakladka": 0
+          "zakladka": 0,
+          "polka": "zaawansowana"
         }
-      ]
+      ].filter(function (z) {
+        // WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — ta sama półka co
+        // zakładka w szufladzie; ukryta tam, ukryta i tu.
+        return z.polka !== "zaawansowana" || mainWindow.pokazujZaawansowane !== false;
+      })
 
       delegate: Item {
         id: zakladkaPrawa

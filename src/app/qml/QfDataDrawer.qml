@@ -33,7 +33,7 @@ Drawer {
    * klikniecie ma dzialac tak samo jak przelaczenie zakladki w srodku.
    */
   function otworzZakladke(numer) {
-    drawerTabs.currentIndex = numer;
+    drawerTabs.currentIndex = dozwolonaZakladka(numer); // [WF-POLKA-ZAAWANSOWANE]
     if (!dataDrawer.opened)
       dataDrawer.open();
   }
@@ -165,26 +165,51 @@ Drawer {
     // „niech bedzie wiadomo, ze sa poziom nizej, ale wazne". Kolejnosc
     // w tym dziale niesie wage, nie alfabet; nie sortowac.
     { "label": qsTr("Ustawienia aplikacji"), "action": "ustawienia", "ikona": "wfg_ustawienia" },
-    { "label": qsTr("Wtyczki"), "action": "plugins", "ikona": "wfg_paczka" },
+    // [WF-POLKA-ZAAWANSOWANE] 8.10.2026 — "polka" jak w QfPozycjaMenu;
+    // brak klucza = core.
+    { "label": qsTr("Wtyczki"), "action": "plugins", "ikona": "wfg_paczka", "polka": "zaawansowana" },
     { "label": qsTr("Zablokuj ekran"), "action": "lockScreen", "ikona": "wfg_zamek" },
     { "naglowek": qsTr("Na mapie") },
     { "label": qsTr("Pomiar odległości i powierzchni"), "action": "measurement", "ikona": "wfg_pomiar", "tryb": "measure" },
-    { "label": qsTr("Widok 3D"), "action": "view3d", "ikona": "wfg_kostka", "tryb": "3d" },
-    { "label": qsTr("Wydruki map"), "action": "print", "ikona": "wfg_wydruk" },
-    { "label": qsTr("Zakładki przestrzenne"), "action": "bookmarks", "ikona": "wfg_zakladka" },
+    { "label": qsTr("Widok 3D"), "action": "view3d", "ikona": "wfg_kostka", "tryb": "3d", "polka": "zaawansowana" },
+    { "label": qsTr("Wydruki map"), "action": "print", "ikona": "wfg_wydruk", "polka": "zaawansowana" },
+    { "label": qsTr("Zakładki przestrzenne"), "action": "bookmarks", "ikona": "wfg_zakladka", "polka": "zaawansowana" },
     { "label": qsTr("Pasek wyszukiwania"), "action": "lokalizator", "ikona": "wfg_lupa" },
     { "naglowek": qsTr("Niebo i pozycja") },
     { "label": qsTr("Niebo \u2014 satelity"), "action": "niebo", "ikona": "wfg_niebo" },
-    { "label": qsTr("Diagnostyka GNSS / NTRIP"), "action": "gnssDiag", "ikona": "wfg_sprzet" },
+    { "label": qsTr("Diagnostyka GNSS / NTRIP"), "action": "gnssDiag", "ikona": "wfg_sprzet", "polka": "zaawansowana" },
     { "label": qsTr("Ustawienia pozycjonowania"), "action": "gnssSettings", "ikona": "wfg_ustawienia" },
     { "naglowek": qsTr("Teren i pliki") },
     { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
-    { "label": qsTr("Klawisze szybkiego zapisu"), "action": "klawisze", "ikona": "wfg_zapisz" },
-    { "label": qsTr("Wyposażenie projektu"), "action": "wyposazenie", "ikona": "wfg_wlasciwosci" },
+    { "label": qsTr("Klawisze szybkiego zapisu"), "action": "klawisze", "ikona": "wfg_zapisz", "polka": "zaawansowana" },
+    { "label": qsTr("Wyposażenie projektu"), "action": "wyposazenie", "ikona": "wfg_wlasciwosci", "polka": "zaawansowana" },
     { "label": qsTr("Pliki aplikacji"), "action": "pliki", "ikona": "wfg_przeglad" },
-    { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad" },
-    { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka" }
+    { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad", "polka": "zaawansowana" },
+    { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka", "polka": "zaawansowana" }
   ]
+
+  /**
+   * WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — zakładki Moduły (0)
+   * i Algorytmy (2) są na półce ZAAWANSOWANE. Gdy półka jest ukryta,
+   * szuflada pokazuje same Narzędzia (pasek zakładek znika), a NUMERY
+   * STRON ZOSTAJĄ: StackLayout liczy strony po kolei, więc wyjęcie
+   * zakładki z TabBar-u przesunęłoby Narzędzia na miejsce Modułów.
+   * Szuflada pilnuje tylko, żeby nie stać na ukrytej stronie.
+   */
+  readonly property bool zaawansowane: mainWindow.pokazujZaawansowane !== false
+
+  //! [WF-POLKA-DZIURY] 8.10.2026 — czy pozycja z danej półki jest widoczna.
+  //! Liczone z DANYCH, nie z `item.visible`: widoczność dziecka zależy od
+  //! rodzica, więc Loader pytający o nią zamknąłby pętlę i znikł na stałe.
+  function widocznaPolka(polka) {
+    return (polka !== "zaawansowana" || zaawansowane) && (polka !== "eksperymentalna" || mainWindow.pokazujEksperymentalne === true);
+  }
+
+  function dozwolonaZakladka(numer) {
+    return zaawansowane || numer === 1 ? numer : 1;
+  }
+
+  onZaawansowaneChanged: drawerTabs.currentIndex = dozwolonaZakladka(drawerTabs.currentIndex)
 
   property var pasekWtyczek: null
   property var wtyczki: []
@@ -256,6 +281,7 @@ Drawer {
   Component.onCompleted: {
     pasekWtyczek = iface.findItemByObjectName("pluginsToolbar");
     odswiezWtyczki();
+    drawerTabs.currentIndex = dozwolonaZakladka(drawerTabs.currentIndex); // [WF-POLKA-ZAAWANSOWANE]
   }
 
   // Wtyczka zgłasza się do paska w swoim Component.onCompleted, czyli PO
@@ -424,6 +450,11 @@ Drawer {
       id: drawerTabs
 
       Layout.fillWidth: true
+      // [WF-POLKA-ZAAWANSOWANE] bez Modułów i Algorytmów zostają same
+      // Narzędzia: pasek z jedną zakładką nic nie wybiera, więc znika.
+      // Pojedynczej zakładki nie chowamy osobno — TabBar i tak trzymał
+      // jej miejsce (sprawdzone w piaskownicy 8.10).
+      visible: dataDrawer.zaawansowane
       currentIndex: 0
 
       TabButton {
@@ -573,7 +604,7 @@ Drawer {
 
           Layout.fillWidth: true
           Layout.preferredHeight: ukladWtyczek.implicitHeight + 12
-          visible: dataDrawer.wtyczki.length > 0
+          visible: dataDrawer.wtyczki.length > 0 && dataDrawer.zaawansowane // [WF-POLKA-ZAAWANSOWANE]
 
           ColumnLayout {
             id: ukladWtyczek
@@ -646,6 +677,8 @@ Drawer {
             Loader {
               Layout.fillWidth: true
               property var wpis: modelData
+              // [WF-POLKA-DZIURY] ukryta pozycja zostawiała pusty wiersz
+              visible: modelData.naglowek !== undefined || dataDrawer.widocznaPolka(modelData.polka)
               sourceComponent: modelData.naglowek !== undefined ? naglowekSekcjiNarzedzi : pozycjaNarzedzia
             }
           }
@@ -698,6 +731,9 @@ Drawer {
                   // nie bedacy, rozjechalby sie przy pierwszej zmianie w liscie.
                   delegate: Loader {
                     property var wpis: modelData
+                    // [WF-POLKA-DZIURY] Flow pomija niewidoczne dzieci — bez tego
+                    // ukryta pozycja zostawiała dziurę w kolumnie (zrzut Piotra 8.10)
+                    visible: dataDrawer.widocznaPolka(modelData.polka)
                     width: dataDrawer.uklad === "ikony"
                            ? 44
                            : dataDrawer.uklad === "kafelki"
@@ -759,6 +795,7 @@ Drawer {
         QfPozycjaMenu {
           t: dataDrawer.t
           ikona: "ic_message_log_black_24dp"
+          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
           // WorkField 23.08.2026 — licznik nieprzeczytanych wedrowal razem
           // z pozycja. W menu "..." siedziala przy niej plakietka; gdyby
           // zostala tam, a pozycja tutaj, sygnal "cos sie stalo" znikalby
@@ -774,7 +811,7 @@ Drawer {
           t: dataDrawer.t
           ikona: "ic_send_white_24dp"
           text: qsTr("Udostępnij dziennik (debug)")
-          polka: "eksperymentalna"
+          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE] było eksperymentalna
           onClicked: {
             const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");
             const path = iface.dataRoot() + "logs/workfield_log_" + stamp + ".txt";
@@ -824,6 +861,7 @@ Drawer {
           t: dataDrawer.t
           text: qsTr("Dane wysokościowe: NMT, NMPT, CHM…")
           ikona: "wfg_rzezba"
+          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
           onClicked: {
             if (typeof oknoDaneWysokosciowe === "undefined") {
               dataDrawer.wykonajNarzedzie("chm");
@@ -907,6 +945,7 @@ Drawer {
       // Tryb wlaczony? Pozycja mowi wprost, ze druga klikniecie go wylaczy.
       text: wTrybie ? wpis.label + qsTr("  ·  wyłącz") : wpis.label
       ikona: wpis.ikona !== undefined ? wpis.ikona : ""
+      polka: wpis.polka !== undefined ? wpis.polka : "core" // [WF-POLKA-ZAAWANSOWANE]
       wybrana: wTrybie
       onClicked: dataDrawer.wykonajNarzedzie(wpis.action)
     }

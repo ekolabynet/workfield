@@ -581,15 +581,20 @@ Rectangle {
 
     MenuSeparator {
       width: parent.width
+      visible: mainWindow.pokazujZaawansowane !== false // [WF-POLKA-ZAAWANSOWANE]
+      height: visible ? undefined : 0
     }
 
     MenuItem {
       text: qsTr('Print Atlas Feature(s) to PDF')
       icon.source: QfTheme.getThemeVectorIcon("ic_print_black_24dp")
       enabled: toolBar.model && toolBar.model.selectedCount > 0 && QfLayerUtils.isAtlasCoverageLayer(toolBar.model.selectedLayer)
+      // WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — wydruki na półce
+      // zaawansowanej; `!== false`, bo ten plik bywa ładowany bez okna WorkField.
+      visible: mainWindow.pokazujZaawansowane !== false
 
       font: QfTheme.defaultFont
-      height: 48
+      height: visible ? 48 : 0
       leftPadding: QfTheme.menuItemLeftPadding
 
       onTriggered: {
@@ -758,6 +763,7 @@ Rectangle {
         iconColor: enabled ? QfTheme.mainTextColor : QfTheme.mainTextDisabledColor
         bgcolor: enabled && hovered ? parent.hoveredColor : "#00ffffff"
         enabled: QfLayerUtils.isAtlasCoverageLayer(selection.focusedLayer)
+        visible: mainWindow.pokazujZaawansowane !== false // [WF-POLKA-ZAAWANSOWANE]
 
         onClicked: {
           featureMenu.close();

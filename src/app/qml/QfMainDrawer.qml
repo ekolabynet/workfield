@@ -2088,6 +2088,7 @@ Drawer {
           // (zleceniodawca, teren, zlecenie, rodzaj), a CADowiec zaczyna
           // od pliku, nie od zlecenia.
           text: qsTr("Projekt z DXF")
+          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
           ikona: "wfg_nowe"
           onClicked: {
             dashBoard.close();
@@ -2100,6 +2101,7 @@ Drawer {
           // Czasownik NarzedziaProjektu.eksportujDxf robi to samo co
           // "Eksportuj projekt do DXF" w QGIS i czyta te same ustawienia.
           text: qsTr("Eksport do DXF")
+          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
           ikona: "wfg_paczka"
           enabled: qgisProject && qgisProject.homePath !== ""
           onClicked: {
@@ -2166,7 +2168,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Importuj projekt (ZIP)")
-          polka: "eksperymentalna"
+          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE] było eksperymentalna
           ikona: "wfg_paczka"
           onClicked: {
             dashBoard.close();
@@ -2252,6 +2254,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Pliki projektu")
+          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
           ikona: "wfg_przeglad"
           enabled: projectSection.filePath !== ""
           onClicked: {
@@ -2360,6 +2363,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Folder aplikacji")
+          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
           ikona: "wfg_magazyn"
           onClicked: {
             dashBoard.close();
@@ -2895,6 +2899,7 @@ Drawer {
 
           QfPozycjaMenu {
             text: qsTr("Zapisz styl")
+            polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
             ikona: "wfg_zapisz"
             enabled: dashBoard.activeLayer !== null && qgisProject && qgisProject.homePath !== ""
             onClicked: {
@@ -2904,6 +2909,7 @@ Drawer {
           }
           QfPozycjaMenu {
             text: qsTr("Wczytaj styl")
+            polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
             ikona: "wfg_otworz"
             enabled: dashBoard.activeLayer !== null
             onClicked: dialogStylu.open()
