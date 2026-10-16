@@ -43,8 +43,8 @@
     "uuid": "workfield-modul-igo",
     "name": "Moduł: Inwentaryzacja IGO",
     "description": "Moduł dziedzinowy WorkFieldGIS: projekt do inwentaryzacji inwazyjnych gatunków obcych (płaty, działki, granice gmin) w EPSG:2180, z załącznikami i przyciąganiem w metrach. Po włączeniu pojawia się w panelu Moduły.",
-    "version": "0.1",
-    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-modul-igo-v0.1.zip",
+    "version": "0.2",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-modul-igo-v0.2.zip",
     "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_modul-igo.svg",
     "homepage": "https://github.com/ekolabynet/workfield",
     "author": "ekolabynet"
