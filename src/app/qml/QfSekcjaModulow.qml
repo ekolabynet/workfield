@@ -84,16 +84,44 @@ Item {
       }
       sekcja.odswiez();
     }
+    function onModulyZmienione() {
+      sekcja.odswiez();
+    }
   }
+
+  //! Skąd jest silnik: "wbudowany" albo "wtyczka" (nazwa silnika -> źródło).
+  property var zrodla: ({})
 
   //! Silniki wkompilowane w aplikację: nazwa z opisu modułu -> singleton.
   //! Nowy moduł z własnym silnikiem dopisuje się TUTAJ (jedna linia).
+  //!
+  //! WorkFieldGIS 16.10.2026: do wbudowanych dochodzą silniki z WTYCZEK
+  //! (iface.zarejestrujModul) — moduł instalowany na gotowym APK. Wbudowany
+  //! wygrywa przy tej samej nazwie: wtyczka nie podmieni silnika aplikacji.
   function silniki() {
     const s = {};
+    const z = {};
     if (typeof InwentaryzacjaDrzew !== "undefined")
       s["InwentaryzacjaDrzew"] = InwentaryzacjaDrzew;
     if (typeof CAD !== "undefined")
       s["CAD"] = CAD;
+    for (const n in s)
+      z[n] = "wbudowany";
+    if (typeof iface !== "undefined" && typeof iface.modulyZWtyczek === "function") {
+      const zWtyczek = iface.modulyZWtyczek();
+      for (let i = 0; i < zWtyczek.length; i++) {
+        const o = zWtyczek[i];
+        if (!o || typeof o.opis !== "function")
+          continue;
+        const op = o.opis();
+        const nazwa = op.silnik || op.id;
+        if (!nazwa || s[nazwa])
+          continue;
+        s[nazwa] = o;
+        z[nazwa] = "wtyczka";
+      }
+    }
+    zrodla = z;
     return s;
   }
 
@@ -133,6 +161,7 @@ Item {
       else if (brak.length === 0 && opis.rozpoznanie)
         rozpoznanie = czynnosc(opis.rozpoznanie)(qgisProject);
       lista.push({
+                   "zrodlo": zrodla[nazwa] || "wbudowany",
                    "opis": opis,
                    "brak": brak,
                    "rozpoznanie": rozpoznanie,
@@ -293,6 +322,12 @@ Item {
       const ukosnik = klucz.indexOf("/");
       NarzedziaProjektu.wlasciwosc(qgisProject, klucz.substring(0, ukosnik), klucz.substring(ukosnik + 1), ustawienia[klucz]);
     }
+    // WorkFieldGIS 16.10.2026 — wyposażenie z przepisu (np. przyciąganie,
+    // załączniki): te same moduły, które dostaje nowy projekt uniwersalny.
+    for (const modul of (przepis.wyposazenie || [])) {
+      const wy = wyposazenieModulu.zaloz(qgisProject, modul, {});
+      console.log("WFG modul przepis wyposazenie " + modul + ": " + JSON.stringify(wy));
+    }
     // Znacznik: projekt wie, z jakiego modułu i wersji powstał.
     NarzedziaProjektu.wlasciwosc(qgisProject, "wfg_moduly", opis.id, opis.wersja || "");
     for (const czasownik of (przepis.po_zalozeniu || [])) {
@@ -360,7 +395,10 @@ Item {
     oknoNowego.opis = opis;
     poleNazwy.text = "";
     komunikatNowego.text = "";
-    wyborUkladu.currentIndex = 0;
+    // Przepis może wskazać układ (IGO: EPSG:2180); inaczej pierwszy z listy.
+    const u = (opis.przepis || {}).uklad;
+    const iu = u ? wyborUkladu.model.indexOf(u) : -1;
+    wyborUkladu.currentIndex = iu >= 0 ? iu : 0;
     const pokaz = function () {
       oknoNowego.open();
     };
@@ -374,6 +412,10 @@ Item {
     } else {
       pokaz();
     }
+  }
+
+  Wyposazenie {
+    id: wyposazenieModulu
   }
 
   // ── Zakres prac: z pliku albo z działek ewidencyjnych ─────────────────
@@ -1027,6 +1069,40 @@ Item {
         color: Theme.mainTextColor
       }
 
+      // WorkFieldGIS 16.10.2026 — moduły doinstalowywane przychodzą jako
+      // wtyczki. Ten sam instalator co wtyczki: nie budujemy drugiego.
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Kolejne moduły instaluje się jak wtyczki (z listy albo z adresu). Po włączeniu wtyczki moduł pojawia się tutaj.")
+        font: Theme.tinyFont
+        color: Theme.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+      QfPozycjaMenu {
+        Layout.fillWidth: true
+        visible: typeof pluginManagerSettings !== "undefined"
+        text: qsTr("Pobierz moduły…")
+        ikona: "wfg_import"
+        onClicked: {
+          const pokaz = function () {
+            if (typeof pluginManagerSettings.otworzModuly === "function")
+              pluginManagerSettings.otworzModuly();
+            else
+              pluginManagerSettings.open();
+          };
+          if (sekcja.szuflada && sekcja.szuflada.modal && sekcja.szuflada.opened) {
+            const poZamknieciu = function () {
+              sekcja.szuflada.closed.disconnect(poZamknieciu);
+              pokaz();
+            };
+            sekcja.szuflada.closed.connect(poZamknieciu);
+            sekcja.szuflada.close();
+          } else {
+            pokaz();
+          }
+        }
+      }
+
       Repeater {
         model: sekcja.moduly
 
@@ -1049,7 +1125,7 @@ Item {
               elide: Text.ElideRight
             }
             Text {
-              text: wpis.modelData.brak.length > 0 ? qsTr("wymaga nowszej aplikacji") : wpis.modelData.wProjekcie ? qsTr("w tym projekcie") : qsTr("wbudowany")
+              text: wpis.modelData.brak.length > 0 ? qsTr("wymaga nowszej aplikacji") : wpis.modelData.wProjekcie ? qsTr("w tym projekcie") : wpis.modelData.zrodlo === "wtyczka" ? qsTr("doinstalowany") : qsTr("wbudowany")
               font: Theme.tinyFont
               color: wpis.modelData.brak.length > 0 ? Theme.warningColor : wpis.modelData.wProjekcie ? Theme.mainColor : Theme.secondaryTextColor
             }

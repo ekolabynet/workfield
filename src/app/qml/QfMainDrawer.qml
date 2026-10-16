@@ -1321,6 +1321,76 @@ Drawer {
       color: Theme.controlBorderColor
     }
 
+    // WorkFieldGIS 16.10.2026 — PÓŁKI MENU W NAGŁÓWKU (prośba Piotra).
+    // To samo co Ustawienia → „Funkcje w menu”, ale tam, gdzie widać skutek:
+    // włączenie pokazuje od razu pozycje z niebieskim (Zaawansowane)
+    // i pomarańczowym (Eksperymentalne) paskiem. Stan jest jeden, na oknie
+    // głównym (mainWindow.menuZaawansowane / menuEksperymentalne), więc obie
+    // szuflady i Ustawienia zawsze mówią to samo.
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.leftMargin: 8
+      Layout.rightMargin: 8
+      Layout.topMargin: 4
+      Layout.bottomMargin: 4
+      spacing: 6
+
+      Text {
+        text: qsTr("Pokaż funkcje:")
+        font: Theme.tinyFont
+        color: Theme.secondaryTextColor
+      }
+
+      Repeater {
+        model: [
+          { "klucz": "menuZaawansowane", "etykieta": qsTr("Zaawansowane"), "kolor": "#1e88e5" },
+          { "klucz": "menuEksperymentalne", "etykieta": qsTr("Eksperymentalne"), "kolor": "#ff6d00" }
+        ]
+
+        delegate: Rectangle {
+          id: przyciskPolki
+
+          required property var modelData
+          readonly property bool wlaczona: mainWindow[modelData.klucz] === "pokazuj"
+
+          Layout.fillWidth: true
+          Layout.preferredHeight: 30
+          radius: 6
+          color: wlaczona ? modelData.kolor : "transparent"
+          border.width: 1
+          border.color: modelData.kolor
+          clip: true
+
+          // ten sam pasek 5 px co przy pozycjach menu tej półki
+          Rectangle {
+            width: 5
+            height: parent.height
+            color: przyciskPolki.modelData.kolor
+            visible: !przyciskPolki.wlaczona
+          }
+
+          Text {
+            anchors.centerIn: parent
+            text: (przyciskPolki.wlaczona ? "✓ " : "") + przyciskPolki.modelData.etykieta
+            font.pointSize: Theme.tinyFont.pointSize
+            font.bold: przyciskPolki.wlaczona
+            color: przyciskPolki.wlaczona ? "#ffffff" : przyciskPolki.modelData.kolor
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            onClicked: mainWindow[przyciskPolki.modelData.klucz] = przyciskPolki.wlaczona ? "ukryj" : "pokazuj"
+          }
+        }
+      }
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 1
+      color: Theme.controlBorderColor
+    }
+
     // PRZELACZNIK UKLADU W NAGLOWKU (25.09.2026).
     //
     // Stal w sekcji „Projekt". A `QfSiatkaMenu` jest w tej szufladzie

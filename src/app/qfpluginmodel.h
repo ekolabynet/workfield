@@ -145,6 +145,10 @@ class QfPluginProxyModel : public QSortFilterProxyModel
     {
       LocalPlugin,
       RemotePlugin,
+      //! WorkFieldGIS 16.10.2026: zainstalowane i dostepne razem, bez modulow
+      AllPlugins,
+      //! WorkFieldGIS 16.10.2026: tylko moduly tematyczne (uuid workfield-modul-*)
+      ModulePlugin,
     };
     Q_ENUM( PluginFilter )
 

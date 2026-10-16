@@ -1214,7 +1214,8 @@ bool QfAppInterface::clipMergeRasters( const QStringList &inputPaths, double xmi
 
 int QfAppInterface::usunArkuszeDem( const QString &typ, const QStringList &nazwy )
 {
-  static const QStringList dozwoloneTypy = { QStringLiteral( "NMT" ), QStringLiteral( "NMPT" ), QStringLiteral( "CHM" ) };
+  // WorkFieldGIS 16.10.2026: ORTO — arkusze ortofotomapy po zlozeniu GPKG.
+  static const QStringList dozwoloneTypy = { QStringLiteral( "NMT" ), QStringLiteral( "NMPT" ), QStringLiteral( "CHM" ), QStringLiteral( "ORTO" ) };
   if ( !dozwoloneTypy.contains( typ ) )
     return 0;
 
@@ -1251,6 +1252,310 @@ int QfAppInterface::usunArkuszeDem( const QString &typ, const QStringList &nazwy
   }
 
   return usuniete;
+}
+
+#include <atomic>
+#include <functional>
+#include <thread>
+#include <QPointer>
+#include <QRegularExpression>
+#include <cpl_conv.h>
+#include <cpl_string.h>
+#include <ogr_api.h>
+#include <ogr_srs_api.h>
+
+/**
+ * WorkFieldGIS 16.10.2026 — arkusze ortofotomapy -> JEDEN GeoPackage z kaflami
+ * i pomniejszonymi kopiami (podgladami). Ten sam przebieg co biurowy
+ * skrypty/orto_do_gpkg.py, ktory dal orto_rgb_2025.gpkg dla Nakla:
+ *
+ *   1. mozaika wirtualna (VRT) z kanalem przezroczystosci — poza arkuszami
+ *      jest przezroczysto, a nie czarno;
+ *   2. GPKG z kaflami: JPEG tam, gdzie kafel jest pelny, PNG na brzegach
+ *      (TILE_FORMAT=AUTO);
+ *   3. podglady co 2x, az najdluzszy bok spadnie ponizej 256 px — bez nich
+ *      oddalenie mapy czyta caly raster i telefon staje;
+ *   4. kontrola: wymiary, uklad, liczba podgladow, PRAGMA quick_check,
+ *      liczba kafli.
+ *
+ * Wynik powstaje pod nazwa robocza i dopiero PO kontroli dostaje nazwe
+ * docelowa. Plik o nazwie docelowej jest zatem zawsze kompletny — przerwane
+ * skladanie zostawia tylko plik roboczy, ktory nastepna proba usuwa.
+ *
+ * Gotowego pliku NIE nadpisujemy. Arkuszy nie ruszamy.
+ *
+ * Funkcja nie dotyka QgsProject ani QML — moze biec w osobnym watku.
+ */
+static QVariantMap wfOrtofotoZloz( const QStringList &arkusze, const QString &wynik, const QString &opis, int jakosc,
+                                   const std::function<void( const QString &, double )> &postep )
+{
+  QVariantMap w;
+  auto blad = [&w]( const QString &tekst ) {
+    w.insert( QStringLiteral( "blad" ), tekst );
+    return w;
+  };
+
+  if ( arkusze.isEmpty() )
+    return blad( QStringLiteral( "Brak arkuszy do złożenia" ) );
+  if ( QFileInfo::exists( wynik ) )
+    return blad( QStringLiteral( "Plik %1 już jest — nie nadpisuję gotowego podkładu" ).arg( QFileInfo( wynik ).fileName() ) );
+
+  const QFileInfo fiWynik( wynik );
+  QDir().mkpath( fiWynik.absolutePath() );
+  // Nazwa tabeli rastra: tylko litery, cyfry i _, jak w orto_do_gpkg.py.
+  QString tabela = fiWynik.completeBaseName();
+  tabela.replace( QRegularExpression( QStringLiteral( "[^A-Za-z0-9_]" ) ), QStringLiteral( "_" ) );
+  const QString vrt = fiWynik.absolutePath() + QStringLiteral( "/_" ) + tabela + QStringLiteral( "_robocze.vrt" );
+  const QString roboczy = fiWynik.absolutePath() + QStringLiteral( "/_" ) + tabela + QStringLiteral( "_robocze.gpkg" );
+  QFile::remove( vrt );
+  QFile::remove( roboczy );
+
+  GDALAllRegister();
+  CPLSetThreadLocalConfigOption( "GDAL_NUM_THREADS", "ALL_CPUS" );
+  CPLSetThreadLocalConfigOption( "GTIFF_SRS_SOURCE", "EPSG" );
+
+  // ── kontrola wsadu: jeden uklad, jeden piksel, 3 albo 4 kanaly Byte ──
+  // GDALBuildVRT po cichu przeskalowalby arkusze o innym pikselu albo
+  // odrzucil te w innym ukladzie. Wolimy powiedziec to wprost.
+  QString ukladWzorzec;
+  double pikselWzorzec = 0.0;
+  for ( const QString &a : arkusze )
+  {
+    GDALDatasetH ds = GDALOpen( a.toUtf8().constData(), GA_ReadOnly );
+    if ( !ds )
+      return blad( QStringLiteral( "Nie da się otworzyć arkusza %1" ).arg( QFileInfo( a ).fileName() ) );
+    double gt[6] = { 0, 0, 0, 0, 0, 0 };
+    GDALGetGeoTransform( ds, gt );
+    const char *wkt = GDALGetProjectionRef( ds );
+    QString uklad;
+    OGRSpatialReferenceH srs = OSRNewSpatialReference( nullptr );
+    if ( wkt && *wkt && OSRImportFromWkt( srs, const_cast<char **>( &wkt ) ) == OGRERR_NONE )
+    {
+      OSRAutoIdentifyEPSG( srs );
+      const char *kod = OSRGetAuthorityCode( srs, nullptr );
+      uklad = kod ? QString::fromUtf8( kod ) : QString();
+    }
+    OSRDestroySpatialReference( srs );
+    const int kanaly = GDALGetRasterCount( ds );
+    const bool bajty = kanaly > 0 && GDALGetRasterDataType( GDALGetRasterBand( ds, 1 ) ) == GDT_Byte;
+    GDALClose( ds );
+
+    if ( !bajty || ( kanaly != 3 && kanaly != 4 ) )
+      return blad( QStringLiteral( "Arkusz %1 ma %2 kanałów — to nie jest ortofotomapa RGB/CIR" ).arg( QFileInfo( a ).fileName() ).arg( kanaly ) );
+    const double piksel = std::fabs( gt[1] );
+    if ( ukladWzorzec.isNull() )
+    {
+      ukladWzorzec = uklad;
+      pikselWzorzec = piksel;
+    }
+    else if ( uklad != ukladWzorzec )
+      return blad( QStringLiteral( "Arkusze w różnych układach (EPSG:%1 i EPSG:%2) — wybierz jeden nalot" ).arg( ukladWzorzec, uklad ) );
+    else if ( std::fabs( piksel - pikselWzorzec ) > 1e-6 )
+      return blad( QStringLiteral( "Arkusze o różnym pikselu (%1 m i %2 m) — wybierz jeden nalot" ).arg( pikselWzorzec ).arg( piksel ) );
+  }
+
+  struct Postep
+  {
+      const std::function<void( const QString &, double )> *f;
+      QString etap;
+  };
+  auto zwrotny = []( double ile, const char *, void *dane ) -> int {
+    const Postep *p = static_cast<const Postep *>( dane );
+    if ( p->f && *p->f )
+      ( *p->f )( p->etap, ile );
+    return TRUE;
+  };
+
+  // ── 1/4 mozaika wirtualna ──
+  Postep p1 { &postep, QStringLiteral( "mozaika" ) };
+  QVector<QByteArray> sciezki;
+  QVector<const char *> wsk;
+  for ( const QString &a : arkusze )
+    sciezki << a.toUtf8();
+  for ( const QByteArray &s : sciezki )
+    wsk << s.constData();
+  char **argVrt = nullptr;
+  argVrt = CSLAddString( argVrt, "-addalpha" );
+  GDALBuildVRTOptions *oVrt = GDALBuildVRTOptionsNew( argVrt, nullptr );
+  CSLDestroy( argVrt );
+  GDALBuildVRTOptionsSetProgress( oVrt, zwrotny, &p1 );
+  int zle = FALSE;
+  GDALDatasetH dVrt = GDALBuildVRT( vrt.toUtf8().constData(), wsk.size(), nullptr, wsk.data(), oVrt, &zle );
+  GDALBuildVRTOptionsFree( oVrt );
+  if ( !dVrt )
+    return blad( QStringLiteral( "Nie udało się złożyć mozaiki: %1" ).arg( QString::fromUtf8( CPLGetLastErrorMsg() ) ) );
+  const int szer = GDALGetRasterXSize( dVrt );
+  const int wys = GDALGetRasterYSize( dVrt );
+
+  // ── 2/4 GeoPackage z kaflami (najdluzszy krok) ──
+  Postep p2 { &postep, QStringLiteral( "kafle" ) };
+  const QByteArray coJakosc = QStringLiteral( "QUALITY=%1" ).arg( std::clamp( jakosc, 1, 100 ) ).toUtf8();
+  const QByteArray coTabela = QStringLiteral( "RASTER_TABLE=%1" ).arg( tabela ).toUtf8();
+  const QByteArray coOpis = QStringLiteral( "RASTER_IDENTIFIER=%1" ).arg( opis.isEmpty() ? tabela : opis ).toUtf8();
+  char **argGpkg = nullptr;
+  for ( const char *a : { "-of", "GPKG", "-co", "TILE_FORMAT=AUTO", "-co" } )
+    argGpkg = CSLAddString( argGpkg, a );
+  argGpkg = CSLAddString( argGpkg, coJakosc.constData() );
+  argGpkg = CSLAddString( argGpkg, "-co" );
+  argGpkg = CSLAddString( argGpkg, coTabela.constData() );
+  argGpkg = CSLAddString( argGpkg, "-co" );
+  argGpkg = CSLAddString( argGpkg, coOpis.constData() );
+  GDALTranslateOptions *oGpkg = GDALTranslateOptionsNew( argGpkg, nullptr );
+  CSLDestroy( argGpkg );
+  GDALTranslateOptionsSetProgress( oGpkg, zwrotny, &p2 );
+  GDALDatasetH dGpkg = GDALTranslate( roboczy.toUtf8().constData(), dVrt, oGpkg, &zle );
+  GDALTranslateOptionsFree( oGpkg );
+  GDALClose( dVrt );
+  if ( !dGpkg )
+  {
+    QFile::remove( vrt );
+    QFile::remove( roboczy );
+    return blad( QStringLiteral( "Nie udało się zapisać kafli: %1" ).arg( QString::fromUtf8( CPLGetLastErrorMsg() ) ) );
+  }
+
+  // ── 3/4 podglady do oddalania ──
+  QVector<int> poziomy;
+  for ( int f = 2; std::max( szer, wys ) / f >= 256; f *= 2 )
+    poziomy << f;
+  bool podgladyOk = true;
+  if ( !poziomy.isEmpty() )
+  {
+    Postep p3 { &postep, QStringLiteral( "podglady" ) };
+    podgladyOk = GDALBuildOverviews( dGpkg, "AVERAGE", poziomy.size(), poziomy.data(), 0, nullptr, zwrotny, &p3 ) == CE_None;
+  }
+  GDALClose( dGpkg );
+  QFile::remove( vrt );
+  if ( !podgladyOk )
+    return blad( QStringLiteral( "Nie udało się zbudować podglądów: %1 — plik roboczy zostaje: %2" ).arg( QString::fromUtf8( CPLGetLastErrorMsg() ), roboczy ) );
+
+  // ── 4/4 kontrola wyniku ──
+  if ( postep )
+    postep( QStringLiteral( "kontrola" ), 0.0 );
+  QStringList usterki;
+  qlonglong kafli = 0;
+  int podglady = 0;
+  {
+    GDALDatasetH d = GDALOpenEx( roboczy.toUtf8().constData(), GDAL_OF_RASTER | GDAL_OF_VECTOR | GDAL_OF_READONLY, nullptr, nullptr, nullptr );
+    if ( !d )
+      usterki << QStringLiteral( "wynik się nie otwiera" );
+    else
+    {
+      if ( GDALGetRasterXSize( d ) != szer || GDALGetRasterYSize( d ) != wys )
+        usterki << QStringLiteral( "wymiary %1x%2, mozaika %3x%4" ).arg( GDALGetRasterXSize( d ) ).arg( GDALGetRasterYSize( d ) ).arg( szer ).arg( wys );
+      podglady = GDALGetRasterCount( d ) > 0 ? GDALGetOverviewCount( GDALGetRasterBand( d, 1 ) ) : 0;
+      if ( podglady != poziomy.size() )
+        usterki << QStringLiteral( "podglądów %1, oczekiwane %2" ).arg( podglady ).arg( poziomy.size() );
+      OGRLayerH qc = GDALDatasetExecuteSQL( d, "PRAGMA quick_check", nullptr, nullptr );
+      if ( qc )
+      {
+        OGRFeatureH f = OGR_L_GetNextFeature( qc );
+        const QString stan = f ? QString::fromUtf8( OGR_F_GetFieldAsString( f, 0 ) ) : QString();
+        if ( f )
+          OGR_F_Destroy( f );
+        GDALDatasetReleaseResultSet( d, qc );
+        if ( stan != QLatin1String( "ok" ) )
+          usterki << QStringLiteral( "quick_check: %1" ).arg( stan );
+      }
+      const QByteArray zapytanie = QStringLiteral( "SELECT count(*) FROM \"%1\"" ).arg( tabela ).toUtf8();
+      OGRLayerH lk = GDALDatasetExecuteSQL( d, zapytanie.constData(), nullptr, nullptr );
+      if ( lk )
+      {
+        OGRFeatureH f = OGR_L_GetNextFeature( lk );
+        kafli = f ? OGR_F_GetFieldAsInteger64( f, 0 ) : 0;
+        if ( f )
+          OGR_F_Destroy( f );
+        GDALDatasetReleaseResultSet( d, lk );
+      }
+      if ( kafli == 0 )
+        usterki << QStringLiteral( "brak kafli" );
+      GDALClose( d );
+    }
+  }
+  if ( !usterki.isEmpty() )
+    return blad( QStringLiteral( "Wynik nie przeszedł kontroli (%1) — plik roboczy zostaje: %2" ).arg( usterki.join( QStringLiteral( "; " ) ), roboczy ) );
+
+  if ( !QFile::rename( roboczy, wynik ) )
+    return blad( QStringLiteral( "Nie udało się nadać nazwy %1 — plik roboczy zostaje: %2" ).arg( wynik, roboczy ) );
+
+  w.insert( QStringLiteral( "plik" ), wynik );
+  w.insert( QStringLiteral( "tabela" ), tabela );
+  w.insert( QStringLiteral( "szerokosc" ), szer );
+  w.insert( QStringLiteral( "wysokosc" ), wys );
+  w.insert( QStringLiteral( "uklad" ), ukladWzorzec.isEmpty() ? QString() : QStringLiteral( "EPSG:" ) + ukladWzorzec );
+  w.insert( QStringLiteral( "piksel" ), pikselWzorzec );
+  w.insert( QStringLiteral( "podgladow" ), podglady );
+  w.insert( QStringLiteral( "kafli" ), kafli );
+  w.insert( QStringLiteral( "arkuszy" ), arkusze.size() );
+  w.insert( QStringLiteral( "rozmiar" ), QFileInfo( wynik ).size() );
+  return w;
+}
+
+static std::atomic<bool> sOrtofotoTrwa { false };
+
+bool QfAppInterface::ortofotoTrwa() const
+{
+  return sOrtofotoTrwa.load();
+}
+
+void QfAppInterface::zarejestrujModul( QObject *silnik )
+{
+  if ( !silnik )
+    return;
+  // Najpierw sprzatamy martwe wpisy (wtyczka przeladowana albo wylaczona).
+  mModulyWtyczek.removeIf( []( const QPointer<QObject> &p ) { return p.isNull(); } );
+  for ( const QPointer<QObject> &p : std::as_const( mModulyWtyczek ) )
+  {
+    if ( p == silnik )
+      return;
+  }
+  mModulyWtyczek << QPointer<QObject>( silnik );
+  // Zniszczenie silnika (wylaczenie wtyczki) odswieza panel. Kolejka, bo
+  // w chwili sygnalu destroyed obiekt jest juz w polowie rozbiorki.
+  connect( silnik, &QObject::destroyed, this, [this]() { emit modulyZmienione(); }, Qt::QueuedConnection );
+  qInfo() << "WFG moduly: zarejestrowano silnik z wtyczki" << silnik;
+  emit modulyZmienione();
+}
+
+QVariantList QfAppInterface::modulyZWtyczek() const
+{
+  QVariantList lista;
+  for ( const QPointer<QObject> &p : mModulyWtyczek )
+  {
+    if ( !p.isNull() )
+      lista << QVariant::fromValue( p.data() );
+  }
+  return lista;
+}
+
+bool QfAppInterface::ortofotoDoGpkg( const QStringList &arkusze, const QString &wynik, const QString &opis, int jakosc )
+{
+  bool oczekiwane = false;
+  if ( !sOrtofotoTrwa.compare_exchange_strong( oczekiwane, true ) )
+    return false;
+
+  // Watek odlaczony: skladanie gminy to minuty, a interfejs ma zostac zywy.
+  // Wynik i postep wracaja do watku interfejsu kolejka (QueuedConnection),
+  // a QPointer pilnuje, zeby nie strzelac w obiekt, ktorego juz nie ma.
+  QPointer<QfAppInterface> ja( this );
+  std::thread( [ja, arkusze, wynik, opis, jakosc]() {
+    QString ostatniEtap;
+    int ostatniProcent = -1;
+    auto postep = [&]( const QString &etap, double ile ) {
+      const int procent = static_cast<int>( ile * 100 );
+      if ( etap == ostatniEtap && procent == ostatniProcent )
+        return;
+      ostatniEtap = etap;
+      ostatniProcent = procent;
+      if ( ja )
+        QMetaObject::invokeMethod( ja, [ja, etap, ile]() { if ( ja ) emit ja->ortofotoPostep( etap, ile ); }, Qt::QueuedConnection );
+    };
+    const QVariantMap w = wfOrtofotoZloz( arkusze, wynik, opis, jakosc, postep );
+    qInfo() << "WFG ortofoto:" << arkusze.size() << "arkuszy ->" << w;
+    sOrtofotoTrwa.store( false );
+    if ( ja )
+      QMetaObject::invokeMethod( ja, [ja, w]() { if ( ja ) emit ja->ortofotoGotowe( w ); }, Qt::QueuedConnection );
+  } ).detach();
+  return true;
 }
 
 bool QfAppInterface::addXyzBasemap( const QString &name, const QString &url, int zmax )

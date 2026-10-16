@@ -25,6 +25,34 @@ QfPopup {
   onAboutToShow: {
     projectPluginEnabledContainer.visible = pluginManager.isProjectPluginEnabled(qgisProject.fileName);
     pluginManager.pluginModel.refresh(false);
+    // WorkFieldGIS 16.10.2026 — jedna lista: zainstalowane i dostępne razem,
+    // więc listę z GitHuba pobieramy od razu, a nie dopiero po kliknięciu
+    // drugiej zakładki.
+    if (!popup.availablePluginsFetched)
+      pluginManager.pluginModel.refresh(true);
+  }
+
+  //! Otwarcie od razu na zakładce „Moduły” (przycisk „Pobierz moduły…”
+  //! w panelu Moduły prawej szuflady).
+  function otworzModuly() {
+    filterBar.currentIndex = 1;
+    open();
+  }
+
+  //! Moduły wkompilowane w aplikację — pokazane na zakładce „Moduły”,
+  //! żeby lista była pełna, choć tych nie da się pobrać ani odinstalować.
+  function modulyWbudowane() {
+    const lista = [];
+    const silniki = [];
+    if (typeof InwentaryzacjaDrzew !== "undefined")
+      silniki.push(InwentaryzacjaDrzew);
+    if (typeof CAD !== "undefined")
+      silniki.push(CAD);
+    for (const s of silniki) {
+      const o = s.opis();
+      lista.push({ "nazwa": o.nazwa || o.id, "wersja": o.wersja || "", "opis": o.opis || "" });
+    }
+    return lista;
   }
 
   Page {
@@ -61,19 +89,15 @@ QfPopup {
         id: filterBar
         Layout.fillWidth: true
         Layout.preferredHeight: defaultHeight
-        model: [qsTr("Local Plugins"), qsTr("Available Plugins")]
+        // WorkFieldGIS 16.10.2026 — „Lokalne” i „Dostępne” pokazywały prawie
+        // to samo (przy zainstalowanych jest przełącznik i „Odinstaluj” także na
+        // liście dostępnych). Teraz: jedna lista wtyczek i osobno moduły.
+        model: [qsTr("Wtyczki"), qsTr("Moduły")]
         currentIndex: 0
-
-        onClicked: {
-          if (currentIndex == 1 && !popup.availablePluginsFetched) {
-            pluginManager.pluginModel.refresh(true);
-          }
-        }
       }
 
       QfSearchBar {
         id: searchBar
-        visible: filterBar.currentIndex === 1
         Layout.fillWidth: true
         Layout.preferredHeight: searchHeight
         placeHolderText: qsTr("Search for plugin")
@@ -83,7 +107,7 @@ QfPopup {
         id: pluginsList
         Layout.fillWidth: true
         Layout.fillHeight: true
-        visible: count > 0
+        visible: count > 0 || filterBar.currentIndex === 1
         leftMargin: 6
         rightMargin: 8
         clip: true
@@ -96,8 +120,73 @@ QfPopup {
 
         model: QfPluginProxyModel {
           sourceModel: pluginManager.pluginModel
-          searchTerm: filterBar.currentIndex === 1 ? searchBar.searchTerm : ""
-          filter: filterBar.currentIndex === 0 ? QfPluginProxyModel.LocalPlugin : QfPluginProxyModel.RemotePlugin
+          searchTerm: searchBar.searchTerm
+          filter: filterBar.currentIndex === 1 ? QfPluginProxyModel.ModulePlugin : QfPluginProxyModel.AllPlugins
+        }
+
+        // Moduły wbudowane na górze zakładki „Moduły” (bez przycisków: są
+        // częścią aplikacji). Pod nimi moduły do pobrania z tej samej listy
+        // co wtyczki, z tymi samymi przyciskami.
+        header: Column {
+          width: pluginsList.width - pluginsList.leftMargin - pluginsList.rightMargin
+          visible: filterBar.currentIndex === 1
+          height: visible ? implicitHeight + 8 : 0
+          spacing: 6
+
+          Label {
+            width: parent.width
+            topPadding: 4
+            text: qsTr("Moduł to sposób pracy dla jednej dziedziny: warstwy, formularze, eksporty. Włączony moduł pojawia się w prawej szufladzie, w panelu Moduły.")
+            font: QfTheme.tipFont
+            color: QfTheme.secondaryTextColor
+            wrapMode: Text.WordWrap
+          }
+
+          Repeater {
+            model: filterBar.currentIndex === 1 ? popup.modulyWbudowane() : []
+
+            delegate: Column {
+              required property var modelData
+              width: parent.width
+              spacing: 2
+
+              Row {
+                width: parent.width
+                spacing: 8
+                Label {
+                  width: parent.width - znacznikWbudowany.width - 8
+                  text: modelData.nazwa + "  " + modelData.wersja
+                  font: QfTheme.defaultFont
+                  color: QfTheme.mainTextColor
+                  elide: Text.ElideRight
+                }
+                Label {
+                  id: znacznikWbudowany
+                  text: qsTr("wbudowany")
+                  font: QfTheme.tipFont
+                  color: QfTheme.mainColor
+                }
+              }
+              Label {
+                width: parent.width
+                text: modelData.opis
+                font: QfTheme.tipFont
+                color: QfTheme.secondaryTextColor
+                wrapMode: Text.WordWrap
+                maximumLineCount: 3
+                elide: Text.ElideRight
+              }
+            }
+          }
+
+          Label {
+            width: parent.width
+            topPadding: 6
+            text: pluginsList.count > 0 ? qsTr("Do pobrania i doinstalowane") : pluginManager.pluginModel.isRefreshing ? qsTr("Pobieram listę modułów…") : qsTr("Na liście nie ma jeszcze modułów do pobrania.")
+            font: QfTheme.tipFont
+            color: QfTheme.mainTextColor
+            wrapMode: Text.WordWrap
+          }
         }
 
         delegate: QfPluginItem {
@@ -161,9 +250,9 @@ QfPopup {
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.margins: 20
-        visible: pluginsList.count === 0
+        visible: pluginsList.count === 0 && filterBar.currentIndex === 0
 
-        text: pluginManager.pluginModel.isRefreshing ? qsTr('Fetching available plugins') : qsTr('No plugins have been installed yet, switch to the %1available plugins%3 tab to try some right away.<br><br>For more information, %2read the documentation%3.').arg('<a href="#">').arg('<a href="https://docs.qfield.org/ro/how-to/advanced-how-tos/plugins/">').arg('</a>')
+        text: pluginManager.pluginModel.isRefreshing ? qsTr('Fetching available plugins') : qsTr('Lista wtyczek jest pusta. Sprawdź połączenie z internetem albo zainstaluj wtyczkę z adresu URL.<br><br>Więcej: %1dokumentacja%2.').arg('<a href="https://docs.qfield.org/ro/how-to/advanced-how-tos/plugins/">').arg('</a>')
         font: QfTheme.defaultFont
         wrapMode: Text.WordWrap
         horizontalAlignment: Text.AlignHCenter

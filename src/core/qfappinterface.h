@@ -20,6 +20,7 @@
 
 #include <QObject>
 #include <QPointF>
+#include <QPointer>
 #include <QQmlComponent>
 #include <QStandardItemModel>
 
@@ -218,6 +219,35 @@ class QfAppInterface : public QObject
      * Zwraca liczbe faktycznie usunietych plikow.
      */
     Q_INVOKABLE int usunArkuszeDem( const QString &typ, const QStringList &nazwy );
+
+    /**
+     * WorkFieldGIS 16.10.2026 — arkusze ortofotomapy -> JEDEN GeoPackage z kaflami
+     * i podgladami (jak skrypty/orto_do_gpkg.py). Sklada W TLE: wynik przychodzi
+     * sygnalem ortofotoGotowe {plik, tabela, szerokosc, wysokosc, uklad, piksel,
+     * podgladow, kafli, arkuszy, rozmiar} albo {blad}. Zwraca false, gdy poprzednie
+     * skladanie jeszcze trwa. Gotowego pliku nie nadpisuje, arkuszy nie rusza.
+     */
+    Q_INVOKABLE bool ortofotoDoGpkg( const QStringList &arkusze, const QString &wynik, const QString &opis, int jakosc = 85 );
+
+    //! Czy skladanie ortofotomapy trwa.
+    Q_INVOKABLE bool ortofotoTrwa() const;
+
+    /**
+     * WorkFieldGIS 16.10.2026 — REJESTR MODULOW Z WTYCZEK.
+     *
+     * Modul dziedzinowy moze przyjsc jako wtyczka instalowana na gotowym APK
+     * ("nie wszystko jest wszystkim potrzebne"). Wtyczka przy starcie woła
+     * iface.zarejestrujModul(silnik), gdzie silnik to obiekt QML z funkcja
+     * opis() i czasownikami z tego opisu. Panel "Moduly" dolacza takie
+     * silniki do wbudowanych (InwentaryzacjaDrzew, CAD).
+     *
+     * Rejestr trzyma SLABE wskazniki: wylaczona albo odinstalowana wtyczka
+     * niszczy swoj obiekt i modul znika z listy sam, bez wyrejestrowania.
+     */
+    Q_INVOKABLE void zarejestrujModul( QObject *silnik );
+
+    //! Zarejestrowane silniki modulow z wtyczek (tylko zyjace).
+    Q_INVOKABLE QVariantList modulyZWtyczek() const;
 
     //! Adds an XYZ basemap layer at the bottom of the layer tree.
     Q_INVOKABLE bool addXyzBasemap( const QString &name, const QString &url, int zmax );
@@ -524,6 +554,11 @@ class QfAppInterface : public QObject
     void uploadFailed( const QString &error, const QString &path );
     void mkcolFinished( const QString &url );
     void mkcolFailed( const QString &error, const QString &url );
+    //! WorkFieldGIS: etap "mozaika" / "kafle" / "podglady" / "kontrola", ile 0..1
+    void ortofotoPostep( const QString &etap, double ile );
+    void ortofotoGotowe( const QVariantMap &wynik );
+    //! WorkFieldGIS: lista modulow z wtyczek sie zmienila.
+    void modulyZmienione();
 
     //! Requests QField to set its map to the provided \a extent.
     void setMapExtent( const QgsRectangle &extent );
@@ -547,6 +582,7 @@ class QfAppInterface : public QObject
 
     QQmlEngine *mEngine = nullptr;
     QfAppController *mController = nullptr;
+    QList<QPointer<QObject>> mModulyWtyczek;
 };
 
 #endif // QFAPPINTERFACE_H

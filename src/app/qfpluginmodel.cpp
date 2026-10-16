@@ -457,6 +457,19 @@ bool QfPluginProxyModel::filterAcceptsRow( int sourceRow, const QModelIndex &sou
     case RemotePlugin:
       matchesPluginType = sourceModel()->data( currentRowIndex, QfPluginModel::AvailableRemotelyRole ).toBool();
       break;
+    // WorkFieldGIS 16.10.2026 — jedna lista zamiast dwoch zakladek (zainstalowane
+    // i dostepne pokazywaly prawie to samo) oraz osobna lista modulow tematycznych.
+    // Modul poznajemy po identyfikatorze: workfield-modul-<nazwa>. Ta sama
+    // umowa obowiazuje dla paczek na liscie z GitHuba i dla zainstalowanych.
+    case AllPlugins:
+    case ModulePlugin:
+    {
+      const bool jest = sourceModel()->data( currentRowIndex, QfPluginModel::InstalledLocallyRole ).toBool()
+                        || sourceModel()->data( currentRowIndex, QfPluginModel::AvailableRemotelyRole ).toBool();
+      const bool modul = sourceModel()->data( currentRowIndex, QfPluginModel::UuidRole ).toString().startsWith( QLatin1String( "workfield-modul-" ) );
+      matchesPluginType = jest && ( mFilter == ModulePlugin ? modul : !modul );
+      break;
+    }
   }
 
   const QModelIndex index = sourceModel()->index( sourceRow, 0, sourceParent );
