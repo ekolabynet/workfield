@@ -40,6 +40,16 @@
     "author": "ekolabynet"
   },
   {
+    "uuid": "workfield-modul-igo",
+    "name": "Moduł: Inwentaryzacja IGO",
+    "description": "Moduł dziedzinowy WorkFieldGIS: projekt do inwentaryzacji inwazyjnych gatunków obcych (płaty, działki, granice gmin) w EPSG:2180, z załącznikami i przyciąganiem w metrach. Po włączeniu pojawia się w panelu Moduły.",
+    "version": "0.1",
+    "download": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/workfield-modul-igo-v0.1.zip",
+    "icon": "https://raw.githubusercontent.com/ekolabynet/workfield/plugins/icon_modul-igo.svg",
+    "homepage": "https://github.com/ekolabynet/workfield",
+    "author": "ekolabynet"
+  },
+  {
     "uuid": "workfield-plantnet",
     "name": "WorkField Pl@ntNet",
     "description": "Rozpoznawanie gatunkow roslin ze zdjecia przez Pl@ntNet API (v0.14)",
