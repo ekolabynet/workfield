@@ -3362,6 +3362,9 @@ Drawer {
     property bool pracuje: false
     property string wynik: ""
     property bool czekamNaImport: false
+    // [WF-PRZENOSINY-RASTRY] Piotr 19.10: „Pomiń podkłady rastrowe — niech będzie jako opcja”
+    property bool pominRastry: false
+    readonly property real potrzeba: (stan.rozmiar || 0) - (pominRastry ? (stan.rozmiarRastrow || 0) : 0)
 
     function mb(b) {
       return Math.round((b || 0) / 1048576);
@@ -3371,6 +3374,7 @@ Drawer {
       tryb = nowyTryb;
       wynik = "";
       pracuje = false;
+      pominRastry = false;
       stan = tryb === "eksport" ? iface.przeniesieniePodsumowanie() : iface.przeniesienieDoDokonczenia();
       open();
     }
@@ -3396,6 +3400,8 @@ Drawer {
         oknoPrzenosin.wynik = w.ok
           ? qsTr("Gotowe: skopiowano %1 plików (%2 MB) do folderu\nDokumenty/WorkField/%3\n\nTeraz zainstaluj nową aplikację WorkFieldGIS i wybierz w niej „Przyjmij dane ze starej wersji”. Ta aplikacja i jej dane zostają bez zmian — usuń ją dopiero, gdy sprawdzisz nową.").arg(w.plikow).arg(oknoPrzenosin.mb(w.rozmiar)).arg(w.nazwa)
           : qsTr("Kopiowanie przerwane: %1. Dane w tej aplikacji są nietknięte.").arg(w.blad || "?");
+        if (w.ok && (w.pominietoRastrow || 0) > 0)
+          oknoPrzenosin.wynik += "\n\n" + qsTr("Pominięto %1 plików podkładów (%2 MB) — ich lista jest w PRZENIESIENIE.json; w nowej aplikacji pobierz je ponownie.").arg(w.pominietoRastrow).arg(oknoPrzenosin.mb(w.rozmiarPominietych));
       }
     }
 
@@ -3449,10 +3455,18 @@ Drawer {
         font: t.tipFont
         color: t.mainTextColor
         text: oknoPrzenosin.tryb === "eksport"
-              ? qsTr("WorkFieldGIS przechodzi na nową nazwę (com.workfieldgis.app). Telefon traktuje ją jak nową aplikację, więc dane trzeba przenieść.\n\nSkopiuję wszystkie projekty (%1), wtyczki i ustawienia do folderu Dokumenty/WorkField. Razem około %2 MB, wolne miejsce: %3 MB.\n\nNic tu nie zostanie usunięte ani zmienione.").arg(oknoPrzenosin.stan.projektow || 0).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiar)).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.wolne))
+              ? qsTr("WorkFieldGIS przechodzi na nową nazwę (com.workfieldgis.app). Telefon traktuje ją jak nową aplikację, więc dane trzeba przenieść.\n\nSkopiuję wszystkie projekty (%1), wtyczki i ustawienia do folderu Dokumenty/WorkField. Razem około %2 MB (bez dzienników), wolne miejsce: %3 MB.\n\nNic tu nie zostanie usunięte ani zmienione.").arg(oknoPrzenosin.stan.projektow || 0).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiar)).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.wolne))
               : oknoPrzenosin.stan.jest
                 ? qsTr("Znalazłem dane ze starej wersji (%1): %2 projektów. Rozłożyć je na miejsca? Projekt o istniejącej już nazwie dostanie dopisek „(przeniesiony)” — nic nie zostanie nadpisane.").arg(String(oknoPrzenosin.stan.czas || "").replace("T", " ")).arg(oknoPrzenosin.stan.projektow || 0)
                 : qsTr("Jeśli używałeś wcześniejszej wersji WorkFieldGIS:\n1. W starej aplikacji wybierz Menu → „Przenieś do nowej aplikacji”.\n2. Tutaj naciśnij „Wskaż folder” i wybierz Dokumenty → WorkField → WorkFieldGIS_przeniesienie_…\n\nMożesz to zrobić także później: Menu → „Przyjmij dane ze starej wersji”.")
+      }
+      CheckBox {
+        Layout.fillWidth: true
+        visible: oknoPrzenosin.tryb === "eksport" && oknoPrzenosin.wynik === "" && (oknoPrzenosin.stan.rozmiarRastrow || 0) > 0
+        checked: oknoPrzenosin.pominRastry
+        onToggled: oknoPrzenosin.pominRastry = checked
+        text: qsTr("Pomiń podkłady rastrowe (%1 MB) — ortofotomapy i NMT można pobrać ponownie").arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiarRastrow))
+        font: t.tipFont
       }
       Text {
         Layout.fillWidth: true
@@ -3464,7 +3478,7 @@ Drawer {
       }
       Text {
         Layout.fillWidth: true
-        visible: oknoPrzenosin.tryb === "eksport" && oknoPrzenosin.wynik === "" && (oknoPrzenosin.stan.wolne || 0) >= 0 && (oknoPrzenosin.stan.wolne || 0) < (oknoPrzenosin.stan.rozmiar || 0) * 1.1
+        visible: oknoPrzenosin.tryb === "eksport" && oknoPrzenosin.wynik === "" && (oknoPrzenosin.stan.wolne || 0) >= 0 && (oknoPrzenosin.stan.wolne || 0) < oknoPrzenosin.potrzeba * 1.1
         text: qsTr("Za mało wolnego miejsca na kopię.")
         color: t.errorColor
         font: t.tipFont
@@ -3485,11 +3499,11 @@ Drawer {
         Button {
           flat: true
           visible: oknoPrzenosin.wynik === ""
-          enabled: !oknoPrzenosin.pracuje && (oknoPrzenosin.tryb !== "eksport" || (oknoPrzenosin.stan.wolne || 0) < 0 || (oknoPrzenosin.stan.wolne || 0) >= (oknoPrzenosin.stan.rozmiar || 0) * 1.1)
+          enabled: !oknoPrzenosin.pracuje && (oknoPrzenosin.tryb !== "eksport" || (oknoPrzenosin.stan.wolne || 0) < 0 || (oknoPrzenosin.stan.wolne || 0) >= oknoPrzenosin.potrzeba * 1.1)
           text: oknoPrzenosin.tryb === "eksport" ? qsTr("Kopiuj") : oknoPrzenosin.stan.jest ? qsTr("Dokończ") : qsTr("Wskaż folder")
           onClicked: {
             if (oknoPrzenosin.tryb === "eksport") {
-              if (iface.przeniesDoNowejAplikacji()) {
+              if (iface.przeniesDoNowejAplikacji(oknoPrzenosin.pominRastry)) {
                 oknoPrzenosin.pracuje = true;
                 oknoPrzenosin.wynik = qsTr("Kopiuję…");
               }

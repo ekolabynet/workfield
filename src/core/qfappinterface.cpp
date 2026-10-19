@@ -2580,10 +2580,47 @@ namespace
     return suma;
   }
 
+  // [WF-PRZENOSINY-RASTRY] Raster basemaps can be downloaded again; field data cannot.
+  // A file counts as a raster: by extension, or a GeoPackage over 20 MB that GDAL
+  // opens as raster and that has NO vector layers (a mixed file stays — data first).
+  bool wfJestRastrem( const QFileInfo &fi )
+  {
+    const QString ext = fi.suffix().toLower();
+    static const QSet<QString> rastry { QStringLiteral( "tif" ), QStringLiteral( "tiff" ), QStringLiteral( "jp2" ), QStringLiteral( "ecw" ), QStringLiteral( "mbtiles" ), QStringLiteral( "sid" ) };
+    if ( rastry.contains( ext ) )
+      return true;
+    if ( ext != QLatin1String( "gpkg" ) || fi.size() < 20LL * 1024 * 1024 )
+      return false;
+    const QByteArray sciezka = fi.absoluteFilePath().toUtf8();
+    GDALDatasetH r = GDALOpenEx( sciezka.constData(), GDAL_OF_RASTER | GDAL_OF_READONLY, nullptr, nullptr, nullptr );
+    if ( !r )
+      return false;
+    GDALClose( r );
+    GDALDatasetH v = GDALOpenEx( sciezka.constData(), GDAL_OF_VECTOR | GDAL_OF_READONLY, nullptr, nullptr, nullptr );
+    const bool wektory = v && GDALDatasetGetLayerCount( v ) > 0;
+    if ( v )
+      GDALClose( v );
+    return !wektory;
+  }
+
+  qint64 wfRozmiarRastrow( const QString &katalog )
+  {
+    qint64 suma = 0;
+    QDirIterator it( katalog, QDir::Files | QDir::Hidden, QDirIterator::Subdirectories );
+    while ( it.hasNext() )
+    {
+      it.next();
+      if ( wfJestRastrem( it.fileInfo() ) )
+        suma += it.fileInfo().size();
+    }
+    return suma;
+  }
+
   //! Copies everything (also .przed_* backups — this is a move of all data,
   //! not a clean copy). Only -shm is skipped (SQLite rebuilds it).
   bool wfKopiujWszystko( const QString &zrodlo, const QString &cel, const QSet<QString> &pomijane,
-                         qint64 &bajty, int &plikow, QString &blad, const std::function<void()> &tik )
+                         qint64 &bajty, int &plikow, QString &blad, const std::function<void()> &tik,
+                         const std::function<bool( const QFileInfo & )> &pomin = {} )
   {
     if ( !QDir().mkpath( cel ) )
     {
@@ -2600,12 +2637,14 @@ namespace
       {
         if ( pomijane.contains( fi.fileName() ) || fi.isSymLink() )
           continue;
-        if ( !wfKopiujWszystko( fi.absoluteFilePath(), docel, pomijane, bajty, plikow, blad, tik ) )
+        if ( !wfKopiujWszystko( fi.absoluteFilePath(), docel, pomijane, bajty, plikow, blad, tik, pomin ) )
           return false;
       }
       else
       {
         if ( fi.fileName().endsWith( QLatin1String( "-shm" ) ) )
+          continue;
+        if ( pomin && pomin( fi ) )
           continue;
         if ( !QFile::copy( fi.absoluteFilePath(), docel ) )
         {
@@ -2703,7 +2742,19 @@ QVariantMap QfAppInterface::przeniesieniePodsumowanie() const
   const QString dane = wfKatalogDanych();
   const QString wewn = QStandardPaths::writableLocation( QStandardPaths::AppDataLocation );
   const QSet<QString> pomijane { QStringLiteral( "share" ), QStringLiteral( "cache" ), QStringLiteral( ".cache" ), QStringLiteral( "qmlcache" ) };
-  qint64 rozmiar = wfRozmiarKatalogu( dane, {} );
+  // [WF-PRZENOSINY-RASTRY] logs never travel (on Piotr's phone 388 MB)
+  qint64 rozmiar = wfRozmiarKatalogu( dane, { QStringLiteral( "logs" ) } );
+  qint64 rastry = wfRozmiarRastrow( dane );
+  for ( const QString &z : QfPlatformUtilities::instance()->appDataDirs() )
+  {
+    const QString c = QDir::cleanPath( z );
+    if ( !c.startsWith( dane + QLatin1Char( '/' ) ) && c != dane && QDir( c ).exists() )
+    {
+      rozmiar += wfRozmiarKatalogu( c, {} );
+      rastry += wfRozmiarRastrow( c );
+    }
+  }
+  w[QStringLiteral( "rozmiarRastrow" )] = rastry;
   if ( !wewn.isEmpty() && !QDir::cleanPath( wewn ).startsWith( dane ) )
     rozmiar += wfRozmiarKatalogu( wewn, pomijane );
   w[QStringLiteral( "dane" )] = dane;
@@ -2717,7 +2768,7 @@ QVariantMap QfAppInterface::przeniesieniePodsumowanie() const
   return w;
 }
 
-bool QfAppInterface::przeniesDoNowejAplikacji()
+bool QfAppInterface::przeniesDoNowejAplikacji( bool pominRastry )
 {
   bool oczekiwane = false;
   if ( !sPrzenosinyTrwaja.compare_exchange_strong( oczekiwane, true ) )
@@ -2750,7 +2801,17 @@ bool QfAppInterface::przeniesDoNowejAplikacji()
   const QString wersja = QCoreApplication::applicationVersion();
 
   QPointer<QfAppInterface> ja( this );
-  std::thread( [ja, dane, wewn, zasoby, ustawienia, cel, nazwa, pakiet, wersja]() {
+  std::thread( [ja, dane, wewn, zasoby, ustawienia, cel, nazwa, pakiet, wersja, pominRastry]() {
+    // [WF-PRZENOSINY-RASTRY] skipped rasters are listed in PRZENIESIENIE.json
+    QStringList pominieteRastry;
+    qint64 bajtyPominiete = 0;
+    const std::function<bool( const QFileInfo & )> pomin = [&]( const QFileInfo &fi ) {
+      if ( !pominRastry || !wfJestRastrem( fi ) )
+        return false;
+      pominieteRastry << fi.absoluteFilePath();
+      bajtyPominiete += fi.size();
+      return true;
+    };
     QVariantMap w;
     qint64 bajty = 0;
     int plikow = 0;
@@ -2765,13 +2826,13 @@ bool QfAppInterface::przeniesDoNowejAplikacji()
     if ( QFileInfo::exists( cel ) )
       blad = QStringLiteral( "Folder %1 już istnieje" ).arg( cel );
     if ( blad.isEmpty() )
-      wfKopiujWszystko( dane, cel + QStringLiteral( "/dane" ), {}, bajty, plikow, blad, tik );
+      wfKopiujWszystko( dane, cel + QStringLiteral( "/dane" ), { QStringLiteral( "logs" ) }, bajty, plikow, blad, tik, pomin );
     if ( blad.isEmpty() && !wewn.isEmpty() && !wewn.startsWith( dane ) )
       wfKopiujWszystko( wewn, cel + QStringLiteral( "/wewnetrzne" ),
                         { QStringLiteral( "share" ), QStringLiteral( "cache" ), QStringLiteral( ".cache" ), QStringLiteral( "qmlcache" ) },
                         bajty, plikow, blad, tik );
     for ( int i = 0; blad.isEmpty() && i < zasoby.size(); ++i )
-      wfKopiujWszystko( zasoby[i], cel + QStringLiteral( "/zasoby_%1" ).arg( i ), {}, bajty, plikow, blad, tik );
+      wfKopiujWszystko( zasoby[i], cel + QStringLiteral( "/zasoby_%1" ).arg( i ), {}, bajty, plikow, blad, tik, pomin );
     if ( blad.isEmpty() )
     {
       QFile f( cel + QStringLiteral( "/ustawienia.json" ) );
@@ -2790,6 +2851,8 @@ bool QfAppInterface::przeniesDoNowejAplikacji()
       m.insert( QStringLiteral( "plikow" ), plikow );
       m.insert( QStringLiteral( "rozmiar" ), static_cast<double>( bajty ) );
       m.insert( QStringLiteral( "dane" ), dane );
+      m.insert( QStringLiteral( "pominieteRastry" ), QJsonArray::fromStringList( pominieteRastry ) );
+      m.insert( QStringLiteral( "rozmiarPominietych" ), static_cast<double>( bajtyPominiete ) );
       QFile f( cel + QLatin1Char( '/' ) + QLatin1String( WF_PRZENIESIENIE_ZNACZNIK ) );
       if ( !f.open( QIODevice::WriteOnly ) || f.write( QJsonDocument( m ).toJson() ) <= 0 )
         blad = QStringLiteral( "Nie zapisałem znacznika przenosin" );
@@ -2799,6 +2862,8 @@ bool QfAppInterface::przeniesDoNowejAplikacji()
       w[QStringLiteral( "ok" )] = true;
       w[QStringLiteral( "katalog" )] = cel;
       w[QStringLiteral( "nazwa" )] = nazwa;
+      w[QStringLiteral( "pominietoRastrow" )] = pominieteRastry.size();
+      w[QStringLiteral( "rozmiarPominietych" )] = bajtyPominiete;
       w[QStringLiteral( "plikow" )] = plikow;
       w[QStringLiteral( "rozmiar" )] = bajty;
     }

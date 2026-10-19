@@ -279,7 +279,8 @@ class QfAppInterface : public QObject
     Q_INVOKABLE QVariantMap przeniesieniePodsumowanie() const;
     //! Old app: COPIES data, internal files and settings to Documents/WorkField/WorkFieldGIS_przeniesienie_<time>
     //! in the background (przeniesieniePostep, przeniesienieGotowe). The original stays.
-    Q_INVOKABLE bool przeniesDoNowejAplikacji();
+    //! [WF-PRZENOSINY-RASTRY] pominRastry: raster basemaps (orthophoto, DEM — can be downloaded again) stay behind.
+    Q_INVOKABLE bool przeniesDoNowejAplikacji( bool pominRastry = false );
     //! New app: an imported move folder waiting in "Imported Projects" ({jest, czas, projektow, katalog, pakiet}).
     Q_INVOKABLE QVariantMap przeniesienieDoDokonczenia() const;
     //! New app: puts projects, plugins, resources and settings in place; never overwrites.
