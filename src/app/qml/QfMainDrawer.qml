@@ -3397,6 +3397,9 @@ Drawer {
 
       function onPrzeniesienieGotowe(w) {
         oknoPrzenosin.pracuje = false;
+        // [WF-PRZENOSINY-PRZYPOMNIENIE] after a successful copy the old app stops asking at startup
+        if (w.ok)
+          settings.setValue("WorkField/przenosinyZrobione", w.nazwa || "tak");
         oknoPrzenosin.wynik = w.ok
           ? qsTr("Gotowe: skopiowano %1 plików (%2 MB) do folderu\nDokumenty/WorkField/%3\n\nTeraz zainstaluj nową aplikację WorkFieldGIS i wybierz w niej „Przyjmij dane ze starej wersji”. Ta aplikacja i jej dane zostają bez zmian — usuń ją dopiero, gdy sprawdzisz nową.").arg(w.plikow).arg(oknoPrzenosin.mb(w.rozmiar)).arg(w.nazwa)
           : qsTr("Kopiowanie przerwane: %1. Dane w tej aplikacji są nietknięte.").arg(w.blad || "?");
@@ -3417,6 +3420,17 @@ Drawer {
           oknoPrzenosin.czekamNaImport = false;
           oknoPrzenosin.otworz("import");
         }
+      }
+    }
+
+    // [WF-PRZENOSINY-PRZYPOMNIENIE] OLD app: show the move window at EVERY start
+    // until the copy succeeds — Piotr 19.10: „przycisk wprost na ekranie”.
+    Timer {
+      interval: 4000
+      running: Qt.platform.os === "android" && typeof iface.jestStaryPakiet === "function" && iface.jestStaryPakiet()
+      onTriggered: {
+        if (settings.value("WorkField/przenosinyZrobione", "") === "")
+          oknoPrzenosin.otworz("eksport");
       }
     }
 
@@ -3455,10 +3469,10 @@ Drawer {
         font: t.tipFont
         color: t.mainTextColor
         text: oknoPrzenosin.tryb === "eksport"
-              ? qsTr("WorkFieldGIS przechodzi na nową nazwę (com.workfieldgis.app). Telefon traktuje ją jak nową aplikację, więc dane trzeba przenieść.\n\nSkopiuję wszystkie projekty (%1), wtyczki i ustawienia do folderu Dokumenty/WorkField. Razem około %2 MB (bez dzienników), wolne miejsce: %3 MB.\n\nNic tu nie zostanie usunięte ani zmienione.").arg(oknoPrzenosin.stan.projektow || 0).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiar)).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.wolne))
+              ? qsTr("WorkFieldGIS przechodzi na nową nazwę (com.workfieldgis.app). Telefon traktuje ją jak nową aplikację, więc dane trzeba przenieść.\n\nSkopiuję wszystkie projekty (%1), wtyczki i ustawienia do folderu Dokumenty/WorkField. Razem około %2 MB (bez dzienników), wolne miejsce: %3 MB.\n\nNic tu nie zostanie usunięte ani zmienione. To okno będzie się pokazywać przy każdym uruchomieniu, dopóki kopia się nie uda.").arg(oknoPrzenosin.stan.projektow || 0).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiar)).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.wolne))
               : oknoPrzenosin.stan.jest
                 ? qsTr("Znalazłem dane ze starej wersji (%1): %2 projektów. Rozłożyć je na miejsca? Projekt o istniejącej już nazwie dostanie dopisek „(przeniesiony)” — nic nie zostanie nadpisane.").arg(String(oknoPrzenosin.stan.czas || "").replace("T", " ")).arg(oknoPrzenosin.stan.projektow || 0)
-                : qsTr("Jeśli używałeś wcześniejszej wersji WorkFieldGIS:\n1. W starej aplikacji wybierz Menu → „Przenieś do nowej aplikacji”.\n2. Tutaj naciśnij „Wskaż folder” i wybierz Dokumenty → WorkField → WorkFieldGIS_przeniesienie_…\n\nMożesz to zrobić także później: Menu → „Przyjmij dane ze starej wersji”.")
+                : qsTr("Jeśli używałeś wcześniejszej wersji WorkFieldGIS:\n1. Zaktualizuj starą aplikację do wersji 0.12.66 lub nowszej (link niżej) — dopiero ona umie przenieść dane.\n2. W starej aplikacji wybierz Menu → „Przenieś do nowej aplikacji”.\n3. Tutaj naciśnij „Wskaż folder” i wybierz Dokumenty → WorkField → WorkFieldGIS_przeniesienie_…\n\nMożesz to zrobić także później: Menu → „Przyjmij dane ze starej wersji”.")
       }
       CheckBox {
         Layout.fillWidth: true
@@ -3467,6 +3481,17 @@ Drawer {
         onToggled: oknoPrzenosin.pominRastry = checked
         text: qsTr("Pomiń podkłady rastrowe (%1 MB) — ortofotomapy i NMT można pobrać ponownie").arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiarRastrow))
         font: t.tipFont
+      }
+      Text {
+        // [WF-PRZENOSINY-PRZYPOMNIENIE] where to get the last version of the old app
+        Layout.fillWidth: true
+        visible: oknoPrzenosin.tryb === "import" && !oknoPrzenosin.stan.jest && oknoPrzenosin.wynik === ""
+        textFormat: Text.StyledText
+        text: "<a href=\"https://github.com/ekolabynet/workfield/releases\">%1</a>".arg(qsTr("Pobierz najnowszą wersję 0.12 starej aplikacji"))
+        linkColor: t.mainColor
+        font: t.tipFont
+        wrapMode: Text.WordWrap
+        onLinkActivated: link => Qt.openUrlExternally(link)
       }
       Text {
         Layout.fillWidth: true
