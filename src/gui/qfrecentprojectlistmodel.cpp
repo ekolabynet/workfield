@@ -24,7 +24,9 @@
 #include <QSettings>
 
 // WorkField: podbij przy kazdej zmianie listy szablonow w sample_projects.json
-static constexpr int WORKFIELD_SAMPLE_PROJECTS_VERSION = 2;
+// WorkFieldGIS 19.10.2026 [WF-BEZ-PRZYKLADOW] 3 = przykladowe projekty USUNIETE z listy
+// (decyzja Piotra: na starcie tylko „Nowy projekt”). Przejscie na 3 czysci dawne linki.
+static constexpr int WORKFIELD_SAMPLE_PROJECTS_VERSION = 3;
 
 // WorkField: 3 szablony + miejsce na projekty terenowe
 static constexpr int WORKFIELD_RECENT_PROJECTS_LIMIT = 10;
@@ -67,46 +69,8 @@ void QfRecentProjectListModel::reloadModel()
     }
     mRecentProjects = kept;
 
-    const QString sampleProjectsDirectory = QfPlatformUtilities::instance()->systemLocalDataLocation( QLatin1String( "sample_projects" ) );
-    const QString sampleProjectsJson = QStringLiteral( "%1/sample_projects.json" ).arg( sampleProjectsDirectory );
-    if ( QFileInfo::exists( sampleProjectsJson ) )
-    {
-      bool sampleProjectsJsonIsValid = true;
-      QFile sampleProjectsFile( sampleProjectsJson );
-      QJsonDocument doc;
-      if ( sampleProjectsFile.open( QIODevice::ReadOnly ) )
-      {
-        QJsonParseError error;
-        doc = QJsonDocument::fromJson( sampleProjectsFile.readAll(), &error );
-        if ( doc.isNull() || !doc.isArray() )
-        {
-          sampleProjectsJsonIsValid = false;
-        }
-      }
-      else
-      {
-        sampleProjectsJsonIsValid = false;
-      }
-
-      if ( sampleProjectsJsonIsValid )
-      {
-        const QJsonArray values = doc.array();
-        for ( const QJsonValueConstRef &value : values )
-        {
-          if ( !value.isObject() )
-          {
-            continue;
-          }
-
-          const QJsonObject valueObject = value.toObject();
-          mRecentProjects.append( RecentProject( LinkProject,
-                                                 valueObject.value( QStringLiteral( "title" ) ).toString(),
-                                                 valueObject.value( QStringLiteral( "link" ) ).toString(),
-                                                 QStringLiteral( "%1/%2" ).arg( sampleProjectsDirectory, valueObject.value( QStringLiteral( "thumbnail" ) ).toString() ) ) );
-
-        }
-      }
-    }
+    // [WF-BEZ-PRZYKLADOW] 19.10.2026 — tu dopisywalismy przyklady z sample_projects.json;
+    // juz nie: lista „Ostatnio otwarte” zawiera tylko to, co uzytkownik otworzyl.
     saveRecentProjects( mRecentProjects );
     settings.setValue( QStringLiteral( "WorkField/sampleProjectsVersion" ), WORKFIELD_SAMPLE_PROJECTS_VERSION );
   }
