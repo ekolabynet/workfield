@@ -39,14 +39,14 @@ ColumnLayout {
    * do wywolania funkcji nie przeliczyloby sie po zmianie katalogu w „Zmien...".
    */
   readonly property string korzen: naTelefonie ? iface.dataRoot()
-                                               : ustawieniaStudia.korzenProjektow
+                                               : String(ustawieniaStudia.korzenProjektow).replace(/^file:\/+/, "/")
 
   Settings {
     id: ustawieniaStudia
     category: "WFGStudio"
     // desktop ma szeroki dostęp do dysku, więc korzeń jest ustawialny;
     // domyślnie ~/WorkField — decyzja projektowa z 2026-08-07
-    property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
+    property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "") + "/WorkField" // [WF-KORZEN-BEZ-URL] Qt 6 zwraca adres, nie ścieżkę
     property string telefonKarta: "/storage/3263-3061/WorkField/data/"
     // drzewo projektów: zwinięte gałęzie (JSON: klucz bramy -> true)
     property string zwinieteJson: '{"archiwum":true,"inne":true}'

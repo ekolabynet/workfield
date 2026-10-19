@@ -530,83 +530,18 @@ Page {
           width: parent.width
           spacing: 12
 
-          Text {
-            id: templatesText
-            Layout.fillWidth: true
-            visible: templatesListView.count > 0
-            text: qsTr("Nowy z szablonu")
-            font.pointSize: Theme.tipFont.pointSize
-            font.bold: true
-            color: Theme.mainOverlayColor
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
-          }
-
-          ListView {
-            id: templatesListView
-            Layout.fillWidth: true
-            Layout.preferredHeight: count > 0 ? 92 : 0
-            orientation: ListView.Horizontal
-            spacing: 8
-            clip: true
-            visible: count > 0
-
-            ScrollBar.horizontal: QfScrollBar {
-              policy: templatesListView.contentWidth > templatesListView.width ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-            }
-
-            model: FolderListModel {
-              id: templatesFolderModel
-              folder: ""
-              showFiles: false
-              showDirs: true
-              showDotAndDotDot: false
-            }
-
-            delegate: Rectangle {
-              width: 150
-              height: 84
-              radius: 8
-              color: "transparent"
-              border.color: Theme.mainOverlayColor
-              border.width: 1
-
-              ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 8
-                spacing: 4
-
-                Image {
-                  Layout.alignment: Qt.AlignHCenter
-                  source: Theme.getThemeVectorIcon("ic_add_white_24dp")
-                  sourceSize.width: 24
-                  sourceSize.height: 24
-                }
-
-                Text {
-                  Layout.fillWidth: true
-                  Layout.fillHeight: true
-                  text: fileName
-                  font: Theme.tipFont
-                  color: Theme.mainOverlayColor
-                  horizontalAlignment: Text.AlignHCenter
-                  verticalAlignment: Text.AlignVCenter
-                  wrapMode: Text.WordWrap
-                  elide: Text.ElideRight
-                  maximumLineCount: 2
-                }
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                  templateNameDialog.templatePath = filePath;
-                  templateNameDialog.templateName = fileName;
-                  templateNameField.text = fileName + " Projekt " + new Date().toISOString().slice(0, 10);
-                  templateNameDialog.open();
-                }
-              }
-            }
+          // WorkFieldGIS 19.10.2026 [WF-NOWY-PROJEKT-JEDYNY] — w miejscu paska
+          // „Nowy z szablonu”. Szablony usunięte (decyzja Piotra); zostaje jedno
+          // okno „Nowy projekt” z pustymi polami, to samo co w Menu.
+          QfButton {
+            Layout.alignment: Qt.AlignHCenter
+            topPadding: 8
+            bottomPadding: 8
+            leftPadding: 14
+            rightPadding: 14
+            text: qsTr("Nowy projekt")
+            icon.source: Theme.getThemeVectorIcon("ic_add_white_24dp")
+            onClicked: dashBoard.nowyProjekt()
           }
 
           Text {
@@ -1065,11 +1000,7 @@ Page {
   }
 
   Component.onCompleted: {
-    const templatesRoot = templatesDataRoot();
-    if (templatesRoot !== "") {
-      platformUtilities.createDir(templatesRoot, "templates");
-      templatesFolderModel.folder = "file://" + templatesRoot + "templates";
-    }
+    // [WF-NOWY-PROJEKT-JEDYNY] folder `templates` nie jest już zakładany
     adjustWelcomeScreen();
     var runCount = settings.value("/QField/RunCount", 0) * 1;
     var feedbackFormShown = settings.value("/QField/FeedbackFormShown", false);

@@ -142,6 +142,57 @@ Drawer {
       dashBoard.lockScreen();
       dataDrawer.close();
       return;
+    // [WF-APLIKACJA-JEDEN-DZIAL] 19.10.2026 — czynności działu Aplikacja
+    case "aktualizacja":
+      dataDrawer.close();
+      Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/latest");
+      return;
+    case "jakZaczac":
+      dataDrawer.close();
+      dashBoard.pokazJakZaczac();
+      return;
+    case "oProgramie":
+      dashBoard.showAbout();
+      dataDrawer.close();
+      return;
+    case "zglos": {
+      // zgloszenie z terenu — mail z gotowym kontekstem
+      const plik = (typeof qgisProject !== "undefined" && qgisProject) ? qgisProject.fileName : "";
+      const adres = "workfield@ekolaby.net";
+      const temat = "WorkFieldGIS " + appVersionStr + " — uwaga z terenu";
+      const tresc = qsTr("Opisz, co się działo (jedno zdanie wystarczy). Zrzut ekranu bardzo pomaga — dołącz go do tej wiadomości.") + "\n\n\n---\n" + "Wersja: " + appVersionStr + "\n" + "Projekt: " + (mainWindow.projectTitle !== "" ? mainWindow.projectTitle + " (" + FileUtils.fileName(plik) + ")" : FileUtils.fileName(plik)) + "\n" + "System: " + Qt.platform.os + "\n" + "Data: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm");
+      Qt.openUrlExternally("mailto:" + adres + "?subject=" + encodeURIComponent(temat) + "&body=" + encodeURIComponent(tresc));
+      displayToast(qsTr("Otwieram szkic zgłoszenia…"));
+      return;
+    }
+    case "przenies":
+      dataDrawer.close();
+      dashBoard.otworzPrzenosiny("eksport");
+      return;
+    case "przyjmij":
+      dataDrawer.close();
+      dashBoard.otworzPrzenosiny("import");
+      return;
+    case "folderAplikacji":
+      dataDrawer.close();
+      photoGallery.openFiles(iface.dataRoot());
+      return;
+    case "dziennik":
+      dashBoard.showMessageLog();
+      dataDrawer.close();
+      return;
+    case "udostepnijDziennik": {
+      const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");
+      const sciezka = iface.dataRoot() + "logs/workfield_log_" + stamp + ".txt";
+      if (iface.writeTextFile(sciezka, messageLogModel.toPlainText())) {
+        displayToast(qsTr("Dziennik zapisany: %1").arg(sciezka));
+        platformUtilities.sendDatasetTo(sciezka);
+      } else {
+        displayToast(qsTr("Nie udało się zapisać dziennika"), "error");
+      }
+      dataDrawer.close();
+      return;
+    }
     }
     displayToast(qsTr("Czynność „%1” nie ma jeszcze obsługi").arg(czynnosc), "warning");
   }
@@ -172,10 +223,22 @@ Drawer {
     // WorkFieldGIS 17.10.2026 — CORE: wejście do półek menu (Zaawansowane,
     // Eksperymentalne). Otwiera Ustawienia od razu na „Funkcjach w menu”.
     { "label": qsTr("Pokaż funkcje"), "action": "funkcje", "ikona": "wfg_ustawienia" },
+    // [WF-APLIKACJA-JEDEN-DZIAL] 19.10.2026 — dział „Aplikacja” z lewej szuflady
+    // wszedł tutaj, DO MODELU, żeby słuchał przełącznika układu. Aktualizacja
+    // na górze (decyzja Piotra).
+    { "label": qsTr("Aktualizacja aplikacji"), "action": "aktualizacja", "ikona": "wfg_aktualizacja" },
     // [WF-POLKA-ZAAWANSOWANE] 8.10.2026 — "polka" jak w QfPozycjaMenu;
     // brak klucza = core.
     { "label": qsTr("Wtyczki"), "action": "plugins", "ikona": "wfg_paczka", "polka": "zaawansowana" },
     { "label": qsTr("Zablokuj ekran"), "action": "lockScreen", "ikona": "wfg_zamek" },
+    { "label": qsTr("Jak zacząć?"), "action": "jakZaczac", "ikona": "wfg_pytanie" },
+    { "label": qsTr("O aplikacji WorkFieldGIS"), "action": "oProgramie", "ikona": "ic_info_white_24dp" },
+    { "label": qsTr("Zgłoś uwagę"), "action": "zglos", "ikona": "wfg_pomoc" },
+    { "label": qsTr("Przenieś do nowej aplikacji"), "action": "przenies", "ikona": "wfg_paczka", "warunek": "staryPakiet" },
+    { "label": qsTr("Przyjmij dane ze starej wersji"), "action": "przyjmij", "ikona": "wfg_import", "warunek": "nowyPakietAndroid" },
+    { "label": qsTr("Folder aplikacji"), "action": "folderAplikacji", "ikona": "wfg_magazyn", "polka": "zaawansowana" },
+    { "label": qsTr("Dziennik komunikatów"), "action": "dziennik", "ikona": "wfg_przeglad", "polka": "zaawansowana" },
+    { "label": qsTr("Udostępnij dziennik (debug)"), "action": "udostepnijDziennik", "ikona": "wfg_wyslij", "polka": "zaawansowana" },
     { "naglowek": qsTr("Na mapie") },
     { "label": qsTr("Pomiar odległości i powierzchni"), "action": "measurement", "ikona": "wfg_pomiar", "tryb": "measure" },
     { "label": qsTr("Widok 3D"), "action": "view3d", "ikona": "wfg_kostka", "tryb": "3d", "polka": "zaawansowana" },
@@ -193,7 +256,17 @@ Drawer {
     { "label": qsTr("Pliki aplikacji"), "action": "pliki", "ikona": "wfg_przeglad" },
     { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad", "polka": "zaawansowana" },
     { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka", "polka": "zaawansowana" }
-  ]
+  ].filter(w => dataDrawer.spelnionyWarunek(w.warunek))
+
+  //! [WF-APLIKACJA-JEDEN-DZIAL] pozycje przenosin widać tylko tam, gdzie mają sens
+  function spelnionyWarunek(warunek) {
+    const stary = typeof iface.jestStaryPakiet === "function" && iface.jestStaryPakiet();
+    if (warunek === "staryPakiet")
+      return stary;
+    if (warunek === "nowyPakietAndroid")
+      return Qt.platform.os === "android" && typeof iface.jestStaryPakiet === "function" && !stary;
+    return true;
+  }
 
   /**
    * WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — zakładki Moduły (0)
@@ -829,77 +902,9 @@ Drawer {
             }
           }
         }
-        // ── O PROGRAMIE (25.09.2026) ────────────────────────
-        //
-        // 24.09 zjechala tu CALA zakladka „Ustawienia": piec kategorii
-        // plus te trzy pozycje. Kategorie odeszly dzien pozniej do
-        // odsylacza na gorze tej listy — byly doslownie ta sama piatka,
-        // ktora okno Ustawien pokazuje u siebie, tyle ze narysowana
-        // drugim ukladem.
-        //
-        // Te trzy zostaja, bo ustawieniami NIE SA i w oknie Ustawien
-        // ich nie ma — usuniete razem z kategoriami zniknelyby bez
-        // zadnej innej drogi. Naglowek mowi wiec, czym one sa naprawde.
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 1
-          Layout.topMargin: 10
-          Layout.bottomMargin: 4
-          color: t.controlBorderColor
-        }
-
-        Text {
-          Layout.fillWidth: true
-          Layout.leftMargin: 8
-          Layout.bottomMargin: 2
-          text: qsTr("O programie")
-          font: t.strongTipFont
-          color: t.secondaryTextColor
-        }
-
-        QfPozycjaMenu {
-          t: dataDrawer.t
-          ikona: "ic_info_white_24dp"
-          text: qsTr("O aplikacji WorkFieldGIS")
-          onClicked: {
-            dashBoard.showAbout();
-            dataDrawer.close();
-          }
-        }
-
-        QfPozycjaMenu {
-          t: dataDrawer.t
-          ikona: "ic_message_log_black_24dp"
-          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
-          // WorkField 23.08.2026 — licznik nieprzeczytanych wedrowal razem
-          // z pozycja. W menu "..." siedziala przy niej plakietka; gdyby
-          // zostala tam, a pozycja tutaj, sygnal "cos sie stalo" znikalby
-          // z pola widzenia dokladnie wtedy, gdy jest potrzebny.
-          text: messageLog.unreadMessages ? qsTr("Dziennik komunikatów (%1)").arg(messageLog.unreadMessagesCount >= 10 ? "10+" : messageLog.unreadMessagesCount) : qsTr("Dziennik komunikatów")
-          onClicked: {
-            dashBoard.showMessageLog();
-            dataDrawer.close();
-          }
-        }
-
-        QfPozycjaMenu {
-          t: dataDrawer.t
-          ikona: "ic_send_white_24dp"
-          text: qsTr("Udostępnij dziennik (debug)")
-          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE] było eksperymentalna
-          onClicked: {
-            const stamp = Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss");
-            const path = iface.dataRoot() + "logs/workfield_log_" + stamp + ".txt";
-            if (iface.writeTextFile(path, messageLogModel.toPlainText())) {
-              displayToast(qsTr("Dziennik zapisany: %1").arg(path));
-              platformUtilities.sendDatasetTo(path);
-            } else {
-              displayToast(qsTr("Nie udało się zapisać dziennika"), "error");
-            }
-            dataDrawer.close();
-          }
-        }
-
+        // [WF-APLIKACJA-JEDEN-DZIAL] 19.10.2026 — dawna sekcja „O programie”
+        // (ręczne pozycje, głuche na przełącznik układu) weszła do modelu,
+        // do działu „Aplikacja” na górze tej karty.
       }
       }
       } // koniec karty „Narzędzia" (25.09.2026)

@@ -68,7 +68,8 @@ ApplicationWindow {
         qfieldLocalDataPickerScreen.visible = true;
       }
     }
-    noweZadanie: function () { noweZadanie.open(); }
+    // [WF-NOWY-PROJEKT-JEDYNY] 19.10.2026: jedno okno zakładania projektu
+    noweZadanie: function () { dashBoard.nowyProjekt(); }
     // WorkField 18.08.2026: sekcja Zlecen (0) stoi juz na obu platformach,
     // wiec proteza otwierajaca przegladarke plikow na telefonie znika.
     // Zostawiona byla najlepszym kandydatem na „przeciez to dziala".
@@ -77,7 +78,7 @@ ApplicationWindow {
     // wiec na telefonie ta sama czynnosc otwiera dialog QfNoweZadanie.
     // WorkField: jeden kreator na obu platformach. Wczesniej komputer
     // otwieral sekcje Magazyn i trzeba bylo szukac dalej.
-    nowyZSzablonu: function () { noweZadanie.open(); }
+    nowyZSzablonu: function () { dashBoard.nowyProjekt(); }
     zbudujProjekt: function () { dashBoard.otworzSekcje(0); }
     wyslijWTeren: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }
     odbierzZwrot: function () { if (typeof qfWymianaLokalna !== 'undefined') qfWymianaLokalna.open(); }

@@ -583,6 +583,18 @@ Drawer {
     open();
   }
 
+  //! WorkFieldGIS 19.10.2026 [WF-NOWY-PROJEKT-JEDYNY] — jedno wejście do
+  //! zakładania projektu: okno „Nowy projekt” z pustymi polami. Wołają je
+  //! ekran powitalny i menu akcji (dawniej „Nowy z szablonu”).
+  function nowyProjekt() {
+    projectNameDialog.openFor("blank");
+  }
+
+  //! [WF-APLIKACJA-PRAWA] okno przenosin zostaje tutaj; prawa szuflada woła to
+  function otworzPrzenosiny(tryb) {
+    oknoPrzenosin.otworz(tryb);
+  }
+
   // WorkField: przyciąganie per warstwa. UWAGA na pułapkę silnika:
   // setData dla roli SnappingEnabled IGNORUJE wartość i zawsze
   // przełącza — dlatego najpierw czytamy stan i piszemy tylko wtedy,
@@ -2325,79 +2337,8 @@ Drawer {
           onClicked: deleteProjectConfirm.open()
         }
       }
-      Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 6
-        text: qsTr("Aplikacja")
-        font: t.tinyFont
-        color: t.secondaryTextColor
-      }
-      QfSiatkaMenu {
-        Layout.fillWidth: true
-        t: dashBoard.t
-        szerokosc: dashBoard.width
-
-        // WFG-JAK-ZACZAC-POZYCJA — WorkField 22.09.2026.
-        // Druga droga do ekranu: wpis w menu, tam gdzie już stoi
-        // „Zgłoś uwagę”. Pierwszy w sekcji, bo dotyczy pierwszego dnia.
-        QfPozycjaMenu {
-          text: qsTr("Jak zacząć?")
-          ikona: "wfg_pytanie"
-          onClicked: {
-            dashBoard.close();
-            dashBoard.pokazJakZaczac();
-          }
-        }
-        QfPozycjaMenu {
-          text: qsTr("Folder aplikacji")
-          polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
-          ikona: "wfg_magazyn"
-          onClicked: {
-            dashBoard.close();
-            photoGallery.openFiles(iface.dataRoot());
-          }
-        }
-        QfPozycjaMenu {
-          text: qsTr("Aktualizacja aplikacji")
-          ikona: "wfg_aktualizacja"
-          onClicked: {
-            dashBoard.close();
-            Qt.openUrlExternally("https://github.com/ekolabynet/workfield/releases/latest");
-          }
-        }
-        QfPozycjaMenu {
-          text: qsTr("Zgłoś uwagę")
-          ikona: "wfg_pomoc"
-          onClicked: {
-            // WorkField: zgloszenie z terenu — mail z gotowym kontekstem
-            const adres = "workfield@ekolaby.net";
-            const temat = "WorkFieldGIS " + appVersionStr + " — uwaga z terenu";
-            const tresc = qsTr("Opisz, co się działo (jedno zdanie wystarczy). Zrzut ekranu bardzo pomaga — dołącz go do tej wiadomości.") + "\n\n\n---\n" + "Wersja: " + appVersionStr + "\n" + "Projekt: " + (mainWindow.projectTitle !== "" ? mainWindow.projectTitle + " (" + FileUtils.fileName(projectSection.filePath) + ")" : FileUtils.fileName(projectSection.filePath)) + "\n" + "System: " + Qt.platform.os + "\n" + "Data: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm");
-            Qt.openUrlExternally("mailto:" + adres + "?subject=" + encodeURIComponent(temat) + "&body=" + encodeURIComponent(tresc));
-            displayToast(qsTr("Otwieram szkic zgłoszenia…"));
-          }
-        }
-        // WorkFieldGIS 19.10.2026 [WF-PRZENOSINY] — move to the new package
-        // com.workfieldgis.app. Old app: copy everything out; new app: take it in.
-        QfPozycjaMenu {
-          text: qsTr("Przenieś do nowej aplikacji")
-          ikona: "wfg_paczka"
-          visible: typeof iface.jestStaryPakiet === "function" && iface.jestStaryPakiet()
-          onClicked: {
-            dashBoard.close();
-            oknoPrzenosin.otworz("eksport");
-          }
-        }
-        QfPozycjaMenu {
-          text: qsTr("Przyjmij dane ze starej wersji")
-          ikona: "wfg_import"
-          visible: Qt.platform.os === "android" && typeof iface.jestStaryPakiet === "function" && !iface.jestStaryPakiet()
-          onClicked: {
-            dashBoard.close();
-            oknoPrzenosin.otworz("import");
-          }
-        }
-      }
+      // [WF-APLIKACJA-PRAWA] 19.10.2026 — dział „Aplikacja” przeniesiony do prawej
+      // szuflady (karta Narzędzia). Tu zostają same projekty.
         }
       }
 

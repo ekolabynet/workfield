@@ -43,7 +43,7 @@ Popup {
   Settings {
     id: ustawieniaMagazynu
     category: "WFGStudio"
-    property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
+    property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "") + "/WorkField" // [WF-KORZEN-BEZ-URL] Qt 6 zwraca adres, nie ścieżkę
   }
 
   // WorkField 29.09.2026 — KORZEN MAGAZYNU NA ANDROIDZIE.
@@ -75,7 +75,7 @@ Popup {
   function korzenMagazynu() {
     if (Qt.platform.os === "android")
       return iface.dataRoot() + "Imported Projects";
-    return ustawieniaMagazynu.korzenProjektow !== "" ? ustawieniaMagazynu.korzenProjektow : iface.dataRoot();
+    return ustawieniaMagazynu.korzenProjektow !== "" ? String(ustawieniaMagazynu.korzenProjektow).replace(/^file:\/+/, "/") : iface.dataRoot();
   }
 
   width: Math.min(mainWindow.width - 32, 520)

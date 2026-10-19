@@ -68,7 +68,8 @@ QtObject {
     { id: "otworz_magazyn", nazwa: qsTr("Otwórz zlecenia"), ikona: "wfg_magazyn",
       grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.otworzZMagazynu(); } },
-    { id: "nowy_z_szablonu", nazwa: qsTr("Nowy z szablonu"), ikona: "wfg_nowe",
+    // [WF-NOWY-PROJEKT-JEDYNY] 19.10.2026: szablony usunięte, zostaje „Nowy projekt”
+    { id: "nowy_z_szablonu", nazwa: qsTr("Nowy projekt"), ikona: "wfg_nowe",
       grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.nowyZSzablonu(); } },
     { id: "zbuduj", nazwa: qsTr("Zbuduj projekt"), ikona: "wfg_zbuduj",
