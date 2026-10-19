@@ -72,7 +72,9 @@ inline void runOnAndroidMainThread( const std::function<void()> &runnable )
 const char *const applicationName = "QField";
 
 #define GLUE_HELPER( u, v, w, x, y, z ) u##v##w##x##y##z
-#define JNI_FUNCTION_NAME( package_name, class_name, function_name ) GLUE_HELPER( Java_ch_opengis_, package_name, _, class_name, _, function_name )
+// [WF-PAKIET-PREFIKS] one more level so that APP_PACKAGE_JNI_PREFIX expands before ##
+#define GLUE_HELPER2( u, v, w, x, y, z ) GLUE_HELPER( u, v, w, x, y, z )
+#define JNI_FUNCTION_NAME( package_name, class_name, function_name ) GLUE_HELPER2( APP_PACKAGE_JNI_PREFIX, package_name, _, class_name, _, function_name )
 
 QfAndroidPlatformUtilities::QfAndroidPlatformUtilities()
   : mActivity( qtAndroidContext() )
@@ -768,7 +770,7 @@ void QfAndroidPlatformUtilities::uploadPendingAttachments( QfCloudConnection *co
     if ( connection )
     {
       qInfo() << "Launching QFieldCloud service...";
-      QJniObject::callStaticMethod<void>( "ch/opengis/" APP_PACKAGE_NAME "/QFieldCloudService",
+      QJniObject::callStaticMethod<void>( APP_PACKAGE_JAVA_PATH "/QFieldCloudService",
                                           "startQFieldCloudService",
                                           "(Landroid/content/Context;)V",
                                           qtAndroidContext().object() );
@@ -814,17 +816,17 @@ QString QfAndroidPlatformUtilities::startPositioningService() const
   }
 
   qInfo() << "Launching QField positioning service...";
-  QJniObject::callStaticMethod<void>( "ch/opengis/" APP_PACKAGE_NAME "/QFieldPositioningService",
+  QJniObject::callStaticMethod<void>( APP_PACKAGE_JAVA_PATH "/QFieldPositioningService",
                                       "startQFieldPositioningService",
                                       "(Landroid/content/Context;)V",
                                       qtAndroidContext().object() );
-  return QStringLiteral( "localabstract:" APP_PACKAGE_NAME "replica" );
+  return QStringLiteral( "localabstract:" APP_PACKAGE_ID "replica" );
 }
 
 void QfAndroidPlatformUtilities::stopPositioningService() const
 {
   qInfo() << "Terminating QField positioning service...";
-  QJniObject::callStaticMethod<void>( "ch/opengis/" APP_PACKAGE_NAME "/QFieldPositioningService",
+  QJniObject::callStaticMethod<void>( APP_PACKAGE_JAVA_PATH "/QFieldPositioningService",
                                       "stopQFieldPositioningService",
                                       "(Landroid/content/Context;)V",
                                       qtAndroidContext().object() );

@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<manifest package="ch.opengis.@APP_PACKAGE_NAME@" xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" android:versionName="@APP_VERSION_STR@" android:versionCode="@APK_VERSION_CODE@" android:installLocation="auto">
+<manifest package="@APP_PACKAGE_PREFIX@.@APP_PACKAGE_NAME@" xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" android:versionName="@APP_VERSION_STR@" android:versionCode="@APK_VERSION_CODE@" android:installLocation="auto">
 
   <!-- The permissions are specified manually. This way we do not request the microphone permissions which would be pulled in
        as dependent permissions because of qt multimedia. -->
@@ -55,8 +55,8 @@
     android:requestLegacyExternalStorage="true"
     android:enableOnBackInvokedCallback="false">
     <activity
-      android:name="ch.opengis.@APP_PACKAGE_NAME@.QFieldActivity"
-      android:taskAffinity="ch.opengis.@APP_PACKAGE_NAME@"
+      android:name="@APP_PACKAGE_PREFIX@.@APP_PACKAGE_NAME@.QFieldActivity"
+      android:taskAffinity="@APP_PACKAGE_PREFIX@.@APP_PACKAGE_NAME@"
       android:launchMode="singleInstance"
       android:allowTaskReparenting="false"
       android:documentLaunchMode="never"
@@ -307,7 +307,7 @@
 
     <provider
         android:name="androidx.core.content.FileProvider"
-        android:authorities="ch.opengis.@APP_PACKAGE_NAME@.fileprovider"
+        android:authorities="@APP_PACKAGE_PREFIX@.@APP_PACKAGE_NAME@.fileprovider"
         android:exported="false"
         android:grantUriPermissions="true">
         <meta-data
@@ -320,7 +320,7 @@
     <meta-data android:name="io.sentry.environment" android:value="@SENTRY_ENV@" />
     <meta-data android:name="io.sentry.auto-init" android:value="false" />
 
-    <service android:process=":qt_service" android:name="ch.opengis.@APP_PACKAGE_NAME@.QFieldCloudService" android:foregroundServiceType="dataSync">
+    <service android:process=":qt_service" android:name="@APP_PACKAGE_PREFIX@.@APP_PACKAGE_NAME@.QFieldCloudService" android:foregroundServiceType="dataSync">
       <meta-data android:name="android.app.arguments" android:value="--cloudservice"/>
       <meta-data android:name="android.app.lib_name" android:value="@string/lib_name"/>
       <meta-data android:name="android.app.repository" android:value="default"/>
@@ -337,7 +337,7 @@
       <meta-data android:name="android.app.background_running" android:value="true"/>
     </service>
 
-    <service android:process=":qt" android:name="ch.opengis.@APP_PACKAGE_NAME@.QFieldPositioningService" android:foregroundServiceType="location">
+    <service android:process=":qt" android:name="@APP_PACKAGE_PREFIX@.@APP_PACKAGE_NAME@.QFieldPositioningService" android:foregroundServiceType="location">
       <meta-data android:name="android.app.arguments" android:value="--positioningservice"/>
       <meta-data android:name="android.app.lib_name" android:value="@string/lib_name"/>
       <meta-data android:name="android.app.repository" android:value="default"/>

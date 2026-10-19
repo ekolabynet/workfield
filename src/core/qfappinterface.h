@@ -270,6 +270,21 @@ class QfAppInterface : public QObject
     //! Bez kopiowania nowy projekt wskazuje na pliki oryginału (wspólny podkład).
     Q_INVOKABLE QVariantMap podkladyRastroweProjektu( QgsProject *projekt ) const;
 
+    // WorkFieldGIS 19.10.2026 [WF-PRZENOSINY] [WF-PAKIET-PREFIKS] — moving to com.workfieldgis.app
+    //! Android package id of this build (empty elsewhere).
+    Q_INVOKABLE QString nazwaPakietu() const;
+    //! True in the old package (ch.opengis.qfield_home) — offers "move to the new app".
+    Q_INVOKABLE bool jestStaryPakiet() const;
+    //! {dane, rozmiar, projektow, wolne, cel} before copying out.
+    Q_INVOKABLE QVariantMap przeniesieniePodsumowanie() const;
+    //! Old app: COPIES data, internal files and settings to Documents/WorkField/WorkFieldGIS_przeniesienie_<time>
+    //! in the background (przeniesieniePostep, przeniesienieGotowe). The original stays.
+    Q_INVOKABLE bool przeniesDoNowejAplikacji();
+    //! New app: an imported move folder waiting in "Imported Projects" ({jest, czas, projektow, katalog, pakiet}).
+    Q_INVOKABLE QVariantMap przeniesienieDoDokonczenia() const;
+    //! New app: puts projects, plugins, resources and settings in place; never overwrites.
+    Q_INVOKABLE QVariantMap dokonczPrzeniesienie();
+
     //! [WF-KOPIA-ORTO] Arkusze w katalogu ORTO/ projektu: {plikow, rozmiar, uzywane}.
     //! uzywane = jakas warstwa projektu wskazuje do ORTO/ (wtedy kopia bierze je zawsze).
     Q_INVOKABLE QVariantMap arkuszeOrtoProjektu( QgsProject *projekt ) const;
@@ -590,6 +605,9 @@ class QfAppInterface : public QObject
     //! WorkFieldGIS [WF-KOPIA-PROJEKTU]: etap "kopiowanie" / "czyszczenie" / "porzadkowanie", ile 0..1
     void kopiaProjektuPostep( const QString &etap, double ile );
     void kopiaProjektuGotowa( const QVariantMap &wynik );
+    //! [WF-PRZENOSINY] files copied so far
+    void przeniesieniePostep( const QString &etap, int plikow );
+    void przeniesienieGotowe( const QVariantMap &wynik );
 
     //! Requests QField to set its map to the provided \a extent.
     void setMapExtent( const QgsRectangle &extent );

@@ -58,7 +58,7 @@ android {
 
     ndkVersion = '@ANDROID_NDK_VERSION@'
     compileSdkVersion = @ANDROID_TARGET_PLATFORM@
-    namespace = 'ch.opengis.@APP_PACKAGE_NAME@'
+    namespace = '@APP_PACKAGE_PREFIX@.@APP_PACKAGE_NAME@'
 
     sourceSets {
         main {

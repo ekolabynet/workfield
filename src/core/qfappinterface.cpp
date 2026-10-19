@@ -2533,3 +2533,402 @@ bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, con
   } ).detach();
   return true;
 }
+
+// ===========================================================================
+// WorkFieldGIS 19.10.2026 [WF-PRZENOSINY] — moving to the new package
+// (com.workfieldgis.app). Android does not let a new package read the private
+// folder of the old one, so the move has two sides:
+//  * old app: przeniesDoNowejAplikacji() COPIES (never moves) its data
+//    folder, internal files (plugins) and resource folders, plus a settings
+//    dump, into Documents/WorkField/WorkFieldGIS_przeniesienie_<time>/;
+//  * new app: the user imports that folder with the standard "Import project
+//    (folder)" (Java/SAF copy into "Imported Projects"); dokonczPrzeniesienie()
+//    then puts the pieces in place and applies the settings.
+// Rule from the field: the original stays. Nothing is overwritten.
+// ===========================================================================
+#include <QDateTime>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSettings>
+#include <QStandardPaths>
+#ifdef Q_OS_ANDROID
+#include "qfield_android.h"
+#endif
+
+namespace
+{
+  const char *const WF_PAKIET_STARY = "ch.opengis.qfield_home";
+  const char *const WF_PRZENIESIENIE_ZNACZNIK = "PRZENIESIENIE.json";
+
+  qint64 wfRozmiarKatalogu( const QString &katalog, const QSet<QString> &pomijane )
+  {
+    qint64 suma = 0;
+    QDirIterator it( katalog, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden );
+    while ( it.hasNext() )
+    {
+      it.next();
+      const QFileInfo fi = it.fileInfo();
+      if ( fi.isDir() )
+      {
+        if ( !pomijane.contains( fi.fileName() ) && !fi.isSymLink() )
+          suma += wfRozmiarKatalogu( fi.absoluteFilePath(), pomijane );
+      }
+      else
+        suma += fi.size();
+    }
+    return suma;
+  }
+
+  //! Copies everything (also .przed_* backups — this is a move of all data,
+  //! not a clean copy). Only -shm is skipped (SQLite rebuilds it).
+  bool wfKopiujWszystko( const QString &zrodlo, const QString &cel, const QSet<QString> &pomijane,
+                         qint64 &bajty, int &plikow, QString &blad, const std::function<void()> &tik )
+  {
+    if ( !QDir().mkpath( cel ) )
+    {
+      blad = QStringLiteral( "Nie mogę założyć katalogu %1" ).arg( cel );
+      return false;
+    }
+    QDirIterator it( zrodlo, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden );
+    while ( it.hasNext() )
+    {
+      it.next();
+      const QFileInfo fi = it.fileInfo();
+      const QString docel = cel + QLatin1Char( '/' ) + fi.fileName();
+      if ( fi.isDir() )
+      {
+        if ( pomijane.contains( fi.fileName() ) || fi.isSymLink() )
+          continue;
+        if ( !wfKopiujWszystko( fi.absoluteFilePath(), docel, pomijane, bajty, plikow, blad, tik ) )
+          return false;
+      }
+      else
+      {
+        if ( fi.fileName().endsWith( QLatin1String( "-shm" ) ) )
+          continue;
+        if ( !QFile::copy( fi.absoluteFilePath(), docel ) )
+        {
+          blad = QStringLiteral( "Nie skopiowałem %1" ).arg( fi.absoluteFilePath() );
+          return false;
+        }
+        bajty += fi.size();
+        plikow++;
+        tik();
+      }
+    }
+    return true;
+  }
+
+  //! Merge without overwriting: what is missing is moved (rename, same disk)
+  //! or copied; what already exists stays and is counted as skipped.
+  void wfScalBezNadpisywania( const QString &zrodlo, const QString &cel, int &przeniesione, int &pominiete )
+  {
+    QDir().mkpath( cel );
+    QDirIterator it( zrodlo, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden );
+    while ( it.hasNext() )
+    {
+      it.next();
+      const QFileInfo fi = it.fileInfo();
+      const QString docel = cel + QLatin1Char( '/' ) + fi.fileName();
+      if ( !QFileInfo::exists( docel ) )
+      {
+        if ( QDir().rename( fi.absoluteFilePath(), docel ) )
+        {
+          przeniesione++;
+          continue;
+        }
+        if ( fi.isFile() && QFile::copy( fi.absoluteFilePath(), docel ) )
+        {
+          przeniesione++;
+          continue;
+        }
+      }
+      if ( fi.isDir() && QFileInfo( docel ).isDir() )
+        wfScalBezNadpisywania( fi.absoluteFilePath(), docel, przeniesione, pominiete );
+      else
+        pominiete++;
+    }
+  }
+
+  int wfPlikowWKatalogu( const QString &katalog )
+  {
+    int n = 0;
+    QDirIterator it( katalog, QDir::Files | QDir::Hidden, QDirIterator::Subdirectories );
+    while ( it.hasNext() )
+    {
+      it.next();
+      n++;
+    }
+    return n;
+  }
+
+  QString wfKatalogDokumentow()
+  {
+#ifdef Q_OS_ANDROID
+    return QStringLiteral( "/storage/emulated/0/Documents/WorkField" );
+#else
+    return QDir::homePath() + QStringLiteral( "/WorkField" );
+#endif
+  }
+
+  QString wfKatalogDanych()
+  {
+    QString root = QfPlatformUtilities::instance()->applicationDirectory();
+    while ( root.endsWith( QLatin1Char( '/' ) ) )
+      root.chop( 1 );
+    return root;
+  }
+} // namespace
+
+static std::atomic<bool> sPrzenosinyTrwaja { false };
+
+QString QfAppInterface::nazwaPakietu() const
+{
+#ifdef Q_OS_ANDROID
+  return QStringLiteral( APP_PACKAGE_ID );
+#else
+  return QString();
+#endif
+}
+
+bool QfAppInterface::jestStaryPakiet() const
+{
+  return nazwaPakietu() == QLatin1String( WF_PAKIET_STARY );
+}
+
+QVariantMap QfAppInterface::przeniesieniePodsumowanie() const
+{
+  QVariantMap w;
+  const QString dane = wfKatalogDanych();
+  const QString wewn = QStandardPaths::writableLocation( QStandardPaths::AppDataLocation );
+  const QSet<QString> pomijane { QStringLiteral( "share" ), QStringLiteral( "cache" ), QStringLiteral( ".cache" ), QStringLiteral( "qmlcache" ) };
+  qint64 rozmiar = wfRozmiarKatalogu( dane, {} );
+  if ( !wewn.isEmpty() && !QDir::cleanPath( wewn ).startsWith( dane ) )
+    rozmiar += wfRozmiarKatalogu( wewn, pomijane );
+  w[QStringLiteral( "dane" )] = dane;
+  w[QStringLiteral( "rozmiar" )] = rozmiar;
+  w[QStringLiteral( "projektow" )] = QDir( dane + QStringLiteral( "/Imported Projects" ) ).entryList( QDir::Dirs | QDir::NoDotAndDotDot ).size();
+  const QString docs = wfKatalogDokumentow();
+  QDir().mkpath( docs );
+  const QStorageInfo info( docs );
+  w[QStringLiteral( "wolne" )] = info.isValid() ? info.bytesAvailable() : qint64( -1 );
+  w[QStringLiteral( "cel" )] = docs;
+  return w;
+}
+
+bool QfAppInterface::przeniesDoNowejAplikacji()
+{
+  bool oczekiwane = false;
+  if ( !sPrzenosinyTrwaja.compare_exchange_strong( oczekiwane, true ) )
+    return false;
+
+  // ---- in the UI thread: sources and the settings dump (QSettings lives here)
+  const QString dane = wfKatalogDanych();
+  const QString wewn = QDir::cleanPath( QStandardPaths::writableLocation( QStandardPaths::AppDataLocation ) );
+  QStringList zasoby;
+  for ( const QString &z : QfPlatformUtilities::instance()->appDataDirs() )
+  {
+    const QString c = QDir::cleanPath( z );
+    if ( !c.startsWith( dane + QLatin1Char( '/' ) ) && c != dane && QDir( c ).exists() )
+      zasoby << c;
+  }
+  QJsonObject ustawienia;
+  {
+    QSettings s;
+    const QStringList klucze = s.allKeys();
+    for ( const QString &k : klucze )
+    {
+      const QVariant v = s.value( k );
+      const QJsonValue j = QJsonValue::fromVariant( v );
+      ustawienia.insert( k, j.isNull() && v.isValid() ? QJsonValue( v.toString() ) : j );
+    }
+  }
+  const QString nazwa = QStringLiteral( "WorkFieldGIS_przeniesienie_" ) + QDateTime::currentDateTime().toString( QStringLiteral( "yyyy-MM-dd_HHmm" ) );
+  const QString cel = wfKatalogDokumentow() + QLatin1Char( '/' ) + nazwa;
+  const QString pakiet = nazwaPakietu();
+  const QString wersja = QCoreApplication::applicationVersion();
+
+  QPointer<QfAppInterface> ja( this );
+  std::thread( [ja, dane, wewn, zasoby, ustawienia, cel, nazwa, pakiet, wersja]() {
+    QVariantMap w;
+    qint64 bajty = 0;
+    int plikow = 0;
+    QString blad;
+    auto tik = [&]() {
+      if ( plikow % 25 == 0 && ja )
+      {
+        const int p = plikow;
+        QMetaObject::invokeMethod( ja, [ja, p]() { if ( ja ) emit ja->przeniesieniePostep( QStringLiteral( "kopiowanie" ), p ); }, Qt::QueuedConnection );
+      }
+    };
+    if ( QFileInfo::exists( cel ) )
+      blad = QStringLiteral( "Folder %1 już istnieje" ).arg( cel );
+    if ( blad.isEmpty() )
+      wfKopiujWszystko( dane, cel + QStringLiteral( "/dane" ), {}, bajty, plikow, blad, tik );
+    if ( blad.isEmpty() && !wewn.isEmpty() && !wewn.startsWith( dane ) )
+      wfKopiujWszystko( wewn, cel + QStringLiteral( "/wewnetrzne" ),
+                        { QStringLiteral( "share" ), QStringLiteral( "cache" ), QStringLiteral( ".cache" ), QStringLiteral( "qmlcache" ) },
+                        bajty, plikow, blad, tik );
+    for ( int i = 0; blad.isEmpty() && i < zasoby.size(); ++i )
+      wfKopiujWszystko( zasoby[i], cel + QStringLiteral( "/zasoby_%1" ).arg( i ), {}, bajty, plikow, blad, tik );
+    if ( blad.isEmpty() )
+    {
+      QFile f( cel + QStringLiteral( "/ustawienia.json" ) );
+      if ( f.open( QIODevice::WriteOnly ) )
+        f.write( QJsonDocument( ustawienia ).toJson() );
+      else
+        blad = QStringLiteral( "Nie zapisałem ustawień" );
+    }
+    if ( blad.isEmpty() )
+    {
+      // marker last: only a complete copy can be finished on the other side
+      QJsonObject m;
+      m.insert( QStringLiteral( "pakiet" ), pakiet );
+      m.insert( QStringLiteral( "wersja" ), wersja );
+      m.insert( QStringLiteral( "czas" ), QDateTime::currentDateTime().toString( Qt::ISODate ) );
+      m.insert( QStringLiteral( "plikow" ), plikow );
+      m.insert( QStringLiteral( "rozmiar" ), static_cast<double>( bajty ) );
+      m.insert( QStringLiteral( "dane" ), dane );
+      QFile f( cel + QLatin1Char( '/' ) + QLatin1String( WF_PRZENIESIENIE_ZNACZNIK ) );
+      if ( !f.open( QIODevice::WriteOnly ) || f.write( QJsonDocument( m ).toJson() ) <= 0 )
+        blad = QStringLiteral( "Nie zapisałem znacznika przenosin" );
+    }
+    if ( blad.isEmpty() )
+    {
+      w[QStringLiteral( "ok" )] = true;
+      w[QStringLiteral( "katalog" )] = cel;
+      w[QStringLiteral( "nazwa" )] = nazwa;
+      w[QStringLiteral( "plikow" )] = plikow;
+      w[QStringLiteral( "rozmiar" )] = bajty;
+    }
+    else
+    {
+      w[QStringLiteral( "blad" )] = blad;
+      w[QStringLiteral( "katalog" )] = cel; // incomplete copy stays to look at; no marker
+    }
+    qInfo() << "WFG przenosiny:" << w;
+    sPrzenosinyTrwaja.store( false );
+    if ( ja )
+      QMetaObject::invokeMethod( ja, [ja, w]() { if ( ja ) emit ja->przeniesienieGotowe( w ); }, Qt::QueuedConnection );
+  } ).detach();
+  return true;
+}
+
+QVariantMap QfAppInterface::przeniesienieDoDokonczenia() const
+{
+  QVariantMap w;
+  const QString baza = wfKatalogDanych() + QStringLiteral( "/Imported Projects" );
+  const QStringList kandydaci = QDir( baza ).entryList( QStringList() << QStringLiteral( "WorkFieldGIS_przeniesienie*" ), QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name );
+  for ( const QString &k : kandydaci )
+  {
+    const QString znacznik = baza + QLatin1Char( '/' ) + k + QLatin1Char( '/' ) + QLatin1String( WF_PRZENIESIENIE_ZNACZNIK );
+    QFile f( znacznik );
+    if ( !f.open( QIODevice::ReadOnly ) )
+      continue;
+    const QJsonObject m = QJsonDocument::fromJson( f.readAll() ).object();
+    w = m.toVariantMap();
+    w[QStringLiteral( "jest" )] = true;
+    w[QStringLiteral( "katalog" )] = baza + QLatin1Char( '/' ) + k;
+    w[QStringLiteral( "projektow" )] = QDir( baza + QLatin1Char( '/' ) + k + QStringLiteral( "/dane/Imported Projects" ) ).entryList( QDir::Dirs | QDir::NoDotAndDotDot ).size();
+    return w;
+  }
+  w[QStringLiteral( "jest" )] = false;
+  return w;
+}
+
+QVariantMap QfAppInterface::dokonczPrzeniesienie()
+{
+  QVariantMap w;
+  const QVariantMap p = przeniesienieDoDokonczenia();
+  if ( !p.value( QStringLiteral( "jest" ) ).toBool() )
+  {
+    w[QStringLiteral( "blad" )] = QStringLiteral( "Brak folderu przenosin" );
+    return w;
+  }
+  const QString zrodlo = p.value( QStringLiteral( "katalog" ) ).toString();
+  const QString dane = wfKatalogDanych();
+  const QString staryPakiet = p.value( QStringLiteral( "pakiet" ) ).toString();
+  const QString nowyPakiet = nazwaPakietu();
+
+  // 1. projects: next to the existing ones; a name clash gets "(przeniesiony)"
+  int projektow = 0;
+  QStringList zmienioneNazwy;
+  const QString projZrodlo = zrodlo + QStringLiteral( "/dane/Imported Projects" );
+  const QString projCel = dane + QStringLiteral( "/Imported Projects" );
+  QDir().mkpath( projCel );
+  for ( const QString &n : QDir( projZrodlo ).entryList( QDir::Dirs | QDir::NoDotAndDotDot ) )
+  {
+    if ( n.startsWith( QLatin1String( "WorkFieldGIS_przeniesienie" ) ) )
+      continue;
+    QString docel = projCel + QLatin1Char( '/' ) + n;
+    for ( int i = 1; QFileInfo::exists( docel ); ++i )
+      docel = projCel + QLatin1Char( '/' ) + n + ( i == 1 ? QStringLiteral( " (przeniesiony)" ) : QStringLiteral( " (przeniesiony %1)" ).arg( i ) );
+    if ( QDir().rename( projZrodlo + QLatin1Char( '/' ) + n, docel ) )
+    {
+      projektow++;
+      if ( !docel.endsWith( QLatin1Char( '/' ) + n ) )
+        zmienioneNazwy << QFileInfo( docel ).fileName();
+    }
+  }
+  // 2. the rest of the data folder, internal files (plugins), resources — merged without overwriting
+  int przeniesione = 0, pominiete = 0;
+  for ( const QString &n : QDir( zrodlo + QStringLiteral( "/dane" ) ).entryList( QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden ) )
+  {
+    if ( n == QLatin1String( "Imported Projects" ) )
+      continue;
+    const QString z = zrodlo + QStringLiteral( "/dane/" ) + n;
+    const QString c = dane + QLatin1Char( '/' ) + n;
+    if ( QFileInfo( z ).isDir() )
+      wfScalBezNadpisywania( z, c, przeniesione, pominiete );
+    else if ( !QFileInfo::exists( c ) && QDir().rename( z, c ) )
+      przeniesione++;
+    else
+      pominiete++;
+  }
+  const QString wewn = QStandardPaths::writableLocation( QStandardPaths::AppDataLocation );
+  if ( QDir( zrodlo + QStringLiteral( "/wewnetrzne" ) ).exists() && !wewn.isEmpty() )
+    wfScalBezNadpisywania( zrodlo + QStringLiteral( "/wewnetrzne" ), wewn, przeniesione, pominiete );
+  const QStringList zasoby = QfPlatformUtilities::instance()->appDataDirs();
+  for ( const QString &n : QDir( zrodlo ).entryList( QStringList() << QStringLiteral( "zasoby_*" ), QDir::Dirs ) )
+    if ( !zasoby.isEmpty() )
+      wfScalBezNadpisywania( zrodlo + QLatin1Char( '/' ) + n, zasoby.first(), przeniesione, pominiete );
+
+  // 3. settings: the old package name in paths becomes the new one
+  int ustawien = 0;
+  QFile fu( zrodlo + QStringLiteral( "/ustawienia.json" ) );
+  if ( fu.open( QIODevice::ReadOnly ) )
+  {
+    const QJsonObject u = QJsonDocument::fromJson( fu.readAll() ).object();
+    QSettings s;
+    for ( auto it = u.constBegin(); it != u.constEnd(); ++it )
+    {
+      QVariant v = it.value().toVariant();
+      if ( v.typeId() == QMetaType::QString && !staryPakiet.isEmpty() && !nowyPakiet.isEmpty() )
+        v = v.toString().replace( staryPakiet, nowyPakiet );
+      s.setValue( it.key(), v );
+      ustawien++;
+    }
+    s.sync();
+  }
+
+  // 4. the import folder: removed only when nothing is left in it; otherwise
+  //    the marker is renamed so the move is not offered again
+  const int zostalo = wfPlikowWKatalogu( zrodlo ) - ( QFileInfo::exists( zrodlo + QLatin1Char( '/' ) + QLatin1String( WF_PRZENIESIENIE_ZNACZNIK ) ) ? 1 : 0 )
+                      - ( QFileInfo::exists( zrodlo + QStringLiteral( "/ustawienia.json" ) ) ? 1 : 0 );
+  if ( zostalo <= 0 )
+    QDir( zrodlo ).removeRecursively();
+  else
+    QFile::rename( zrodlo + QLatin1Char( '/' ) + QLatin1String( WF_PRZENIESIENIE_ZNACZNIK ), zrodlo + QStringLiteral( "/PRZENIESIENIE_zrobione.json" ) );
+
+  w[QStringLiteral( "ok" )] = true;
+  w[QStringLiteral( "projektow" )] = projektow;
+  w[QStringLiteral( "zmienioneNazwy" )] = zmienioneNazwy;
+  w[QStringLiteral( "przeniesione" )] = przeniesione;
+  w[QStringLiteral( "pominiete" )] = pominiete;
+  w[QStringLiteral( "ustawien" )] = ustawien;
+  w[QStringLiteral( "zostalo" )] = zostalo;
+  w[QStringLiteral( "katalog" )] = zrodlo;
+  qInfo() << "WFG przenosiny dokonczone:" << w;
+  return w;
+}

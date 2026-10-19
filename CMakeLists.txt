@@ -15,6 +15,10 @@ set(APK_VERSION_CODE "1" CACHE STRING "Apk Version Code (Example: 1)")
 set(APP_VERSION "0" CACHE STRING "Application Version (Example: v1.0.0)")
 set(APP_VERSION_STR "local - dev" CACHE STRING "Application Version Name (Example: 1.0.0 - Homerun)")
 set(APP_PACKAGE_NAME "qfield" CACHE STRING "Package name suffix. E.g. qfield --> ch.opengis.qfield")
+# WorkFieldGIS 19.10.2026 [WF-PAKIET-PREFIKS] — the prefix (reverse domain) is a
+# setting too. Default ch.opengis keeps upstream behaviour; WorkFieldGIS moves to
+# com.workfieldgis + app (decision 19.10.2026, see claude/PAKIET_przenosiny.md).
+set(APP_PACKAGE_PREFIX "ch.opengis" CACHE STRING "Package name prefix (reverse domain). E.g. ch.opengis + qfield --> ch.opengis.qfield")
 set(APP_BUNDLED_PLUGINS "" CACHE STRING "Application bundled plugins path")
 
 string(REGEX REPLACE "v" "" CLEAN_APP_VERSION "${APP_VERSION}")

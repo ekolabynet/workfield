@@ -93,19 +93,26 @@ if(ANDROID AND ANDROIDDEPLOYQT_EXECUTABLE)
     configure_file(${CMAKE_SOURCE_DIR}/platform/android/CPackAndroidDeployQt.cmake.in "${CMAKE_BINARY_DIR}/CPackExternal.cmake" @ONLY)
 
     set(ANDROID_TEMPLATE_FOLDER "${CMAKE_BINARY_DIR}/android-template")
+    # [WF-PAKIET-PREFIKS] stale Java sources of a previous package name would be
+    # compiled next to the new ones (and fail on the old R class)
+    file(REMOVE_RECURSE ${ANDROID_TEMPLATE_FOLDER}/src)
     file(COPY ${CMAKE_SOURCE_DIR}/platform/android/ DESTINATION ${ANDROID_TEMPLATE_FOLDER}/)
     file(REMOVE ${ANDROID_TEMPLATE_FOLDER}/res/drawable/splash.xml.in)
     configure_file(${CMAKE_SOURCE_DIR}/platform/android/res/drawable/splash.xml.in ${ANDROID_PACKAGE_SOURCE_DIR}/res/drawable/splash.xml @ONLY)
-    set(SRC_FOLDER "${ANDROID_TEMPLATE_FOLDER}/src/ch/opengis/${APP_PACKAGE_NAME}")
-    if (NOT APP_PACKAGE_NAME STREQUAL "qfield")
+    # [WF-PAKIET-PREFIKS] Java package = APP_PACKAGE_PREFIX.APP_PACKAGE_NAME
+    string(REPLACE "." "/" _wf_sciezka_pakietu "${APP_PACKAGE_PREFIX}.${APP_PACKAGE_NAME}")
+    set(SRC_FOLDER "${ANDROID_TEMPLATE_FOLDER}/src/${_wf_sciezka_pakietu}")
+    if (NOT "${APP_PACKAGE_PREFIX}.${APP_PACKAGE_NAME}" STREQUAL "ch.opengis.qfield")
         file(REMOVE_RECURSE ${SRC_FOLDER}) # remove any pre-existing content
+        get_filename_component(_wf_rodzic ${SRC_FOLDER} DIRECTORY)
+        file(MAKE_DIRECTORY ${_wf_rodzic})
         file(RENAME "${ANDROID_TEMPLATE_FOLDER}/src/ch/opengis/qfield" ${SRC_FOLDER})
     endif()
     file(GLOB JAVA_FILES "${SRC_FOLDER}/*.java")
     foreach(JAVA_FILE ${JAVA_FILES})
       message(STATUS ${JAVA_FILE})
       file(READ ${JAVA_FILE} CONTENT)
-      string(REGEX REPLACE "ch.opengis.qfield" "ch.opengis.${APP_PACKAGE_NAME}"
+      string(REGEX REPLACE "ch.opengis.qfield" "${APP_PACKAGE_PREFIX}.${APP_PACKAGE_NAME}"
                            CONTENT "${CONTENT}")
       file(WRITE ${JAVA_FILE} "${CONTENT}")
     endforeach()

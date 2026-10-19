@@ -15,7 +15,7 @@
  ***************************************************************************/
 
 #include "qfabstractgnssreceiver.h"
-#include "qfield_android.h"
+#include "qfield_android.h" // APP_PACKAGE_JAVA_PATH, APP_PACKAGE_ID [WF-PAKIET-PREFIKS]
 #include "qfieldpositioningservice.h"
 #include "qfpositioningsource.h"
 
@@ -33,7 +33,7 @@ QFieldPositioningService::QFieldPositioningService( int &argc, char **argv )
   qRegisterMetaType<QfAbstractGnssReceiver>( "QfAbstractGnssReceiver" );
 
   mPositioningSource.reset( new QfPositioningSource( this ) );
-  mHost.setHostUrl( QUrl( QStringLiteral( "localabstract:" APP_PACKAGE_NAME "replica" ) ) );
+  mHost.setHostUrl( QUrl( QStringLiteral( "localabstract:" APP_PACKAGE_ID "replica" ) ) );
   mHost.enableRemoting( mPositioningSource.get(), "PositioningSource" );
 
   mNotificationTimer.setInterval( 1000 );
@@ -88,7 +88,7 @@ void QFieldPositioningService::triggerShowNotification()
 {
   const QfGnssPositionInformation pos = mPositioningSource->positionInformation();
   QJniObject message = QJniObject::fromString( tr( "Latitude %1 | Longitude %2 | Altitude %3 m | Speed %4 m/s | Direction %5°" ).arg( QLocale::system().toString( pos.latitude(), 'f', 7 ), QLocale::system().toString( pos.longitude(), 'f', 7 ), QLocale::system().toString( pos.elevation(), 'f', 3 ), QLocale::system().toString( pos.speed(), 'f', 1 ), QLocale::system().toString( pos.direction(), 'f', 1 ) ) );
-  QJniObject::callStaticMethod<void>( "ch/opengis/" APP_PACKAGE_NAME "/QFieldPositioningService",
+  QJniObject::callStaticMethod<void>( APP_PACKAGE_JAVA_PATH "/QFieldPositioningService",
                                       "triggerShowNotification",
                                       message.object<jstring>(),
                                       true );
@@ -97,7 +97,7 @@ void QFieldPositioningService::triggerShowNotification()
 void QFieldPositioningService::triggerReturnNotification()
 {
   QJniObject message = QJniObject::fromString( tr( "Positioning service running" ) );
-  QJniObject::callStaticMethod<void>( "ch/opengis/" APP_PACKAGE_NAME "/QFieldPositioningService",
+  QJniObject::callStaticMethod<void>( APP_PACKAGE_JAVA_PATH "/QFieldPositioningService",
                                       "triggerShowNotification",
                                       message.object<jstring>(),
                                       false );
@@ -106,7 +106,7 @@ void QFieldPositioningService::triggerReturnNotification()
 void QFieldPositioningService::triggerStopNotification()
 {
   QJniObject message = QJniObject::fromString( tr( "Positioning service stopped" ) );
-  QJniObject::callStaticMethod<void>( "ch/opengis/" APP_PACKAGE_NAME "/QFieldPositioningService",
+  QJniObject::callStaticMethod<void>( APP_PACKAGE_JAVA_PATH "/QFieldPositioningService",
                                       "triggerShowNotification",
                                       message.object<jstring>(),
                                       false );

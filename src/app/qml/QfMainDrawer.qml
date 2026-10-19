@@ -2377,6 +2377,26 @@ Drawer {
             displayToast(qsTr("Otwieram szkic zgłoszenia…"));
           }
         }
+        // WorkFieldGIS 19.10.2026 [WF-PRZENOSINY] — move to the new package
+        // com.workfieldgis.app. Old app: copy everything out; new app: take it in.
+        QfPozycjaMenu {
+          text: qsTr("Przenieś do nowej aplikacji")
+          ikona: "wfg_paczka"
+          visible: typeof iface.jestStaryPakiet === "function" && iface.jestStaryPakiet()
+          onClicked: {
+            dashBoard.close();
+            oknoPrzenosin.otworz("eksport");
+          }
+        }
+        QfPozycjaMenu {
+          text: qsTr("Przyjmij dane ze starej wersji")
+          ikona: "wfg_import"
+          visible: Qt.platform.os === "android" && typeof iface.jestStaryPakiet === "function" && !iface.jestStaryPakiet()
+          onClicked: {
+            dashBoard.close();
+            oknoPrzenosin.otworz("import");
+          }
+        }
       }
         }
       }
@@ -3322,6 +3342,172 @@ Drawer {
               return;
             }
             projectNameDialog.close();
+          }
+        }
+      }
+    }
+  }
+
+  // WorkFieldGIS 19.10.2026 [WF-PRZENOSINY] — moving data between packages.
+  // eksport: old app (ch.opengis.qfield_home) copies everything to
+  //          Documents/WorkField/WorkFieldGIS_przeniesienie_<time>/;
+  // import:  new app — the user imports that folder with the standard
+  //          "Import project (folder)", then dokonczPrzeniesienie() puts the
+  //          pieces in place. The original always stays.
+  Popup {
+    id: oknoPrzenosin
+
+    property string tryb: "eksport"
+    property var stan: ({})
+    property bool pracuje: false
+    property string wynik: ""
+    property bool czekamNaImport: false
+
+    function mb(b) {
+      return Math.round((b || 0) / 1048576);
+    }
+
+    function otworz(nowyTryb) {
+      tryb = nowyTryb;
+      wynik = "";
+      pracuje = false;
+      stan = tryb === "eksport" ? iface.przeniesieniePodsumowanie() : iface.przeniesienieDoDokonczenia();
+      open();
+    }
+
+    parent: mainWindow.contentItem
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    width: Math.min(mainWindow.width - 40, 440)
+    modal: true
+    closePolicy: pracuje ? Popup.NoAutoClose : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
+
+    Connections {
+      target: iface
+      ignoreUnknownSignals: true
+
+      function onPrzeniesieniePostep(etap, plikow) {
+        if (oknoPrzenosin.pracuje)
+          oknoPrzenosin.wynik = qsTr("Kopiuję… %1 plików").arg(plikow);
+      }
+
+      function onPrzeniesienieGotowe(w) {
+        oknoPrzenosin.pracuje = false;
+        oknoPrzenosin.wynik = w.ok
+          ? qsTr("Gotowe: skopiowano %1 plików (%2 MB) do folderu\nDokumenty/WorkField/%3\n\nTeraz zainstaluj nową aplikację WorkFieldGIS i wybierz w niej „Przyjmij dane ze starej wersji”. Ta aplikacja i jej dane zostają bez zmian — usuń ją dopiero, gdy sprawdzisz nową.").arg(w.plikow).arg(oknoPrzenosin.mb(w.rozmiar)).arg(w.nazwa)
+          : qsTr("Kopiowanie przerwane: %1. Dane w tej aplikacji są nietknięte.").arg(w.blad || "?");
+      }
+    }
+
+    // new app: after returning from the system folder picker, check whether
+    // the move folder has arrived
+    Connections {
+      target: Qt.application
+      function onStateChanged() {
+        if (Qt.application.state !== Qt.ApplicationActive || !oknoPrzenosin.czekamNaImport)
+          return;
+        const p = iface.przeniesienieDoDokonczenia();
+        if (p.jest) {
+          oknoPrzenosin.czekamNaImport = false;
+          oknoPrzenosin.otworz("import");
+        }
+      }
+    }
+
+    // new app, first start: ask once whether there is data from the old version
+    Timer {
+      interval: 4000
+      running: Qt.platform.os === "android" && typeof iface.jestStaryPakiet === "function" && !iface.jestStaryPakiet()
+      onTriggered: {
+        const p = iface.przeniesienieDoDokonczenia();
+        if (p.jest) {
+          oknoPrzenosin.otworz("import");
+          return;
+        }
+        if (settings.value("WorkField/przenosinyPytane", "") === "") {
+          settings.setValue("WorkField/przenosinyPytane", "tak");
+          oknoPrzenosin.otworz("import");
+        }
+      }
+    }
+
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: oknoPrzenosin.tryb === "eksport" ? qsTr("Przenieś do nowej aplikacji") : qsTr("Dane ze starej wersji")
+        font: t.strongFont
+        color: t.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: oknoPrzenosin.wynik === ""
+        wrapMode: Text.WordWrap
+        font: t.tipFont
+        color: t.mainTextColor
+        text: oknoPrzenosin.tryb === "eksport"
+              ? qsTr("WorkFieldGIS przechodzi na nową nazwę (com.workfieldgis.app). Telefon traktuje ją jak nową aplikację, więc dane trzeba przenieść.\n\nSkopiuję wszystkie projekty (%1), wtyczki i ustawienia do folderu Dokumenty/WorkField. Razem około %2 MB, wolne miejsce: %3 MB.\n\nNic tu nie zostanie usunięte ani zmienione.").arg(oknoPrzenosin.stan.projektow || 0).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiar)).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.wolne))
+              : oknoPrzenosin.stan.jest
+                ? qsTr("Znalazłem dane ze starej wersji (%1): %2 projektów. Rozłożyć je na miejsca? Projekt o istniejącej już nazwie dostanie dopisek „(przeniesiony)” — nic nie zostanie nadpisane.").arg(String(oknoPrzenosin.stan.czas || "").replace("T", " ")).arg(oknoPrzenosin.stan.projektow || 0)
+                : qsTr("Jeśli używałeś wcześniejszej wersji WorkFieldGIS:\n1. W starej aplikacji wybierz Menu → „Przenieś do nowej aplikacji”.\n2. Tutaj naciśnij „Wskaż folder” i wybierz Dokumenty → WorkField → WorkFieldGIS_przeniesienie_…\n\nMożesz to zrobić także później: Menu → „Przyjmij dane ze starej wersji”.")
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: oknoPrzenosin.wynik !== ""
+        text: oknoPrzenosin.wynik
+        wrapMode: Text.WordWrap
+        font: t.tipFont
+        color: t.mainTextColor
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: oknoPrzenosin.tryb === "eksport" && oknoPrzenosin.wynik === "" && (oknoPrzenosin.stan.wolne || 0) >= 0 && (oknoPrzenosin.stan.wolne || 0) < (oknoPrzenosin.stan.rozmiar || 0) * 1.1
+        text: qsTr("Za mało wolnego miejsca na kopię.")
+        color: t.errorColor
+        font: t.tipFont
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Item {
+          Layout.fillWidth: true
+        }
+        Button {
+          flat: true
+          text: oknoPrzenosin.wynik !== "" ? qsTr("Zamknij") : qsTr("Później")
+          enabled: !oknoPrzenosin.pracuje
+          onClicked: oknoPrzenosin.close()
+        }
+        Button {
+          flat: true
+          visible: oknoPrzenosin.wynik === ""
+          enabled: !oknoPrzenosin.pracuje && (oknoPrzenosin.tryb !== "eksport" || (oknoPrzenosin.stan.wolne || 0) < 0 || (oknoPrzenosin.stan.wolne || 0) >= (oknoPrzenosin.stan.rozmiar || 0) * 1.1)
+          text: oknoPrzenosin.tryb === "eksport" ? qsTr("Kopiuj") : oknoPrzenosin.stan.jest ? qsTr("Dokończ") : qsTr("Wskaż folder")
+          onClicked: {
+            if (oknoPrzenosin.tryb === "eksport") {
+              if (iface.przeniesDoNowejAplikacji()) {
+                oknoPrzenosin.pracuje = true;
+                oknoPrzenosin.wynik = qsTr("Kopiuję…");
+              }
+              return;
+            }
+            if (oknoPrzenosin.stan.jest) {
+              const w = iface.dokonczPrzeniesienie();
+              oknoPrzenosin.wynik = w.ok
+                ? qsTr("Przeniesiono %1 projektów i %2 ustawień.").arg(w.projektow).arg(w.ustawien)
+                  + ((w.zmienioneNazwy || []).length > 0 ? "\n" + qsTr("Pod nową nazwą: %1").arg(w.zmienioneNazwy.join(", ")) : "")
+                  + (w.zostalo > 0 ? "\n" + qsTr("%1 plików już było na miejscu i zostało w folderze przenosin.").arg(w.zostalo) : "")
+                  + "\n" + qsTr("Uruchom aplikację ponownie, żeby wczytać ustawienia i wtyczki.")
+                : qsTr("Nie udało się: %1").arg(w.blad || "?");
+              return;
+            }
+            oknoPrzenosin.czekamNaImport = true;
+            oknoPrzenosin.close();
+            platformUtilities.importProjectFolder();
           }
         }
       }

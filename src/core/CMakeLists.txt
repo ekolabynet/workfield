@@ -368,6 +368,11 @@ target_include_directories(
          $<INSTALL_INTERFACE:${QFIELD_INCLUDE_SUBDIR}>)
 if(ANDROID)
   string(REPLACE "_" "_1" APP_PACKAGE_JNI_NAME "${APP_PACKAGE_NAME}")
+  # [WF-PAKIET-PREFIKS] JNI prefix (Java_ch_opengis_), Java path (ch/opengis/<name>)
+  string(REPLACE "_" "_1" _wf_prefiks_jni "${APP_PACKAGE_PREFIX}")
+  string(REPLACE "." "_" _wf_prefiks_jni "${_wf_prefiks_jni}")
+  set(APP_PACKAGE_JNI_PREFIX "Java_${_wf_prefiks_jni}_")
+  string(REPLACE "." "/" APP_PACKAGE_JAVA_PATH "${APP_PACKAGE_PREFIX}.${APP_PACKAGE_NAME}")
   configure_file(platforms/android/qfield_android.h.in
                  ${CMAKE_CURRENT_BINARY_DIR}/qfield_android.h @ONLY)
   target_include_directories(

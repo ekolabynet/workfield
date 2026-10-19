@@ -14,7 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "qfield_android.h"
+#include "qfield_android.h" // APP_PACKAGE_JAVA_PATH [WF-PAKIET-PREFIKS]
 #include "qfieldcloudservice.h"
 
 #include <QTimer>
@@ -43,7 +43,7 @@ void QFieldCloudService::initService()
     }
     const QJniObject message = QJniObject::fromString( messageString );
     const int progress = static_cast<int>( fileProgress * 100 );
-    QJniObject::callStaticMethod<void>( "ch/opengis/" APP_PACKAGE_NAME "/QFieldCloudService",
+    QJniObject::callStaticMethod<void>( APP_PACKAGE_JAVA_PATH "/QFieldCloudService",
                                         "triggerShowNotification",
                                         "(Ljava/lang/String;I)V",
                                         message.object<jstring>(),

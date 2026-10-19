@@ -40,6 +40,8 @@ export APK_VERSION_CODE=${APK_VERSION_CODE:-$(echo "$APP_VERSION_NUM" | awk -F. 
 # to widzi czlowiek w oknie "O programie"
 export APP_VERSION_STR="${APP_VERSION_STR:-$APP_VERSION_NUM - $APP_CODENAME}"
 
+# [WF-PAKIET-PREFIKS] APP_PACKAGE_PREFIX/APP_PACKAGE_NAME: domyslne w build-vcpkg.sh
+
 # Sekrety podpisu NIE mieszkaja w repo. Zrodlo: scripts/signing.env
 # (gitignore) albo zmienne srodowiskowe.
 if [ -f "$SRC_DIR/scripts/signing.env" ]; then
@@ -89,6 +91,7 @@ docker run -it --rm \
 	-e KEYNAME \
 	-e KEYPASS \
 	-e APP_PACKAGE_NAME \
+	-e APP_PACKAGE_PREFIX \
 	-e APP_NAME \
 	-e APP_ICON \
 	-e APP_VERSION \
