@@ -458,6 +458,9 @@ Drawer {
 
             required property var modelData
             readonly property bool wlaczona: mainWindow[modelData.klucz] === "pokazuj"
+            // [WF-EKS-GDY-SA] 19.10.2026 — kropka eksperymentalnych tylko,
+            // gdy w menu jest choć jedna taka pozycja (Piotr).
+            visible: modelData.klucz !== "menuEksperymentalne" || mainWindow.saEksperymentalne === true
 
             width: 20
             height: 20

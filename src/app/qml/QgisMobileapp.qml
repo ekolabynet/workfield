@@ -431,6 +431,11 @@ ApplicationWindow {
   property string menuEksperymentalne: settings.value("WorkField/menuEksperymentalne", "ukryj")
   onMenuEksperymentalneChanged: settings.setValue("WorkField/menuEksperymentalne", menuEksperymentalne)
   readonly property bool pokazujEksperymentalne: menuEksperymentalne === "pokazuj"
+  // WorkFieldGIS 19.10.2026 [WF-EKS-GDY-SA] — ile pozycji menu jest na półce
+  // eksperymentalnej (zgłaszają się same, QfPozycjaMenu). Zero = półki
+  // nie pokazujemy wcale: ani kropki w szufladach, ani karty w Ustawieniach.
+  property int liczbaEksperymentalnych: 0
+  readonly property bool saEksperymentalne: liczbaEksperymentalnych > 0
 
   // WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — trzecia półka: ZAAWANSOWANE.
   // Działa i jest pewne, ale nie każdy tego potrzebuje (wydruki, wtyczki,

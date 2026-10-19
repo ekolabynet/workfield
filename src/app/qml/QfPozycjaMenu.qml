@@ -63,6 +63,30 @@ Button {
   property string polka: "core"
   readonly property bool eksperymentalna: polka === "eksperymentalna"
 
+  // WorkFieldGIS 19.10.2026 [WF-EKS-GDY-SA] — pozycja eksperymentalna sama
+  // zgłasza się w oknie głównym; kropka w nagłówkach szuflad i karta
+  // w Ustawieniach pokazują się tylko, gdy licznik > 0. Wypis przy
+  // zniknięciu pozycji i przy zmianie półki — licznik nie kłamie.
+  property bool zgloszonaEks: false
+  function zglosPolke() {
+    if (typeof mainWindow === "undefined" || !mainWindow || typeof mainWindow.liczbaEksperymentalnych !== "number")
+      return;
+    // z `polka`, nie z `eksperymentalna`: w onPolkaChanged wiązanie
+    // `eksperymentalna` może jeszcze mieć starą wartość (zmierzone)
+    const jest = pozycja.polka === "eksperymentalna";
+    if (jest === pozycja.zgloszonaEks)
+      return;
+    mainWindow.liczbaEksperymentalnych += jest ? 1 : -1;
+    pozycja.zgloszonaEks = jest;
+  }
+  onPolkaChanged: zglosPolke()
+  // callLater: przy starcie okno główne może jeszcze nie mieć licznika
+  Component.onCompleted: Qt.callLater(zglosPolke)
+  Component.onDestruction: {
+    if (pozycja.zgloszonaEks && typeof mainWindow !== "undefined" && mainWindow && typeof mainWindow.liczbaEksperymentalnych === "number")
+      mainWindow.liczbaEksperymentalnych -= 1;
+  }
+
   /**
    * WorkField 8.10.2026 [WF-POLKA-ZAAWANSOWANE] — trzecia półka.
    * "zaawansowana": działa i jest pewne, ale nie każdy tego potrzebuje.

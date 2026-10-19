@@ -643,7 +643,10 @@ Page {
               Layout.leftMargin: 20
               Layout.rightMargin: 20
               Layout.bottomMargin: 6
-              text: qsTr("Trzy półki: CORE jest zawsze widoczne. ZAAWANSOWANE (niebieski pasek) działają i są pewne, ale nie każdy ich potrzebuje. EKSPERYMENTALNE (pomarańczowy pasek) poprawiamy spokojnie. Po instalacji obie są wyłączone — aplikacja startuje w wersji CORE.")
+              // [WF-EKS-GDY-SA] bez pozycji eksperymentalnych opis mówi o dwóch półkach
+              text: mainWindow.saEksperymentalne === true
+                    ? qsTr("Trzy półki: CORE jest zawsze widoczne. ZAAWANSOWANE (niebieski pasek) działają i są pewne, ale nie każdy ich potrzebuje. EKSPERYMENTALNE (pomarańczowy pasek) poprawiamy spokojnie. Po instalacji obie są wyłączone — aplikacja startuje w wersji CORE.")
+                    : qsTr("CORE jest zawsze widoczne. ZAAWANSOWANE (niebieski pasek) działają i są pewne, ale nie każdy ich potrzebuje. Po instalacji są wyłączone — aplikacja startuje w wersji CORE.")
               font: QfTheme.tipFont
               color: QfTheme.secondaryTextColor
               wrapMode: Text.WordWrap
@@ -660,7 +663,9 @@ Page {
                   "opis": qsTr("Pozycje menu, bez których można na ogół żyć i które poprawiamy spokojnie. W menu mają pomarańczowy pasek przy lewej krawędzi.") },
                 // WorkFieldGIS 19.10.2026 — znaczniki półek w nagłówkach szuflad
                 { "klucz": "znacznikiPolek", "kolor": "#78909c", "tytul": qsTr("Znaczniki w szufladach"),
-                  "opis": qsTr("Dwie kropki przy tytule obu szuflad: niebieska (zaawansowane) i pomarańczowa (eksperymentalne). Pełna z otoczką — półka pokazana, sam obrys — ukryta. Dotknięcie kropki przełącza półkę.") }
+                  "opis": mainWindow.saEksperymentalne === true
+                          ? qsTr("Dwie kropki przy tytule obu szuflad: niebieska (zaawansowane) i pomarańczowa (eksperymentalne). Pełna z otoczką — półka pokazana, sam obrys — ukryta. Dotknięcie kropki przełącza półkę.")
+                          : qsTr("Niebieska kropka przy tytule obu szuflad (zaawansowane). Pełna z otoczką — półka pokazana, sam obrys — ukryta. Dotknięcie kropki przełącza półkę.") }
               ]
 
               delegate: Rectangle {
@@ -668,6 +673,8 @@ Page {
 
                 required property var modelData
                 readonly property bool wlaczona: mainWindow[modelData.klucz] === "pokazuj"
+                // [WF-EKS-GDY-SA] karta tylko, gdy są pozycje eksperymentalne
+                visible: modelData.klucz !== "menuEksperymentalne" || mainWindow.saEksperymentalne === true
 
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
