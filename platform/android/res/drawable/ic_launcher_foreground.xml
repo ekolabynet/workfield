@@ -16,44 +16,31 @@
   prawdziwe w rysunku na ekranie i zadne w ikonie wielkosci paznokcia.
   Zostaje plat o pieciu rownych wierzcholkach i celownik w srodku.
 -->
-<!--
-  WORKFIELD 19.10.2026 - OSTATNIA WERSJA STAREJ APLIKACJI (ch.opengis.qfield_home).
-  Kolory wyszarzone o 50%, zeby na pulpicie bylo widac, ktora aplikacja
-  odchodzi.
-  Zielona dioda w prawym gornym rogu: "jest nowa aplikacja". Nowa aplikacja (com.workfieldgis.app, 0.13.0) wraca do
-  pelnych kolorow - przywrocic ten plik z gita sprzed tej zmiany.
--->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
 
   <!-- plat -->
-  <path android:fillColor="#802041" android:strokeColor="#A52A54"
+  <path android:fillColor="#C00041" android:strokeColor="#F60054"
       android:strokeWidth="2.13" android:strokeLineJoin="round"
       android:pathData="M30.71,40.42 L63.70,27.80 L79.23,54.00 L65.64,80.20 L28.77,73.41 Z" />
 
   <!-- wierzcholki platu -->
-  <path android:fillColor="#A52A54" android:pathData="M59.82,27.80 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
-  <path android:fillColor="#A52A54" android:pathData="M75.35,54.00 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
-  <path android:fillColor="#A52A54" android:pathData="M61.76,80.20 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
-  <path android:fillColor="#A52A54" android:pathData="M24.89,73.41 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
+  <path android:fillColor="#F60054" android:pathData="M59.82,27.80 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
+  <path android:fillColor="#F60054" android:pathData="M75.35,54.00 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
+  <path android:fillColor="#F60054" android:pathData="M61.76,80.20 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
+  <path android:fillColor="#F60054" android:pathData="M24.89,73.41 a3.88,3.88 0 1,0 7.76,0 a3.88,3.88 0 1,0 -7.76,0" />
 
   <!-- pole pomiaru -->
   <path android:fillColor="#FFFFFF" android:pathData="M37.50,54.49 a16.30,16.30 0 1,0 32.60,0 a16.30,16.30 0 1,0 -32.60,0" />
 
 
   <!-- celownik -->
-  <path android:strokeColor="#A12952" android:strokeWidth="2.52"
+  <path android:strokeColor="#F10052" android:strokeWidth="2.52"
       android:strokeLineCap="round"
       android:pathData="M46.24,54.49 L61.36,54.49 M53.80,46.93 L53.80,62.05" />
 
   <!-- piaty wierzcholek platu (lewy) -->
-  <path android:fillColor="#A52A54"
+  <path android:fillColor="#F60054"
       android:pathData="M25.86,40.42 a4.85,4.85 0 1,0 9.70,0 a4.85,4.85 0 1,0 -9.70,0" />
-  <!-- DIODA: znak, ze jest nowa wersja (jak migajace swiatelko powiadomienia).
-       Prawy gorny rog, w strefie bezpiecznej (promien 33 dp od srodka). -->
-  <path android:fillColor="#FFFFFF"
-      android:pathData="M68.0,34.5 a5.5,5.5 0 1,0 11.0,0 a5.5,5.5 0 1,0 -11.0,0" />
-  <path android:fillColor="#76FF03"
-      android:pathData="M69.3,34.5 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0" />
 </vector>

@@ -28,7 +28,8 @@ set -o pipefail
 
 WERSJA="1.2.1"
 
-PAKIET="${WF_PAKIET:-ch.opengis.qfield_home}"
+# 19.10.2026: domyslnie nowa aplikacja; stara: WF_PAKIET=ch.opengis.qfield_home
+PAKIET="${WF_PAKIET:-com.workfieldgis.app}"
 KORZEN_ZWROTOW="${WF_ZWROTY:-$HOME/WorkField_zwroty}"
 
 # Pliki nie-bazowe, brane zawsze, gdy są.

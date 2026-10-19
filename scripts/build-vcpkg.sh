@@ -8,10 +8,13 @@ CMAKE_BUILD_DIR=/usr/src/qfield/build-${triplet}
 ANDROID_NDK_VERSION=$(sed -En -e 's/^Pkg.Revision\s*=\s*([0-9a-f]+)/\1/p' ${ANDROID_NDK_HOME}/source.properties)
 
 [[ -z ${APP_NAME} ]] && APP_NAME="WorkFieldGIS"
-[[ -z ${APP_PACKAGE_NAME} ]] && APP_PACKAGE_NAME="qfield_home"
+# WorkFieldGIS 19.10.2026 — wlasny pakiet com.workfieldgis.app (decyzja Piotra).
+# Stara aplikacja: APP_PACKAGE_PREFIX=ch.opengis APP_PACKAGE_NAME=qfield_home
+[[ -z ${APP_PACKAGE_PREFIX} ]] && APP_PACKAGE_PREFIX="com.workfieldgis"
+[[ -z ${APP_PACKAGE_NAME} ]] && APP_PACKAGE_NAME="app"
 [[ -z ${APP_ICON} ]] && APP_ICON="workfieldgis"
 
-echo "Package name ${APP_PACKAGE_NAME}"
+echo "Package ${APP_PACKAGE_PREFIX}.${APP_PACKAGE_NAME}"
 
 # Configure and install deps
 cmake -S "${SOURCE_DIR}" \
@@ -25,6 +28,7 @@ cmake -S "${SOURCE_DIR}" \
 	-D APK_VERSION_CODE="${APK_VERSION_CODE:-804}" \
 	-D APP_VERSION="${APP_VERSION:-v${APP_VERSION_STR:-0.0.0}}" \
 	-D APP_VERSION_STR="${APP_VERSION_STR:-0.0.0}" \
+	-D APP_PACKAGE_PREFIX="${APP_PACKAGE_PREFIX}" \
 	-D APP_PACKAGE_NAME="${APP_PACKAGE_NAME}" \
 	-D APP_ICON="${APP_ICON}" \
 	-D APP_NAME="${APP_NAME}" \

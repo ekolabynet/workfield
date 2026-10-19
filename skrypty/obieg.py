@@ -46,7 +46,9 @@ import sys
 import shutil
 import datetime
 
-KORZEN = "/storage/emulated/0/Android/data/ch.opengis.qfield_home/files/Imported Projects"
+# 19.10.2026: domyslnie nowa aplikacja; stara: WF_PAKIET=ch.opengis.qfield_home
+PAKIET = os.environ.get("WF_PAKIET", "com.workfieldgis.app")
+KORZEN = "/storage/emulated/0/Android/data/%s/files/Imported Projects" % PAKIET
 ZWROTY = os.path.expanduser("~/WorkField/zwroty/zzw_2026")
 
 
@@ -274,7 +276,7 @@ def checkpoint_na_telefonie(dev, projekt):
     utraty z 07.09.
     """
     print("Zamykam aplikacje i scalam dziennik...")
-    adb(dev, "shell", "am force-stop ch.opengis.qfield_home")
+    adb(dev, "shell", "am force-stop " + PAKIET)
     import time
     time.sleep(3)
     baza = "%s/%s/dane.gpkg" % (KORZEN, projekt)
@@ -419,7 +421,7 @@ def wyslij(dev, projekt, zrodlo):
     if o not in ("tak", "t", "yes", "y"):
         sys.exit("Przerwane. Nic nie zmieniono.")
 
-    adb(dev, "shell", "am force-stop ch.opengis.qfield_home")
+    adb(dev, "shell", "am force-stop " + PAKIET)
     adb(dev, "shell", "mkdir -p '%s'" % zdalny)
     # Dziennik usuwamy DOPIERO teraz — po pobraniu zwrotu.
     adb(dev, "shell", "rm -f '%s/dane.gpkg-shm' '%s/dane.gpkg-wal'" % (zdalny, zdalny))

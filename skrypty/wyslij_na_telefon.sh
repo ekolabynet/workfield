@@ -8,7 +8,8 @@
 # KATALOG_TERENOWY to wynik `projekt_na_teren.py`: pliki + TEREN.md5 + TEREN.txt.
 # Wysyła DOKŁADNIE pliki wymienione w TEREN.md5 — nic więcej.
 #
-# Do:  Android/data/ch.opengis.qfield_home/files/Imported Projects/<NAZWA>
+# Do:  Android/data/<PAKIET>/files/Imported Projects/<NAZWA>
+#      PAKIET domyslnie com.workfieldgis.app; stara: WF_PAKIET=ch.opengis.qfield_home
 #
 #  - sprawdza md5 KAŻDEGO pliku przed wysyłką i PO wysyłce, już na telefonie,
 #  - odmawia, gdy obok bazy leży -wal/-shm,
@@ -18,7 +19,7 @@
 
 set -u
 set -o pipefail
-PAKIET="${WF_PAKIET:-ch.opengis.qfield_home}"
+PAKIET="${WF_PAKIET:-com.workfieldgis.app}"
 
 KAT=""; NAZWA=""; ZAPISZ=0
 while [ $# -gt 0 ]; do
