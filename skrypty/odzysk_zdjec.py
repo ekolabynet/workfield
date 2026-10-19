@@ -51,6 +51,7 @@ import re
 import shutil
 import sqlite3
 import sys
+import urllib.parse
 from datetime import datetime
 
 # Geometria z osobnego modułu, wspólnego ze scal_parki.py. Musi leżeć obok.
@@ -60,7 +61,16 @@ try:
 except ImportError:
     GEO = None
 
-WERSJA = "1.4.0"   # nośniki wymienne i migawki przerwane rozpoznawane osobno
+if GEO is not None:
+    uri_ro = GEO.uri_ro          # jedna definicja, w module wspolnym
+else:
+    def uri_ro(sciezka):
+        """Zapas na wypadek braku geom_gpkg.py — ten czasownik ma dzialac
+        bez niego (traci tylko dopasowanie po geometrii)."""
+        return "file:%s?mode=ro" % urllib.parse.quote(os.path.abspath(
+            os.path.expanduser(sciezka)))
+
+WERSJA = "1.4.1"   # nośniki wymienne i migawki przerwane rozpoznawane osobno
 
 OBRAZY = (".jpg", ".jpeg", ".png", ".heic", ".heif")
 
@@ -114,11 +124,12 @@ NUMERACJA = []
 
 
 def otw_ro(p):
-    return sqlite3.connect("file:%s?mode=ro" % p, uri=True)
+    return sqlite3.connect(uri_ro(p), uri=True)
 
 
 def tabele(c):
     return [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+
 
 
 def kolumny(c, t):

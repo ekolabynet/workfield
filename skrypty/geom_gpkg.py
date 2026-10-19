@@ -19,9 +19,23 @@ rozjedzie się przy pierwszej poprawce — tak powstały `scal_pze_02_09`,
 NIE WYMAGA NICZEGO poza biblioteką standardową. Czasowniki mają działać na
 laptopie w terenie, a nie po instalacji pakietów.
 """
+import math
+import os
 import struct
+import urllib.parse
 
-WERSJA = "1.0.0"
+WERSJA = "1.2.0"
+
+
+def uri_ro(sciezka):
+    """URI „tylko do odczytu” dla SQLite, z poprawnym cytowaniem ścieżki.
+
+    Spacja w nazwie pliku psuje URI i `sqlite3.connect(uri=True)` zglasza
+    „unable to open database file”, jakby pliku nie bylo. 19.10 na telefonie
+    lezalo `Foto Add.gpkg` — nazwa ze spacja jest normalna, a komunikat
+    wysyla na zle poszukiwania."""
+    return "file:%s?mode=ro" % urllib.parse.quote(os.path.abspath(
+        os.path.expanduser(sciezka)))
 
 
 def czytaj_blob(b):
@@ -304,3 +318,82 @@ def zawiera(wkb, punkt, bbox=None):
             continue        # w dziurze, czyli poza płatem
         return True
     return False
+
+
+# ===========================================================================
+#  WSPÓŁRZĘDNE — WGS84 <-> PL-2000, szereg Krügera, bez zależności
+# ===========================================================================
+#  Potrzebne, żeby zestawić GPS z EXIF-u zdjęcia z geometrią płatu. `pyproj`
+#  na laptopie w terenie może nie być, a to jest kilkadziesiąt linii.
+#
+#  SPRAWDZONE przeciw pyproj 3.7.2 na 868 punktach w strefach 5–8 (49–56° N,
+#  ±1,5° od południka każdej strefy): największy rozjazd 0,0002 mm w prostej
+#  i 0,0012 mm w odwrotnej.
+#
+#  Pułapka, w którą wpadłem przy pisaniu: η ma dwie TOŻSAME postacie —
+#  atanh(sin dλ / √(1+t²)) albo asinh(sin dλ / hypot(t, cos dλ)). Wolno użyć
+#  jednej w całości. Pomieszanie ich daje błąd ROSNĄCY Z ODLEGŁOŚCIĄ OD
+#  POŁUDNIKA strefy: zero na południku, 13 m przy brzegu. W Warszawie byłby
+#  niewidoczny — czyli najgorszy możliwy rodzaj błędu.
+
+A_ELIPSOIDY = 6378137.0
+SPLASZCZENIE = 1 / 298.257222101          # GRS80
+E2 = SPLASZCZENIE * (2 - SPLASZCZENIE)
+A = A_ELIPSOIDY
+F = SPLASZCZENIE
+
+
+STREFY = {2176: 15.0, 2177: 18.0, 2178: 21.0, 2179: 24.0}
+K0 = 0.999923
+FE = {2176: 5500000.0, 2177: 6500000.0, 2178: 7500000.0, 2179: 8500000.0}
+
+
+def _n():
+    return F / (2 - F)
+
+
+def do_2000(lat, lon, epsg=2178):
+    """(lat, lon) w stopniach -> (easting, northing) w metrach."""
+    n = _n()
+    lam0 = math.radians(STREFY[epsg])
+    phi, lam = math.radians(lat), math.radians(lon)
+    e = math.sqrt(E2)
+    # szerokość konforemna
+    t = math.sinh(math.atanh(math.sin(phi)) - e * math.atanh(e * math.sin(phi)))
+    xi = math.atan(t / math.cos(lam - lam0))
+    # η: atanh(sin dλ / √(1+t²)) ALBO asinh(sin dλ / hypot(t, cos dλ)) — te dwie
+    # postacie są tożsame, ale wolno użyć tylko jednej w całości. Pomieszanie
+    # ich (asinh z argumentem od atanh) daje błąd rosnący z odległością od
+    # południka strefy: 0 na południku, 13 m przy brzegu. W Warszawie byłby
+    # niewidoczny — i to jest najgorszy rodzaj błędu.
+    eta = math.asinh(math.sin(lam - lam0) / math.hypot(t, math.cos(lam - lam0)))
+    a_ = A / (1 + n) * (1 + n**2 / 4 + n**4 / 64)
+    al = [n/2 - 2*n**2/3 + 5*n**3/16 + 41*n**4/180,
+          13*n**2/48 - 3*n**3/5 + 557*n**4/1440,
+          61*n**3/240 - 103*n**4/140,
+          49561*n**4/161280]
+    x = eta + sum(al[j] * math.cos(2*(j+1)*xi) * math.sinh(2*(j+1)*eta) for j in range(4))
+    y = xi + sum(al[j] * math.sin(2*(j+1)*xi) * math.cosh(2*(j+1)*eta) for j in range(4))
+    return (K0 * a_ * x + FE[epsg], K0 * a_ * y)
+
+
+def z_2000(e_, n_, epsg=2178):
+    """(easting, northing) -> (lat, lon) w stopniach."""
+    n = _n()
+    a_ = A / (1 + n) * (1 + n**2 / 4 + n**4 / 64)
+    xi = n_ / (K0 * a_)
+    eta = (e_ - FE[epsg]) / (K0 * a_)
+    be = [n/2 - 2*n**2/3 + 37*n**3/96 - n**4/360,
+          n**2/48 + n**3/15 - 437*n**4/1440,
+          17*n**3/480 - 37*n**4/840,
+          4397*n**4/161280]
+    xi_ = xi - sum(be[j] * math.sin(2*(j+1)*xi) * math.cosh(2*(j+1)*eta) for j in range(4))
+    eta_ = eta - sum(be[j] * math.cos(2*(j+1)*xi) * math.sinh(2*(j+1)*eta) for j in range(4))
+    chi = math.asin(math.sin(xi_) / math.cosh(eta_))
+    de = [2*n - 2*n**2/3 - 2*n**3 + 116*n**4/45,
+          7*n**2/3 - 8*n**3/5 - 227*n**4/45,
+          56*n**3/15 - 136*n**4/35,
+          4279*n**4/630]
+    phi = chi + sum(de[j] * math.sin(2*(j+1)*chi) for j in range(4))
+    lam = math.radians(STREFY[epsg]) + math.atan(math.sinh(eta_) / math.cos(xi_))
+    return (math.degrees(phi), math.degrees(lam))
