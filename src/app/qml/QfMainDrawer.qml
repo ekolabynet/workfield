@@ -2942,6 +2942,18 @@ Drawer {
     property var wyborKopii: ({})
     property var ortoKopii: ({})
     property var podkladyKopii: ({}) // [WF-KOPIA-PODKLADY]
+
+    // WorkFieldGIS 19.10.2026 [WF-ODMIANA-PLIKOW] — „1 plik, 2 pliki, 5 plików”
+    // (było „1 plików” — uwaga Piotra ze zrzutu okna).
+    function ilePlikow(n) {
+      n = n || 0;
+      if (n === 1)
+        return qsTr("%1 plik").arg(n);
+      const d = n % 10, s = n % 100;
+      if (d >= 2 && d <= 4 && (s < 12 || s > 14))
+        return qsTr("%1 pliki").arg(n);
+      return qsTr("%1 plików").arg(n);
+    }
     property bool pracuje: false
     property string opisPracy: ""
     property string nazwaKopii: ""
@@ -3081,8 +3093,8 @@ Drawer {
         // [WF-KOPIA-PODKLADY] arkusze, z których korzystają warstwy, idą razem z podkładami
         enabled: !projectNameDialog.pracuje && !(projectNameDialog.ortoKopii.uzywane === true && kopiujPodklady.checked)
         text: projectNameDialog.ortoKopii.uzywane === true
-              ? qsTr("Skopiuj arkusze ORTO (%1 plików, %2 MB) — używane przez warstwy, idą razem z podkładami").arg(projectNameDialog.ortoKopii.plikow).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
-              : qsTr("Skopiuj arkusze ORTO (%1 plików, %2 MB)").arg(projectNameDialog.ortoKopii.plikow).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
+              ? qsTr("Skopiuj arkusze ORTO (%1, %2 MB) — używane przez warstwy, idą razem z podkładami").arg(projectNameDialog.ilePlikow(projectNameDialog.ortoKopii.plikow)).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
+              : qsTr("Skopiuj arkusze ORTO (%1, %2 MB)").arg(projectNameDialog.ilePlikow(projectNameDialog.ortoKopii.plikow)).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
         font: t.defaultFont
       }
       // [WF-KOPIA-PODKLADY] 19.10.2026 — podkłady rastrowe (np. ortofotomapa 1,6 GB)
@@ -3092,7 +3104,7 @@ Drawer {
         Layout.fillWidth: true
         visible: projectNameDialog.mode === "saveas" && (projectNameDialog.podkladyKopii.plikow || 0) > 0
         enabled: !projectNameDialog.pracuje
-        text: qsTr("Skopiuj podkłady rastrowe (%1 plików, %2 MB)").arg(projectNameDialog.podkladyKopii.plikow).arg(Math.round((projectNameDialog.podkladyKopii.rozmiar || 0) / 1048576))
+        text: qsTr("Skopiuj podkłady rastrowe (%1, %2 MB)").arg(projectNameDialog.ilePlikow(projectNameDialog.podkladyKopii.plikow)).arg(Math.round((projectNameDialog.podkladyKopii.rozmiar || 0) / 1048576))
         font: t.defaultFont
         onToggled: {
           if (projectNameDialog.ortoKopii.uzywane === true)
