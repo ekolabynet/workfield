@@ -264,7 +264,11 @@ class QfAppInterface : public QObject
      * sygnalem kopiaProjektuGotowa. Oryginalu nie dotyka. False, gdy nie wolno
      * albo poprzednia kopia trwa.
      */
-    Q_INVOKABLE bool kopiujProjekt( QgsProject *projekt, const QString &cel, const QStringList &doWyczyszczenia, bool zalaczniki, bool arkuszeOrto = false );
+    Q_INVOKABLE bool kopiujProjekt( QgsProject *projekt, const QString &cel, const QStringList &doWyczyszczenia, bool zalaczniki, bool arkuszeOrto = false, bool podkladyRastrowe = false );
+
+    //! [WF-KOPIA-PODKLADY] Podkłady rastrowe z plików w katalogu projektu: {plikow, rozmiar}.
+    //! Bez kopiowania nowy projekt wskazuje na pliki oryginału (wspólny podkład).
+    Q_INVOKABLE QVariantMap podkladyRastroweProjektu( QgsProject *projekt ) const;
 
     //! [WF-KOPIA-ORTO] Arkusze w katalogu ORTO/ projektu: {plikow, rozmiar, uzywane}.
     //! uzywane = jakas warstwa projektu wskazuje do ORTO/ (wtedy kopia bierze je zawsze).

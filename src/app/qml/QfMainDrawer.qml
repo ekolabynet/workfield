@@ -2941,6 +2941,7 @@ Drawer {
     property var warstwyKopii: []
     property var wyborKopii: ({})
     property var ortoKopii: ({})
+    property var podkladyKopii: ({}) // [WF-KOPIA-PODKLADY]
     property bool pracuje: false
     property string opisPracy: ""
     property string nazwaKopii: ""
@@ -2959,7 +2960,10 @@ Drawer {
         wyborKopii = wybor;
         // [WF-KOPIA-ORTO]
         ortoKopii = (typeof iface.arkuszeOrtoProjektu === "function") ? iface.arkuszeOrtoProjektu(qgisProject) : ({});
-        kopiujOrto.checked = ortoKopii.uzywane === true;
+        // [WF-KOPIA-PODKLADY] podkłady domyślnie wspólne z oryginałem (decyzja Piotra 19.10)
+        podkladyKopii = (typeof iface.podkladyRastroweProjektu === "function") ? iface.podkladyRastroweProjektu(qgisProject) : ({});
+        kopiujPodklady.checked = false;
+        kopiujOrto.checked = false;
         warstwyKopii = lista;
         kopiujZalaczniki.checked = false;
         zachowajObiekty.checked = false;
@@ -3016,8 +3020,10 @@ Drawer {
         iface.loadProjectEnded.connect(poWczytaniu);
         projectNameDialog.close();
         dataDrawer.close();
-        displayToast(puste.length > 0 ? qsTr("Nowy projekt %1: %2 warstw pustych, pominięto %3 obiektów").arg(nazwa).arg(puste.length).arg(obiektow)
-                                      : qsTr("Nowy projekt %1 — z obiektami").arg(nazwa));
+        const wspolne = (w.wspolnePodklady || []).length; // [WF-KOPIA-PODKLADY]
+        displayToast((puste.length > 0 ? qsTr("Nowy projekt %1: %2 warstw pustych, pominięto %3 obiektów").arg(nazwa).arg(puste.length).arg(obiektow)
+                                       : qsTr("Nowy projekt %1 — z obiektami").arg(nazwa))
+                     + (wspolne > 0 ? qsTr("; podkłady wspólne z oryginałem: %1").arg(wspolne) : ""));
         iface.loadFile(w.plik, nazwa);
       }
     }
@@ -3072,11 +3078,34 @@ Drawer {
         id: kopiujOrto
         Layout.fillWidth: true
         visible: projectNameDialog.mode === "saveas" && (projectNameDialog.ortoKopii.plikow || 0) > 0
-        enabled: !projectNameDialog.pracuje && projectNameDialog.ortoKopii.uzywane !== true
+        // [WF-KOPIA-PODKLADY] arkusze, z których korzystają warstwy, idą razem z podkładami
+        enabled: !projectNameDialog.pracuje && !(projectNameDialog.ortoKopii.uzywane === true && kopiujPodklady.checked)
         text: projectNameDialog.ortoKopii.uzywane === true
-              ? qsTr("Arkusze ORTO (%1 plików, %2 MB) — używane przez warstwy, kopiowane zawsze").arg(projectNameDialog.ortoKopii.plikow).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
+              ? qsTr("Skopiuj arkusze ORTO (%1 plików, %2 MB) — używane przez warstwy, idą razem z podkładami").arg(projectNameDialog.ortoKopii.plikow).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
               : qsTr("Skopiuj arkusze ORTO (%1 plików, %2 MB)").arg(projectNameDialog.ortoKopii.plikow).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
         font: t.defaultFont
+      }
+      // [WF-KOPIA-PODKLADY] 19.10.2026 — podkłady rastrowe (np. ortofotomapa 1,6 GB)
+      // domyślnie WSPÓLNE z oryginałem: nowy projekt wskazuje na plik oryginału.
+      CheckBox {
+        id: kopiujPodklady
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "saveas" && (projectNameDialog.podkladyKopii.plikow || 0) > 0
+        enabled: !projectNameDialog.pracuje
+        text: qsTr("Skopiuj podkłady rastrowe (%1 plików, %2 MB)").arg(projectNameDialog.podkladyKopii.plikow).arg(Math.round((projectNameDialog.podkladyKopii.rozmiar || 0) / 1048576))
+        font: t.defaultFont
+        onToggled: {
+          if (projectNameDialog.ortoKopii.uzywane === true)
+            kopiujOrto.checked = checked;
+        }
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: kopiujPodklady.visible && !kopiujPodklady.checked
+        text: qsTr("Bez zaznaczenia nowy projekt korzysta z podkładów oryginału — po usunięciu oryginału straci tło mapy. Zaznacz, gdy projekt ma być samodzielny (np. na telefon).")
+        font: t.tipFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
       }
       Text {
         Layout.fillWidth: true
@@ -3272,7 +3301,7 @@ Drawer {
                 }
               }
               projectNameDialog.nazwaKopii = name;
-              if (!iface.kopiujProjekt(qgisProject, celKopii, doWyczyszczenia, kopiujZalaczniki.checked, kopiujOrto.checked)) {
+              if (!iface.kopiujProjekt(qgisProject, celKopii, doWyczyszczenia, kopiujZalaczniki.checked, kopiujOrto.checked, kopiujPodklady.checked)) {
                 displayToast(qsTr("Nie mogę teraz zrobić kopii (trwa poprzednia albo zły katalog)"), "error");
                 return;
               }

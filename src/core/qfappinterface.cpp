@@ -1974,6 +1974,38 @@ namespace
     return QDir::cleanPath( QFileInfo( projekt->fileName() ).absolutePath() );
   }
 
+  //! [WF-KOPIA-PODKLADY] Ścieżka źródła warstwy jako bezwzględna; względna liczy się od katalogu projektu.
+  QString wfSciezkaWProjekcie( const QString &sciezka, const QString &dom )
+  {
+    if ( sciezka.isEmpty() )
+      return QString();
+    const QFileInfo fi( sciezka );
+    return QDir::cleanPath( fi.isRelative() ? QDir( dom ).filePath( sciezka ) : fi.absoluteFilePath() );
+  }
+
+  //! [WF-KOPIA-PODKLADY] Pliki rastrów (gdal) z katalogu projektu, z których korzystają warstwy.
+  //! Plik, który niesie też warstwy wektorowe, nie jest podkładem — pomijamy go.
+  QStringList wfPlikiPodkladow( QgsProject *projekt, const QString &dom )
+  {
+    QSet<QString> rastry, wektory;
+    for ( QgsMapLayer *ml : projekt->mapLayers() )
+    {
+      const QString p = wfSciezkaWProjekcie( QgsProviderRegistry::instance()->decodeUri( ml->providerType(), ml->source() ).value( QStringLiteral( "path" ) ).toString(), dom );
+      if ( p.isEmpty() || !p.startsWith( dom + QLatin1Char( '/' ) ) )
+        continue;
+      if ( ml->providerType() == QLatin1String( "gdal" ) )
+        rastry.insert( p );
+      else
+        wektory.insert( p );
+    }
+    QStringList lista;
+    for ( const QString &p : std::as_const( rastry ) )
+      if ( !wektory.contains( p ) && QFileInfo::exists( p ) )
+        lista << p;
+    lista.sort();
+    return lista;
+  }
+
   //! Warstwy wektorowe z GeoPackage: id -> opis.
   QMap<QString, WfWarstwaKopii> wfWarstwyGpkg( QgsProject *projekt )
   {
@@ -1986,7 +2018,8 @@ namespace
       if ( !vl || vl->providerType() != QLatin1String( "ogr" ) )
         continue;
       const QVariantMap u = QgsProviderRegistry::instance()->decodeUri( QStringLiteral( "ogr" ), vl->source() );
-      const QString plik = QDir::cleanPath( QFileInfo( u.value( QStringLiteral( "path" ) ).toString() ).absoluteFilePath() );
+      // [WF-KOPIA-PODKLADY] „./dane.gpkg” liczymy od katalogu projektu, nie od bieżącego katalogu programu
+      const QString plik = wfSciezkaWProjekcie( u.value( QStringLiteral( "path" ) ).toString(), dom );
       const QString tabela = u.value( QStringLiteral( "layerName" ) ).toString();
       if ( tabela.isEmpty() || !plik.endsWith( QLatin1String( ".gpkg" ), Qt::CaseInsensitive ) )
         continue;
@@ -2013,8 +2046,18 @@ namespace
            || nazwa.endsWith( QLatin1Char( '~' ) ) || nazwa.endsWith( QLatin1String( "-shm" ) );
   }
 
+  //! [WF-KOPIA-PODKLADY] Plik pomijany wprost albo jego towarzysz („x.tif.aux.xml”,
+  //! „orto.gpkg - zoom_level=1.aux.xml”, „inny projekt.qgz.png”).
+  bool wfPlikNaLiscie( const QString &sciezka, const QSet<QString> &pomijanePliki )
+  {
+    for ( const QString &p : pomijanePliki )
+      if ( sciezka == p || sciezka.startsWith( p + QLatin1Char( '.' ) ) || sciezka.startsWith( p + QLatin1Char( ' ' ) ) )
+        return true;
+    return false;
+  }
+
   bool wfKopiujKatalog( const QString &zrodlo, const QString &cel, const QSet<QString> &pomijaneKatalogi,
-                        qint64 &bajty, int &plikow, QString &blad )
+                        qint64 &bajty, int &plikow, QString &blad, const QSet<QString> &pomijanePliki = QSet<QString>() )
   {
     if ( !QDir().mkpath( cel ) )
     {
@@ -2031,12 +2074,12 @@ namespace
       {
         if ( pomijaneKatalogi.contains( fi.fileName().toUpper() ) )
           continue;
-        if ( !wfKopiujKatalog( fi.absoluteFilePath(), docel, pomijaneKatalogi, bajty, plikow, blad ) )
+        if ( !wfKopiujKatalog( fi.absoluteFilePath(), docel, pomijaneKatalogi, bajty, plikow, blad, pomijanePliki ) )
           return false;
       }
       else
       {
-        if ( wfPomijanyPlik( fi.fileName() ) )
+        if ( wfPomijanyPlik( fi.fileName() ) || wfPlikNaLiscie( QDir::cleanPath( fi.absoluteFilePath() ), pomijanePliki ) )
           continue;
         if ( !QFile::copy( fi.absoluteFilePath(), docel ) )
         {
@@ -2079,6 +2122,66 @@ namespace
     return QString();
   }
 } // namespace
+
+#include <QTemporaryDir>
+// [WF-KOPIA-PODKLADY] W pliku projektu kopii zamienia „./<plik>” na bezwzględną ścieżkę
+// pliku w oryginale — wspólny podkład bez kopiowania gigabajtów. .qgz rozpakowujemy,
+// poprawiamy .qgs i pakujemy z powrotem. Zwraca opis błędu albo pusty napis.
+static QString wfPrzepnijPodklady( const QString &plikProjektu, const QString &dom, const QStringList &wspolne )
+{
+  auto przepnij = [&]( QString &tresc ) {
+    int ile = 0;
+    for ( const QString &rel : wspolne )
+    {
+      const QString abs = QDir::cleanPath( dom + QLatin1Char( '/' ) + rel ).toHtmlEscaped();
+      const QRegularExpression re( QStringLiteral( "(?<=[>\":|])\\./" ) + QRegularExpression::escape( rel.toHtmlEscaped() ) + QStringLiteral( "(?=[<\":|])" ) );
+      ile += static_cast<int>( tresc.count( re ) );
+      tresc.replace( re, abs );
+    }
+    return ile;
+  };
+  if ( plikProjektu.endsWith( QLatin1String( ".qgs" ), Qt::CaseInsensitive ) )
+  {
+    QFile f( plikProjektu );
+    if ( !f.open( QIODevice::ReadOnly ) )
+      return QStringLiteral( "Nie odczytałem %1" ).arg( plikProjektu );
+    QString tresc = QString::fromUtf8( f.readAll() );
+    f.close();
+    przepnij( tresc );
+    if ( !f.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+      return QStringLiteral( "Nie zapisałem %1" ).arg( plikProjektu );
+    f.write( tresc.toUtf8() );
+    return QString();
+  }
+  QTemporaryDir tmp;
+  if ( !tmp.isValid() )
+    return QStringLiteral( "Brak katalogu tymczasowego" );
+  QStringList pliki;
+  if ( !QgsZipUtils::unzip( plikProjektu, tmp.path(), pliki ) )
+    return QStringLiteral( "Nie rozpakowałem %1" ).arg( plikProjektu );
+  for ( const QString &p : std::as_const( pliki ) )
+  {
+    if ( !p.endsWith( QLatin1String( ".qgs" ), Qt::CaseInsensitive ) )
+      continue;
+    QFile f( p );
+    if ( !f.open( QIODevice::ReadOnly ) )
+      return QStringLiteral( "Nie odczytałem projektu z %1" ).arg( plikProjektu );
+    QString tresc = QString::fromUtf8( f.readAll() );
+    f.close();
+    przepnij( tresc );
+    if ( !f.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+      return QStringLiteral( "Nie zapisałem projektu" );
+    f.write( tresc.toUtf8() );
+  }
+  const QString nowy = plikProjektu + QStringLiteral( ".nowy" );
+  QFile::remove( nowy );
+  if ( !QgsZipUtils::zip( nowy, pliki ) )
+    return QStringLiteral( "Nie spakowałem projektu" );
+  QFile::remove( plikProjektu );
+  if ( !QFile::rename( nowy, plikProjektu ) )
+    return QStringLiteral( "Nie podmieniłem pliku projektu" );
+  return QString();
+}
 
 static std::atomic<bool> sKopiaTrwa { false };
 
@@ -2152,7 +2255,7 @@ static bool wfOrtoUzywane( QgsProject *projekt, const QString &dom )
     QString sciezka = QgsProviderRegistry::instance()->decodeUri( ml->providerType(), ml->source() ).value( QStringLiteral( "path" ) ).toString();
     if ( sciezka.isEmpty() )
       sciezka = ml->source();
-    if ( QDir::cleanPath( QFileInfo( sciezka ).absoluteFilePath() ).startsWith( orto, Qt::CaseInsensitive ) )
+    if ( wfSciezkaWProjekcie( sciezka, dom ).startsWith( orto, Qt::CaseInsensitive ) )
       return true;
   }
   return false;
@@ -2189,12 +2292,28 @@ QVariantMap QfAppInterface::arkuszeOrtoProjektu( QgsProject *projekt ) const
   return w;
 }
 
+QVariantMap QfAppInterface::podkladyRastroweProjektu( QgsProject *projekt ) const
+{
+  QVariantMap w;
+  w[QStringLiteral( "plikow" )] = 0;
+  w[QStringLiteral( "rozmiar" )] = 0;
+  if ( !projekt || projekt->fileName().isEmpty() )
+    return w;
+  qint64 rozmiar = 0;
+  const QStringList pliki = wfPlikiPodkladow( projekt, wfKatalogProjektu( projekt ) );
+  for ( const QString &p : pliki )
+    rozmiar += QFileInfo( p ).size();
+  w[QStringLiteral( "plikow" )] = pliki.size();
+  w[QStringLiteral( "rozmiar" )] = rozmiar;
+  return w;
+}
+
 bool QfAppInterface::kopiaProjektuTrwa() const
 {
   return sKopiaTrwa.load();
 }
 
-bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, const QStringList &doWyczyszczenia, bool zalaczniki, bool arkuszeOrto )
+bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, const QStringList &doWyczyszczenia, bool zalaczniki, bool arkuszeOrto, bool podkladyRastrowe )
 {
   if ( !projekt || projekt->fileName().isEmpty() )
     return false;
@@ -2265,9 +2384,37 @@ bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, con
     }
   }
   QSet<QString> pomijane;
-  // [WF-KOPIA-ORTO] arkusze na życzenie; zawsze, gdy warstwa z nich korzysta
-  if ( !arkuszeOrto && !wfOrtoUzywane( projekt, dom ) )
+  // [WF-KOPIA-ORTO] arkusze na życzenie; gdy korzysta z nich warstwa, a podkłady
+  // się kopiuje — razem z podkładami (inaczej warstwa wskaże na oryginał)
+  if ( !arkuszeOrto && !( podkladyRastrowe && wfOrtoUzywane( projekt, dom ) ) )
     pomijane << QStringLiteral( "ORTO" );
+  // [WF-KOPIA-PODKLADY] kopie zapasowe nie jadą do nowego projektu
+  pomijane << QStringLiteral( "KOPIE" );
+  QSet<QString> pomijanePliki;
+  // inne projekty z tego samego katalogu (i ich podglądy .png) zostają
+  const QString nazwaProjektu = QFileInfo( projekt->fileName() ).fileName();
+  QStringList inneProjekty;
+  for ( const QFileInfo &fi : QDir( dom ).entryInfoList( QStringList() << QStringLiteral( "*.qgz" ) << QStringLiteral( "*.qgs" ), QDir::Files ) )
+  {
+    if ( fi.fileName() == nazwaProjektu )
+      continue;
+    pomijanePliki.insert( QDir::cleanPath( fi.absoluteFilePath() ) );
+    inneProjekty << fi.fileName();
+  }
+  // podkłady rastrowe: bez kopiowania — wspólne z oryginałem (ścieżka w projekcie
+  // przepięta na plik oryginału po skopiowaniu)
+  QStringList wspolne;
+  if ( !podkladyRastrowe )
+  {
+    for ( const QString &p : wfPlikiPodkladow( projekt, dom ) )
+    {
+      // arkusz z ORTO/ kopiowanego na życzenie zostaje w kopii
+      if ( arkuszeOrto && p.startsWith( dom + QStringLiteral( "/ORTO/" ), Qt::CaseInsensitive ) )
+        continue;
+      pomijanePliki.insert( p );
+      wspolne << QDir( dom ).relativeFilePath( p );
+    }
+  }
   if ( !zalaczniki )
     pomijane << QStringLiteral( "DCIM" );
   if ( !czyszczone.isEmpty() )
@@ -2275,7 +2422,7 @@ bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, con
   const QString plikProjektu = celCzysty + QLatin1Char( '/' ) + QFileInfo( projekt->fileName() ).fileName();
 
   QPointer<QfAppInterface> ja( this );
-  std::thread( [ja, dom, celCzysty, plikProjektu, doUsuniecia, doWyzerowania, pomijane]() {
+  std::thread( [ja, dom, celCzysty, plikProjektu, doUsuniecia, doWyzerowania, pomijane, pomijanePliki, wspolne, inneProjekty]() {
     QVariantMap w;
     auto postep = [&]( const QString &etap, double ile ) {
       if ( ja )
@@ -2285,7 +2432,7 @@ bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, con
     qint64 bajty = 0;
     int plikow = 0;
     QString blad;
-    if ( !wfKopiujKatalog( dom, celCzysty, pomijane, bajty, plikow, blad ) )
+    if ( !wfKopiujKatalog( dom, celCzysty, pomijane, bajty, plikow, blad, pomijanePliki ) )
     {
       w[QStringLiteral( "blad" )] = blad;
     }
@@ -2304,6 +2451,12 @@ bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, con
           break;
         }
         const qint64 bylo = wfLiczWiersze( ds, z[1] );
+        if ( bylo < 0 )
+        {
+          // [WF-KOPIA-PODKLADY] warstwa bez tabeli w bazie (zepsuta już w oryginale) — nie ma czego czyścić
+          GDALClose( ds );
+          continue;
+        }
         QString e = wfSql( ds, QStringLiteral( "DELETE FROM " ) + wfCytuj( z[1] ) );
         if ( e.isEmpty() )
           wfSql( ds, QStringLiteral( "DELETE FROM sqlite_sequence WHERE name = '%1'" ).arg( QString( z[1] ).replace( QLatin1Char( '\'' ), QLatin1String( "''" ) ) ) );
@@ -2345,6 +2498,14 @@ bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, con
         }
         if ( !QFileInfo::exists( plikProjektu ) )
           blad = QStringLiteral( "W kopii brak pliku projektu" );
+        // [WF-KOPIA-PODKLADY] wspólne podkłady: „./orto.gpkg” -> ścieżka pliku w oryginale
+        if ( blad.isEmpty() && !wspolne.isEmpty() )
+        {
+          postep( QStringLiteral( "porzadkowanie" ), 0.95 );
+          const QString e = wfPrzepnijPodklady( plikProjektu, dom, wspolne );
+          if ( !e.isEmpty() )
+            blad = e;
+        }
       }
       if ( blad.isEmpty() )
       {
@@ -2356,6 +2517,8 @@ bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, con
         w[QStringLiteral( "wyczyszczone" )] = wyczyszczone;
         w[QStringLiteral( "wyzerowanePola" )] = wyzerowane;
         w[QStringLiteral( "pominieteKatalogi" )] = QStringList( pomijane.begin(), pomijane.end() );
+        w[QStringLiteral( "wspolnePodklady" )] = wspolne;
+        w[QStringLiteral( "pominieteProjekty" )] = inneProjekty;
       }
       else
       {
