@@ -2100,15 +2100,10 @@ Drawer {
         t: dashBoard.t
         szerokosc: dashBoard.width
 
-        QfPozycjaMenu {
-          // WorkField 7.10.2026 [WF-PRZEGLAD-PROJEKTOW] — dawne „Zlecenia”.
-          // Piotr: „to teraz po prostu przegląd projektów”. Osobnej
-          // zakładki już nie ma; jedyne wejście do sekcji 0 jest tutaj.
-          text: qsTr("Przegląd projektów")
-          polka: "eksperymentalna"
-          ikona: "wfg_magazyn"
-          onClicked: dashBoard.sekcjaWymuszona = 0
-        }
+        // WorkField 19.10.2026 [WF-PORZADKI-EKS] — usunięte z menu (decyzja
+        // Piotra): Przegląd projektów, Nowy projekt w zleceniu, Zapisz jako
+        // szablon, Pobierz szablony, Ekran startowy, Zamień na szablon,
+        // Stan projektu. Mają nowsze odpowiedniki; kod pod spodem do sprzątnięcia.
         QfPozycjaMenu {
           // WorkField 7.10.2026 [WF-OTWORZ-Z-DYSKU-CORE] — z menu „⋯” belki
           // komputera. Na komputerze: systemowe okno wyboru pliku; obok
@@ -2132,18 +2127,6 @@ Drawer {
           onClicked: {
             dashBoard.close();
             projectNameDialog.openFor("blank");
-          }
-        }
-        QfPozycjaMenu {
-          // Dawny „Nowy projekt”: kaskada zleceniodawca → teren → zlecenie
-          // z istniejących zleceń (18.08.2026). Zostaje, ale na półce
-          // eksperymentalnej, razem ze Zleceniami, z których wyrasta.
-          text: qsTr("Nowy projekt w zleceniu")
-          polka: "eksperymentalna"
-          ikona: "wfg_nowe"
-          onClicked: {
-            dashBoard.close();
-            nowyProjekt.open();
           }
         }
         QfPozycjaMenu {
@@ -2193,18 +2176,6 @@ Drawer {
           }
         }
         QfPozycjaMenu {
-          text: qsTr("Zapisz jako szablon")
-          polka: "eksperymentalna"
-          ikona: "wfg_paczka"
-          enabled: qgisProject && qgisProject.homePath !== ""
-          onClicked: {
-            // Odwrocenie interpretera: projekt -> przepis. Szablon przestaje
-            // byc katalogiem do skopiowania, a staje sie ODCZYTANYM opisem
-            // dobrego projektu. docs/WYPOSAZENIE.md
-            projectNameDialog.openFor("szablon");
-          }
-        }
-        QfPozycjaMenu {
           text: qsTr("Otwórz projekty") // WF-OTWORZ-PROJEKTY: otwiera katalog projektów
           ikona: "wfg_otworz"
           onClicked: {
@@ -2240,24 +2211,6 @@ Drawer {
             platformUtilities.importProjectArchive();
           }
         }
-        QfPozycjaMenu {
-          text: qsTr("Pobierz szablony")
-          polka: "eksperymentalna"
-          ikona: "wfg_chmura"
-          onClicked: {
-            dashBoard.close();
-            photoGallery.openCloud();
-          }
-        }
-        QfPozycjaMenu {
-          text: qsTr("Ekran startowy")
-          polka: "eksperymentalna"
-          ikona: "wfg_dom"
-          onClicked: {
-            dashBoard.close();
-            returnHome();
-          }
-        }
       }
       Text {
         Layout.fillWidth: true
@@ -2273,19 +2226,6 @@ Drawer {
         szerokosc: dashBoard.width
 
         QfPozycjaMenu {
-          // WorkField 18.08.2026: przyszło ze Zleceń — dotyczy projektu
-          // OTWARTEGO. Wymaga projektu zapisanego na dysku, bo kopiujemy katalog.
-          text: qsTr("Zamień na szablon")
-          polka: "eksperymentalna"
-          ikona: "wfg_paczka"
-          enabled: projectSection.filePath !== "" && qgisProject && qgisProject.homePath !== ""
-          onClicked: {
-            dashBoard.close();
-            drzewoZlecen.zamienNaSzablonDla(qgisProject.homePath,
-                                            FileUtils.fileName(qgisProject.homePath));
-          }
-        }
-        QfPozycjaMenu {
           text: qsTr("Zapisz")
           ikona: "wfg_zapisz"
           enabled: projectSection.filePath !== ""
@@ -2299,8 +2239,7 @@ Drawer {
           }
         }
         QfPozycjaMenu {
-          text: qsTr("Zapisz jako…")
-          polka: "eksperymentalna"
+          text: qsTr("Zapisz jako…") // [WF-PORZADKI-EKS] CORE od 19.10, naprawione
           ikona: "wfg_zapisz_jako"
           enabled: projectSection.filePath !== ""
           onClicked: projectNameDialog.openFor("saveas")
@@ -2363,7 +2302,7 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Wymiana lokalna")
-          polka: "eksperymentalna"
+          polka: "zaawansowana" // [WF-PORZADKI-EKS] było eksperymentalna
           ikona: "wfg_wymiana"
           onClicked: {
             dashBoard.close();
@@ -2375,26 +2314,6 @@ Drawer {
           ikona: "wfg_wlasciwosci"
           enabled: projectSection.filePath !== ""
           onClicked: projectPropertiesPopup.open()
-        }
-        // WorkField 26.08.2026 — „jak ten projekt jest ustawiony".
-        //
-        // Sąsiaduje z „Właściwościami" świadomie: tamto mówi, CO projekt
-        // zawiera, to — JAK jest ustawiony (przyciąganie, unikanie
-        // nakładania, edycja topologiczna) i czy z danymi jest wszystko
-        // w porządku.
-        //
-        // Wpis RĘCZNY, mimo że akcja jest w rejestrze QfAkcje: szuflada
-        // ma własną listę i nie czyta z rejestru. To dług — patrz handoff.
-        QfPozycjaMenu {
-          text: qsTr("Stan projektu")
-          polka: "eksperymentalna"
-          ikona: "wfg_lupa"
-          enabled: projectSection.filePath !== ""
-          onClicked: {
-            dashBoard.close();
-            if (typeof wfAkcje !== 'undefined' && wfAkcje.stanProjektu)
-              wfAkcje.stanProjektu();
-          }
         }
         QfPozycjaMenu {
           text: qsTr("Usuń projekt")
@@ -3014,13 +2933,40 @@ Drawer {
     id: projectNameDialog
 
     property string mode: "blank"
+    // WorkField 19.10.2026 [WF-KOPIA-PROJEKTU] — „Zapisz jako” = nowy projekt
+    // o tym samym układzie. Domyślnie bez zdjęć, bez załączników, bez obiektów.
+    property var warstwyKopii: []
+    property var wyborKopii: ({})
+    property var ortoKopii: ({})
+    property bool pracuje: false
+    property string opisPracy: ""
+    property string nazwaKopii: ""
+
+    closePolicy: pracuje ? Popup.NoAutoClose : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
 
     function openFor(newMode) {
       mode = newMode;
+      pracuje = false;
+      opisPracy = "";
+      if (mode === "saveas") {
+        const lista = (typeof iface.warstwyKopiiProjektu === "function") ? iface.warstwyKopiiProjektu(qgisProject) : [];
+        const wybor = {};
+        for (const w of lista)
+          wybor[w.id] = w.wyczysc === true;
+        wyborKopii = wybor;
+        // [WF-KOPIA-ORTO]
+        ortoKopii = (typeof iface.arkuszeOrtoProjektu === "function") ? iface.arkuszeOrtoProjektu(qgisProject) : ({});
+        kopiujOrto.checked = ortoKopii.uzywane === true;
+        warstwyKopii = lista;
+        kopiujZalaczniki.checked = false;
+        zachowajObiekty.checked = false;
+      }
       metZleceniodawca.text = ""; // WF-METRYCZKA-CZYSC
       metTeren.text = "";
       metZlecenie.text = "";
-      projectNameField.text = (mode === "blank" ? qsTr("Projekt") : FileUtils.fileName(projectSection.filePath).replace(/\.(qgs|qgz)$/, "") + " kopia") + " " + new Date().toISOString().slice(0, 10);
+      // projekt.qgz jest w każdym katalogu — nazwę niesie KATALOG
+      projectNameField.text = mode === "blank" ? qsTr("Projekt") + " " + new Date().toISOString().slice(0, 10)
+                                               : FileUtils.fileName(FileUtils.absolutePath(projectSection.filePath)) + "_nowy";
       open();
     }
 
@@ -3030,6 +2976,49 @@ Drawer {
     width: Math.min(mainWindow.width - 40, 400)
     modal: true
 
+    Connections {
+      target: iface
+      ignoreUnknownSignals: true
+
+      function onKopiaProjektuPostep(etap, ile) {
+        if (!projectNameDialog.pracuje)
+          return;
+        projectNameDialog.opisPracy = etap === "kopiowanie" ? qsTr("Kopiuję pliki projektu…")
+                                    : etap === "czyszczenie" ? qsTr("Opróżniam warstwy… %1%").arg(Math.round(ile * 100))
+                                    : qsTr("Porządkuję bazę…");
+      }
+
+      function onKopiaProjektuGotowa(w) {
+        if (!projectNameDialog.pracuje)
+          return;
+        projectNameDialog.pracuje = false;
+        if (!w.ok) {
+          projectNameDialog.opisPracy = "";
+          displayToast(qsTr("Nowy projekt nie powstał: %1").arg(w.blad || "?"), "error");
+          return;
+        }
+        let obiektow = 0;
+        const puste = w.wyczyszczone || [];
+        for (const x of puste)
+          obiektow += x.usunieto;
+        const nazwa = projectNameDialog.nazwaKopii;
+        // tytuł nowego projektu = nowa nazwa (inaczej na liście dwa razy to samo)
+        const poWczytaniu = function (sciezka, nm) {
+          iface.loadProjectEnded.disconnect(poWczytaniu);
+          if (sciezka.indexOf(w.katalog) === 0) {
+            iface.setProjectTitle(nazwa);
+            ProjectUtils.saveProject(qgisProject);
+          }
+        };
+        iface.loadProjectEnded.connect(poWczytaniu);
+        projectNameDialog.close();
+        dataDrawer.close();
+        displayToast(puste.length > 0 ? qsTr("Nowy projekt %1: %2 warstw pustych, pominięto %3 obiektów").arg(nazwa).arg(puste.length).arg(obiektow)
+                                      : qsTr("Nowy projekt %1 — z obiektami").arg(nazwa));
+        iface.loadFile(w.plik, nazwa);
+      }
+    }
+
     ColumnLayout {
       anchors.fill: parent
       spacing: 8
@@ -3038,7 +3027,7 @@ Drawer {
         Layout.fillWidth: true
         text: projectNameDialog.mode === "blank" ? qsTr("Nowy projekt") /* WF-NOWY-TYTUL */
             : projectNameDialog.mode === "szablon" ? qsTr("Zapisz jako szablon")
-            : qsTr("Zapisz projekt jako")
+            : qsTr("Zapisz jako nowy projekt")
         font: t.strongFont
         color: t.mainTextColor
       }
@@ -3047,6 +3036,76 @@ Drawer {
         id: projectNameField
         Layout.fillWidth: true
         font: t.defaultFont
+        enabled: !projectNameDialog.pracuje
+      }
+
+      // [WF-KOPIA-PROJEKTU] dwie opcje Piotra; obie domyślnie WYŁĄCZONE
+      Text {
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "saveas"
+        text: qsTr("Ten sam układ: warstwy, style, formularze, podkłady, klawisze. Oryginał zostaje bez zmian.")
+        font: t.tipFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+      CheckBox {
+        id: zachowajObiekty
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "saveas"
+        enabled: !projectNameDialog.pracuje
+        text: qsTr("Zachowaj obiekty z warstw")
+        font: t.defaultFont
+      }
+      CheckBox {
+        id: kopiujZalaczniki
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "saveas"
+        enabled: !projectNameDialog.pracuje
+        text: qsTr("Skopiuj załączniki (zdjęcia)")
+        font: t.defaultFont
+      }
+      // [WF-KOPIA-ORTO] arkusze z GUGiK po złożeniu nie są warstwami — osobne pytanie
+      CheckBox {
+        id: kopiujOrto
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "saveas" && (projectNameDialog.ortoKopii.plikow || 0) > 0
+        enabled: !projectNameDialog.pracuje && projectNameDialog.ortoKopii.uzywane !== true
+        text: projectNameDialog.ortoKopii.uzywane === true
+              ? qsTr("Arkusze ORTO (%1 plików, %2 MB) — używane przez warstwy, kopiowane zawsze").arg(projectNameDialog.ortoKopii.plikow).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
+              : qsTr("Skopiuj arkusze ORTO (%1 plików, %2 MB)").arg(projectNameDialog.ortoKopii.plikow).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
+        font: t.defaultFont
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "saveas" && !zachowajObiekty.checked && listaWarstwKopii.count > 0
+        text: qsTr("Puste w nowym projekcie (odznacz warstwę, której obiekty mają zostać):")
+        font: t.tipFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+      ListView {
+        id: listaWarstwKopii
+        Layout.fillWidth: true
+        Layout.preferredHeight: Math.min(contentHeight, mainWindow.height * 0.35)
+        visible: projectNameDialog.mode === "saveas" && !zachowajObiekty.checked && count > 0
+        clip: true
+        model: projectNameDialog.warstwyKopii.filter(w => !w.zalacznik)
+        delegate: CheckBox {
+          width: ListView.view.width
+          enabled: modelData.wewnatrz && !projectNameDialog.pracuje
+          checked: projectNameDialog.wyborKopii[modelData.id] === true
+          onToggled: projectNameDialog.wyborKopii[modelData.id] = checked
+          text: modelData.nazwa + (modelData.obiektow >= 0 ? " (" + modelData.obiektow + ")" : "") + (modelData.powod ? " — " + modelData.powod : "")
+          font: t.tipFont
+        }
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: projectNameDialog.opisPracy !== ""
+        text: projectNameDialog.opisPracy
+        font: t.tipFont
+        color: t.mainTextColor
+        wrapMode: Text.WordWrap
       }
 
       // WorkField 6.10.2026 [WF-METRYCZKA] — nieobowiązkowa. Wypełniona
@@ -3091,11 +3150,13 @@ Drawer {
           flat: true
           text: qsTr("Anuluj")
           font.pointSize: t.tinyFont.pointSize
+          enabled: !projectNameDialog.pracuje
           onClicked: projectNameDialog.close()
         }
         Button {
           flat: true
-          text: qsTr("Utwórz")
+          enabled: !projectNameDialog.pracuje
+          text: projectNameDialog.mode === "saveas" ? qsTr("Zapisz") : qsTr("Utwórz")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
             const name = projectNameField.text.trim();
@@ -3187,13 +3248,34 @@ Drawer {
                 displayToast(qsTr("Nie zapisano projektu — kopia nie powstala"), "error");
                 return;
               }
+              // WorkField 19.10.2026 [WF-ZAPISZ-JAKO] — kopia CAŁEGO katalogu
+              // (dane.gpkg, zdjęcia, klawisze) OBOK oryginału. Dotąd szła
+              // zawsze do „Imported Projects” katalogu aplikacji — na
+              // komputerze nie tam, gdzie leżą projekty. Oryginał zostaje.
               const sourceDir = FileUtils.absolutePath(projectSection.filePath);
-              if (FileUtils.copyRecursively(sourceDir, destination)) {
-                dataDrawer.close();
-                iface.loadFile(destination + "/" + FileUtils.fileName(projectSection.filePath), name);
-              } else {
-                displayToast(qsTr("Nie udało się skopiować projektu"));
+              const katalogKopii = FileUtils.absolutePath(sourceDir);
+              const celKopii = katalogKopii + "/" + safeName;
+              if (celKopii === sourceDir || FileUtils.fileExists(celKopii)) {
+                displayToast(qsTr("Katalog %1 już istnieje — zmień nazwę").arg(safeName), "error");
+                return;
               }
+              // [WF-KOPIA-PROJEKTU] kopiuje i opróżnia W TLE (iface.kopiujProjekt);
+              // wynik przychodzi do onKopiaProjektuGotowa wyżej.
+              const doWyczyszczenia = [];
+              if (!zachowajObiekty.checked) {
+                for (const w of projectNameDialog.warstwyKopii) {
+                  if (!w.zalacznik && projectNameDialog.wyborKopii[w.id] === true)
+                    doWyczyszczenia.push(w.id);
+                }
+              }
+              projectNameDialog.nazwaKopii = name;
+              if (!iface.kopiujProjekt(qgisProject, celKopii, doWyczyszczenia, kopiujZalaczniki.checked, kopiujOrto.checked)) {
+                displayToast(qsTr("Nie mogę teraz zrobić kopii (trwa poprzednia albo zły katalog)"), "error");
+                return;
+              }
+              projectNameDialog.pracuje = true;
+              projectNameDialog.opisPracy = qsTr("Kopiuję pliki projektu…");
+              return;
             }
             projectNameDialog.close();
           }

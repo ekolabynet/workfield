@@ -38,6 +38,7 @@ class QfXmlHttpRequest;
 class QgsQuickMapSettings;
 class QgsVectorLayer;
 class QgsMapLayer;
+class QgsProject;
 
 class QfAppInterface : public QObject
 {
@@ -248,6 +249,29 @@ class QfAppInterface : public QObject
 
     //! Zarejestrowane silniki modulow z wtyczek (tylko zyjace).
     Q_INVOKABLE QVariantList modulyZWtyczek() const;
+
+    /**
+     * WorkFieldGIS 19.10.2026 [WF-KOPIA-PROJEKTU] — warstwy GeoPackage projektu
+     * do okna „Zapisz jako”: {id, nazwa, tabela, plik, obiektow, wewnatrz,
+     * zalacznik, wyczysc (domyslny wybor), powod}.
+     */
+    Q_INVOKABLE QVariantList warstwyKopiiProjektu( QgsProject *projekt ) const;
+
+    /**
+     * Kopia katalogu projektu do \a cel (nie moze istniec) W TLE, potem w kopii
+     * oproznia warstwy \a doWyczyszczenia (i ich dzieci z relacji). Bez
+     * \a zalaczniki: ZAL_* puste, bez DCIM, pola ze sciezka = NULL. Wynik
+     * sygnalem kopiaProjektuGotowa. Oryginalu nie dotyka. False, gdy nie wolno
+     * albo poprzednia kopia trwa.
+     */
+    Q_INVOKABLE bool kopiujProjekt( QgsProject *projekt, const QString &cel, const QStringList &doWyczyszczenia, bool zalaczniki, bool arkuszeOrto = false );
+
+    //! [WF-KOPIA-ORTO] Arkusze w katalogu ORTO/ projektu: {plikow, rozmiar, uzywane}.
+    //! uzywane = jakas warstwa projektu wskazuje do ORTO/ (wtedy kopia bierze je zawsze).
+    Q_INVOKABLE QVariantMap arkuszeOrtoProjektu( QgsProject *projekt ) const;
+
+    //! Czy kopia projektu trwa.
+    Q_INVOKABLE bool kopiaProjektuTrwa() const;
 
     //! Adds an XYZ basemap layer at the bottom of the layer tree.
     Q_INVOKABLE bool addXyzBasemap( const QString &name, const QString &url, int zmax );
@@ -559,6 +583,9 @@ class QfAppInterface : public QObject
     void ortofotoGotowe( const QVariantMap &wynik );
     //! WorkFieldGIS: lista modulow z wtyczek sie zmienila.
     void modulyZmienione();
+    //! WorkFieldGIS [WF-KOPIA-PROJEKTU]: etap "kopiowanie" / "czyszczenie" / "porzadkowanie", ile 0..1
+    void kopiaProjektuPostep( const QString &etap, double ile );
+    void kopiaProjektuGotowa( const QVariantMap &wynik );
 
     //! Requests QField to set its map to the provided \a extent.
     void setMapExtent( const QgsRectangle &extent );

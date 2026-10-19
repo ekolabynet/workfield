@@ -1934,3 +1934,439 @@ bool QfAppInterface::removeLayer( QgsMapLayer *layer )
   QgsProject::instance()->setDirty( true );
   return true;
 }
+
+// ===========================================================================
+// WorkFieldGIS 19.10.2026 [WF-KOPIA-PROJEKTU] — „Zapisz jako…” jako
+// „nowy projekt o tym samym układzie”. Piotr: domyślnie BEZ zdjęć, bez
+// załączników i bez obiektów; dwie opcje: „skopiuj załączniki” i „zachowaj
+// obiekty z warstw”. Zamiast mnożyć duplikaty z danymi.
+//
+// Zasady:
+//  * oryginału nie dotykamy — czyścimy wyłącznie pliki W KOPII;
+//  * warstwa z pliku spoza katalogu projektu jest WSPÓLNA z oryginałem,
+//    więc nigdy nie jest czyszczona;
+//  * słowniki (źródła ValueRelation) i warstwy tylko do odczytu domyślnie
+//    zostają z obiektami — to układ projektu, nie praca w terenie;
+//  * wyczyszczony rodzic czyści dzieci z relacji — żadnych sierot;
+//  * bez załączników: tabele ZAL_* puste, katalog DCIM nie jedzie, a pola
+//    ze ścieżką do pliku w zachowanych obiektach dostają NULL.
+// ===========================================================================
+#include <QDir>
+#include <QSet>
+#include <qgsproviderregistry.h>
+#include <qgsrelationmanager.h>
+#include <qgseditorwidgetsetup.h>
+#include <qgsvectordataprovider.h>
+
+namespace
+{
+  struct WfWarstwaKopii
+  {
+    QString id;
+    QString nazwa;
+    QString plik;   // absolutny, w ORYGINALE
+    QString tabela;
+    bool wewnatrz = false;
+  };
+
+  QString wfKatalogProjektu( QgsProject *projekt )
+  {
+    return QDir::cleanPath( QFileInfo( projekt->fileName() ).absolutePath() );
+  }
+
+  //! Warstwy wektorowe z GeoPackage: id -> opis.
+  QMap<QString, WfWarstwaKopii> wfWarstwyGpkg( QgsProject *projekt )
+  {
+    QMap<QString, WfWarstwaKopii> wynik;
+    const QString dom = wfKatalogProjektu( projekt );
+    const auto warstwy = projekt->mapLayers();
+    for ( QgsMapLayer *ml : warstwy )
+    {
+      QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( ml );
+      if ( !vl || vl->providerType() != QLatin1String( "ogr" ) )
+        continue;
+      const QVariantMap u = QgsProviderRegistry::instance()->decodeUri( QStringLiteral( "ogr" ), vl->source() );
+      const QString plik = QDir::cleanPath( QFileInfo( u.value( QStringLiteral( "path" ) ).toString() ).absoluteFilePath() );
+      const QString tabela = u.value( QStringLiteral( "layerName" ) ).toString();
+      if ( tabela.isEmpty() || !plik.endsWith( QLatin1String( ".gpkg" ), Qt::CaseInsensitive ) )
+        continue;
+      WfWarstwaKopii w;
+      w.id = vl->id();
+      w.nazwa = vl->name();
+      w.plik = plik;
+      w.tabela = tabela;
+      w.wewnatrz = plik.startsWith( dom + QLatin1Char( '/' ) );
+      wynik.insert( w.id, w );
+    }
+    return wynik;
+  }
+
+  QString wfCytuj( const QString &nazwa )
+  {
+    return QLatin1Char( '"' ) + QString( nazwa ).replace( QLatin1Char( '"' ), QLatin1String( "\"\"" ) ) + QLatin1Char( '"' );
+  }
+
+  //! Co pominąć przy kopiowaniu: kopie zapasowe, pliki robocze SQLite.
+  bool wfPomijanyPlik( const QString &nazwa )
+  {
+    return nazwa.contains( QLatin1String( ".przed_" ) ) || nazwa.contains( QLatin1String( ".bak" ) )
+           || nazwa.endsWith( QLatin1Char( '~' ) ) || nazwa.endsWith( QLatin1String( "-shm" ) );
+  }
+
+  bool wfKopiujKatalog( const QString &zrodlo, const QString &cel, const QSet<QString> &pomijaneKatalogi,
+                        qint64 &bajty, int &plikow, QString &blad )
+  {
+    if ( !QDir().mkpath( cel ) )
+    {
+      blad = QStringLiteral( "Nie mogę założyć katalogu %1" ).arg( cel );
+      return false;
+    }
+    QDirIterator it( zrodlo, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden );
+    while ( it.hasNext() )
+    {
+      it.next();
+      const QFileInfo fi = it.fileInfo();
+      const QString docel = cel + QLatin1Char( '/' ) + fi.fileName();
+      if ( fi.isDir() )
+      {
+        if ( pomijaneKatalogi.contains( fi.fileName().toUpper() ) )
+          continue;
+        if ( !wfKopiujKatalog( fi.absoluteFilePath(), docel, pomijaneKatalogi, bajty, plikow, blad ) )
+          return false;
+      }
+      else
+      {
+        if ( wfPomijanyPlik( fi.fileName() ) )
+          continue;
+        if ( !QFile::copy( fi.absoluteFilePath(), docel ) )
+        {
+          blad = QStringLiteral( "Nie skopiowałem %1" ).arg( fi.fileName() );
+          return false;
+        }
+        bajty += fi.size();
+        plikow++;
+      }
+    }
+    return true;
+  }
+
+  qint64 wfLiczWiersze( GDALDatasetH ds, const QString &tabela )
+  {
+    qint64 n = -1;
+    OGRLayerH r = GDALDatasetExecuteSQL( ds, ( QStringLiteral( "SELECT COUNT(*) FROM " ) + wfCytuj( tabela ) ).toUtf8().constData(), nullptr, nullptr );
+    if ( r )
+    {
+      OGRFeatureH f = OGR_L_GetNextFeature( r );
+      if ( f )
+      {
+        n = OGR_F_GetFieldAsInteger64( f, 0 );
+        OGR_F_Destroy( f );
+      }
+      GDALDatasetReleaseResultSet( ds, r );
+    }
+    return n;
+  }
+
+  //! Wykonuje polecenie SQL bez wyniku; zwraca pusty napis albo opis błędu.
+  QString wfSql( GDALDatasetH ds, const QString &sql )
+  {
+    CPLErrorReset();
+    OGRLayerH r = GDALDatasetExecuteSQL( ds, sql.toUtf8().constData(), nullptr, nullptr );
+    if ( r )
+      GDALDatasetReleaseResultSet( ds, r );
+    if ( CPLGetLastErrorType() >= CE_Failure )
+      return QString::fromUtf8( CPLGetLastErrorMsg() );
+    return QString();
+  }
+} // namespace
+
+static std::atomic<bool> sKopiaTrwa { false };
+
+QVariantList QfAppInterface::warstwyKopiiProjektu( QgsProject *projekt ) const
+{
+  QVariantList lista;
+  if ( !projekt || projekt->fileName().isEmpty() )
+    return lista;
+  const QString dom = wfKatalogProjektu( projekt );
+  const QMap<QString, WfWarstwaKopii> warstwy = wfWarstwyGpkg( projekt );
+
+  QSet<QString> slowniki;
+  for ( QgsMapLayer *ml : projekt->mapLayers() )
+  {
+    QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( ml );
+    if ( !vl )
+      continue;
+    const QgsFields pola = vl->fields();
+    for ( int i = 0; i < pola.count(); ++i )
+    {
+      const QgsEditorWidgetSetup s = pola.at( i ).editorWidgetSetup();
+      if ( s.type() == QLatin1String( "ValueRelation" ) )
+        slowniki.insert( s.config().value( QStringLiteral( "Layer" ) ).toString() );
+    }
+  }
+
+  for ( const WfWarstwaKopii &w : warstwy )
+  {
+    QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( projekt->mapLayer( w.id ) );
+    QVariantMap m;
+    m[QStringLiteral( "id" )] = w.id;
+    m[QStringLiteral( "nazwa" )] = w.nazwa;
+    m[QStringLiteral( "tabela" )] = w.tabela;
+    m[QStringLiteral( "plik" )] = w.wewnatrz ? QDir( dom ).relativeFilePath( w.plik ) : w.plik;
+    m[QStringLiteral( "obiektow" )] = vl ? static_cast<qlonglong>( vl->featureCount() ) : -1;
+    m[QStringLiteral( "wewnatrz" )] = w.wewnatrz;
+    m[QStringLiteral( "zalacznik" )] = w.tabela.startsWith( QLatin1String( "ZAL_" ), Qt::CaseInsensitive );
+    bool wyczysc = true;
+    QString powod;
+    if ( !w.wewnatrz )
+    {
+      wyczysc = false;
+      powod = tr( "plik spoza projektu — wspólny z oryginałem" );
+    }
+    else if ( slowniki.contains( w.id ) )
+    {
+      wyczysc = false;
+      powod = tr( "słownik" );
+    }
+    else if ( vl && vl->readOnly() )
+    {
+      wyczysc = false;
+      powod = tr( "tylko do odczytu" );
+    }
+    m[QStringLiteral( "wyczysc" )] = wyczysc;
+    m[QStringLiteral( "powod" )] = powod;
+    lista << m;
+  }
+  std::sort( lista.begin(), lista.end(), []( const QVariant &a, const QVariant &b ) {
+    return a.toMap().value( QStringLiteral( "nazwa" ) ).toString().localeAwareCompare( b.toMap().value( QStringLiteral( "nazwa" ) ).toString() ) < 0;
+  } );
+  return lista;
+}
+
+// [WF-KOPIA-ORTO] Czy ktoras warstwa wskazuje do ORTO/ (np. arkusz dodany jako warstwa).
+static bool wfOrtoUzywane( QgsProject *projekt, const QString &dom )
+{
+  const QString orto = dom + QStringLiteral( "/ORTO/" );
+  for ( QgsMapLayer *ml : projekt->mapLayers() )
+  {
+    QString sciezka = QgsProviderRegistry::instance()->decodeUri( ml->providerType(), ml->source() ).value( QStringLiteral( "path" ) ).toString();
+    if ( sciezka.isEmpty() )
+      sciezka = ml->source();
+    if ( QDir::cleanPath( QFileInfo( sciezka ).absoluteFilePath() ).startsWith( orto, Qt::CaseInsensitive ) )
+      return true;
+  }
+  return false;
+}
+
+QVariantMap QfAppInterface::arkuszeOrtoProjektu( QgsProject *projekt ) const
+{
+  QVariantMap w;
+  w[QStringLiteral( "plikow" )] = 0;
+  w[QStringLiteral( "rozmiar" )] = 0;
+  w[QStringLiteral( "uzywane" )] = false;
+  if ( !projekt || projekt->fileName().isEmpty() )
+    return w;
+  const QString dom = wfKatalogProjektu( projekt );
+  int plikow = 0;
+  qint64 rozmiar = 0;
+  QDirIterator kat( dom, QDir::Dirs | QDir::NoDotAndDotDot );
+  while ( kat.hasNext() )
+  {
+    kat.next();
+    if ( kat.fileName().toUpper() != QLatin1String( "ORTO" ) )
+      continue;
+    QDirIterator it( kat.filePath(), QDir::Files, QDirIterator::Subdirectories );
+    while ( it.hasNext() )
+    {
+      it.next();
+      plikow++;
+      rozmiar += it.fileInfo().size();
+    }
+  }
+  w[QStringLiteral( "plikow" )] = plikow;
+  w[QStringLiteral( "rozmiar" )] = rozmiar;
+  w[QStringLiteral( "uzywane" )] = plikow > 0 && wfOrtoUzywane( projekt, dom );
+  return w;
+}
+
+bool QfAppInterface::kopiaProjektuTrwa() const
+{
+  return sKopiaTrwa.load();
+}
+
+bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, const QStringList &doWyczyszczenia, bool zalaczniki, bool arkuszeOrto )
+{
+  if ( !projekt || projekt->fileName().isEmpty() )
+    return false;
+  const QString dom = wfKatalogProjektu( projekt );
+  const QString celCzysty = QDir::cleanPath( cel );
+  if ( celCzysty == dom || celCzysty.startsWith( dom + QLatin1Char( '/' ) ) || QFileInfo::exists( celCzysty ) )
+    return false;
+
+  bool oczekiwane = false;
+  if ( !sKopiaTrwa.compare_exchange_strong( oczekiwane, true ) )
+    return false;
+
+  // ---- w wątku interfejsu: co wyczyścić (projekt QGIS tylko stąd) ----
+  const QMap<QString, WfWarstwaKopii> warstwy = wfWarstwyGpkg( projekt );
+  QSet<QString> czyszczone;
+  for ( const QString &id : doWyczyszczenia )
+    if ( warstwy.contains( id ) && warstwy.value( id ).wewnatrz )
+      czyszczone.insert( id );
+  if ( !zalaczniki )
+  {
+    for ( const WfWarstwaKopii &w : warstwy )
+      if ( w.wewnatrz && w.tabela.startsWith( QLatin1String( "ZAL_" ), Qt::CaseInsensitive ) )
+        czyszczone.insert( w.id );
+  }
+  // wyczyszczony rodzic -> wyczyszczone dzieci (do skutku: wnuki też)
+  const auto relacje = projekt->relationManager()->relations();
+  bool zmiana = true;
+  while ( zmiana )
+  {
+    zmiana = false;
+    for ( const QgsRelation &r : relacje )
+    {
+      const QString dziecko = r.referencingLayerId();
+      if ( czyszczone.contains( r.referencedLayerId() ) && !czyszczone.contains( dziecko )
+           && warstwy.contains( dziecko ) && warstwy.value( dziecko ).wewnatrz )
+      {
+        czyszczone.insert( dziecko );
+        zmiana = true;
+      }
+    }
+  }
+
+  // zadania dla wątku: (plik w kopii, tabela, nazwa) i pola ze ścieżką do NULL
+  QList<QStringList> doUsuniecia;
+  for ( const QString &id : std::as_const( czyszczone ) )
+  {
+    const WfWarstwaKopii w = warstwy.value( id );
+    doUsuniecia << QStringList { celCzysty + QLatin1Char( '/' ) + QDir( dom ).relativeFilePath( w.plik ), w.tabela, w.nazwa };
+  }
+  QList<QStringList> doWyzerowania;
+  if ( !zalaczniki )
+  {
+    for ( const WfWarstwaKopii &w : warstwy )
+    {
+      if ( !w.wewnatrz || czyszczone.contains( w.id ) )
+        continue;
+      QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( projekt->mapLayer( w.id ) );
+      if ( !vl )
+        continue;
+      const QgsFields pola = vl->fields();
+      for ( int i = 0; i < pola.count(); ++i )
+      {
+        // tylko pola z tabeli (nie wirtualne ani z połączeń)
+        if ( pola.at( i ).editorWidgetSetup().type() == QLatin1String( "ExternalResource" )
+             && vl->dataProvider() && vl->dataProvider()->fields().lookupField( pola.at( i ).name() ) >= 0 )
+          doWyzerowania << QStringList { celCzysty + QLatin1Char( '/' ) + QDir( dom ).relativeFilePath( w.plik ), w.tabela, pola.at( i ).name() };
+      }
+    }
+  }
+  QSet<QString> pomijane;
+  // [WF-KOPIA-ORTO] arkusze na życzenie; zawsze, gdy warstwa z nich korzysta
+  if ( !arkuszeOrto && !wfOrtoUzywane( projekt, dom ) )
+    pomijane << QStringLiteral( "ORTO" );
+  if ( !zalaczniki )
+    pomijane << QStringLiteral( "DCIM" );
+  if ( !czyszczone.isEmpty() )
+    pomijane << QStringLiteral( "RAPORTY" );
+  const QString plikProjektu = celCzysty + QLatin1Char( '/' ) + QFileInfo( projekt->fileName() ).fileName();
+
+  QPointer<QfAppInterface> ja( this );
+  std::thread( [ja, dom, celCzysty, plikProjektu, doUsuniecia, doWyzerowania, pomijane]() {
+    QVariantMap w;
+    auto postep = [&]( const QString &etap, double ile ) {
+      if ( ja )
+        QMetaObject::invokeMethod( ja, [ja, etap, ile]() { if ( ja ) emit ja->kopiaProjektuPostep( etap, ile ); }, Qt::QueuedConnection );
+    };
+    postep( QStringLiteral( "kopiowanie" ), 0 );
+    qint64 bajty = 0;
+    int plikow = 0;
+    QString blad;
+    if ( !wfKopiujKatalog( dom, celCzysty, pomijane, bajty, plikow, blad ) )
+    {
+      w[QStringLiteral( "blad" )] = blad;
+    }
+    else
+    {
+      QVariantList wyczyszczone;
+      QSet<QString> zmienionePliki;
+      int krok = 0;
+      for ( const QStringList &z : doUsuniecia )
+      {
+        postep( QStringLiteral( "czyszczenie" ), doUsuniecia.isEmpty() ? 1.0 : double( krok++ ) / doUsuniecia.size() );
+        GDALDatasetH ds = GDALOpenEx( z[0].toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr );
+        if ( !ds )
+        {
+          blad = QStringLiteral( "Nie otworzyłem %1" ).arg( z[0] );
+          break;
+        }
+        const qint64 bylo = wfLiczWiersze( ds, z[1] );
+        QString e = wfSql( ds, QStringLiteral( "DELETE FROM " ) + wfCytuj( z[1] ) );
+        if ( e.isEmpty() )
+          wfSql( ds, QStringLiteral( "DELETE FROM sqlite_sequence WHERE name = '%1'" ).arg( QString( z[1] ).replace( QLatin1Char( '\'' ), QLatin1String( "''" ) ) ) );
+        const qint64 zostalo = wfLiczWiersze( ds, z[1] );
+        GDALClose( ds );
+        if ( !e.isEmpty() || zostalo != 0 )
+        {
+          blad = QStringLiteral( "Nie wyczyściłem %1: %2" ).arg( z[2], e.isEmpty() ? QStringLiteral( "zostało %1" ).arg( zostalo ) : e );
+          break;
+        }
+        wyczyszczone << QVariantMap { { QStringLiteral( "nazwa" ), z[2] }, { QStringLiteral( "usunieto" ), bylo } };
+        zmienionePliki.insert( z[0] );
+      }
+      int wyzerowane = 0;
+      for ( const QStringList &z : doWyzerowania )
+      {
+        if ( !blad.isEmpty() )
+          break;
+        GDALDatasetH ds = GDALOpenEx( z[0].toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr );
+        if ( !ds )
+          continue;
+        if ( wfSql( ds, QStringLiteral( "UPDATE %1 SET %2 = NULL" ).arg( wfCytuj( z[1] ), wfCytuj( z[2] ) ) ).isEmpty() )
+          wyzerowane++;
+        GDALClose( ds );
+        zmienionePliki.insert( z[0] );
+      }
+      if ( blad.isEmpty() )
+      {
+        // VACUUM: pusta baza ma być mała, a nie mieć rozmiaru oryginału
+        postep( QStringLiteral( "porzadkowanie" ), 0.9 );
+        for ( const QString &p : std::as_const( zmienionePliki ) )
+        {
+          GDALDatasetH ds = GDALOpenEx( p.toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr );
+          if ( ds )
+          {
+            wfSql( ds, QStringLiteral( "VACUUM" ) );
+            GDALClose( ds );
+          }
+        }
+        if ( !QFileInfo::exists( plikProjektu ) )
+          blad = QStringLiteral( "W kopii brak pliku projektu" );
+      }
+      if ( blad.isEmpty() )
+      {
+        w[QStringLiteral( "ok" )] = true;
+        w[QStringLiteral( "katalog" )] = celCzysty;
+        w[QStringLiteral( "plik" )] = plikProjektu;
+        w[QStringLiteral( "plikow" )] = plikow;
+        w[QStringLiteral( "rozmiar" )] = bajty;
+        w[QStringLiteral( "wyczyszczone" )] = wyczyszczone;
+        w[QStringLiteral( "wyzerowanePola" )] = wyzerowane;
+        w[QStringLiteral( "pominieteKatalogi" )] = QStringList( pomijane.begin(), pomijane.end() );
+      }
+      else
+      {
+        w[QStringLiteral( "blad" )] = blad;
+        w[QStringLiteral( "katalog" )] = celCzysty; // niepełna kopia zostaje do obejrzenia
+      }
+    }
+    qInfo() << "WFG kopia projektu:" << dom << "->" << w;
+    sKopiaTrwa.store( false );
+    if ( ja )
+      QMetaObject::invokeMethod( ja, [ja, w]() { if ( ja ) emit ja->kopiaProjektuGotowa( w ); }, Qt::QueuedConnection );
+  } ).detach();
+  return true;
+}
