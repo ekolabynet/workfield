@@ -445,6 +445,11 @@ ApplicationWindow {
   onMenuZaawansowaneChanged: settings.setValue("WorkField/menuZaawansowane", menuZaawansowane)
   readonly property bool pokazujZaawansowane: menuZaawansowane !== "ukryj"
 
+  // WorkFieldGIS 19.10.2026 — znaczniki półek (kropki) w nagłówkach szuflad:
+  // "pokazuj" / "ukryj", domyślnie pokazane. Wzór jak wyżej: napis, nie bool.
+  property string znacznikiPolek: settings.value("WorkField/znacznikiPolek", "pokazuj")
+  onZnacznikiPolekChanged: settings.setValue("WorkField/znacznikiPolek", znacznikiPolek)
+
   property string cadRysunek: ""
   property string cadUklad: ""
   property string cadKatalog: ""

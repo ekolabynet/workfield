@@ -648,12 +648,90 @@ Page {
               color: QfTheme.secondaryTextColor
               wrapMode: Text.WordWrap
             }
-            ListView {
-              Layout.fillWidth: true
-              Layout.preferredHeight: contentHeight
-              interactive: false
-              model: eksperymentalneSettingsModel
-              delegate: listItem
+            // WorkFieldGIS 17.10.2026 — półki jako KOLOROWE KARTY zamiast
+            // przełączników (prośba Piotra: tak jak w nagłówkach szuflad).
+            // Wyłączona: kolorowa ramka i pasek z lewej; włączona: wypełniona
+            // kolorem półki. Stan jeden, na oknie głównym.
+            Repeater {
+              model: [
+                { "klucz": "menuZaawansowane", "kolor": "#1e88e5", "tytul": qsTr("Zaawansowane"),
+                  "opis": qsTr("Wydruki, wtyczki, moduły, diagnostyka i inne pozycje, których nie każdy potrzebuje. Działają i są pewne. W menu mają niebieski pasek przy lewej krawędzi.") },
+                { "klucz": "menuEksperymentalne", "kolor": "#ff6d00", "tytul": qsTr("Eksperymentalne"),
+                  "opis": qsTr("Pozycje menu, bez których można na ogół żyć i które poprawiamy spokojnie. W menu mają pomarańczowy pasek przy lewej krawędzi.") },
+                // WorkFieldGIS 19.10.2026 — znaczniki półek w nagłówkach szuflad
+                { "klucz": "znacznikiPolek", "kolor": "#78909c", "tytul": qsTr("Znaczniki w szufladach"),
+                  "opis": qsTr("Dwie kropki przy tytule obu szuflad: niebieska (zaawansowane) i pomarańczowa (eksperymentalne). Pełna z otoczką — półka pokazana, sam obrys — ukryta. Dotknięcie kropki przełącza półkę.") }
+              ]
+
+              delegate: Rectangle {
+                id: kartaPolki
+
+                required property var modelData
+                readonly property bool wlaczona: mainWindow[modelData.klucz] === "pokazuj"
+
+                Layout.fillWidth: true
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                Layout.topMargin: 4
+                implicitHeight: trescKarty.implicitHeight + 20
+                radius: 8
+                color: wlaczona ? modelData.kolor : "transparent"
+                border.width: 2
+                border.color: modelData.kolor
+                clip: true
+
+                Rectangle {
+                  width: 5
+                  height: parent.height
+                  color: kartaPolki.modelData.kolor
+                  visible: !kartaPolki.wlaczona
+                }
+
+                ColumnLayout {
+                  id: trescKarty
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  anchors.leftMargin: 16
+                  anchors.rightMargin: 52
+                  spacing: 2
+
+                  Label {
+                    Layout.fillWidth: true
+                    text: (kartaPolki.wlaczona ? "✓ " + qsTr("Pokazane: ") : qsTr("Ukryte: ")) + kartaPolki.modelData.tytul
+                    font.pointSize: QfTheme.tipFont.pointSize * 1.1
+                    font.bold: true
+                    color: kartaPolki.wlaczona ? "#ffffff" : kartaPolki.modelData.kolor
+                    wrapMode: Text.WordWrap
+                  }
+                  Label {
+                    Layout.fillWidth: true
+                    text: kartaPolki.modelData.opis
+                    font: QfTheme.tipFont
+                    color: kartaPolki.wlaczona ? "#ffffff" : QfTheme.secondaryTextColor
+                    wrapMode: Text.WordWrap
+                  }
+                }
+
+                // WorkFieldGIS 17.10.2026 — to samo kółko co w nagłówkach szuflad:
+                // puste = ukryte, pełne = pokazane (na wypełnionej karcie białe).
+                Rectangle {
+                  anchors.right: parent.right
+                  anchors.rightMargin: 16
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: 24
+                  height: 24
+                  radius: 12
+                  border.width: 3
+                  border.color: kartaPolki.wlaczona ? "#ffffff" : kartaPolki.modelData.kolor
+                  color: kartaPolki.wlaczona ? "#ffffff" : "transparent"
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  onClicked: mainWindow[kartaPolki.modelData.klucz] = kartaPolki.wlaczona ? "ukryj" : "pokazuj"
+                }
+              }
             }
           }
           Loader {
@@ -1885,7 +1963,10 @@ Page {
       "positioning": "positioning",
       "interface": "interface",
       "teren": "teren",
-      "advanced": "advanced"
+      "advanced": "advanced",
+      // WorkFieldGIS 17.10.2026 — „Pokaż funkcje” z prawej szuflady
+      "funkcje": "eksperymentalne",
+      "eksperymentalne": "eksperymentalne"
     };
     page.kategoria = mapa[id] !== undefined ? mapa[id] : "positioning";
   }

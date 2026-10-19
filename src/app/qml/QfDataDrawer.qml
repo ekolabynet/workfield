@@ -122,6 +122,10 @@ Drawer {
       dataDrawer.close();
       dashBoard.computeChmAction();
       return;
+    case "funkcje":
+      dataDrawer.close();
+      mainWindow.pokazUstawienia("funkcje");
+      return;
     case "ustawienia":
       dataDrawer.close();
       // Pusta kategoria CELOWO: `pokazUstawienia` wola `openCategory`
@@ -165,6 +169,9 @@ Drawer {
     // „niech bedzie wiadomo, ze sa poziom nizej, ale wazne". Kolejnosc
     // w tym dziale niesie wage, nie alfabet; nie sortowac.
     { "label": qsTr("Ustawienia aplikacji"), "action": "ustawienia", "ikona": "wfg_ustawienia" },
+    // WorkFieldGIS 17.10.2026 — CORE: wejście do półek menu (Zaawansowane,
+    // Eksperymentalne). Otwiera Ustawienia od razu na „Funkcjach w menu”.
+    { "label": qsTr("Pokaż funkcje"), "action": "funkcje", "ikona": "wfg_ustawienia" },
     // [WF-POLKA-ZAAWANSOWANE] 8.10.2026 — "polka" jak w QfPozycjaMenu;
     // brak klucza = core.
     { "label": qsTr("Wtyczki"), "action": "plugins", "ikona": "wfg_paczka", "polka": "zaawansowana" },
@@ -429,6 +436,71 @@ Drawer {
         }
       }
 
+      // WorkFieldGIS 19.10.2026 — PÓŁKI MENU JAKO ZNACZNIKI przy tytule.
+      // Poprawka Piotra do wersji z 17.10: pełne kółka 14 px miały za mocny
+      // kolor i dominowały w nagłówku. Teraz mała kropka (6 px); półka
+      // ukryta = sam obrys kropki, półka pokazana = kropka pełna i oblana
+      // dużą, bladą otoczką w tym samym kolorze. Dotknięcie przełącza.
+      // Cały znacznik można schować: Ustawienia → „Funkcje w menu”.
+      Row {
+        Layout.alignment: Qt.AlignVCenter
+        spacing: 4
+        visible: mainWindow.znacznikiPolek !== "ukryj"
+
+        Repeater {
+          model: [
+            { "klucz": "menuZaawansowane", "kolor": "#1e88e5", "opis": qsTr("Funkcje zaawansowane") },
+            { "klucz": "menuEksperymentalne", "kolor": "#ff6d00", "opis": qsTr("Funkcje eksperymentalne") }
+          ]
+
+          delegate: Item {
+            id: znacznikPolki
+
+            required property var modelData
+            readonly property bool wlaczona: mainWindow[modelData.klucz] === "pokazuj"
+
+            width: 20
+            height: 20
+
+            // otoczka — tylko gdy półka pokazana
+            Rectangle {
+              anchors.centerIn: parent
+              width: 18
+              height: 18
+              radius: 9
+              color: znacznikPolki.modelData.kolor
+              opacity: 0.28
+              visible: znacznikPolki.wlaczona
+            }
+
+            // kropka
+            Rectangle {
+              anchors.centerIn: parent
+              width: 6
+              height: 6
+              radius: 3
+              color: znacznikPolki.wlaczona ? znacznikPolki.modelData.kolor : "transparent"
+              border.width: znacznikPolki.wlaczona ? 0 : 1.5
+              border.color: znacznikPolki.modelData.kolor
+              opacity: znacznikPolki.wlaczona ? 1.0 : 0.75
+            }
+
+            MouseArea {
+              id: dotykZnacznika
+              anchors.fill: parent
+              // palcem w rękawicy 20 px to za mało — pole dotyku większe
+              anchors.margins: -8
+              hoverEnabled: true
+              onClicked: mainWindow[znacznikPolki.modelData.klucz] = znacznikPolki.wlaczona ? "ukryj" : "pokazuj"
+            }
+
+            ToolTip.text: modelData.opis + ": " + (wlaczona ? qsTr("pokazane") : qsTr("ukryte"))
+            ToolTip.delay: 400
+            ToolTip.visible: dotykZnacznika.containsMouse
+          }
+        }
+      }
+
       QfToolButton {
         width: 36
         height: 36
@@ -437,76 +509,6 @@ Drawer {
         iconSource: t.getThemeVectorIcon("ic_arrow_right_black_24dp")
         iconColor: t.mainTextColor
         onClicked: dataDrawer.close()
-      }
-    }
-
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: t.controlBorderColor
-    }
-
-    // WorkFieldGIS 16.10.2026 — PÓŁKI MENU W NAGŁÓWKU (prośba Piotra).
-    // To samo co Ustawienia → „Funkcje w menu”, ale tam, gdzie widać skutek:
-    // włączenie pokazuje od razu pozycje z niebieskim (Zaawansowane)
-    // i pomarańczowym (Eksperymentalne) paskiem. Stan jest jeden, na oknie
-    // głównym (mainWindow.menuZaawansowane / menuEksperymentalne), więc obie
-    // szuflady i Ustawienia zawsze mówią to samo.
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.leftMargin: 8
-      Layout.rightMargin: 8
-      Layout.topMargin: 4
-      Layout.bottomMargin: 4
-      spacing: 6
-
-      Text {
-        text: qsTr("Pokaż funkcje:")
-        font: t.tinyFont
-        color: t.secondaryTextColor
-      }
-
-      Repeater {
-        model: [
-          { "klucz": "menuZaawansowane", "etykieta": qsTr("Zaawansowane"), "kolor": "#1e88e5" },
-          { "klucz": "menuEksperymentalne", "etykieta": qsTr("Eksperymentalne"), "kolor": "#ff6d00" }
-        ]
-
-        delegate: Rectangle {
-          id: przyciskPolki
-
-          required property var modelData
-          readonly property bool wlaczona: mainWindow[modelData.klucz] === "pokazuj"
-
-          Layout.fillWidth: true
-          Layout.preferredHeight: 30
-          radius: 6
-          color: wlaczona ? modelData.kolor : "transparent"
-          border.width: 1
-          border.color: modelData.kolor
-          clip: true
-
-          // ten sam pasek 5 px co przy pozycjach menu tej półki
-          Rectangle {
-            width: 5
-            height: parent.height
-            color: przyciskPolki.modelData.kolor
-            visible: !przyciskPolki.wlaczona
-          }
-
-          Text {
-            anchors.centerIn: parent
-            text: (przyciskPolki.wlaczona ? "✓ " : "") + przyciskPolki.modelData.etykieta
-            font.pointSize: t.tinyFont.pointSize
-            font.bold: przyciskPolki.wlaczona
-            color: przyciskPolki.wlaczona ? "#ffffff" : przyciskPolki.modelData.kolor
-          }
-
-          MouseArea {
-            anchors.fill: parent
-            onClicked: mainWindow[przyciskPolki.modelData.klucz] = przyciskPolki.wlaczona ? "ukryj" : "pokazuj"
-          }
-        }
       }
     }
 
