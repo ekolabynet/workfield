@@ -933,6 +933,9 @@ Page {
                     if (!firstRun && firstShown === false)
                       notes.push(qsTr("Last session"));
                   }
+                  // WorkFieldGIS 22.10.2026 — projekt na karcie SD
+                  if (iface.naKarcie(ProjectPath))
+                    notes.unshift(qsTr("SD · karta"));
                   if (ProjectPath === registry.defaultProject) {
                     notes.push(qsTr("Default project"));
                   }

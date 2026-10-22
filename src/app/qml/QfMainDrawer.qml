@@ -1649,6 +1649,25 @@ Drawer {
           elide: Text.ElideRight
         }
 
+        // WorkFieldGIS 22.10.2026 — projekt leży na karcie SD: plakietka „SD”.
+        // Projekty w pamięci telefonu nie mają żadnej — ekran zostaje czysty.
+        Rectangle {
+          visible: iface.naKarcie(projectSection.filePath)
+          radius: 4
+          color: "#f9a825"
+          implicitWidth: plakietkaSD.implicitWidth + 12
+          implicitHeight: plakietkaSD.implicitHeight + 4
+
+          Text {
+            id: plakietkaSD
+            anchors.centerIn: parent
+            text: "SD"
+            font.pixelSize: 12
+            font.bold: true
+            color: "#1b1b1b"
+          }
+        }
+
         Text {
           text: projectSection.dirty ? qsTr("niezapisane zmiany") : ""
           font: t.tinyFont
@@ -2212,9 +2231,17 @@ Drawer {
             dashBoard.close();
             // przepływ (docs/MAGAZYN.md): żywe projekty biurka mieszkają
             // w wydaniach magazynu; na telefonie — w domu danych aplikacji
-            if (Qt.platform.os === "android" || Qt.platform.os === "ios")
-              photoGallery.openFiles(iface.dataRoot() + "Imported Projects");
-            else
+            if (Qt.platform.os === "android" || Qt.platform.os === "ios") {
+              // WorkFieldGIS 22.10.2026 — gdy na karcie SD są projekty: skąd otworzyć
+              const miejsca = iface.miejscaProjektow();
+              const naKarcie = miejsca.filter(function (m) {
+                return m.rodzaj === "karta" && m.projektow > 0;
+              });
+              if (naKarcie.length > 0)
+                wyborMiejscaOtwierania.pokaz(miejsca);
+              else
+                photoGallery.openFiles(iface.dataRoot() + "Imported Projects");
+            } else
               // WorkField 23.08.2026 — bylo `ustawieniaStanu.korzenProjektow`.
               // Obiekt `ustawieniaStanu` zniknal z tego pliku dawno temu
               // (istnial jeszcze w f50ae148b), a DWA wywolania zostaly.
@@ -2906,6 +2933,54 @@ Drawer {
     }
 
     
+  }
+
+  // WorkFieldGIS 22.10.2026 — „Otwórz projekty”, gdy na karcie SD są projekty:
+  // dwa duże przyciski z liczbą projektów. Bez karty okno się nie pokazuje.
+  Popup {
+    id: wyborMiejscaOtwierania
+
+    property var miejsca: []
+
+    function pokaz(m) {
+      miejsca = m;
+      open();
+    }
+
+    parent: mainWindow.contentItem
+    width: Math.min(mainWindow.width - 40, 400)
+    x: (mainWindow.width - width) / 2
+    y: Math.max(8, (mainWindow.height - height) / 2)
+    modal: true
+    padding: 16
+
+    ColumnLayout {
+      width: parent.width
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Otwórz projekty")
+        font: t.strongFont
+        color: t.mainTextColor
+      }
+
+      Repeater {
+        model: wyborMiejscaOtwierania.miejsca
+
+        delegate: Button {
+          required property var modelData
+          Layout.fillWidth: true
+          Layout.preferredHeight: 56
+          font: t.defaultFont
+          text: (modelData.rodzaj === "karta" ? "SD · " : "") + modelData.nazwa + " — " + qsTr("projektów: %1").arg(modelData.projektow)
+          onClicked: {
+            wyborMiejscaOtwierania.close();
+            photoGallery.openFiles(modelData.katalog);
+          }
+        }
+      }
+    }
   }
 
   Popup {
@@ -3800,6 +3875,16 @@ Drawer {
       objectCategoryField.text = iface.projectVariable("obiekt_kategoria");
       crsCurrentLabel.refresh();
       customCrsField.text = "";
+      // WorkFieldGIS 22.10.2026 — lista pokazuje bieżący układ (było „— wybierz układ —”);
+      // układ spoza listy trafia do pola „Inny EPSG”.
+      const biezacy = iface.projectCrsAuthid();
+      let ib = 0;
+      for (let k = 0; k < crsCombo.model.length; k++)
+        if (crsCombo.model[k].authid === biezacy)
+          ib = k;
+      crsCombo.currentIndex = ib;
+      if (ib === 0 && /^EPSG:/i.test(biezacy))
+        customCrsField.text = biezacy.replace(/^EPSG:/i, "");
     }
 
     ColumnLayout {
