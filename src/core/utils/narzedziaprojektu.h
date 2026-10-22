@@ -214,6 +214,26 @@ class NarzedziaProjektu : public QObject
      */
     Q_INVOKABLE QVariantMap eksportujDxf( QgsProject *projekt, const QString &sciezka = QString(), bool zRysunkiem = false ) const;
 
+    /**
+     * WorkFieldGIS 22.10.2026 [WF-EKSPORT-CAD] — eksport do CAD z danymi GIS.
+     *
+     * Rysunek DXF, w ktorym kazdy obiekt niesie swoje dane (rdzen WorkFieldCAD,
+     * src/core/wfcad): w CAD-zie mozna je ogladac, kolorowac i opisywac
+     * (wf.lsp), a zmiany z rysunku wracaja do bazy bez straty. Rozni sie od
+     * eksportujDxf: tamto daje wyglad (symbole QGIS), to — dane.
+     *
+     * Baza projektu (plikDanych) jest otwarta, z dziennikiem WAL, wiec rysunek
+     * powstaje z ZAPIECZETOWANEJ kopii (ta sama droga co „Tylko dane”), ktora
+     * zostaje obok: do niej wraca rysunek z CAD-a. W katalogu:
+     *   <baza>.dxf, <baza>.gpkg (kopia), wf.lsp, CZYTAJ.txt.
+     * Warstwy w EPSG:4326 dostaja w rysunku PL-2000 (strefa z polozenia danych).
+     *
+     * Pusty \a katalog = <projekt>/export/<nazwa>_CAD_<RRRRMMDD_GGMMSS>.
+     * Zwraca {katalog, plik, baza, md5, uklad, warstw, obiektow, encji, straty,
+     * uwagi} albo {blad}.
+     */
+    Q_INVOKABLE QVariantMap eksportujDoCad( QgsProject *projekt, const QString &katalog = QString() ) const;
+
 
     /**
      * Warstwy ROBOCZE projektu — te, na ktorych sie zbiera dane.

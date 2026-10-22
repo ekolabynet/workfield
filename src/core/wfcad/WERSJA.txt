@@ -1,0 +1,24 @@
+Kopia rdzenia WorkFieldCAD — NIE EDYTOWAĆ (skrypty/synchronizuj_wfcad.sh).
+commit WorkFieldCAD: 0.9.0 (wfcad::eksportuj, wf.lsp wkompilowany)
+
+802326303d19f7ab4f08c125528b01c2  include/wfcad/dxf.hpp
+6f80bd0ea94c6d1f23d819297e33bf2d  include/wfcad/eksport.hpp
+799b43e183523da4dc158a06abb6a44c  include/wfcad/gpkg.hpp
+fd8dfa9060f266984408a3cd931ba12b  include/wfcad/odwzorowanie.hpp
+b308069e4ae8c0397032537fe245534e  include/wfcad/rysunek.hpp
+c1f565cca70dd2ee953450a7032a0f32  include/wfcad/skrot.hpp
+481a9e5868f461c8841ddf6d53662f3d  include/wfcad/typy.hpp
+1a459a0ff2f88a81b1a9c2cc47451b76  include/wfcad/uklad.hpp
+fc06e47829a746aefe84b5daabe04946  include/wfcad/wkb.hpp
+560584aa94b7a5fc202781775111dede  include/wfcad/xrecord.hpp
+b6b341e4f51ceab4c52fbcf51c8b282c  src/dxf.cpp
+afe08036c99870fa91615878da1a2ab1  src/eksport.cpp
+5e802544725a0fcbbe388e94cf65260c  src/gpkg.cpp
+26560bd56bbf287527b7bf57cdeeb396  src/odwzorowanie.cpp
+68d065607af5fe211e0d2ba1d9f95564  src/rysunek.cpp
+4d94656735ca172b56a2c91c1e0b563b  src/skrot.cpp
+bafc0a9be0044805d92fa05c36ace316  src/szablon_dxf.inc
+9cdde6fcdcac1e13bd76249efcc13cf7  src/uklad.cpp
+60b5f4963c6436bba68ec5d10db7026e  src/wf_lsp.inc
+a120fa056e6694e98c9349d3ea0c1f64  src/wkb.cpp
+5a102e8e814bb4220c57d04f49265ac5  src/xrecord.cpp

@@ -2225,6 +2225,44 @@ Drawer {
           }
         }
         QfPozycjaMenu {
+          // WorkFieldGIS 22.10.2026 [WF-EKSPORT-CAD] — DXF z danymi GIS
+          // (rdzen WorkFieldCAD): kazdy obiekt niesie atrybuty, rysunek wraca
+          // do bazy bez straty. Obok: kopia bazy, wf.lsp i CZYTAJ.txt.
+          // "Eksport do DXF" wyzej daje wyglad (symbole QGIS), ten — dane.
+          text: qsTr("Eksport do CAD (z danymi GIS)")
+          polka: "eksperymentalna"
+          ikona: "wfg_paczka"
+          enabled: qgisProject && qgisProject.homePath !== ""
+          onClicked: {
+            // jak wyzej: komunikat po zamknieciu szuflady, inaczej ginie
+            const wykonaj = function () {
+              dashBoard.closed.disconnect(wykonaj);
+              if (typeof NarzedziaProjektu === "undefined")
+                return;
+              const w = NarzedziaProjektu.eksportujDoCad(qgisProject, "");
+              console.log("WFG eksport do CAD: " + JSON.stringify(w));
+              if (w.blad) {
+                displayToast(w.blad, "warning");
+                return;
+              }
+              const katalog = w.katalog;
+              const opis = qsTr("CAD: %1 obiektów z %2 warstw").arg(w.obiektow).arg(w.warstw)
+                           + (w.uklad ? " — EPSG:" + w.uklad : "");
+              // telefon to Android albo iOS, nie zdolnosci platformy (lekcja z 8.10)
+              if (Qt.platform.os === "android" || Qt.platform.os === "ios")
+                displayToast(opis, "info", qsTr("Wyślij"), function () {
+                  platformUtilities.sendCompressedFolderTo(katalog);
+                });
+              else
+                displayToast(opis, "info", qsTr("Otwórz folder"), function () {
+                  Qt.openUrlExternally("file://" + katalog);
+                });
+            };
+            dashBoard.closed.connect(wykonaj);
+            dashBoard.close();
+          }
+        }
+        QfPozycjaMenu {
           text: qsTr("Otwórz projekty") // WF-OTWORZ-PROJEKTY: otwiera katalog projektów
           ikona: "wfg_otworz"
           onClicked: {

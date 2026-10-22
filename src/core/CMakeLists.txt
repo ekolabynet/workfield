@@ -118,6 +118,15 @@ set(QFIELD_CORE_SRCS
     utils/narzedziaprojektu.cpp
     moduly/cad.cpp
     moduly/dxfinwentaryzacja.cpp
+    wfcad/src/dxf.cpp
+    wfcad/src/eksport.cpp
+    wfcad/src/gpkg.cpp
+    wfcad/src/odwzorowanie.cpp
+    wfcad/src/rysunek.cpp
+    wfcad/src/skrot.cpp
+    wfcad/src/uklad.cpp
+    wfcad/src/wkb.cpp
+    wfcad/src/xrecord.cpp
     moduly/inwentaryzacjadrzew.cpp
     moduly/zalaczniki.cpp
     moduly/kafle.cpp
@@ -385,6 +394,8 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 endif()
 
 target_compile_features(qfield_core PUBLIC cxx_std_20)
+# WorkFieldGIS 22.10.2026 [WF-EKSPORT-CAD] rdzen WorkFieldCAD (kopia, skrypty/synchronizuj_wfcad.sh)
+target_include_directories(qfield_core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/wfcad/include)
 set_target_properties(qfield_core PROPERTIES AUTOMOC TRUE)
 
 find_package(Qt6 REQUIRED COMPONENTS CorePrivate GuiPrivate)

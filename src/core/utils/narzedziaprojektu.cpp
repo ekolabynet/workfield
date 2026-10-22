@@ -18,6 +18,7 @@
 #include <QRegularExpression> // WF-DUPLIKAT
 
 #include <sqlite3.h>
+#include "wfcad/eksport.hpp" // WF-EKSPORT-CAD
 
 #include <qgslayertreeregistrybridge.h>
 #include <qgslayertreelayer.h>
@@ -3239,6 +3240,154 @@ namespace
     return zlozony;
   }
 } // namespace
+
+// ---------------------------------------------------------------------------
+// WorkFieldGIS 22.10.2026 [WF-EKSPORT-CAD] — eksport do CAD z danymi GIS.
+// Rdzen: src/core/wfcad (kopia WorkFieldCAD, synchronizuje ja
+// skrypty/synchronizuj_wfcad.sh). Tu tylko: kopia bazy, rysunek, wf.lsp,
+// CZYTAJ.txt. Czesc bez QGIS, zeby dalo sie ja sprawdzic poza aplikacja.
+// [WF-EKSPORT-CAD-RDZEN-POCZATEK]
+namespace
+{
+  QString nazwaUkladu( int epsg )
+  {
+    switch ( epsg )
+    {
+      case 0:
+        return QStringLiteral( "jak w danych (bez przeliczenia)" );
+      case 2176:
+        return QStringLiteral( "EPSG:2176 (PL-2000 strefa 5)" );
+      case 2177:
+        return QStringLiteral( "EPSG:2177 (PL-2000 strefa 6)" );
+      case 2178:
+        return QStringLiteral( "EPSG:2178 (PL-2000 strefa 7)" );
+      case 2179:
+        return QStringLiteral( "EPSG:2179 (PL-2000 strefa 8)" );
+      default:
+        return QStringLiteral( "EPSG:%1" ).arg( epsg );
+    }
+  }
+
+  bool zapiszBajty( const QString &sciezka, const QByteArray &bajty )
+  {
+    QFile f( sciezka );
+    if ( !f.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
+      return false;
+    const bool ok = f.write( bajty ) == bajty.size();
+    f.close();
+    return ok;
+  }
+
+  //! Eksport z bazy \a baza do katalogu \a katalog (musi nie istniec albo byc pusty).
+  QVariantMap eksportDoCadZBazy( const QString &baza, const QString &katalog, const QString &nazwaProjektu )
+  {
+    QVariantMap wynik;
+    auto blad = [&wynik]( const QString &tekst ) {
+      wynik.insert( QStringLiteral( "blad" ), tekst );
+      return wynik;
+    };
+    if ( baza.isEmpty() || !QFileInfo::exists( baza ) )
+      return blad( QStringLiteral( "Projekt nie ma bazy GeoPackage z danymi (data.gpkg albo dane.gpkg)" ) );
+    QDir kat( katalog );
+    if ( kat.exists() && !kat.isEmpty( QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System ) )
+      return blad( QStringLiteral( "Katalog %1 już istnieje i nie jest pusty" ).arg( katalog ) );
+    if ( !QDir().mkpath( katalog ) )
+      return blad( QStringLiteral( "Nie da się utworzyć katalogu %1" ).arg( katalog ) );
+
+    // Kopia przez API kopii SQLite: z ostatnimi zapisami z dziennika WAL,
+    // sprawdzona quick_check, bez dziennika obok. Rdzen odmawia pracy na bazie
+    // z niepustym -wal — i slusznie; kopia go nie ma.
+    const QFileInfo zrodlo( baza );
+    const QString kopia = QStringLiteral( "%1/%2" ).arg( katalog, zrodlo.fileName() );
+    const QString bladKopii = zapieczetujBaze( baza, kopia );
+    if ( !bladKopii.isEmpty() )
+      return blad( QStringLiteral( "Kopia bazy %1: %2" ).arg( zrodlo.fileName(), bladKopii ) );
+
+    const QString dxf = QStringLiteral( "%1/%2.dxf" ).arg( katalog, zrodlo.completeBaseName() );
+    wfcad::Raport raport;
+    wfcad::WynikEksportu w;
+    try
+    {
+      w = wfcad::eksportuj( QFile::encodeName( kopia ).toStdString(), QFile::encodeName( dxf ).toStdString(), wfcad::UKLAD_AUTO, raport );
+    }
+    catch ( const std::exception &e )
+    {
+      QFile::remove( dxf );
+      return blad( QStringLiteral( "Eksport do CAD: %1" ).arg( QString::fromUtf8( e.what() ) ) );
+    }
+
+    const QString lsp = QStringLiteral( "%1/wf.lsp" ).arg( katalog );
+    if ( !zapiszBajty( lsp, QByteArray::fromStdString( wfcad::tekstWfLsp() ) ) )
+      return blad( QStringLiteral( "Nie da się zapisać %1" ).arg( lsp ) );
+
+    const QString nazwaDxf = QFileInfo( dxf ).fileName();
+    const QString nazwaBazy = zrodlo.fileName();
+    const QString md5 = QString::fromStdString( w.md5Zrodla );
+    QStringList czytaj;
+    czytaj << QStringLiteral( "Eksport do CAD — WorkFieldGIS, %1" ).arg( QDateTime::currentDateTime().toString( QStringLiteral( "yyyy-MM-dd HH:mm" ) ) )
+           << QStringLiteral( "Projekt: %1" ).arg( nazwaProjektu )
+           << QString()
+           << QStringLiteral( "%1  — rysunek; układ: %2." ).arg( nazwaDxf, nazwaUkladu( w.uklad ) )
+           << QStringLiteral( "    Każdy obiekt niesie swoje dane GIS. %1 obiektów z %2 warstw." ).arg( w.obiektow ).arg( w.warstw )
+           << QStringLiteral( "%1  — kopia bazy, z której powstał rysunek (md5 %2)." ).arg( nazwaBazy, md5 )
+           << QStringLiteral( "    Nie zmieniaj jej: do niej wraca rysunek z CAD-a." )
+           << QStringLiteral( "wf.lsp  — polecenia w CAD-zie: APPLOAD, potem WFINFO, WFZNAJDZ, WFKOLOR," )
+           << QStringLiteral( "    WFSKALA, WFODNOSNIK, WFIDZ." )
+           << QString()
+           << QStringLiteral( "Otwórz DXF w BricsCAD, AutoCAD, ZWCAD albo GstarCAD. Zapisuj jako DXF 2000" )
+           << QStringLiteral( "lub nowszy (z DWG przed powrotem zapisz jako DXF). Kolory, okręgi i opisy" )
+           << QStringLiteral( "z wf.lsp nie są danymi GIS — przy powrocie są pomijane." )
+           << QString()
+           << QStringLiteral( "Powrót zmian do bazy (komputer, WorkFieldCAD):" )
+           << QStringLiteral( "  wfcad-obieg sprawdz %1" ).arg( nazwaDxf )
+           << QStringLiteral( "  wfcad-obieg zapisz %1 %2 %3_z_cad.gpkg" ).arg( nazwaDxf, nazwaBazy, zrodlo.completeBaseName() );
+    QStringList uwagi;
+    for ( const std::string &t : raport.informacje )
+      uwagi << QString::fromStdString( t );
+    for ( const std::string &t : raport.ostrzezenia )
+      uwagi << QStringLiteral( "UWAGA: " ) + QString::fromStdString( t );
+    for ( const std::string &t : raport.straty )
+      uwagi << QStringLiteral( "STRATA: " ) + QString::fromStdString( t );
+    if ( !uwagi.isEmpty() )
+      czytaj << QString() << QStringLiteral( "Raport eksportu:" ) << uwagi;
+    zapiszBajty( QStringLiteral( "%1/CZYTAJ.txt" ).arg( katalog ), ( czytaj.join( QLatin1Char( '\n' ) ) + QLatin1Char( '\n' ) ).toUtf8() );
+
+    wynik.insert( QStringLiteral( "katalog" ), katalog );
+    wynik.insert( QStringLiteral( "plik" ), dxf );
+    wynik.insert( QStringLiteral( "baza" ), kopia );
+    wynik.insert( QStringLiteral( "md5" ), md5 );
+    wynik.insert( QStringLiteral( "uklad" ), w.uklad );
+    wynik.insert( QStringLiteral( "warstw" ), static_cast<int>( w.warstw ) );
+    wynik.insert( QStringLiteral( "obiektow" ), static_cast<qlonglong>( w.obiektow ) );
+    wynik.insert( QStringLiteral( "encji" ), static_cast<qlonglong>( w.encji ) );
+    wynik.insert( QStringLiteral( "straty" ), static_cast<int>( raport.straty.size() ) );
+    wynik.insert( QStringLiteral( "uwagi" ), uwagi.join( QLatin1Char( '\n' ) ) );
+    return wynik;
+  }
+} // namespace
+// [WF-EKSPORT-CAD-RDZEN-KONIEC]
+
+QVariantMap NarzedziaProjektu::eksportujDoCad( QgsProject *projekt, const QString &katalog ) const
+{
+  QgsProject *p = projekt ? projekt : QgsProject::instance();
+  if ( !p || p->homePath().isEmpty() )
+  {
+    QVariantMap wynik;
+    wynik.insert( QStringLiteral( "blad" ), QStringLiteral( "Brak otwartego projektu" ) );
+    return wynik;
+  }
+  QString nazwa = p->title().trimmed();
+  if ( nazwa.isEmpty() )
+    nazwa = QFileInfo( p->homePath() ).fileName();
+  if ( nazwa.isEmpty() )
+    nazwa = QStringLiteral( "projekt" );
+  QString bezpieczna = nazwa;
+  bezpieczna.replace( QRegularExpression( QStringLiteral( "[\\\\/:*?\"<>|\\s]+" ) ), QStringLiteral( "_" ) );
+  const QString kat = katalog.isEmpty()
+                        ? QStringLiteral( "%1/export/%2_CAD_%3" ).arg( p->homePath(), bezpieczna, QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmmss" ) ) )
+                        : katalog;
+  return eksportDoCadZBazy( plikDanych( p ), kat, nazwa );
+}
 
 QVariantMap NarzedziaProjektu::eksportujDxf( QgsProject *projekt, const QString &sciezka, bool zRysunkiem ) const
 {
