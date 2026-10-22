@@ -117,7 +117,8 @@ ColumnLayout {
     }
 
     Label {
-      text: qsTr("Miejsce przechowywania projektów, szablonów i pobranych danych. Dotknij lokalizacji (także zaznaczonej), aby przenieść, skopiować lub zacząć od nowa. Po zmianie uruchom aplikację ponownie.")
+      // WorkFieldGIS 22.10.2026 — zmiana miejsca wyłączona, patrz wybór niżej.
+      text: qsTr("Miejsce przechowywania projektów. Zmiana miejsca jest chwilowo wyłączona: dotychczasowe przenoszenie mogło ukryć projekty. Wróci w bezpiecznej wersji — z wyborem miejsca dla nowych projektów i przenoszeniem pojedynczego projektu. Twoje dane są tam, gdzie były.")
       font: Theme.tipFont
       color: Theme.secondaryTextColor
       wrapMode: Text.WordWrap
@@ -148,6 +149,10 @@ ColumnLayout {
             text: (modelData.indexOf("emulated") !== -1 ? qsTr("Pamięć wewnętrzna") : modelData.indexOf("/storage/") === 0 ? qsTr("Karta SD") : qsTr("Dysk lokalny")) + " — " + iface.storageFreeGb(modelData).toFixed(1) + qsTr(" GB wolne")
           checked: iface.preferredDataDir() === "" ? index === 0 : modelData.indexOf(iface.preferredDataDir()) === 0 || iface.preferredDataDir().indexOf(modelData) === 0
 
+            // WorkFieldGIS 22.10.2026 — stare przenoszenie kopiowało dane do …/files/QField/,
+            // a aplikacja szuka ich w …/files/: lista projektów wychodziła pusta, a „Przenieś”
+            // kasował oryginały. Wybór tylko pokazuje, gdzie są dane; nie da się go zmienić.
+            enabled: false
             onClicked: {
               storageMigrateDialog.targetDir = modelData.endsWith("/") ? modelData : modelData + "/";
               storageMigrateDialog.open();
