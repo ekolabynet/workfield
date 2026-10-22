@@ -202,7 +202,7 @@ Popup {
         const rozpakowane = katalog + "/" + nazwa;
         const jestProjektem = FileUtils.fileExists(rozpakowane + "/projekt.qgs") || FileUtils.fileExists(rozpakowane + "/projekt.qgz");
         if (jestProjektem) {
-          const celProjektu = iface.dataRoot() + "Imported Projects/" + nazwa;
+          const celProjektu = iface.katalogNowychProjektow() + "/" + nazwa; // WorkFieldGIS 22.10.2026
           if (iface.movePath(rozpakowane, celProjektu)) {
             photoGallery.chmuraStan = qsTr("projekt gotowy: %1").arg(nazwa);
             displayToast(qsTr("Projekt %1 pobrany — znajdziesz go w \"Otwórz projekt\"").arg(nazwa));

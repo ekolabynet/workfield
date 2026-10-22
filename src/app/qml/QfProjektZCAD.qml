@@ -54,6 +54,7 @@ Popup {
     poleNazwy.text = "";
     komunikat.text = "";
     open();
+    miejsceProjektu.upewnijSie(); // WorkFieldGIS 22.10.2026 — „gdzie zakładać” (raz, gdy jest karta)
   }
 
   //! Systemowe okno wyboru pliku — `ACTION_OPEN_DOCUMENT` Androida.
@@ -106,7 +107,7 @@ Popup {
     // zapisu poza katalogami aplikacji — w logu widac to wprost:
     // "Creating or writing to a non-default top level directory is not
     // allowed". Odczyt z `Download` dziala, zapis nie.
-    const katalogProjektow = iface.dataRoot() + "Imported Projects";
+    const katalogProjektow = iface.katalogNowychProjektow(); // WorkFieldGIS 22.10.2026 — pamięć / karta SD
     const cel = katalogProjektow + "/" + nazwa;
     if (FileUtils.fileExists(cel)) {
       komunikat.text = qsTr("Projekt o tej nazwie już istnieje.");

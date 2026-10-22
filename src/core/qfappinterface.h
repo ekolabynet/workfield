@@ -115,6 +115,44 @@ class QfAppInterface : public QObject
     //! project lists read from and the Java-side import writes to.
     Q_INVOKABLE QString dataRoot() const;
 
+    /**
+     * WorkFieldGIS 22.10.2026 — miejsca na projekty: pamięć telefonu i karta SD.
+     * Karta to WŁASNY katalog aplikacji na karcie (getExternalFilesDirs) —
+     * zapis bez żadnych uprawnień, także na Androidzie 11+. W każdym miejscu
+     * zakładany jest katalog „Imported Projects”.
+     * Zwraca listę {rodzaj: "telefon"|"karta", nazwa, korzen, katalog, wolneGb, projektow},
+     * najpierw telefon.
+     */
+    Q_INVOKABLE QVariantList miejscaProjektow() const;
+
+    //! Zapamiętane miejsce nowych projektów: "", "telefon" albo "karta".
+    Q_INVOKABLE QString miejsceDomyslne() const;
+
+    //! Zapamiętuje miejsce nowych projektów na stałe (QSettings).
+    Q_INVOKABLE void ustawMiejsceDomyslne( const QString &rodzaj );
+
+    //! Wybór tylko do końca tej sesji — gdy użytkownik nie chciał zapamiętać.
+    Q_INVOKABLE void ustawMiejsceSesji( const QString &rodzaj );
+
+    //! Czy zapytać, gdzie zakładać projekty: jest karta, nic nie zapamiętano i nie wybrano w tej sesji.
+    Q_INVOKABLE bool trzebaZapytacOMiejsce() const;
+
+    //! Katalog „Imported Projects” dla nowych projektów i importów (bez końcowego /).
+    //! Gdy wybranej karty nie ma (wyjęta) — pamięć telefonu.
+    Q_INVOKABLE QString katalogNowychProjektow() const;
+
+    //! Czy ścieżka leży na karcie SD.
+    Q_INVOKABLE bool naKarcie( const QString &sciezka ) const;
+
+    //! WorkFieldGIS 22.10.2026 — „mój domyślny układ” nowych projektów (QSettings); bez ustawienia EPSG:2178.
+    Q_INVOKABLE QString domyslnyUklad() const;
+
+    //! Zapamiętuje „mój domyślny układ”. Odmawia (false) dla układu nieznanego.
+    Q_INVOKABLE bool ustawDomyslnyUklad( const QString &authid );
+
+    //! Opis układu („ETRF2000-PL / CS2000/21”) albo pusty tekst, gdy układ jest nieznany.
+    Q_INVOKABLE QString opisUkladu( const QString &authid ) const;
+
     //! One-time cleanup after the 2026-08 storage audit: moves directories
     //! mistakenly created inside the legacy .../QField/ resource dir into the
     //! canonical base. Safe to call repeatedly (no-op when nothing to move).

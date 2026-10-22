@@ -100,9 +100,13 @@ Popup {
       katalogSzablonow = NarzedziaProjektu.katalogSzablonow(iface.dataRoot());
     if (katalogSzablonow === "")
       katalogSzablonow = korzenMagazynu() + "/szablony";
-    if (katalogProjektow === "")
+    // WorkFieldGIS 22.10.2026 — na telefonie: raz zapytaj, gdzie zakładać projekty,
+    // a katalog bierz zawsze świeży (wybór mógł się zmienić od ostatniego otwarcia).
+    if (Qt.platform.os === "android" && typeof miejsceProjektu !== "undefined")
+      miejsceProjektu.upewnijSie();
+    if (katalogProjektow === "" || Qt.platform.os === "android")
       katalogProjektow = Qt.platform.os === "android"
-        ? iface.dataRoot() + "Imported Projects"
+        ? iface.katalogNowychProjektow()
         : NarzedziaProjektu.katalogZadan(korzenMagazynu());
     if (katalogProjektow === "")
       katalogProjektow = iface.dataRoot() + "Imported Projects";
@@ -309,6 +313,9 @@ Popup {
   function utworz() {
     const nazwa = nazwaZadania();
     const zrodlo = katalogSzablonow + "/" + szablonWybrany;
+    // WorkFieldGIS 22.10.2026 — odpowiedź na „gdzie zakładać” mogła przyjść po otwarciu okna.
+    if (Qt.platform.os === "android")
+      katalogProjektow = iface.katalogNowychProjektow();
     const cel = katalogProjektow + "/" + nazwa;
 
     if (FileUtils.fileExists(cel)) {

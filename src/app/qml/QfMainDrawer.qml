@@ -399,6 +399,9 @@ Drawer {
 
   property var pendingBlankCenter: null
   property bool pendingBlankSetup: false
+  // WorkFieldGIS 22.10.2026 [WF-NOWY-WLASCIWOSCI] — układ i właściwości z okna „Nowy projekt”.
+  property string pendingUklad: ""
+  property var pendingWlasciwosci: null
 
   /**
    * WorkField 6.10.2026 [WF-NOWY-PROJEKT] — PROJEKT OD RAZU KOMPLETNY.
@@ -444,7 +447,7 @@ Drawer {
     return {
       "id": "uniwersalny",
       "wersja": 1,
-      "uklad": "EPSG:2178",
+      "uklad": dashBoard.pendingUklad !== "" ? dashBoard.pendingUklad : iface.domyslnyUklad(), // WorkFieldGIS 22.10.2026
       "dane": "dane.gpkg",
       "zrodlo": "wbudowany",
       "warstwy": [
@@ -1189,12 +1192,24 @@ Drawer {
         return;
       }
       dashBoard.pendingBlankSetup = false;
-      iface.setProjectCrs("EPSG:2178");
+      // WorkFieldGIS 22.10.2026 [WF-NOWY-WLASCIWOSCI] — układ z okna „Nowy projekt” (było na sztywno 2178).
+      if (!iface.setProjectCrs(dashBoard.pendingUklad !== "" ? dashBoard.pendingUklad : iface.domyslnyUklad()))
+        iface.setProjectCrs("EPSG:2178");
+      const wl = dashBoard.pendingWlasciwosci;
+      dashBoard.pendingWlasciwosci = null;
+      if (wl) {
+        if (wl.tytul !== "")
+          iface.setProjectTitle(wl.tytul);
+        iface.setProjectVariable("obiekt_nazwa", wl.obiekt);
+        iface.setProjectVariable("obiekt_skrot", wl.skrot);
+        iface.setProjectVariable("obiekt_kategoria", wl.kategoria);
+      }
       iface.addXyzBasemap("Esri World Imagery", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", 19);
       // WorkField 6.10.2026 [WF-NOWY-PODKLADY] — OSM POD ESRI: addXyzBasemap
       // dokłada na sam dół legendy, więc drugi dodany ląduje pod pierwszym.
       iface.addXyzBasemap("OpenStreetMap", "https://tile.openstreetmap.org/{z}/{x}/{y}.png", 19);
       dashBoard.urzadzNowyProjekt(path, name);
+      dashBoard.pendingUklad = "";
       if (dashBoard.pendingBlankCenter) {
         const c = iface.transformPointToProjectCrs(dashBoard.pendingBlankCenter.x, dashBoard.pendingBlankCenter.y, "EPSG:2180");
         if (c.x !== undefined) {
@@ -2897,6 +2912,30 @@ Drawer {
     id: projectNameDialog
 
     property string mode: "blank"
+
+    // WorkFieldGIS 22.10.2026 [WF-NOWY-WLASCIWOSCI] — okno „Nowy projekt” = właściwości projektu:
+    // tytuł, obiekt, kategoria, układ, miejsce (gdy jest karta SD), metryczka zwinięta.
+    property var miejscaNowego: []
+    property string miejsceNowego: "telefon"
+    property bool metryczkaOtwarta: false
+    readonly property var uklady: [
+      { "label": "PL-1992 (EPSG:2180)", "authid": "EPSG:2180" },
+      { "label": "PL-2000 strefa 5 (EPSG:2176)", "authid": "EPSG:2176" },
+      { "label": "PL-2000 strefa 6 (EPSG:2177)", "authid": "EPSG:2177" },
+      { "label": "PL-2000 strefa 7 (EPSG:2178)", "authid": "EPSG:2178" },
+      { "label": "PL-2000 strefa 8 (EPSG:2179)", "authid": "EPSG:2179" },
+      { "label": "WGS 84 (EPSG:4326)", "authid": "EPSG:4326" },
+      { "label": "Web Mercator (EPSG:3857)", "authid": "EPSG:3857" },
+      { "label": qsTr("Inny — wpisz kod EPSG"), "authid": "" }
+    ]
+    //! Układ wybrany w oknie: z listy albo z pola „Inny EPSG”.
+    readonly property string ukladNowego: {
+      const a = nowyUklad.currentIndex >= 0 && nowyUklad.currentIndex < uklady.length ? uklady[nowyUklad.currentIndex].authid : "";
+      if (a !== "")
+        return a;
+      const kod = nowyUkladInny.text.trim().replace(/^epsg:/i, "");
+      return kod !== "" ? "EPSG:" + kod : "";
+    }
     // WorkField 19.10.2026 [WF-KOPIA-PROJEKTU] — „Zapisz jako” = nowy projekt
     // o tym samym układzie. Domyślnie bez zdjęć, bez załączników, bez obiektów.
     property var warstwyKopii: []
@@ -2944,6 +2983,26 @@ Drawer {
       metZleceniodawca.text = ""; // WF-METRYCZKA-CZYSC
       metTeren.text = "";
       metZlecenie.text = "";
+      // [WF-NOWY-WLASCIWOSCI] start: układ domyślny, miejsce z ustawienia, pola puste
+      metryczkaOtwarta = false;
+      nowyObiekt.text = "";
+      nowySkrot.text = "";
+      nowaKategoria.text = "";
+      nowyUkladInny.text = "";
+      nowyUkladDomyslny.checked = false;
+      nowyMiejsceDomyslne.checked = iface.miejsceDomyslne() === "";
+      miejscaNowego = iface.miejscaProjektow();
+      miejsceNowego = iface.miejsceDomyslne() !== "" ? iface.miejsceDomyslne() : "telefon";
+      const ud = iface.domyslnyUklad();
+      let iu = -1;
+      for (let k = 0; k < uklady.length; k++)
+        if (uklady[k].authid === ud)
+          iu = k;
+      if (iu < 0) {
+        iu = uklady.length - 1;
+        nowyUkladInny.text = ud.replace(/^EPSG:/i, "");
+      }
+      nowyUklad.currentIndex = iu;
       // projekt.qgz jest w każdym katalogu — nazwę niesie KATALOG
       projectNameField.text = mode === "blank" ? qsTr("Projekt") + " " + new Date().toISOString().slice(0, 10)
                                                : FileUtils.fileName(FileUtils.absolutePath(projectSection.filePath)) + "_nowy";
@@ -2952,7 +3011,7 @@ Drawer {
 
     parent: mainWindow.contentItem
     x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
+    y: Math.max(8, (mainWindow.height - height) / 2) // [WF-NOWY-WLASCIWOSCI] okno urosło
     width: Math.min(mainWindow.width - 40, 400)
     modal: true
 
@@ -3014,11 +3073,151 @@ Drawer {
         color: t.mainTextColor
       }
 
+      Text {
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        text: qsTr("Tytuł projektu")
+        font: t.tipFont
+        color: t.secondaryTextColor
+      }
+
       TextField {
         id: projectNameField
         Layout.fillWidth: true
         font: t.defaultFont
         enabled: !projectNameDialog.pracuje
+      }
+
+      // ── [WF-NOWY-WLASCIWOSCI] właściwości nowego projektu ─────────────
+      Text {
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        text: qsTr("Katalog: %1").arg(FileUtils.sanitizeFilePathPart(projectNameField.text.trim()))
+        font: t.tinyFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WrapAnywhere
+      }
+
+      Text {
+        Layout.fillWidth: true
+        Layout.topMargin: 4
+        visible: projectNameDialog.mode === "blank"
+        text: qsTr("Obiekt (w wyrażeniach: @obiekt_nazwa, @obiekt_skrot, @obiekt_kategoria)")
+        font: t.tipFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        spacing: 8
+
+        TextField {
+          id: nowyObiekt
+          Layout.fillWidth: true
+          font: t.defaultFont
+          placeholderText: qsTr("Nazwa obiektu")
+        }
+        TextField {
+          id: nowySkrot
+          Layout.preferredWidth: 90
+          font: t.defaultFont
+          placeholderText: qsTr("Skrót")
+        }
+      }
+
+      TextField {
+        id: nowaKategoria
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        font: t.defaultFont
+        placeholderText: qsTr("Kategoria: APPL / SCI / …")
+      }
+
+      Text {
+        Layout.fillWidth: true
+        Layout.topMargin: 4
+        visible: projectNameDialog.mode === "blank"
+        text: qsTr("Układ współrzędnych")
+        font: t.tipFont
+        color: t.secondaryTextColor
+      }
+
+      ComboBox {
+        id: nowyUklad
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        font: t.tinyFont
+        textRole: "label"
+        model: projectNameDialog.uklady
+      }
+
+      TextField {
+        id: nowyUkladInny
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank" && nowyUklad.currentIndex === projectNameDialog.uklady.length - 1
+        font: t.defaultFont
+        placeholderText: qsTr("Kod EPSG, np. 25834")
+        inputMethodHints: Qt.ImhDigitsOnly
+      }
+
+      Text {
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        text: {
+          const u = projectNameDialog.ukladNowego;
+          if (u === "")
+            return qsTr("Wpisz kod EPSG.");
+          const o = iface.opisUkladu(u);
+          return o !== "" ? u + " — " + o : qsTr("Nieznany układ: %1").arg(u);
+        }
+        font: t.tinyFont
+        color: iface.opisUkladu(projectNameDialog.ukladNowego) !== "" ? t.secondaryTextColor : "#e53935"
+        wrapMode: Text.WordWrap
+      }
+
+      CheckBox {
+        id: nowyUkladDomyslny
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank"
+        text: qsTr("Ustaw jako mój domyślny układ")
+        font: t.tipFont
+      }
+
+      Text {
+        Layout.fillWidth: true
+        Layout.topMargin: 4
+        visible: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1
+        text: qsTr("Gdzie")
+        font: t.tipFont
+        color: t.secondaryTextColor
+      }
+
+      ButtonGroup {
+        id: nowyMiejsceGrupa
+      }
+
+      Repeater {
+        model: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1 ? projectNameDialog.miejscaNowego : []
+
+        delegate: RadioButton {
+          required property var modelData
+          Layout.fillWidth: true
+          ButtonGroup.group: nowyMiejsceGrupa
+          font: t.tipFont
+          text: modelData.nazwa + " — " + Number(modelData.wolneGb).toFixed(1) + qsTr(" GB wolne")
+          checked: projectNameDialog.miejsceNowego === modelData.rodzaj
+          onClicked: projectNameDialog.miejsceNowego = modelData.rodzaj
+        }
+      }
+
+      CheckBox {
+        id: nowyMiejsceDomyslne
+        Layout.fillWidth: true
+        visible: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1
+        text: qsTr("Zapamiętaj jako domyślne")
+        font: t.tipFont
       }
 
       // [WF-KOPIA-PROJEKTU] dwie opcje Piotra; obie domyślnie WYŁĄCZONE
@@ -3117,30 +3316,37 @@ Drawer {
       // trafia do ZADANIE.json i posłuży do grupowania projektów.
       Text {
         Layout.fillWidth: true
+        Layout.topMargin: 4
         visible: projectNameDialog.mode === "blank"
-        text: qsTr("Metryczka — nieobowiązkowa. Wypełniona pozwoli później grupować projekty.")
+        // [WF-NOWY-WLASCIWOSCI] zwinięta, rozwija się tapnięciem
+        text: (projectNameDialog.metryczkaOtwarta ? "▾ " : "▸ ") + qsTr("Metryczka (zleceniodawca, teren, zlecenie) — nieobowiązkowa. Wypełniona pozwoli później grupować projekty.")
         font: t.tipFont
         color: t.secondaryTextColor
         wrapMode: Text.WordWrap
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: projectNameDialog.metryczkaOtwarta = !projectNameDialog.metryczkaOtwarta
+        }
       }
       TextField {
         id: metZleceniodawca
         Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
+        visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
         font: t.defaultFont
         placeholderText: qsTr("Zleceniodawca")
       }
       TextField {
         id: metTeren
         Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
+        visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
         font: t.defaultFont
         placeholderText: qsTr("Teren")
       }
       TextField {
         id: metZlecenie
         Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
+        visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
         font: t.defaultFont
         placeholderText: qsTr("Zlecenie")
       }
@@ -3220,8 +3426,24 @@ Drawer {
               // Projects” (lista projektów, menedżer plików, kabel), na
               // komputerze katalog zadań magazynu (~/WorkField/wydania).
               // Dotąd pusty projekt szedł zawsze do iface.dataRoot().
+              // WorkFieldGIS 22.10.2026 — na telefonie miejsce z wyboru (pamięć / karta SD).
+              // [WF-NOWY-WLASCIWOSCI] układ musi być znany, zanim cokolwiek powstanie
+              const uklad = projectNameDialog.ukladNowego;
+              if (uklad === "" || iface.opisUkladu(uklad) === "") {
+                displayToast(qsTr("Nieznany układ współrzędnych — wybierz z listy albo popraw kod EPSG"), "error");
+                return;
+              }
+              if (nowyUkladDomyslny.checked)
+                iface.ustawDomyslnyUklad(uklad);
+              // miejsce z okna (gdy jest karta SD); „zapamiętaj” = na stałe, inaczej tylko ta sesja
+              if (projectNameDialog.miejscaNowego.length > 1) {
+                if (nowyMiejsceDomyslne.checked)
+                  iface.ustawMiejsceDomyslne(projectNameDialog.miejsceNowego);
+                else
+                  iface.ustawMiejsceSesji(projectNameDialog.miejsceNowego);
+              }
               let katalogNowych = Qt.platform.os === "android"
-                ? root + "Imported Projects"
+                ? iface.katalogNowychProjektow()
                 : NarzedziaProjektu.katalogZadan(drzewoZlecen.korzen);
               if (katalogNowych === "")
                 katalogNowych = root + "Imported Projects";
@@ -3234,6 +3456,13 @@ Drawer {
               const centerPoints = iface.visibleExtentPointsIn2180(dashBoard.mapSettings, 2);
               dashBoard.pendingBlankCenter = centerPoints.length > 4 ? centerPoints[4] : null;
               dashBoard.pendingBlankSetup = true;
+              dashBoard.pendingUklad = uklad;
+              dashBoard.pendingWlasciwosci = {
+                "tytul": name,
+                "obiekt": nowyObiekt.text.trim(),
+                "skrot": nowySkrot.text.trim().toUpperCase(),
+                "kategoria": nowaKategoria.text.trim().toUpperCase()
+              };
               dashBoard.pendingMetryczka = {
                 "zleceniodawca": metZleceniodawca.text.trim(),
                 "teren": metTeren.text.trim(),

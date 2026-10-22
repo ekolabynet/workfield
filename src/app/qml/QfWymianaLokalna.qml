@@ -126,7 +126,7 @@ Popup {
    */
   function wniesPozycje(nazwa, jestKatalogiem) {
     const zrodlo = przychodzace + "/" + nazwa;
-    const projekty = iface.dataRoot() + "Imported Projects";
+    const projekty = iface.katalogNowychProjektow(); // WorkFieldGIS 22.10.2026 — pamięć / karta SD
     if (jestKatalogiem) {
       const cel = projekty + "/" + nazwa;
       if (FileUtils.copyRecursively(zrodlo, cel, null, false)) {

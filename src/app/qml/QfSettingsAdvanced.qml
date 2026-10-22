@@ -107,62 +107,64 @@ ColumnLayout {
       }
     }
 
-    Label {
-      text: qsTr("Katalog danych")
-      font: Theme.strongFont
-      color: Theme.mainTextColor
+    // WorkFieldGIS 22.10.2026 — „Nowe projekty zakładaj”: pamięć telefonu albo karta SD.
+    // Zastępuje stare przenoszenie całego katalogu danych (wyłączone 22.10, commit 4b061777b).
+    // Tu NIC nie jest przenoszone. Sekcja widoczna tylko, gdy są dwa miejsca (telefon z kartą).
+    ColumnLayout {
+      id: miejscaSekcja
+
+      property var miejsca: iface.miejscaProjektow()
+
+      visible: miejsca.length > 1
       Layout.fillWidth: true
+      Layout.columnSpan: 2
       Layout.topMargin: 10
-      Layout.columnSpan: 2
-    }
-
-    Label {
-      // WorkFieldGIS 22.10.2026 — zmiana miejsca wyłączona, patrz wybór niżej.
-      text: qsTr("Miejsce przechowywania projektów. Zmiana miejsca jest chwilowo wyłączona: dotychczasowe przenoszenie mogło ukryć projekty. Wróci w bezpiecznej wersji — z wyborem miejsca dla nowych projektów i przenoszeniem pojedynczego projektu. Twoje dane są tam, gdzie były.")
-      font: Theme.tipFont
-      color: Theme.secondaryTextColor
-      wrapMode: Text.WordWrap
-      Layout.fillWidth: true
-      Layout.columnSpan: 2
-    }
-
-    Column {
-      Layout.fillWidth: true
-      Layout.columnSpan: 2
       spacing: 2
 
+      Label {
+        text: qsTr("Nowe projekty zakładaj")
+        font: Theme.strongFont
+        color: Theme.mainTextColor
+        Layout.fillWidth: true
+      }
+
+      Label {
+        text: qsTr("Dotyczy nowych projektów i importów. Istniejących projektów nic tu nie przenosi. Na karcie jest zwykle więcej miejsca, ale bywa wolniejsza, a po jej wyjęciu projekty są niedostępne. Odinstalowanie aplikacji kasuje projekty w obu miejscach.")
+        font: Theme.tipFont
+        color: Theme.secondaryTextColor
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
+      }
+
       ButtonGroup {
-        id: dirButtonGroup
+        id: miejscaGrupa
       }
 
       Repeater {
-        model: platformUtilities.appDataDirs()
+        model: miejscaSekcja.miejsca
 
-        delegate: Column {
-          width: parent.width
+        delegate: ColumnLayout {
+          required property var modelData
+
+          Layout.fillWidth: true
+          spacing: 0
 
           RadioButton {
-            id: dirRadio
-            ButtonGroup.group: dirButtonGroup
-            width: parent.width
+            ButtonGroup.group: miejscaGrupa
+            Layout.fillWidth: true
             font: Theme.defaultFont
-            text: (modelData.indexOf("emulated") !== -1 ? qsTr("Pamięć wewnętrzna") : modelData.indexOf("/storage/") === 0 ? qsTr("Karta SD") : qsTr("Dysk lokalny")) + " — " + iface.storageFreeGb(modelData).toFixed(1) + qsTr(" GB wolne")
-          checked: iface.preferredDataDir() === "" ? index === 0 : modelData.indexOf(iface.preferredDataDir()) === 0 || iface.preferredDataDir().indexOf(modelData) === 0
-
-            // WorkFieldGIS 22.10.2026 — stare przenoszenie kopiowało dane do …/files/QField/,
-            // a aplikacja szuka ich w …/files/: lista projektów wychodziła pusta, a „Przenieś”
-            // kasował oryginały. Wybór tylko pokazuje, gdzie są dane; nie da się go zmienić.
-            enabled: false
+            text: modelData.nazwa + " — " + Number(modelData.wolneGb).toFixed(1) + qsTr(" GB wolne") + " · " + qsTr("projektów: %1").arg(modelData.projektow)
+            checked: (iface.miejsceDomyslne() === "" ? "telefon" : iface.miejsceDomyslne()) === modelData.rodzaj
             onClicked: {
-              storageMigrateDialog.targetDir = modelData.endsWith("/") ? modelData : modelData + "/";
-              storageMigrateDialog.open();
+              iface.ustawMiejsceDomyslne(modelData.rodzaj);
+              displayToast(modelData.rodzaj === "karta" ? qsTr("Nowe projekty: na karcie SD") : qsTr("Nowe projekty: w pamięci telefonu"));
             }
           }
 
           Label {
-            width: parent.width
+            Layout.fillWidth: true
             leftPadding: 40
-            text: modelData
+            text: modelData.katalog
             font: Theme.tinyFont
             color: Theme.secondaryTextColor
             elide: Text.ElideMiddle

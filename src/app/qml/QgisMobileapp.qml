@@ -6366,6 +6366,9 @@ ApplicationWindow {
 
     property string templatePath: ""
 
+    // WorkFieldGIS 22.10.2026 — kopia robocza to nowy projekt: najpierw „gdzie zakładać”.
+    onOpened: miejsceProjektu.upewnijSie()
+
     parent: mainWindow.contentItem
     x: (mainWindow.width - width) / 2
     y: (mainWindow.height - height) / 2
@@ -6406,7 +6409,7 @@ ApplicationWindow {
       // wyposazenia. Kopia katalogu (createProjectFromTemplate) byla dotad
       // jedynym mechanizmem — i jedynym zrodlem dryfu (17.08.2026).
       if (FileUtils.fileExists(dir + "/przepis.json")) {
-        qfPrzepis.noweZadanie(dir + "/przepis.json", iface.dataRoot() + "Imported Projects", nazwa);
+        qfPrzepis.noweZadanie(dir + "/przepis.json", iface.katalogNowychProjektow(), nazwa); // WorkFieldGIS 22.10.2026 — miejsce z wyboru
       } else {
         welcomeScreen.createProjectFromTemplate(dir, nazwa);
       }
@@ -7428,6 +7431,84 @@ ApplicationWindow {
 
   QfGeoreferencja {
     id: oknoGeoreferencji
+  }
+
+  // WorkFieldGIS 22.10.2026 — „Gdzie zakładać projekty?”. Pytamy RAZ, przy
+  // pierwszym nowym projekcie, i tylko gdy telefon ma kartę SD. Okna
+  // zakładania projektu wołają `miejsceProjektu.upewnijSie()` przy otwarciu,
+  // a katalog biorą z `iface.katalogNowychProjektow()` dopiero przy „Utwórz”.
+  Popup {
+    id: miejsceProjektu
+
+    property var miejsca: []
+
+    function upewnijSie() {
+      if (!iface.trzebaZapytacOMiejsce())
+        return;
+      miejsca = iface.miejscaProjektow();
+      zapamietajMiejsce.checked = true;
+      open();
+    }
+
+    function wybierz(rodzaj) {
+      if (zapamietajMiejsce.checked)
+        iface.ustawMiejsceDomyslne(rodzaj);
+      else
+        iface.ustawMiejsceSesji(rodzaj);
+      close();
+      displayToast(rodzaj === "karta" ? qsTr("Nowe projekty: na karcie SD") : qsTr("Nowe projekty: w pamięci telefonu"));
+    }
+
+    parent: mainWindow.contentItem
+    width: Math.min(mainWindow.width - 32, 440)
+    x: (mainWindow.width - width) / 2
+    y: Math.max(16, (mainWindow.height - height) / 2)
+    z: 10000
+    modal: true
+    closePolicy: Popup.NoAutoClose
+    padding: 20
+
+    ColumnLayout {
+      width: parent.width
+      spacing: 10
+
+      Label {
+        Layout.fillWidth: true
+        text: qsTr("Gdzie zakładać projekty?")
+        font: Theme.strongFont
+        color: Theme.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      Label {
+        Layout.fillWidth: true
+        text: qsTr("Telefon ma kartę SD. Na karcie jest zwykle więcej miejsca, ale bywa wolniejsza, a po jej wyjęciu projekty są niedostępne. Odinstalowanie aplikacji kasuje projekty w obu miejscach.")
+        font: Theme.tipFont
+        color: Theme.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      Repeater {
+        model: miejsceProjektu.miejsca
+
+        delegate: Button {
+          required property var modelData
+          Layout.fillWidth: true
+          Layout.preferredHeight: 56
+          text: modelData.nazwa + " — " + Number(modelData.wolneGb).toFixed(1) + qsTr(" GB wolne")
+          font: Theme.defaultFont
+          onClicked: miejsceProjektu.wybierz(modelData.rodzaj)
+        }
+      }
+
+      CheckBox {
+        id: zapamietajMiejsce
+        Layout.fillWidth: true
+        text: qsTr("Zapamiętaj jako domyślne (zmienisz w Ustawieniach → Zaawansowane)")
+        font: Theme.tipFont
+        checked: true
+      }
+    }
   }
 
   // ── znaczniki punktow dopasowania NA MAPIE ──────────────────────

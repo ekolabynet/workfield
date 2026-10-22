@@ -963,6 +963,147 @@ QString QfAppInterface::dataRoot() const
   return root;
 }
 
+// ── WorkFieldGIS 22.10.2026 — miejsca na projekty: pamięć telefonu i karta SD ──
+// Zastępuje stare „przenieś cały katalog danych” (wyłączone 22.10). Tu NIC nie
+// jest przenoszone: decydujemy tylko, gdzie powstaje NOWY projekt.
+namespace
+{
+  //! Wybór na tę sesję, gdy użytkownik nie chciał go zapamiętać.
+  QString wfMiejsceSesji;
+
+  //! Karta to /storage/XXXX-XXXX/…; telefon to /storage/emulated/… i każdy dysk komputera.
+  QString wfRodzajNosnika( const QString &sciezka )
+  {
+    const QString s = QDir::cleanPath( sciezka );
+    if ( s.startsWith( QStringLiteral( "/storage/" ) ) && !s.startsWith( QStringLiteral( "/storage/emulated/" ) ) && !s.startsWith( QStringLiteral( "/storage/self/" ) ) )
+      return QStringLiteral( "karta" );
+    return QStringLiteral( "telefon" );
+  }
+} // namespace
+
+QVariantList QfAppInterface::miejscaProjektow() const
+{
+  QStringList korzenie;
+  korzenie << dataRoot();
+  korzenie << QfPlatformUtilities::instance()->additionalApplicationDirectories();
+
+  QVariantList telefon;
+  QVariantList karta;
+  QStringList widziane;
+  for ( const QString &k0 : std::as_const( korzenie ) )
+  {
+    if ( k0.trimmed().isEmpty() )
+      continue;
+    const QString k = QDir::cleanPath( k0 );
+    if ( widziane.contains( k ) || !QDir( k ).exists() )
+      continue;
+    widziane << k;
+
+    // „Katalogi aplikacji tu i tu” (decyzja Piotra 22.10): zakładamy w każdym miejscu.
+    const QString katalog = k + QStringLiteral( "/Imported Projects" );
+    QDir().mkpath( katalog );
+    const QFileInfo fi( katalog );
+    if ( !fi.isDir() || !fi.isWritable() )
+      continue;
+
+    const QString rodzaj = wfRodzajNosnika( k );
+    QVariantMap m;
+    m.insert( QStringLiteral( "rodzaj" ), rodzaj );
+    m.insert( QStringLiteral( "nazwa" ), rodzaj == QLatin1String( "karta" ) ? QStringLiteral( "Karta SD" ) : QStringLiteral( "Pamięć telefonu" ) );
+    m.insert( QStringLiteral( "korzen" ), k );
+    m.insert( QStringLiteral( "katalog" ), katalog );
+    m.insert( QStringLiteral( "wolneGb" ), storageFreeGb( katalog ) );
+    m.insert( QStringLiteral( "projektow" ), QDir( katalog ).entryList( QDir::Dirs | QDir::NoDotAndDotDot ).size() );
+    if ( rodzaj == QLatin1String( "karta" ) )
+      karta << m;
+    else
+      telefon << m;
+  }
+  return telefon + karta;
+}
+
+QString QfAppInterface::miejsceDomyslne() const
+{
+  return QSettings().value( QStringLiteral( "workfield/miejsceNowychProjektow" ) ).toString();
+}
+
+void QfAppInterface::ustawMiejsceDomyslne( const QString &rodzaj )
+{
+  QSettings().setValue( QStringLiteral( "workfield/miejsceNowychProjektow" ), rodzaj );
+  wfMiejsceSesji.clear();
+  qInfo() << "WFG miejsce: nowe projekty domyslnie" << rodzaj;
+}
+
+void QfAppInterface::ustawMiejsceSesji( const QString &rodzaj )
+{
+  wfMiejsceSesji = rodzaj;
+  qInfo() << "WFG miejsce: nowe projekty w tej sesji" << rodzaj;
+}
+
+bool QfAppInterface::trzebaZapytacOMiejsce() const
+{
+  if ( !miejsceDomyslne().isEmpty() || !wfMiejsceSesji.isEmpty() )
+    return false;
+  const QVariantList m = miejscaProjektow();
+  for ( const QVariant &v : m )
+  {
+    if ( v.toMap().value( QStringLiteral( "rodzaj" ) ).toString() == QLatin1String( "karta" ) )
+      return true;
+  }
+  return false;
+}
+
+QString QfAppInterface::katalogNowychProjektow() const
+{
+  QString rodzaj = !wfMiejsceSesji.isEmpty() ? wfMiejsceSesji : miejsceDomyslne();
+  if ( rodzaj.isEmpty() )
+    rodzaj = QStringLiteral( "telefon" );
+  const QVariantList m = miejscaProjektow();
+  for ( const QVariant &v : m )
+  {
+    const QVariantMap mm = v.toMap();
+    if ( mm.value( QStringLiteral( "rodzaj" ) ).toString() == rodzaj )
+      return mm.value( QStringLiteral( "katalog" ) ).toString();
+  }
+  if ( !m.isEmpty() )
+  {
+    // Wybranego miejsca nie ma (np. karta wyjęta) — pierwsze dostępne, czyli telefon.
+    qInfo() << "WFG miejsce: brak miejsca" << rodzaj << "- uzywam" << m.first().toMap().value( QStringLiteral( "nazwa" ) ).toString();
+    return m.first().toMap().value( QStringLiteral( "katalog" ) ).toString();
+  }
+  return dataRoot() + QStringLiteral( "Imported Projects" );
+}
+
+bool QfAppInterface::naKarcie( const QString &sciezka ) const
+{
+  return !sciezka.isEmpty() && wfRodzajNosnika( sciezka ) == QLatin1String( "karta" );
+}
+
+// WorkFieldGIS 22.10.2026 — „mój domyślny układ” nowych projektów.
+QString QfAppInterface::domyslnyUklad() const
+{
+  const QString u = QSettings().value( QStringLiteral( "workfield/domyslnyUklad" ) ).toString();
+  if ( !u.isEmpty() && QgsCoordinateReferenceSystem( u ).isValid() )
+    return u;
+  return QStringLiteral( "EPSG:2178" );
+}
+
+bool QfAppInterface::ustawDomyslnyUklad( const QString &authid )
+{
+  const QgsCoordinateReferenceSystem crs( authid );
+  if ( !crs.isValid() )
+    return false;
+  QSettings().setValue( QStringLiteral( "workfield/domyslnyUklad" ), crs.authid() );
+  qInfo() << "WFG uklad: domyslny" << crs.authid();
+  return true;
+}
+
+QString QfAppInterface::opisUkladu( const QString &authid ) const
+{
+  const QgsCoordinateReferenceSystem crs( authid );
+  return crs.isValid() ? crs.description() : QString();
+}
+
 void QfAppInterface::migrateLegacyDataLayout()
 {
   // Jednorazowe sprzatanie po wadzie W1: to, co starsze wersje zapisaly

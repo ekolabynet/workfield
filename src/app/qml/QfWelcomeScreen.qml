@@ -36,9 +36,9 @@ Page {
     if (root === "") {
       return;
     }
-    platformUtilities.createDir(root, "Imported Projects");
+    // WorkFieldGIS 22.10.2026 — miejsce z wyboru (pamięć telefonu / karta SD); katalog zakłada C++.
     const safeName = FileUtils.sanitizeFilePathPart(projectName);
-    const destination = root + "Imported Projects/" + safeName;
+    const destination = iface.katalogNowychProjektow() + "/" + safeName;
     if (FileUtils.fileExists(destination + "/projekt.qgs") || FileUtils.fileExists(destination + "/projekt.qgz")) {
       displayToast(qsTr("Projekt o nazwie '%1' już istnieje").arg(safeName));
       return;

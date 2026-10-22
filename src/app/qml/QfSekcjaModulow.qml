@@ -266,7 +266,7 @@ Item {
     nazwa = nazwa.trim();
     if (nazwa === "")
       return qsTr("Podaj nazwę projektu.");
-    const katalogProjektow = iface.dataRoot() + "Imported Projects";
+    const katalogProjektow = iface.katalogNowychProjektow(); // WorkFieldGIS 22.10.2026 — pamięć / karta SD
     const cel = katalogProjektow + "/" + nazwa;
     if (FileUtils.fileExists(cel))
       return qsTr("Projekt o tej nazwie już istnieje.");
@@ -401,6 +401,7 @@ Item {
     wyborUkladu.currentIndex = iu >= 0 ? iu : 0;
     const pokaz = function () {
       oknoNowego.open();
+      miejsceProjektu.upewnijSie(); // WorkFieldGIS 22.10.2026 — „gdzie zakładać” (raz, gdy jest karta)
     };
     if (szuflada && szuflada.modal && szuflada.opened) {
       const poZamknieciu = function () {
