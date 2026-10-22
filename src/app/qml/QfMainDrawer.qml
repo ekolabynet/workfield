@@ -2367,6 +2367,16 @@ Drawer {
           }
         }
         QfPozycjaMenu {
+          // WorkFieldGIS 22.10.2026 [WF-PRZENIES-PROJEKT] — tylko na telefonie z kartą SD
+          text: iface.naKarcie(projectSection.filePath) ? qsTr("Przenieś do pamięci telefonu") : qsTr("Przenieś na kartę SD")
+          ikona: "wfg_wymiana"
+          visible: projectSection.filePath !== "" && iface.miejscaProjektow().length > 1
+          onClicked: {
+            dashBoard.close();
+            przeniesienieProjektu.pokaz();
+          }
+        }
+        QfPozycjaMenu {
           text: qsTr("Właściwości")
           ikona: "wfg_wlasciwosci"
           enabled: projectSection.filePath !== ""
@@ -2933,6 +2943,196 @@ Drawer {
     }
 
     
+  }
+
+  // WorkFieldGIS 22.10.2026 [WF-PRZENIES-PROJEKT] — przeniesienie bieżącego projektu
+  // między pamięcią a kartą SD. Kolejność: zapis → zamknięcie projektu (baza musi się
+  // domknąć) → kopia w tle → md5 każdego pliku → DOPIERO WTEDY pytanie o oryginał.
+  Popup {
+    id: przeniesienieProjektu
+
+    property var plan: ({})
+    property string plikProjektu: ""
+    property string tytul: ""
+    property bool pracuje: false
+    property string etap: ""
+    property real ile: 0
+    property var wynik: null
+
+    function pokaz() {
+      wynik = null;
+      pracuje = false;
+      etap = "";
+      ile = 0;
+      plikProjektu = FileUtils.fileName(projectSection.filePath);
+      tytul = mainWindow.projectTitle !== "" ? mainWindow.projectTitle : FileUtils.fileName(FileUtils.absolutePath(projectSection.filePath));
+      plan = iface.przeniesienieProjektuPlan(FileUtils.absolutePath(projectSection.filePath));
+      open();
+    }
+
+    function start() {
+      if (!ProjectUtils.saveProject(qgisProject)) {
+        displayToast(qsTr("Nie zapisano projektu — nie przenoszę"), "error");
+        return;
+      }
+      pracuje = true;
+      etap = qsTr("Zamykam projekt…");
+      iface.clearProject();
+      startPrzeniesienia.start();
+    }
+
+    function otworz(katalog) {
+      iface.loadFile(katalog + "/" + plikProjektu, tytul);
+    }
+
+    // chwila na domknięcie bazy po zamknięciu projektu (znika dziennik -wal)
+    Timer {
+      id: startPrzeniesienia
+      interval: 1500
+      onTriggered: {
+        if (!iface.przeniesProjekt(przeniesienieProjektu.plan.zrodlo)) {
+          const p = iface.przeniesienieProjektuPlan(przeniesienieProjektu.plan.zrodlo);
+          przeniesienieProjektu.pracuje = false;
+          przeniesienieProjektu.etap = "";
+          przeniesienieProjektu.plan = p;
+          displayToast(p.blad ? p.blad : qsTr("Nie udało się zacząć przenoszenia"), "error");
+          przeniesienieProjektu.otworz(przeniesienieProjektu.plan.zrodlo);
+        }
+      }
+    }
+
+    Connections {
+      target: iface
+      ignoreUnknownSignals: true
+
+      function onPrzeniesienieProjektuPostep(etap, ile) {
+        przeniesienieProjektu.ile = ile;
+        przeniesienieProjektu.etap = etap === "kopiowanie" ? qsTr("Kopiuję… %1%").arg(Math.round(ile * 100))
+                                                           : qsTr("Sprawdzam sumy kontrolne… %1%").arg(Math.round(ile * 100));
+      }
+
+      function onPrzeniesienieProjektuGotowe(w) {
+        przeniesienieProjektu.pracuje = false;
+        przeniesienieProjektu.etap = "";
+        przeniesienieProjektu.wynik = w;
+        if (!w.ok) {
+          displayToast(qsTr("Przeniesienie nie powiodło się: %1. Oryginał jest nietknięty.").arg(w.blad), "error");
+          przeniesienieProjektu.otworz(w.zrodlo);
+        }
+      }
+    }
+
+    parent: mainWindow.contentItem
+    width: Math.min(mainWindow.width - 40, 420)
+    x: (mainWindow.width - width) / 2
+    y: Math.max(8, (mainWindow.height - height) / 2)
+    modal: true
+    padding: 16
+    closePolicy: pracuje ? Popup.NoAutoClose : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
+
+    ColumnLayout {
+      width: parent.width
+      spacing: 10
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Przenieś projekt")
+        font: t.strongFont
+        color: t.mainTextColor
+      }
+
+      // przed startem: plan albo powód odmowy
+      Text {
+        Layout.fillWidth: true
+        visible: !przeniesienieProjektu.pracuje && przeniesienieProjektu.wynik === null
+        text: przeniesienieProjektu.plan.ok
+              ? qsTr("„%1”: %2 → %3.\nRozmiar %4 MB (%5 plików), wolne po drugiej stronie %6 MB.\n\nNa czas kopiowania projekt zostanie zamknięty. Oryginał zostaje, dopóki nie zobaczysz, że kopia jest dobra.")
+                .arg(przeniesienieProjektu.tytul).arg(przeniesienieProjektu.plan.skad).arg(przeniesienieProjektu.plan.dokad)
+                .arg(Math.round(przeniesienieProjektu.plan.rozmiarMb)).arg(przeniesienieProjektu.plan.plikow).arg(Math.round(przeniesienieProjektu.plan.wolneMb))
+              : (przeniesienieProjektu.plan.blad || "")
+        font: t.tipFont
+        color: przeniesienieProjektu.plan.ok ? t.mainTextColor : "#e53935"
+        wrapMode: Text.WordWrap
+      }
+
+      // w trakcie
+      ProgressBar {
+        Layout.fillWidth: true
+        visible: przeniesienieProjektu.pracuje
+        from: 0
+        to: 1
+        value: przeniesienieProjektu.ile
+      }
+      Text {
+        Layout.fillWidth: true
+        visible: przeniesienieProjektu.pracuje
+        text: przeniesienieProjektu.etap + "\n" + qsTr("Nie zamykaj aplikacji.")
+        font: t.tipFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      // po udanej kopii: co z oryginałem
+      Text {
+        Layout.fillWidth: true
+        visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
+        text: przeniesienieProjektu.wynik && przeniesienieProjektu.wynik.ok
+              ? qsTr("Kopia gotowa i sprawdzona: %1 plików, sumy kontrolne zgodne.\n\nCo z oryginałem (%2)?").arg(przeniesienieProjektu.wynik.plikow).arg(przeniesienieProjektu.plan.skad)
+              : ""
+        font: t.tipFont
+        color: t.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+      Button {
+        Layout.fillWidth: true
+        visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
+        text: qsTr("Usuń oryginał i otwórz kopię")
+        font: t.defaultFont
+        onClicked: {
+          const w = przeniesienieProjektu.wynik;
+          const ok = iface.usunOryginalPoPrzeniesieniu(w.zrodlo, w.cel);
+          displayToast(ok ? qsTr("Projekt przeniesiony: %1").arg(przeniesienieProjektu.plan.dokad)
+                          : qsTr("Oryginału NIE usunięto — kopia różni się od niego. Oba są na miejscu."), ok ? "info" : "error");
+          przeniesienieProjektu.close();
+          przeniesienieProjektu.otworz(w.cel);
+        }
+      }
+      Button {
+        Layout.fillWidth: true
+        visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
+        text: qsTr("Zostaw oryginał i otwórz kopię")
+        font: t.defaultFont
+        onClicked: {
+          const w = przeniesienieProjektu.wynik;
+          displayToast(qsTr("Projekt jest teraz w obu miejscach — pracujesz na kopii (%1)").arg(przeniesienieProjektu.plan.dokad));
+          przeniesienieProjektu.close();
+          przeniesienieProjektu.otworz(w.cel);
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        visible: !przeniesienieProjektu.pracuje && (przeniesienieProjektu.wynik === null || przeniesienieProjektu.wynik.ok !== true)
+
+        Item {
+          Layout.fillWidth: true
+        }
+        Button {
+          flat: true
+          text: przeniesienieProjektu.wynik === null ? qsTr("Anuluj") : qsTr("Zamknij")
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: przeniesienieProjektu.close()
+        }
+        Button {
+          flat: true
+          visible: przeniesienieProjektu.wynik === null
+          enabled: przeniesienieProjektu.plan.ok === true
+          text: qsTr("Przenieś")
+          font.pointSize: t.tinyFont.pointSize
+          onClicked: przeniesienieProjektu.start()
+        }
+      }
+    }
   }
 
   // WorkFieldGIS 22.10.2026 — „Otwórz projekty”, gdy na karcie SD są projekty:

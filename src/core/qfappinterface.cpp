@@ -2676,6 +2676,264 @@ bool QfAppInterface::kopiujProjekt( QgsProject *projekt, const QString &cel, con
 }
 
 // ===========================================================================
+// WorkFieldGIS 22.10.2026 [WF-PRZENIES-PROJEKT] — jeden projekt między pamięcią
+// telefonu a kartą SD. Zasada z terenu: najpierw KOPIA, sprawdzenie md5 każdego
+// pliku, a oryginał znika dopiero na wyraźne „tak” — osobnym wywołaniem.
+// Nic nie jest nadpisywane: katalog docelowy nie może istnieć.
+// ===========================================================================
+#include <QCryptographicHash>
+
+namespace
+{
+  std::atomic<bool> sPrzeniesienieProjektuTrwa { false };
+
+  QByteArray wfMd5Pliku( const QString &sciezka )
+  {
+    QFile f( sciezka );
+    if ( !f.open( QIODevice::ReadOnly ) )
+      return QByteArray();
+    QCryptographicHash h( QCryptographicHash::Md5 );
+    if ( !h.addData( &f ) )
+      return QByteArray();
+    return h.result().toHex();
+  }
+
+  //! Pliki katalogu (ścieżki względne), z ukrytymi; katalogi osobno (także puste).
+  void wfSpisKatalogu( const QString &katalog, QStringList &pliki, QStringList &katalogi, qint64 &bajty )
+  {
+    QDirIterator it( katalog, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden, QDirIterator::Subdirectories );
+    const QDir baza( katalog );
+    while ( it.hasNext() )
+    {
+      it.next();
+      const QFileInfo fi = it.fileInfo();
+      if ( fi.isSymLink() )
+        continue;
+      if ( fi.isDir() )
+        katalogi << baza.relativeFilePath( fi.absoluteFilePath() );
+      else
+      {
+        pliki << baza.relativeFilePath( fi.absoluteFilePath() );
+        bajty += fi.size();
+      }
+    }
+    pliki.sort();
+    katalogi.sort();
+  }
+} // namespace
+
+QVariantMap QfAppInterface::przeniesienieProjektuPlan( const QString &katalogProjektu ) const
+{
+  QVariantMap w;
+  w[QStringLiteral( "ok" )] = false;
+  const QString sciezka = QDir::cleanPath( katalogProjektu );
+  if ( sciezka.isEmpty() || !QFileInfo( sciezka ).isDir() )
+  {
+    w[QStringLiteral( "blad" )] = QStringLiteral( "Nie ma katalogu projektu." );
+    return w;
+  }
+
+  // w którym miejscu leży projekt: bezpośredni podkatalog „Imported Projects”
+  const QVariantList miejsca = miejscaProjektow();
+  QVariantMap skad;
+  QString zrodlo;
+  for ( const QVariant &v : miejsca )
+  {
+    const QVariantMap m = v.toMap();
+    const QString baza = QDir::cleanPath( m.value( QStringLiteral( "katalog" ) ).toString() );
+    if ( sciezka.startsWith( baza + QLatin1Char( '/' ) ) )
+    {
+      const QString reszta = sciezka.mid( baza.length() + 1 );
+      zrodlo = baza + QLatin1Char( '/' ) + reszta.section( QLatin1Char( '/' ), 0, 0 );
+      skad = m;
+      break;
+    }
+  }
+  if ( zrodlo.isEmpty() )
+  {
+    w[QStringLiteral( "blad" )] = QStringLiteral( "Ten projekt nie leży w katalogu projektów aplikacji — przenoszenie działa dla projektów z „Imported Projects”." );
+    return w;
+  }
+
+  QVariantMap dokad;
+  for ( const QVariant &v : miejsca )
+  {
+    const QVariantMap m = v.toMap();
+    if ( m.value( QStringLiteral( "rodzaj" ) ) != skad.value( QStringLiteral( "rodzaj" ) ) )
+    {
+      dokad = m;
+      break;
+    }
+  }
+  if ( dokad.isEmpty() )
+  {
+    w[QStringLiteral( "blad" )] = QStringLiteral( "Nie ma drugiego miejsca — telefon nie widzi karty SD." );
+    return w;
+  }
+
+  const QString cel = dokad.value( QStringLiteral( "katalog" ) ).toString() + QLatin1Char( '/' ) + QFileInfo( zrodlo ).fileName();
+  QStringList pliki, katalogi;
+  qint64 bajty = 0;
+  wfSpisKatalogu( zrodlo, pliki, katalogi, bajty );
+  bool otwartaBaza = false;
+  for ( const QString &p : std::as_const( pliki ) )
+    if ( p.endsWith( QLatin1String( "-wal" ) ) && QFileInfo( zrodlo + QLatin1Char( '/' ) + p ).size() > 0 )
+      otwartaBaza = true;
+  const qint64 wolne = QStorageInfo( dokad.value( QStringLiteral( "katalog" ) ).toString() ).bytesAvailable();
+
+  w[QStringLiteral( "zrodlo" )] = zrodlo;
+  w[QStringLiteral( "cel" )] = cel;
+  w[QStringLiteral( "nazwa" )] = QFileInfo( zrodlo ).fileName();
+  w[QStringLiteral( "skad" )] = skad.value( QStringLiteral( "nazwa" ) );
+  w[QStringLiteral( "dokad" )] = dokad.value( QStringLiteral( "nazwa" ) );
+  w[QStringLiteral( "rodzajCelu" )] = dokad.value( QStringLiteral( "rodzaj" ) );
+  w[QStringLiteral( "plikow" )] = pliki.size();
+  w[QStringLiteral( "rozmiarMb" )] = double( bajty ) / 1048576.0;
+  w[QStringLiteral( "wolneMb" )] = double( wolne ) / 1048576.0;
+  w[QStringLiteral( "otwartaBaza" )] = otwartaBaza;
+
+  if ( QFileInfo::exists( cel ) )
+    w[QStringLiteral( "blad" )] = QStringLiteral( "W miejscu docelowym jest już katalog „%1”. Nic nie nadpisuję — zmień jego nazwę albo usuń go." ).arg( QFileInfo( zrodlo ).fileName() );
+  else if ( wolne < bajty + 200LL * 1048576 )
+    w[QStringLiteral( "blad" )] = QStringLiteral( "Za mało miejsca: projekt ma %1 MB, wolne %2 MB (potrzebny zapas 200 MB)." ).arg( bajty / 1048576 ).arg( wolne / 1048576 );
+  else
+    w[QStringLiteral( "ok" )] = true;
+  return w;
+}
+
+bool QfAppInterface::przeniesienieProjektuTrwa() const
+{
+  return sPrzeniesienieProjektuTrwa.load();
+}
+
+bool QfAppInterface::przeniesProjekt( const QString &katalogProjektu )
+{
+  const QVariantMap plan = przeniesienieProjektuPlan( katalogProjektu );
+  if ( !plan.value( QStringLiteral( "ok" ) ).toBool() )
+    return false;
+  bool oczekiwane = false;
+  if ( !sPrzeniesienieProjektuTrwa.compare_exchange_strong( oczekiwane, true ) )
+    return false;
+
+  const QString zrodlo = plan.value( QStringLiteral( "zrodlo" ) ).toString();
+  const QString cel = plan.value( QStringLiteral( "cel" ) ).toString();
+  QPointer<QfAppInterface> ja( this );
+  std::thread( [ja, zrodlo, cel]() {
+    QVariantMap w;
+    w[QStringLiteral( "zrodlo" )] = zrodlo;
+    w[QStringLiteral( "cel" )] = cel;
+    auto postep = [&]( const QString &etap, double ile ) {
+      if ( ja )
+        QMetaObject::invokeMethod( ja, [ja, etap, ile]() { if ( ja ) emit ja->przeniesienieProjektuPostep( etap, ile ); }, Qt::QueuedConnection );
+    };
+
+    QStringList pliki, katalogi;
+    qint64 bajty = 0;
+    wfSpisKatalogu( zrodlo, pliki, katalogi, bajty );
+    QString blad;
+    // baza otwarta = zapisy siedzą w dzienniku -wal; kopia byłaby niepełna
+    for ( const QString &p : std::as_const( pliki ) )
+      if ( p.endsWith( QLatin1String( "-wal" ) ) && QFileInfo( zrodlo + QLatin1Char( '/' ) + p ).size() > 0 )
+        blad = QStringLiteral( "Baza %1 jest jeszcze otwarta (niepusty dziennik -wal). Zamknij projekt i spróbuj ponownie." ).arg( p.chopped( 4 ) );
+
+    bool zalozylem = false;
+    if ( blad.isEmpty() )
+    {
+      if ( QFileInfo::exists( cel ) )
+        blad = QStringLiteral( "Katalog docelowy już istnieje — nic nie nadpisuję." );
+      else if ( !QDir().mkpath( cel ) )
+        blad = QStringLiteral( "Nie mogę założyć katalogu %1" ).arg( cel );
+      else
+        zalozylem = true;
+    }
+    for ( const QString &k : std::as_const( katalogi ) )
+      if ( blad.isEmpty() && !QDir().mkpath( cel + QLatin1Char( '/' ) + k ) )
+        blad = QStringLiteral( "Nie mogę założyć katalogu %1" ).arg( k );
+
+    // 1. kopia — QFile::copy odmawia, gdy plik istnieje: niczego nie nadpisze
+    qint64 skopiowano = 0;
+    for ( const QString &p : std::as_const( pliki ) )
+    {
+      if ( !blad.isEmpty() )
+        break;
+      postep( QStringLiteral( "kopiowanie" ), bajty > 0 ? double( skopiowano ) / bajty : 0.0 );
+      if ( !QFile::copy( zrodlo + QLatin1Char( '/' ) + p, cel + QLatin1Char( '/' ) + p ) )
+        blad = QStringLiteral( "Nie skopiowałem %1" ).arg( p );
+      skopiowano += QFileInfo( zrodlo + QLatin1Char( '/' ) + p ).size();
+    }
+
+    // 2. sprawdzenie: md5 każdego pliku w oryginale i w kopii
+    qint64 sprawdzono = 0;
+    for ( const QString &p : std::as_const( pliki ) )
+    {
+      if ( !blad.isEmpty() )
+        break;
+      postep( QStringLiteral( "sprawdzanie" ), bajty > 0 ? double( sprawdzono ) / bajty : 0.0 );
+      const QByteArray a = wfMd5Pliku( zrodlo + QLatin1Char( '/' ) + p );
+      const QByteArray b = wfMd5Pliku( cel + QLatin1Char( '/' ) + p );
+      if ( a.isEmpty() || a != b )
+        blad = QStringLiteral( "Kopia pliku %1 różni się od oryginału" ).arg( p );
+      sprawdzono += QFileInfo( zrodlo + QLatin1Char( '/' ) + p ).size();
+    }
+
+    if ( blad.isEmpty() )
+    {
+      w[QStringLiteral( "ok" )] = true;
+      w[QStringLiteral( "plikow" )] = pliki.size();
+      w[QStringLiteral( "rozmiarMb" )] = double( bajty ) / 1048576.0;
+    }
+    else
+    {
+      w[QStringLiteral( "ok" )] = false;
+      w[QStringLiteral( "blad" )] = blad;
+      // niepełna kopia jest NASZA (katalog nie istniał przed startem) — sprzątamy ją;
+      // oryginał jest nietknięty
+      if ( zalozylem )
+        QDir( cel ).removeRecursively();
+    }
+    qInfo() << "WFG przeniesienie projektu:" << zrodlo << "->" << cel << w;
+    sPrzeniesienieProjektuTrwa.store( false );
+    if ( ja )
+      QMetaObject::invokeMethod( ja, [ja, w]() { if ( ja ) emit ja->przeniesienieProjektuGotowe( w ); }, Qt::QueuedConnection );
+  } ).detach();
+  return true;
+}
+
+bool QfAppInterface::usunOryginalPoPrzeniesieniu( const QString &zrodlo, const QString &cel )
+{
+  const QString z = QDir::cleanPath( zrodlo );
+  const QString c = QDir::cleanPath( cel );
+  if ( z.isEmpty() || c.isEmpty() || z == c || !QFileInfo( z ).isDir() || !QFileInfo( c ).isDir() )
+    return false;
+  // tylko bezpośredni podkatalog „Imported Projects” jednego z miejsc — nic więcej nie wolno skasować
+  bool wMiejscu = false;
+  for ( const QVariant &v : miejscaProjektow() )
+  {
+    const QString baza = QDir::cleanPath( v.toMap().value( QStringLiteral( "katalog" ) ).toString() );
+    if ( QFileInfo( z ).absolutePath() == baza )
+      wMiejscu = true;
+  }
+  if ( !wMiejscu )
+    return false;
+  // ostatnia kontrola: te same pliki, te same rozmiary (md5 sprawdzone przy kopii)
+  QStringList pz, kz, pc, kc;
+  qint64 bz = 0, bc = 0;
+  wfSpisKatalogu( z, pz, kz, bz );
+  wfSpisKatalogu( c, pc, kc, bc );
+  if ( pz != pc || bz != bc )
+  {
+    qWarning() << "WFG przeniesienie projektu: kopia rozni sie od oryginalu - oryginal ZOSTAJE" << z;
+    return false;
+  }
+  for ( const QString &p : std::as_const( pz ) )
+    if ( QFileInfo( z + QLatin1Char( '/' ) + p ).size() != QFileInfo( c + QLatin1Char( '/' ) + p ).size() )
+      return false;
+  const bool ok = QDir( z ).removeRecursively();
+  qInfo() << "WFG przeniesienie projektu: oryginal usuniety" << z << ok;
+  return ok;
+}
+
+// ===========================================================================
 // WorkFieldGIS 19.10.2026 [WF-PRZENOSINY] — moving to the new package
 // (com.workfieldgis.app). Android does not let a new package read the private
 // folder of the old one, so the move has two sides:

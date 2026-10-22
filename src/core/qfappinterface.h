@@ -331,6 +331,24 @@ class QfAppInterface : public QObject
     //! Czy kopia projektu trwa.
     Q_INVOKABLE bool kopiaProjektuTrwa() const;
 
+    /**
+     * WorkFieldGIS 22.10.2026 [WF-PRZENIES-PROJEKT] — jeden projekt między pamięcią telefonu
+     * a kartą SD. Plan bez zmian na dysku: {ok, blad, zrodlo, cel, nazwa, skad, dokad,
+     * rodzajCelu, plikow, rozmiarMb, wolneMb, otwartaBaza}.
+     */
+    Q_INVOKABLE QVariantMap przeniesienieProjektuPlan( const QString &katalogProjektu ) const;
+
+    //! Kopia w tle + md5 każdego pliku; oryginał zostaje. Wynik sygnałem przeniesienieProjektuGotowe.
+    //! False, gdy plan odmawia albo przenoszenie już trwa.
+    Q_INVOKABLE bool przeniesProjekt( const QString &katalogProjektu );
+
+    //! Czy przenoszenie projektu trwa.
+    Q_INVOKABLE bool przeniesienieProjektuTrwa() const;
+
+    //! Usuwa oryginał po udanej kopii — tylko bezpośredni podkatalog „Imported Projects”
+    //! i tylko gdy kopia ma te same pliki o tych samych rozmiarach.
+    Q_INVOKABLE bool usunOryginalPoPrzeniesieniu( const QString &zrodlo, const QString &cel );
+
     //! Adds an XYZ basemap layer at the bottom of the layer tree.
     Q_INVOKABLE bool addXyzBasemap( const QString &name, const QString &url, int zmax );
 
@@ -644,6 +662,9 @@ class QfAppInterface : public QObject
     //! WorkFieldGIS [WF-KOPIA-PROJEKTU]: etap "kopiowanie" / "czyszczenie" / "porzadkowanie", ile 0..1
     void kopiaProjektuPostep( const QString &etap, double ile );
     void kopiaProjektuGotowa( const QVariantMap &wynik );
+    //! WorkFieldGIS [WF-PRZENIES-PROJEKT]: etap "kopiowanie" / "sprawdzanie", ile 0..1
+    void przeniesienieProjektuPostep( const QString &etap, double ile );
+    void przeniesienieProjektuGotowe( const QVariantMap &wynik );
     //! [WF-PRZENOSINY] files copied so far
     void przeniesieniePostep( const QString &etap, int plikow );
     void przeniesienieGotowe( const QVariantMap &wynik );
