@@ -2894,7 +2894,9 @@ Drawer {
             padding: 0
             bgcolor: "transparent"
             property bool selectable: isVector ? iface.layerSelectable(model.VectorLayerPointer) : true
-            iconSource: t.getThemeVectorIcon(selectable ? "ic_show_green_48dp" : "ic_hide_green_48dp")
+            // [WF-TOUCH-ICON] This toggle is "reacts to touch" (selectable), not visibility —
+            // the eye suggested the latter (Piotr, 23.10). Hand with a tapping finger.
+            iconSource: t.getThemeVectorIcon(selectable ? "ic_touch_white_24dp" : "ic_touch_off_white_24dp")
             iconColor: isCurrent ? t.mainOverlayColor : t.secondaryTextColor
             opacity: selectable ? 1.0 : 0.35
             onClicked: {
