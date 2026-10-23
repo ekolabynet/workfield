@@ -285,8 +285,9 @@ Item {
     // razem.
     anchors.top: parent ? parent.top : undefined
     anchors.right: parent ? parent.right : undefined
-    anchors.topMargin: (mainWindow.header ? mainWindow.header.height
-                                          : mainWindow.sceneTopMargin) + 40
+    // [WF-BAR-OFFSET] just under the real bottom edge of the top bar (on the phone
+    // the badge hid behind the two-row bar)
+    anchors.topMargin: (typeof mainWindow.dolBelki === "function" && mainWindow.dolBelkiZmiana >= 0 ? mainWindow.dolBelki(plakietka.parent) : mainWindow.sceneTopMargin) + 8
     anchors.rightMargin: mainWindow.sceneRightMargin + 4
 
     width: Theme.toolButtonSize

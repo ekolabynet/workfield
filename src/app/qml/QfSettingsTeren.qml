@@ -191,6 +191,27 @@ ColumnLayout {
       wrapMode: Text.Wrap
     }
 
+    // [WF-PIE-OFF] Okrągłe menu na znaczniku pozycji (z QField) — tester 23.10:
+    // mylące, więc domyślnie wyłączone.
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      spacing: 8
+
+      Switch {
+        checked: settings.valueBool('WorkField/menuKoloweZnacznika', false)
+        onToggled: settings.setValue('WorkField/menuKoloweZnacznika', checked)
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Okrągłe menu po dotknięciu znacznika pozycji (z QField)")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+    }
+
     // [WF-SOUNDS] Dźwięki i ostrzeżenia RTK — Piotr 23.10: dźwięk (głośność,
     // długość) i haptyka (siła, wyżej: „Wibracje”) ustawiane niezależnie.
     Text {

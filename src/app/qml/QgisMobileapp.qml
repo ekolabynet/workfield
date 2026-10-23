@@ -2055,6 +2055,10 @@ ApplicationWindow {
           if (!locationMarker.visible || !locationMarker.isOnMapCanvas || (interactionType !== "clicked" && interactionType !== "pressedAndHold")) {
             return false;
           }
+          // [WF-PIE-OFF] round menu on the marker: off by default (tester 23.10)
+          if (!settings.valueBool('WorkField/menuKoloweZnacznika', false)) {
+            return false;
+          }
           const dx = point.x - locationMarker.screenLocation.x;
           const dy = point.y - locationMarker.screenLocation.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
@@ -2069,7 +2073,7 @@ ApplicationWindow {
           }
           return false;
         }, QfMapCanvasPointHandler.Priority.High);
-        if (!settings.valueBool("/QField/pieMenuOpenedOnce", false)) {
+        if (settings.valueBool('WorkField/menuKoloweZnacznika', false) && !settings.valueBool("/QField/pieMenuOpenedOnce", false)) { // [WF-PIE-OFF]
           bubbleText = qsTr("Tap on your location marker\nto show actions");
           bubbleVisible = Qt.binding(() => locationMarker.isOnMapCanvas && locationMarker.visible && !mapCanvasTour.visible);
           bubbleAction = () => {
@@ -3198,8 +3202,8 @@ ApplicationWindow {
       // a jego dzieci sa prawie zawsze niewidoczne — skurczyl sie do zera
       // i lupa wskoczyla pod belke terenowa.
       anchors.top: parent.top
-      anchors.topMargin: (mainWindow.header ? mainWindow.header.height
-                                            : mainWindow.sceneTopMargin) + 40
+      // [WF-BAR-OFFSET] just under the real bottom edge of the top bar
+      anchors.topMargin: (mainWindow.dolBelkiZmiana >= 0 ? mainWindow.dolBelki(locatorItem.parent) : 0) + 8
       anchors.leftMargin: mainWindow.sceneLeftMargin + 4
 
       visible: !screenLocker.enabled && stateMachine.state !== 'measure'
@@ -7179,6 +7183,18 @@ ApplicationWindow {
    * obiekt narysowany zaraz po kształcie odziedziczyłby cudze
    * parametry, a to byłoby gorsze niż brak zapisu: nieprawdziwe.
    */
+  //! [WF-BAR-OFFSET] Bottom edge of the top bar in the coordinates of `item`.
+  //! Measured, not computed from header.height: on the phone the map runs under
+  //! the two-row bar and the search and the project badge hid behind it.
+  //! `dolBelkiZmiana` only makes bindings re-evaluate when the bar or window changes.
+  readonly property real dolBelkiZmiana: (mainWindow.header ? mainWindow.header.height + mainWindow.header.y : 0) + mainWindow.height + mainWindow.width
+  function dolBelki(item) {
+    const h = mainWindow.header;
+    if (!h || !item || !(h.height > 0))
+      return mainWindow.sceneTopMargin;
+    return Math.max(mainWindow.sceneTopMargin, h.mapToItem(item, 0, h.height).y);
+  }
+
   function wlozOpisKsztaltu(model) {
     // [WF-FIXED-RECT] size into WYMIAR / wymiar, when the layer has such a field
     if (wymiarDoOdlozenia !== "" && model) {
@@ -7853,8 +7869,9 @@ ApplicationWindow {
     Rectangle {
       id: strzalkaPokazMnie
 
-      x: (pokazMnie.stan.x || 0) - width / 2
-      y: (pokazMnie.stan.y || 0) - height / 2
+      // [WF-SHOW-ME] kept fully on screen (was cut at the right edge)
+      x: Math.max(8, Math.min(pokazMnie.width - width - 8, (pokazMnie.stan.x || 0) - width / 2))
+      y: Math.max(8, Math.min(pokazMnie.height - height - 8, (pokazMnie.stan.y || 0) - height / 2))
       width: wierszPokazMnie.implicitWidth + 24
       height: 48
       radius: 24
@@ -7867,13 +7884,35 @@ ApplicationWindow {
         anchors.centerIn: parent
         spacing: 8
 
-        Text {
+        // [WF-SHOW-ME] drawn arrow — "➤" became a colour emoji on Android
+        Shape {
           anchors.verticalCenter: parent.verticalCenter
-          text: "➤"
+          width: 26
+          height: 26
           rotation: pokazMnie.stan.kat || 0
-          font.pixelSize: 24
-          font.bold: true
-          color: pokazMnie.tusz
+
+          ShapePath {
+            fillColor: pokazMnie.tusz
+            strokeColor: "transparent"
+            startX: 25
+            startY: 13
+            PathLine {
+              x: 2
+              y: 2
+            }
+            PathLine {
+              x: 8
+              y: 13
+            }
+            PathLine {
+              x: 2
+              y: 24
+            }
+            PathLine {
+              x: 25
+              y: 13
+            }
+          }
         }
 
         Text {
