@@ -92,50 +92,66 @@ Column {
     qcKotwicaLimitMs = (typeof u.kotwicaLimitS === 'number' && u.kotwicaLimitS >= 5 && u.kotwicaLimitS <= 120 ? Math.round(u.kotwicaLimitS) : 30) * 1000;
   }
 
-  // WorkField 22.08: przycisk zwijania zszedl z gory paska na jego BOK —
-  // male okragle X. Wychodzi poza Column (stad jawny `parent` i wspolrzedne
-  // liczone od paska), bo dziecko Column zawsze zajeloby caly wiersz.
-  // Strona jest przeciwna do krawedzi ekranu: pasek zadokowany po prawej
-  // stoi 8 px od brzegu, wiec X po jego prawej byloby poza ekranem.
+  // [WF-QC-ARROW] 23.10.2026 (Piotr 21:20): the small grey "+/×" at the side
+  // of the bar was unreadable. Now the same as the arrow of the geometry tools
+  // drawer: a round button in the brand colour at the TOP of the bar with a
+  // white arrow. Arrow up = the settings part is open (tap folds it up);
+  // arrow down = it is folded (tap opens it). Folding hides only the settings
+  // part (fast mode, ODL, KTW, "+") — the capture tiles stay, so a short tap
+  // is enough: a stray tap no longer takes anything away in the middle of
+  // a measurement. Long press says in one sentence what the button does.
   Rectangle {
     id: przyciskZwijania
 
-    parent: quickCaptureBar.parent
-    z: quickCaptureBar.z + 1
-
-    width: 28
-    height: 28
+    width: 40
+    height: 40
     radius: width / 2
-    visible: quickCaptureBar.visible && quickCaptureBar.qcSekcja === "zwijana"
+    visible: quickCaptureBar.qcSekcja === "zwijana"
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
 
-    x: quickCaptureBar.qcKrawedz === "lewa"
-       ? quickCaptureBar.x + quickCaptureBar.width + 6
-       : quickCaptureBar.x - width - 6
-    y: quickCaptureBar.y + (quickCaptureBar.height - height) / 2
+    color: Theme.mainColor
+    border.color: "white"
+    border.width: 2
 
-    color: "#546E7A"
-    border.color: "#003D33"
-    border.width: 1
-    opacity: 0.7
-
-    Text {
+    Shape {
       anchors.centerIn: parent
-      text: quickCaptureBar.ustawieniaZwiniete ? "\u002b" : "\u00d7"
-      font.pointSize: Theme.tinyFont.pointSize + 4
-      font.bold: true
-      color: "#ECEFF1"
+      width: 18
+      height: 10
+      rotation: quickCaptureBar.ustawieniaZwiniete ? 180 : 0
+
+      Behavior on rotation {
+        NumberAnimation {
+          duration: 150
+        }
+      }
+
+      ShapePath {
+        strokeColor: "white"
+        strokeWidth: 3
+        fillColor: "transparent"
+        capStyle: ShapePath.RoundCap
+        joinStyle: ShapePath.RoundJoin
+        startX: 1
+        startY: 9
+        PathLine {
+          x: 9
+          y: 1
+        }
+        PathLine {
+          x: 17
+          y: 9
+        }
+      }
     }
 
-    // WorkField 22.08: zwijanie tylko na DLUGIE przycisniecie. Przycisk stoi
-    // przy kaflach, ktore naciska sie w biegu — krotkie tapniecie za czesto
-    // trafialo w niego przypadkiem i pasek znikal w srodku pomiaru.
     MouseArea {
       anchors.fill: parent
-      onPressAndHold: {
-        quickCaptureBar.haptyka(25);
+      anchors.margins: -4
+      onClicked: {
+        quickCaptureBar.haptyka(20);
         quickCaptureBar.ustawieniaZwiniete = !quickCaptureBar.ustawieniaZwiniete;
       }
-      onClicked: quickCaptureBar.haptyka(5)
+      onPressAndHold: displayToast(quickCaptureBar.ustawieniaZwiniete ? qsTr("Strzałka w dół: rozwija przyciski ustawień paska (tryb szybki, ODL, KTW, dodaj warstwę).") : qsTr("Strzałka w górę: zwija przyciski ustawień paska (tryb szybki, ODL, KTW, dodaj warstwę). Kafelki pomiaru zostają."))
     }
   }
 

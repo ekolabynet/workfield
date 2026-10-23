@@ -377,7 +377,7 @@ ColumnLayout {
       spacing: 8
 
       Text {
-        text: qsTr("Próg dokładności przy FIX")
+        text: qsTr("Próg dokładności") // [WF-ALMOST-FIX]
         color: Theme.mainTextColor
         font: Theme.tipFont
       }
@@ -400,6 +400,15 @@ ColumnLayout {
       }
     }
 
+    // [WF-ALMOST-FIX]
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("FIX z dokładnością gorszą niż próg daje ostrzeżenie „ponad próg”. FLOAT z dokładnością w progu to „prawie FIX” — ma własny, spokojniejszy dźwięk zamiast dźwięku FLOAT.")
+      color: Theme.secondaryTextColor
+      font: Theme.tinyFont
+      wrapMode: Text.WordWrap
+    }
+
     Flow {
       Layout.fillWidth: true
       spacing: 6
@@ -416,6 +425,7 @@ ColumnLayout {
           { "k": "fix", "n": qsTr("powrót FIX") },
           { "k": "utrataFix", "n": qsTr("utrata FIX") },
           { "k": "float", "n": qsTr("FLOAT") },
+          { "k": "prawieFix", "n": qsTr("prawie FIX") },
           { "k": "prog", "n": qsTr("ponad próg") },
           { "k": "brak", "n": qsTr("brak pozycji") },
           { "k": "bezFix", "n": qsTr("punkt bez FIX") },
