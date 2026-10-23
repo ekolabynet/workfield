@@ -1338,7 +1338,8 @@ Page {
     }
   }
 
-  Dialog {
+  // [WF-DIALOG-OK] QfDialog: green OK, red Cancel, haptics.
+  QfDialog {
     id: templateNameDialog
 
     property string templatePath: ""

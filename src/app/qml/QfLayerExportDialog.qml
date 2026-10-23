@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
 Popup {
@@ -136,6 +137,8 @@ Popup {
           text: modelData.label
           font.pointSize: t.tinyFont.pointSize
           checkable: true
+          // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+          highlighted: checked
           checked: exportDialog.crsChoice === modelData.key
           onClicked: exportDialog.crsChoice = modelData.key
         }
@@ -178,6 +181,8 @@ Popup {
           text: modelData
           font.pointSize: t.tinyFont.pointSize
           checkable: true
+          // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+          highlighted: checked
           checked: exportDialog.encoding === modelData
           onClicked: exportDialog.encoding = modelData
         }
@@ -204,6 +209,8 @@ Popup {
           text: modelData === "." ? qsTr("Folder projektu") : modelData + "/"
           font.pointSize: t.tinyFont.pointSize
           checkable: true
+          // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+          highlighted: checked
           checked: exportDialog.subfolder === modelData
           onClicked: exportDialog.subfolder = modelData
         }
@@ -240,16 +247,17 @@ Popup {
       Layout.topMargin: 8
       spacing: 8
 
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: exportDialog.close()
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: exportDialog.willOverwrite ? qsTr("Nadpisz") : qsTr("Eksportuj")
-        highlighted: true
         enabled: exportDialog.baseName !== "" && exportDialog.layer
 
         onClicked: {

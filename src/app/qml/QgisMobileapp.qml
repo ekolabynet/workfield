@@ -7650,7 +7650,8 @@ ApplicationWindow {
           wrapMode: Text.WordWrap
         }
 
-        Button {
+        QfDecisionButton {
+          role: "cancel" // [WF-BUTTONS]
           text: qsTr("Anuluj")
           font.pointSize: Theme.tinyFont.pointSize
           onClicked: {
@@ -7659,10 +7660,10 @@ ApplicationWindow {
           }
         }
 
-        Button {
+        QfDecisionButton {
+          role: "confirm" // [WF-BUTTONS]
           text: qsTr("Dodaj")
           font.pointSize: Theme.tinyFont.pointSize
-          highlighted: true
           onClicked: oknoGeoreferencji.dodajZeSrodka()
         }
       }
@@ -7694,7 +7695,8 @@ ApplicationWindow {
   //
   // Dialog, nie toast: toast znika po dwoch sekundach, a to jest rzecz,
   // ktora czlowiek MUSI przeczytac, zanim odejdzie od platu.
-  Dialog {
+  // [WF-DIALOG-OK] QfDialog: green OK + haptics (field test 23.10).
+  QfDialog {
     id: dialogGeometrii
 
     property string powod: ""
@@ -7710,7 +7712,7 @@ ApplicationWindow {
     width: Math.min(520, mainWindow.width - 32)
     modal: true
     closePolicy: Popup.NoAutoClose
-    title: powod === "nakladanie" ? qsTr("Obiekt przyciety do zera") : qsTr("Obiekt bez ksztaltu")
+    title: powod === "nakladanie" ? qsTr("Obiekt przycięty do zera") : qsTr("Obiekt bez kształtu")
     standardButtons: Dialog.Ok
 
     Text {
@@ -7943,8 +7945,8 @@ ApplicationWindow {
         Layout.fillWidth: true
         spacing: 6
 
-        Button {
-          flat: true
+        QfDecisionButton {
+          role: "cancel" // [WF-BUTTONS]
           text: qsTr("Anuluj")
           onClicked: dialogImportuWarstw.close()
         }
@@ -7953,7 +7955,8 @@ ApplicationWindow {
           Layout.fillWidth: true
         }
 
-        Button {
+        QfDecisionButton {
+          role: "confirm" // [WF-BUTTONS]
           text: qsTr("Tylko podepnij")
           font: QfTheme.tipFont
           onClicked: {
@@ -7962,10 +7965,10 @@ ApplicationWindow {
           }
         }
 
-        Button {
+        QfDecisionButton {
+          role: "confirm" // [WF-BUTTONS]
           text: qsTr("Importuj do bazy")
           font: QfTheme.tipFont
-          highlighted: true
           enabled: dialogImportuWarstw.bazaProjektu !== ""
           onClicked: {
             dialogImportuWarstw.close();

@@ -7,6 +7,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import org.qgis
 import Theme
 
@@ -22,6 +23,30 @@ Drawer {
   id: dashBoard
 
   property var t: Theme
+
+  // [WF-BUTTONS] Decision buttons of the drawer's popups. Field test 23.10:
+  // the flat "Anuluj / Utwórz / Usuń" text buttons were barely visible.
+  //   confirm — green (as OK in QfDialog), danger — red (deleting),
+  //   neutral — filled grey (cancel / close). Every press vibrates with the
+  //   strength from Teren → Wibracje.
+  component DecisionButton: Button {
+    property string role: "neutral"
+    // [WF-BUTTONS] "neutral" (Anuluj/Zamknij) is orange — same as QfDecisionButton.
+    readonly property color fill: role === "confirm" ? "#43a047" : (role === "danger" ? "#e53935" : "#fb8c00")
+    readonly property color ink: "white"
+
+    Material.background: fill
+    Material.foreground: ink
+    palette.button: fill
+    palette.buttonText: ink
+    opacity: enabled ? 1.0 : 0.5
+
+    onPressed: {
+      const strength = typeof settings !== "undefined" ? settings.valueInt("WorkField/haptykaSila", 3) : 3;
+      if (strength > 0 && typeof platformUtilities !== "undefined")
+        platformUtilities.vibrate((role === "neutral" ? 30 : 60) * strength);
+    }
+  }
 
   /**
    * WorkField 8.10.2026 [WF-EKSPORT-PROJEKTU] — eksport bieżącego projektu.
@@ -371,8 +396,8 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        Button {
-          flat: true
+        QfDecisionButton {
+          role: "cancel" // [WF-BUTTONS]
           font.pointSize: t.tinyFont.pointSize
           contentItem: Text {
             text: qsTr("Anuluj")
@@ -3176,14 +3201,14 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "neutral"
           text: przeniesienieProjektu.wynik === null ? qsTr("Anuluj") : qsTr("Zamknij")
           font.pointSize: t.tinyFont.pointSize
           onClicked: przeniesienieProjektu.close()
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "confirm"
           visible: przeniesienieProjektu.wynik === null
           enabled: przeniesienieProjektu.plan.ok === true
           text: qsTr("Przenieś")
@@ -3691,15 +3716,15 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "neutral"
           text: qsTr("Anuluj")
           font.pointSize: t.tinyFont.pointSize
           enabled: !projectNameDialog.pracuje
           onClicked: projectNameDialog.close()
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "confirm"
           enabled: !projectNameDialog.pracuje
           text: projectNameDialog.mode === "saveas" ? qsTr("Zapisz") : qsTr("Utwórz")
           font.pointSize: t.tinyFont.pointSize
@@ -4019,14 +4044,14 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "neutral"
           text: oknoPrzenosin.wynik !== "" ? qsTr("Zamknij") : qsTr("Później")
           enabled: !oknoPrzenosin.pracuje
           onClicked: oknoPrzenosin.close()
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "confirm"
           visible: oknoPrzenosin.wynik === ""
           enabled: !oknoPrzenosin.pracuje && (oknoPrzenosin.tryb !== "eksport" || (oknoPrzenosin.stan.wolne || 0) < 0 || (oknoPrzenosin.stan.wolne || 0) >= oknoPrzenosin.potrzeba * 1.1)
           text: oknoPrzenosin.tryb === "eksport" ? qsTr("Kopiuj") : oknoPrzenosin.stan.jest ? qsTr("Dokończ") : qsTr("Wskaż folder")
@@ -4092,14 +4117,14 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "neutral"
           text: qsTr("Anuluj")
           font.pointSize: t.tinyFont.pointSize
           onClicked: deleteProjectConfirm.close()
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "danger"
           text: qsTr("Usuń")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
@@ -4370,14 +4395,14 @@ Drawer {
         Item {
           Layout.fillWidth: true
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "neutral"
           text: qsTr("Zamknij")
           font.pointSize: t.tinyFont.pointSize
           onClicked: projectPropertiesPopup.close()
         }
-        Button {
-          flat: true
+        DecisionButton {
+          role: "confirm"
           text: qsTr("Zastosuj i zapisz")
           font.pointSize: t.tinyFont.pointSize
           onClicked: {
@@ -4454,15 +4479,15 @@ Drawer {
         Layout.topMargin: 8
         spacing: 8
 
-        Button {
-          flat: true
+        DecisionButton {
+          role: "neutral"
           Layout.fillWidth: true
           text: qsTr("Anuluj")
           onClicked: removeLayerConfirm.close()
         }
 
-        Button {
-          flat: true
+        DecisionButton {
+          role: "danger"
           Layout.fillWidth: true
           text: qsTr("Usuń")
           highlighted: true
@@ -4528,15 +4553,15 @@ Drawer {
         Layout.topMargin: 8
         spacing: 8
 
-        Button {
-          flat: true
+        DecisionButton {
+          role: "neutral"
           Layout.fillWidth: true
           text: qsTr("Anuluj")
           onClicked: moveLayerConfirm.close()
         }
 
-        Button {
-          flat: true
+        DecisionButton {
+          role: "confirm"
           Layout.fillWidth: true
           text: qsTr("Przenieś")
           highlighted: true

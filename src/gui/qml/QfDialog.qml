@@ -50,7 +50,7 @@ Dialog {
     const cancelBtn = standardButton(Dialog.Cancel);
     if (cancelBtn) {
       cancelBtn.text = qsTr("Cancel");
-      pomalujPrzycisk(cancelBtn, "#e53935");
+      pomalujPrzycisk(cancelBtn, "#fb8c00"); // [WF-BUTTONS] red is for deleting only
     }
     const yesBtn = standardButton(Dialog.Yes);
     if (yesBtn) {
@@ -60,7 +60,7 @@ Dialog {
     const noBtn = standardButton(Dialog.No);
     if (noBtn) {
       noBtn.text = qsTr("No");
-      pomalujPrzycisk(noBtn, "#e53935");
+      pomalujPrzycisk(noBtn, "#fb8c00"); // [WF-BUTTONS]
     }
     const closeBtn = standardButton(Dialog.Close);
     if (closeBtn)

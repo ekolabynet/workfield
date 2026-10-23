@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
 Popup {
@@ -167,6 +168,8 @@ Popup {
           text: modelData.label
           font.pointSize: t.tinyFont.pointSize
           checkable: true
+          // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+          highlighted: checked
           // Łuki tylko w GeoPackage — GeoJSON prostuje je bez słowa.
           // `Flow` pomija niewidoczne dzieci, więc rząd sam się zwiera.
           visible: modelData.luki !== true || newLayerDialog.targetMode !== "geojson"
@@ -212,6 +215,8 @@ Popup {
         text: qsTr("Baza projektu")
         font.pointSize: t.tinyFont.pointSize
         checkable: true
+        // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+        highlighted: checked
         visible: newLayerDialog.projectDatabase !== ""
         checked: newLayerDialog.targetMode === "database"
         onClicked: newLayerDialog.targetMode = "database"
@@ -221,6 +226,8 @@ Popup {
         text: qsTr("Osobny plik GPKG")
         font.pointSize: t.tinyFont.pointSize
         checkable: true
+        // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+        highlighted: checked
         checked: newLayerDialog.targetMode === "gpkg"
         onClicked: newLayerDialog.targetMode = "gpkg"
       }
@@ -229,6 +236,8 @@ Popup {
         text: qsTr("GeoJSON")
         font.pointSize: t.tinyFont.pointSize
         checkable: true
+        // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+        highlighted: checked
         checked: newLayerDialog.targetMode === "geojson"
         onClicked: newLayerDialog.targetMode = "geojson"
       }
@@ -330,16 +339,17 @@ Popup {
       Layout.topMargin: 8
       spacing: 8
 
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: newLayerDialog.close()
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Utwórz")
-        highlighted: true
         enabled: newLayerDialog.displayName !== "" && !newLayerDialog.tableTaken
 
         onClicked: {

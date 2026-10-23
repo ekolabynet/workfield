@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
 ColumnLayout {
@@ -198,28 +199,32 @@ ColumnLayout {
         wrapMode: Text.WordWrap
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Przenieś dane do nowej lokalizacji")
         font.pointSize: Theme.tinyFont.pointSize
         onClicked: storageMigrateDialog.apply(true, true)
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Skopiuj dane (oryginały zostają)")
         font.pointSize: Theme.tinyFont.pointSize
         onClicked: storageMigrateDialog.apply(true, false)
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Zacznij z pustym katalogiem")
         font.pointSize: Theme.tinyFont.pointSize
         onClicked: storageMigrateDialog.apply(false, false)
       }
 
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         font.pointSize: Theme.tinyFont.pointSize

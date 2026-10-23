@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
 Popup {
@@ -119,16 +120,17 @@ Popup {
       Layout.topMargin: 8
       spacing: 8
 
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: subLayerPicker.close()
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Dodaj")
-        highlighted: true
 
         onClicked: {
           let chosen = [];

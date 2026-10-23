@@ -539,16 +539,16 @@ QfPopup {
         iconColor: QfTheme.mainTextColor
         onClicked: zacznijZmianeNazwy()
       }
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         visible: edycjaNazwy.visible
-        flat: true
         text: qsTr("Zapisz") // WF-NAZWA-NAPIS-ZAPISZ
         font: QfTheme.tipFont
         onClicked: zatwierdzNazwe()
       }
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         visible: edycjaNazwy.visible
-        flat: true
         text: qsTr("Anuluj") // WF-NAZWA-NAPIS-ANULUJ
         font: QfTheme.tipFont
         onClicked: edycjaNazwy.visible = false
@@ -895,14 +895,14 @@ QfPopup {
               Item {
                 Layout.fillWidth: true
               }
-              Button {
-                flat: true
+              QfDecisionButton {
+                role: "cancel" // [WF-BUTTONS]
                 text: qsTr("Anuluj")
                 font: QfTheme.tipFont
                 onClicked: panelDuplikatu.visible = false
               }
-              Button {
-                flat: true
+              QfDecisionButton {
+                role: "confirm" // [WF-BUTTONS]
                 text: qsTr("Duplikuj")
                 font: QfTheme.tipFont
                 enabled: bladNazwyDuplikatu(nazwaDuplikatu.text.trim()) === ""
@@ -958,14 +958,14 @@ QfPopup {
               Item {
                 Layout.fillWidth: true
               }
-              Button {
-                flat: true
+              QfDecisionButton {
+                role: "cancel" // [WF-BUTTONS]
                 text: qsTr("Anuluj")
                 font: QfTheme.tipFont
                 onClicked: moveToDatabasePanel.visible = false
               }
-              Button {
-                flat: true
+              QfDecisionButton {
+                role: "confirm" // [WF-BUTTONS]
                 text: qsTr("Przenieś")
                 font: QfTheme.tipFont
                 enabled: bladNazwyDuplikatu(moveTableNameField.text.trim()) === ""

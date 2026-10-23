@@ -22,6 +22,7 @@ set(QFIELD_GUI_QML_FILES
     QfComboBox.qml
     QfConfirmationToolbar.qml
     QfContainerCard.qml
+    QfDecisionButton.qml
     QfDialog.qml
     QfDigitizingToolbar.qml
     QfDropShadow.qml

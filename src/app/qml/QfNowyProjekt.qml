@@ -34,6 +34,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
 Popup {
@@ -480,12 +481,13 @@ Popup {
     RowLayout {
       Layout.fillWidth: true
       Item { Layout.fillWidth: true }
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         text: qsTr("Anuluj")
-        flat: true
         onClicked: kreator.close()
       }
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         text: qsTr("Utwórz projekt")
         enabled: kreator.nazwaProjektu() !== ""
         onClicked: kreator.utworz()

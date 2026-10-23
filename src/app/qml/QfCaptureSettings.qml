@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.qgis
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
 /**
@@ -340,13 +341,15 @@ Popup {
       Layout.fillWidth: true
       spacing: 8
 
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: captureSettings.close()
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Zapisz")
         onClicked: captureSettings.zapisz()

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import Theme
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 
 Popup {
   id: colorPicker
@@ -279,16 +280,17 @@ Popup {
       Layout.topMargin: 8
       spacing: 8
 
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Anuluj")
         onClicked: colorPicker.close()
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         Layout.fillWidth: true
         text: qsTr("Wybierz")
-        highlighted: true
 
         onClicked: {
           const c = colorPicker.currentColor;

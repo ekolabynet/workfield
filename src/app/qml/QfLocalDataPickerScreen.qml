@@ -1969,16 +1969,17 @@ Page {
         Layout.topMargin: 8
         spacing: 8
 
-        Button {
+        QfDecisionButton {
+          role: "cancel" // [WF-BUTTONS]
           Layout.fillWidth: true
           text: qsTr("Anuluj")
           onClicked: gotoPathPopup.close()
         }
 
-        Button {
+        QfDecisionButton {
+          role: "confirm" // [WF-BUTTONS]
           Layout.fillWidth: true
           text: qsTr("Przejdź")
-          highlighted: true
           onClicked: gotoPathPopup.applyPath()
         }
       }

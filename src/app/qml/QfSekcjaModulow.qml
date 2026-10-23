@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as SystemoweOkna
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import org.qfield.core
 import Theme
 
@@ -809,11 +810,13 @@ Item {
         Item {
           Layout.fillWidth: true
         }
-        Button {
+        QfDecisionButton {
+          role: "cancel" // [WF-BUTTONS]
           text: qsTr("Anuluj")
           onClicked: oknoPotwierdzenia.close()
         }
-        Button {
+        QfDecisionButton {
+          role: "confirm" // [WF-BUTTONS]
           text: oknoPotwierdzenia.akcja.etykieta || qsTr("Wykonaj")
           onClicked: {
             const a = oknoPotwierdzenia.akcja;
@@ -899,11 +902,13 @@ Item {
         Item {
           Layout.fillWidth: true
         }
-        Button {
+        QfDecisionButton {
+          role: "cancel" // [WF-BUTTONS]
           text: qsTr("Anuluj")
           onClicked: oknoNowego.close()
         }
-        Button {
+        QfDecisionButton {
+          role: "confirm" // [WF-BUTTONS]
           text: qsTr("Utwórz")
           enabled: poleNazwy.text.trim() !== ""
           onClicked: {

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
 Popup {
@@ -252,16 +253,17 @@ Popup {
         Layout.topMargin: 8
         spacing: 8
 
-        Button {
+        QfDecisionButton {
+          role: "cancel" // [WF-BUTTONS]
           Layout.fillWidth: true
           text: qsTr("Anuluj")
           onClicked: removeFieldConfirm.close()
         }
 
-        Button {
+        QfDecisionButton {
+          role: "danger" // [WF-BUTTONS]
           Layout.fillWidth: true
           text: qsTr("Usuń")
-          highlighted: true
 
           onClicked: {
             const error = LayerUtils.removeLayerField(fieldsScreen.layer, removeFieldConfirm.fieldName);

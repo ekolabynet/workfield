@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtQuick.Effects
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
 /**
@@ -823,12 +824,13 @@ ColumnLayout {
         Item {
           Layout.fillWidth: true
         }
-        Button {
-          flat: true
+        QfDecisionButton {
+          role: "cancel" // [WF-BUTTONS]
           text: qsTr("Anuluj")
           onClicked: dialogSzablonu.close()
         }
-        Button {
+        QfDecisionButton {
+          role: "confirm" // [WF-BUTTONS]
           text: qsTr("Utwórz szablon")
           enabled: poleNazwySzablonu.text.trim() !== ""
           onClicked: {

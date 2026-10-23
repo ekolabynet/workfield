@@ -21,6 +21,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as SystemoweOkna
 import org.qfield
+import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import org.qgis
 import Theme
 
@@ -241,12 +242,14 @@ Popup {
 
       Item { Layout.fillWidth: true }
 
-      Button {
+      QfDecisionButton {
+        role: "cancel" // [WF-BUTTONS]
         text: qsTr("Anuluj")
         onClicked: kreatorCAD.close()
       }
 
-      Button {
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
         text: qsTr("Utwórz")
         enabled: kreatorCAD.plikCAD !== "" && poleNazwy.text.trim() !== ""
         onClicked: kreatorCAD.utworz()
