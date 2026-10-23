@@ -191,6 +191,240 @@ ColumnLayout {
       wrapMode: Text.Wrap
     }
 
+    // [WF-SOUNDS] Dźwięki i ostrzeżenia RTK — Piotr 23.10: dźwięk (głośność,
+    // długość) i haptyka (siła, wyżej: „Wibracje”) ustawiane niezależnie.
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      text: qsTr("Dźwięki i ostrzeżenia RTK")
+      color: Theme.secondaryTextColor
+      font: Theme.strongTipFont
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Switch {
+        id: dzwiekiSwitch
+        checked: settings.valueBool('WorkField/dzwiekiWlaczone', true)
+        onToggled: settings.setValue('WorkField/dzwiekiWlaczone', checked)
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Dźwięki")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+      enabled: dzwiekiSwitch.checked
+
+      Text {
+        text: qsTr("Głośność")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+
+      Slider {
+        id: suwakGlosnosci
+        Layout.fillWidth: true
+        from: 0
+        to: 100
+        stepSize: 5
+        snapMode: Slider.SnapAlways
+        value: settings.valueInt('WorkField/dzwiekiGlosnosc', 70)
+        onMoved: settings.setValue('WorkField/dzwiekiGlosnosc', Math.round(value))
+        onPressedChanged: {
+          if (!pressed && typeof dzwieki !== "undefined")
+            dzwieki.zagraj("ok", true);
+        }
+      }
+
+      Text {
+        text: Math.round(suwakGlosnosci.value) + " %"
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+      enabled: dzwiekiSwitch.checked
+
+      Text {
+        text: qsTr("Długość ostrzeżeń")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+
+      Slider {
+        id: suwakDlugosci
+        Layout.fillWidth: true
+        from: 1
+        to: 8
+        stepSize: 0.5
+        snapMode: Slider.SnapAlways
+        value: parseFloat(settings.value('WorkField/dzwiekiDlugosc', '4'))
+        onMoved: settings.setValue('WorkField/dzwiekiDlugosc', String(value))
+        onPressedChanged: {
+          if (!pressed && typeof dzwieki !== "undefined")
+            dzwieki.zagraj("utrataFix", true);
+        }
+      }
+
+      Text {
+        text: suwakDlugosci.value.toFixed(1) + " s"
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+      enabled: dzwiekiSwitch.checked
+
+      Switch {
+        checked: settings.valueBool('WorkField/ostrzezeniaRtk', true)
+        onToggled: settings.setValue('WorkField/ostrzezeniaRtk', checked)
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Ostrzeżenia RTK: utrata i powrót FIX, FLOAT, dokładność, brak pozycji")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+      enabled: dzwiekiSwitch.checked
+
+      Switch {
+        checked: settings.valueBool('WorkField/dzwiekiPrzyciskow', true)
+        onToggled: settings.setValue('WorkField/dzwiekiPrzyciskow', checked)
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Dźwięki przycisków: wierzchołek, OK, Anuluj, Cofnij, Usuń")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Text {
+        text: qsTr("FLOAT: przypomnienie co")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+
+      Slider {
+        id: suwakFloat
+        Layout.fillWidth: true
+        from: 10
+        to: 120
+        stepSize: 5
+        snapMode: Slider.SnapAlways
+        value: settings.valueInt('WorkField/rtkFloatCo', 20)
+        onMoved: settings.setValue('WorkField/rtkFloatCo', Math.round(value))
+      }
+
+      Text {
+        text: Math.round(suwakFloat.value) + " s"
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Text {
+        text: qsTr("Próg dokładności przy FIX")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+
+      Slider {
+        id: suwakProgu
+        Layout.fillWidth: true
+        from: 1
+        to: 20
+        stepSize: 1
+        snapMode: Slider.SnapAlways
+        value: settings.valueInt('WorkField/rtkProgCm', 3)
+        onMoved: settings.setValue('WorkField/rtkProgCm', Math.round(value))
+      }
+
+      Text {
+        text: Math.round(suwakProgu.value) + " cm"
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+      }
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Text {
+        text: qsTr("Posłuchaj:")
+        color: Theme.secondaryTextColor
+        font: Theme.tinyFont
+      }
+
+      Repeater {
+        model: [
+          { "k": "start", "n": qsTr("start") },
+          { "k": "fix", "n": qsTr("powrót FIX") },
+          { "k": "utrataFix", "n": qsTr("utrata FIX") },
+          { "k": "float", "n": qsTr("FLOAT") },
+          { "k": "prog", "n": qsTr("ponad próg") },
+          { "k": "brak", "n": qsTr("brak pozycji") },
+          { "k": "bezFix", "n": qsTr("punkt bez FIX") },
+          { "k": "wierzcholek", "n": qsTr("wierzchołek") },
+          { "k": "ok", "n": qsTr("OK") },
+          { "k": "anuluj", "n": qsTr("Anuluj") },
+          { "k": "cofnij", "n": qsTr("Cofnij") },
+          { "k": "usun", "n": qsTr("Usuń") }
+        ]
+
+        delegate: Button {
+          required property var modelData
+          text: modelData.n
+          font.pointSize: Theme.tinyFont.pointSize
+          onClicked: {
+            if (typeof dzwieki !== "undefined")
+              dzwieki.zagraj(modelData.k, true);
+          }
+        }
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Haptykę (siłę wibracji) ustawiasz wyżej, w „Wibracje” — niezależnie od dźwięku. Ostrzeżenia RTK włączają się dopiero, gdy odbiornik poda RTK (FIX albo FLOAT).")
+      color: Theme.secondaryTextColor
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
+    }
+
     Text {
       Layout.fillWidth: true
       Layout.topMargin: 6

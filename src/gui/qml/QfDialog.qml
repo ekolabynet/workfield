@@ -38,8 +38,16 @@ Dialog {
 
   // WorkField: haptyka decyzji — dziala takze, gdy dialog-potomek definiuje
   // wlasne onAccepted/onRejected (obie procedury sa wywolywane)
-  onAccepted: haptyka(60)
-  onRejected: haptyka(30)
+  onAccepted: {
+    haptyka(60);
+    if (typeof dzwieki !== "undefined")
+      dzwieki.zagraj("ok", false); // [WF-SOUNDS]
+  }
+  onRejected: {
+    haptyka(30);
+    if (typeof dzwieki !== "undefined")
+      dzwieki.zagraj("anuluj", false); // [WF-SOUNDS]
+  }
 
   onAboutToShow: {
     const okBtn = standardButton(Dialog.Ok);

@@ -31,5 +31,8 @@ Button {
     const strength = typeof settings !== "undefined" ? settings.valueInt("WorkField/haptykaSila", 3) : 3;
     if (strength > 0 && typeof platformUtilities !== "undefined")
       platformUtilities.vibrate((role === "confirm" || role === "danger" ? 60 : 30) * strength);
+    // [WF-SOUNDS] OK / Anuluj / Usuń
+    if (typeof dzwieki !== "undefined")
+      dzwieki.zagraj(role === "danger" ? "usun" : ((role === "cancel" || role === "neutral") ? "anuluj" : "ok"), false);
   }
 }

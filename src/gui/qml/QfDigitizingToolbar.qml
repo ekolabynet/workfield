@@ -88,6 +88,8 @@ QfVisibilityFadingRow {
     onClicked: {
       // WorkField: średni impuls — anulowanie
       haptyka(30);
+      if (typeof dzwieki !== "undefined")
+        dzwieki.zagraj("anuluj", false); // [WF-SOUNDS]
       dashBoard.shouldReturnHome = false;
       if (stateMachine.state !== "measure") {
         cancelDialog.open();
@@ -371,6 +373,19 @@ QfVisibilityFadingRow {
     return d < 1 ? qsTr("%1 cm").arg(Math.round(d * 100)) : qsTr("%1 m").arg(d.toFixed(2));
   }
 
+  //! [WF-SOUNDS] Vertex taken: a short tick; with the position locked to the
+  //! receiver and no RTK FIX — a warning sound and one sentence instead.
+  function zagrajWierzcholek() {
+    if (typeof dzwieki === "undefined")
+      return;
+    const pi = positionSource.positionInformation;
+    if (coordinateLocator && coordinateLocator.gnssLocked && pi && pi.quality > 0 && pi.quality !== 4) {
+      dzwieki.zdarzenie("bezFix", qsTr("Punkt zapisany BEZ FIX (%1) — sprawdź go później.").arg(pi.quality === 5 ? "FLOAT" : (pi.quality === 2 ? "DGPS" : qsTr("pozycja pojedyncza"))), "warning");
+      return;
+    }
+    dzwieki.zagraj("wierzcholek", false);
+  }
+
   //! [WF-GNSS-SNAP] Run `action` now, or after the session question.
   function withGnssSnapDecision(action) {
     if (coordinateLocator && coordinateLocator.gnssLocked && coordinateLocator.gnssSnapDistance >= 0 && coordinateLocator.gnssSnapSession < 0 && coordinateLocator.snapGnssAsk) {
@@ -391,6 +406,8 @@ QfVisibilityFadingRow {
     if (coordinateLocator.gnssSnapActive) {
       console.log("WFG gnss snap: snapped to " + layerName + ", offset " + d.toFixed(3) + " m");
       haptyka(30);
+      if (typeof dzwieki !== "undefined")
+        dzwieki.zagraj("magnes", false); // [WF-SOUNDS]
       displayToast(qsTr("Dociągnięto do „%1” — przesunięcie %2").arg(layerName).arg(distanceText(d)));
     } else {
       console.log("WFG gnss snap: NOT snapped, " + d.toFixed(3) + " m from " + layerName);
@@ -468,6 +485,7 @@ QfVisibilityFadingRow {
     // WorkField: krótki impuls — "wierzchołek dodany" (częsta operacja, subtelny ton)
     haptyka(15);
     noteGnssSnap(); // [WF-GNSS-SNAP]
+    zagrajWierzcholek(); // [WF-SOUNDS]
     digitizingLogger.addCoordinate(coordinateLocator.currentCoordinate);
     coordinateLocator.flash();
     rubberbandModel.addVertex();
@@ -476,6 +494,8 @@ QfVisibilityFadingRow {
   function removeVertex() {
     // WorkField: wyraźnie dłuższy impuls — "coś zostało usunięte"
     haptyka(45);
+    if (typeof dzwieki !== "undefined")
+      dzwieki.zagraj("cofnij", false); // [WF-SOUNDS]
     digitizingLogger.removeLastCoordinate();
     rubberbandModel.removeVertex();
     mapSettings.setCenter(rubberbandModel.currentCoordinate, true);
@@ -484,8 +504,12 @@ QfVisibilityFadingRow {
   function confirm() {
     // WorkField: długi impuls — "geometria zapisana"
     haptyka(80);
-    if (Number(rubberbandModel.geometryType) === Qgis.GeometryType.Point)
+    if (Number(rubberbandModel.geometryType) === Qgis.GeometryType.Point) {
       noteGnssSnap(); // [WF-GNSS-SNAP]
+      zagrajWierzcholek(); // [WF-SOUNDS] a point measured without FIX is warned about
+    }
+    if (typeof dzwieki !== "undefined")
+      dzwieki.zagraj("ok", false); // [WF-SOUNDS]
     rubberbandModel.frozen = true;
     if (addVertexButton.lastAdditionAveraged) {
       rubberbandModel.removeVertex();

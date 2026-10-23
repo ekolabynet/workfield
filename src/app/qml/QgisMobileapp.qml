@@ -27,6 +27,7 @@ import QtQuick.Window
 import QtQml
 import QtQuick.Dialogs as SystemoweOkna
 import QtSensors
+import QtMultimedia // [WF-SOUNDS]
 import org.qgis
 import org.qfield.core
 import org.qfield.gui
@@ -7782,6 +7783,331 @@ ApplicationWindow {
             settings.setValue('WorkField/wariantyZwiniete', panelWariantow.zwiniete);
           }
         }
+      }
+    }
+  }
+
+  // ===== [WF-SHOW-ME] „POKAŻ MNIE” (23.10.2026) =====
+  //
+  // Uwaga z terenu 12: po przesunięciu mapy albo zoomie pozycja ucieka z ekranu
+  // i nie wiadomo, gdzie się stoi. Gdy pozycja z odbiornika jest poza ekranem,
+  // na krawędzi mapy stoi strzałka w jej stronę z odległością, w kolorze jakości
+  // (FIX zielony, FLOAT żółty, gorzej czerwony). Tapnięcie: mapa wraca na pozycję.
+  Item {
+    id: pokazMnie
+
+    readonly property var stan: {
+      const out = { "poza": false };
+      const ms = mapCanvas.mapSettings;
+      // read only to re-evaluate on pan and zoom
+      const zasieg = ms ? ms.visibleExtent : null;
+      const pos = positionSource.projectedPosition;
+      if (!ms || !zasieg || !positionSource.active || !pos || !pos.x || stateMachine.state === "3d")
+        return out;
+      const w = mapCanvas.width;
+      const h = mapCanvas.height;
+      const p = ms.coordinateToScreen(pos);
+      const m = 24;
+      if (p.x >= m && p.x <= w - m && p.y >= m && p.y <= h - m)
+        return out;
+      // the arrow stands on a frame kept clear of the toolbars on the sides
+      const cx = w / 2;
+      const cy = h / 2;
+      const dx = p.x - cx;
+      const dy = p.y - cy;
+      const l = 84, r = w - 84, t = 76, b = h - 120;
+      let s = 1e9;
+      if (dx > 0)
+        s = Math.min(s, (r - cx) / dx);
+      if (dx < 0)
+        s = Math.min(s, (l - cx) / dx);
+      if (dy > 0)
+        s = Math.min(s, (b - cy) / dy);
+      if (dy < 0)
+        s = Math.min(s, (t - cy) / dy);
+      const c = ms.screenToCoordinate(Qt.point(cx, cy));
+      let dist = Math.sqrt(Math.pow(pos.x - c.x, 2) + Math.pow(pos.y - c.y, 2));
+      if (ms.destinationCrs && ms.destinationCrs.isGeographic)
+        dist = dist * 111320 * Math.cos(pos.y * Math.PI / 180);
+      return { "poza": true, "x": cx + dx * s, "y": cy + dy * s, "kat": Math.atan2(dy, dx) * 180 / Math.PI, "dist": dist };
+    }
+
+    readonly property int jakosc: positionSource.positionInformation ? positionSource.positionInformation.quality : 0
+    readonly property color kolor: jakosc === 4 ? "#43a047" : (jakosc === 5 ? "#fbc02d" : (rtkStraznik.bylRtk ? "#e53935" : QfTheme.positionColor))
+    readonly property color tusz: jakosc === 5 ? "black" : "white"
+
+    function odleglosc(d) {
+      if (d >= 1000)
+        return (d / 1000).toFixed(d >= 10000 ? 0 : 1) + " km";
+      if (d >= 1)
+        return Math.round(d) + " m";
+      return Math.round(d * 100) + " cm";
+    }
+
+    x: mapCanvas.x
+    y: mapCanvas.y
+    width: mapCanvas.width
+    height: mapCanvas.height
+    visible: stan.poza === true && !screenLocker.enabled
+
+    Rectangle {
+      id: strzalkaPokazMnie
+
+      x: (pokazMnie.stan.x || 0) - width / 2
+      y: (pokazMnie.stan.y || 0) - height / 2
+      width: wierszPokazMnie.implicitWidth + 24
+      height: 48
+      radius: 24
+      color: pokazMnie.kolor
+      border.width: 2
+      border.color: "white"
+
+      Row {
+        id: wierszPokazMnie
+        anchors.centerIn: parent
+        spacing: 8
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: "➤"
+          rotation: pokazMnie.stan.kat || 0
+          font.pixelSize: 24
+          font.bold: true
+          color: pokazMnie.tusz
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: qsTr("Pokaż mnie · %1").arg(pokazMnie.odleglosc(pokazMnie.stan.dist || 0))
+          font: QfTheme.strongTipFont
+          color: pokazMnie.tusz
+        }
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        anchors.margins: -8
+        onClicked: {
+          const sila = settings.valueInt('WorkField/haptykaSila', 3);
+          if (sila > 0)
+            platformUtilities.vibrate(30 * sila);
+          gnssButton.centerOnPosition();
+        }
+      }
+    }
+  }
+
+  // ===== [WF-SOUNDS] DŹWIĘKI I OSTRZEŻENIA RTK (23.10.2026) =====
+  //
+  // Uwagi z terenu 8 i 9 (tester: „WAŻNE”). Zestaw „WTK” zatwierdzony 23.10, 14:25:
+  // zdarzenie dobre = fraza z rozwiązaniem, złe = fraza urwana przed akordem.
+  // Ustawienia → Teren: dźwięk (głośność, długość ostrzeżeń) i haptyka (siła)
+  // niezależnie od siebie. Dwa odtwarzacze: przycisk nie przerywa ostrzeżenia RTK.
+  Item {
+    id: dzwieki
+
+    readonly property var pliki: ({
+        "start": "rtk_start",
+        "fix": "rtk_fix",
+        "utrataFix": "rtk_utrata_fix",
+        "float": "rtk_float",
+        "prog": "rtk_prog",
+        "brak": "rtk_brak",
+        "bezFix": "pkt_bez_fix",
+        "wierzcholek": "btn_wierzcholek",
+        "magnes": "btn_magnes",
+        "ok": "btn_ok",
+        "anuluj": "btn_anuluj",
+        "cofnij": "btn_cofnij",
+        "usun": "btn_usun"
+      })
+    readonly property var rtk: ["start", "fix", "utrataFix", "float", "prog", "brak", "bezFix"]
+
+    function czyWlaczone(nazwa) {
+      if (!settings.valueBool('WorkField/dzwiekiWlaczone', true))
+        return false;
+      if (rtk.indexOf(nazwa) >= 0)
+        return settings.valueBool('WorkField/ostrzezeniaRtk', true);
+      return settings.valueBool('WorkField/dzwiekiPrzyciskow', true);
+    }
+
+    //! Plays one sound. `wymus` — also when sounds are off (the test buttons).
+    function zagraj(nazwa, wymus) {
+      if (!pliki[nazwa] || (!wymus && !czyWlaczone(nazwa)))
+        return;
+      const ostrzezenie = rtk.indexOf(nazwa) >= 0;
+      const gracz = ostrzezenie ? graczRtk : graczPrzyciskow;
+      gracz.zatrzymaj();
+      gracz.wyjscie.volume = Math.max(0, Math.min(100, settings.valueInt('WorkField/dzwiekiGlosnosc', 70))) / 100;
+      gracz.odtwarzacz.source = "qrc:/sounds/wtk/" + pliki[nazwa] + ".mp3";
+      gracz.odtwarzacz.play();
+      // the length setting cuts long RTK phrases with a short fade
+      if (ostrzezenie && nazwa !== "bezFix")
+        gracz.wycisz(parseFloat(settings.value('WorkField/dzwiekiDlugosc', '4')) * 1000);
+    }
+
+    function wibruj(baza) {
+      const sila = settings.valueInt('WorkField/haptykaSila', 3);
+      if (sila > 0 && typeof platformUtilities !== "undefined")
+        platformUtilities.vibrate(baza * sila);
+    }
+
+    //! Sound + haptics (RTK) + one plain sentence.
+    function zdarzenie(nazwa, tekst, rodzaj) {
+      zagraj(nazwa, false);
+      if (rtk.indexOf(nazwa) >= 0)
+        wibruj(nazwa === "fix" || nazwa === "start" ? 40 : 100);
+      if (tekst)
+        displayToast(tekst, rodzaj || "info");
+    }
+
+    component Gracz: Item {
+      property alias odtwarzacz: mp
+      property alias wyjscie: out
+
+      function zatrzymaj() {
+        wyciszanie.stop();
+        zegar.stop();
+        mp.stop();
+      }
+
+      function wycisz(ms) {
+        zegar.interval = Math.max(300, ms - 600);
+        zegar.restart();
+      }
+
+      MediaPlayer {
+        id: mp
+        audioOutput: AudioOutput {
+          id: out
+        }
+      }
+
+      Timer {
+        id: zegar
+        repeat: false
+        onTriggered: wyciszanie.start()
+      }
+
+      NumberAnimation {
+        id: wyciszanie
+        target: out
+        property: "volume"
+        to: 0
+        duration: 600
+        onFinished: mp.stop()
+      }
+    }
+
+    Gracz {
+      id: graczRtk
+    }
+
+    Gracz {
+      id: graczPrzyciskow
+    }
+  }
+
+  // [WF-SOUNDS] Strażnik jakości RTK — co sekundę patrzy na jakość (GGA):
+  // 4 = FIX, 5 = FLOAT, 2 = DGPS, 1 = pojedyncza, 0 = brak. Ostrzega dopiero,
+  // gdy w tej sesji odbiornik podał RTK (telefon bez RTK nie dostaje alarmów).
+  // Zmiana stanu liczy się po 2 s — chwilowe mignięcie FIX/FLOAT nie gra.
+  Item {
+    id: rtkStraznik
+
+    property int stan: -2
+    property int kandydat: -2
+    property int powtorzen: 0
+    property bool bylRtk: false
+    property double ostatniFloat: 0
+    property double ostatniProg: 0
+
+    function klasa() {
+      const pi = positionSource.positionInformation;
+      if (!positionSource.active || !pi || !pi.latitudeValid)
+        return 0;
+      const q = pi.quality;
+      if (q === 4 || q === 5)
+        return q;
+      if (q === 2 || q === 9)
+        return 2;
+      return q > 0 ? 1 : 0;
+    }
+
+    function cm() {
+      const pi = positionSource.positionInformation;
+      return pi && pi.haccValid ? Math.round(pi.hacc * 100) : -1;
+    }
+
+    function zCm(c) {
+      return c >= 0 ? qsTr(", %1 cm").arg(c) : "";
+    }
+
+    function sprawdz() {
+      const k = klasa();
+      if (!bylRtk) {
+        if (k >= 4) {
+          bylRtk = true;
+          stan = k;
+          ostatniFloat = Date.now();
+          dzwieki.zdarzenie("start", k === 4 ? qsTr("Odbiornik RTK: FIX%1.").arg(zCm(cm())) : qsTr("Odbiornik RTK: FLOAT%1 — poczekaj na FIX.").arg(zCm(cm())), k === 4 ? "info" : "warning");
+        }
+        return;
+      }
+      if (k !== stan) {
+        if (k === kandydat) {
+          powtorzen++;
+        } else {
+          kandydat = k;
+          powtorzen = 1;
+        }
+        if (powtorzen < 2)
+          return;
+        stan = k;
+        ostatniFloat = Date.now();
+        if (k === 4)
+          dzwieki.zdarzenie("fix", qsTr("FIX odzyskany%1. Możesz mierzyć.").arg(zCm(cm())), "info");
+        else if (k === 5)
+          dzwieki.zdarzenie("utrataFix", qsTr("Utrata FIX — FLOAT%1. Odejdź na chwilę na otwarty teren.").arg(zCm(cm())), "warning");
+        else if (k === 0)
+          dzwieki.zdarzenie("brak", qsTr("Brak pozycji z odbiornika."), "error");
+        else
+          dzwieki.zdarzenie("utrataFix", qsTr("Utrata FIX — %1. Nie mierz teraz.").arg(k === 2 ? "DGPS" : qsTr("pozycja pojedyncza")), "warning");
+        return;
+      }
+      kandydat = k;
+      powtorzen = 0;
+      const teraz = Date.now();
+      if (k === 5 && teraz - ostatniFloat > settings.valueInt('WorkField/rtkFloatCo', 20) * 1000) {
+        ostatniFloat = teraz;
+        dzwieki.zdarzenie("float", qsTr("Nadal FLOAT%1.").arg(zCm(cm())), "warning");
+      }
+      const prog = settings.valueInt('WorkField/rtkProgCm', 3);
+      if (k === 4 && cm() > prog && teraz - ostatniProg > 30000) {
+        ostatniProg = teraz;
+        dzwieki.zdarzenie("prog", qsTr("FIX, ale dokładność %1 cm — ponad próg %2 cm.").arg(cm()).arg(prog), "warning");
+      }
+    }
+
+    function wyzeruj() {
+      stan = -2;
+      kandydat = -2;
+      powtorzen = 0;
+      bylRtk = false;
+    }
+
+    Timer {
+      interval: 1000
+      repeat: true
+      running: positionSource.active
+      onTriggered: rtkStraznik.sprawdz()
+    }
+
+    Connections {
+      target: positionSource
+      function onActiveChanged() {
+        if (!positionSource.active)
+          rtkStraznik.wyzeruj();
       }
     }
   }
