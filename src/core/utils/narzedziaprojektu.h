@@ -487,6 +487,34 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE QVariantMap moveLayerToProjectDatabase( QgsProject *project, QgsVectorLayer *layer, const QString &tableName );
 
     /**
+     * WorkField 23.10.2026 [WF-BAD-LAYERS] — layers of the project that did not load.
+     * One map per layer: name, id, source, table, kind:
+     *   "attachments_orphan"   — photo layer (ZAL_) without table and without its parent layer → remove;
+     *   "attachments_missing"  — photo layer without table, parent layer is there → recreate;
+     *   "other"                — anything else → the user decides (remove or fix the source).
+     */
+    Q_INVOKABLE QVariantList invalidLayers( QgsProject *project ) const;
+
+    /**
+     * WorkField 23.10.2026 [WF-FITO-ONLY] — does the project do phytosociology?
+     * True when it has one of the module's layers: gatunki, zdjecia_fito, platy,
+     * platy_zalazki (layer name or table, any case). Only then the species
+     * dictionary (wf_wskazniki.gpkg) is needed and asked for.
+     */
+    Q_INVOKABLE bool usesPhytosociology( QgsProject *project ) const;
+
+    /**
+     * WorkField 23.10.2026 [WF-BAD-LAYERS] — repairs invalid photo layers: orphans are
+     * removed from the project (with their relations), missing tables are created
+     * again for the parent layer. With \a removeOthers also every other invalid layer
+     * is removed. Does not save the project. Returns: ok, removed, recreated, left, opis.
+     */
+    Q_INVOKABLE QVariantMap repairInvalidLayers( QgsProject *project, bool removeOthers );
+
+    //! [WF-BAD-LAYERS] Removes one invalid layer (by name) and its relations. Returns: ok, opis.
+    Q_INVOKABLE QVariantMap removeInvalidLayer( QgsProject *project, const QString &layerName );
+
+    /**
      * Plik z danymi projektu — ten GPKG, do ktorego wolno pisac dane
      * nieodtwarzalne. Regula z claude/DANE_workflow.md: nazwa "data.gpkg"
      * (albo "dane.gpkg" w starszych projektach), a gdy takiej nie ma —

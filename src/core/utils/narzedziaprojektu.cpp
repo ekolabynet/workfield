@@ -1775,6 +1775,189 @@ namespace
   }
 }
 
+// ---------------------------------------------------------------------------
+// [WF-BAD-LAYERS] Layers that did not load
+// ---------------------------------------------------------------------------
+namespace
+{
+  //! Table name from "file.gpkg|layername=TABLE" (empty when there is none).
+  QString tableFromSource( const QString &source )
+  {
+    const int i = source.indexOf( QStringLiteral( "layername=" ), 0, Qt::CaseInsensitive );
+    return i < 0 ? QString() : source.mid( i + 10 ).section( '|', 0, 0 );
+  }
+
+  //! A photo (attachment) layer: table ZAL_… or layer name zal_….
+  bool isAttachmentLayer( const QgsMapLayer *layer )
+  {
+    return tableFromSource( layer->source() ).startsWith( QStringLiteral( "ZAL_" ), Qt::CaseInsensitive )
+           || layer->name().startsWith( QStringLiteral( "zal_" ), Qt::CaseInsensitive );
+  }
+
+  //! The valid layer this photo layer belongs to (via a relation), or nullptr.
+  QgsVectorLayer *attachmentParent( QgsProject *project, const QgsMapLayer *layer )
+  {
+    const QMap<QString, QgsRelation> relations = project->relationManager()->relations();
+    for ( auto it = relations.constBegin(); it != relations.constEnd(); ++it )
+    {
+      if ( it.value().referencingLayerId() != layer->id() )
+        continue;
+      QgsVectorLayer *parent = qobject_cast<QgsVectorLayer *>( project->mapLayer( it.value().referencedLayerId() ) );
+      if ( parent && parent->isValid() )
+        return parent;
+    }
+    return nullptr;
+  }
+
+  //! Removes every relation the layer takes part in, then the layer itself.
+  void removeLayerWithRelations( QgsProject *project, const QString &layerId )
+  {
+    const QMap<QString, QgsRelation> relations = project->relationManager()->relations();
+    for ( auto it = relations.constBegin(); it != relations.constEnd(); ++it )
+    {
+      if ( it.value().referencingLayerId() == layerId || it.value().referencedLayerId() == layerId )
+        project->relationManager()->removeRelation( it.key() );
+    }
+    project->removeMapLayer( layerId );
+  }
+} // namespace
+
+bool NarzedziaProjektu::usesPhytosociology( QgsProject *project ) const
+{
+  if ( !project )
+    return false;
+  static const QStringList moduleLayers = { QStringLiteral( "gatunki" ), QStringLiteral( "zdjecia_fito" ), QStringLiteral( "platy" ), QStringLiteral( "platy_zalazki" ) };
+  const QMap<QString, QgsMapLayer *> layers = project->mapLayers();
+  for ( QgsMapLayer *layer : layers )
+  {
+    if ( !layer )
+      continue;
+    if ( moduleLayers.contains( layer->name().trimmed().toLower() ) || moduleLayers.contains( tableFromSource( layer->source() ).toLower() ) )
+      return true;
+  }
+  return false;
+}
+
+QVariantList NarzedziaProjektu::invalidLayers( QgsProject *project ) const
+{
+  QVariantList out;
+  if ( !project )
+    return out;
+  const QMap<QString, QgsMapLayer *> layers = project->mapLayers();
+  for ( QgsMapLayer *layer : layers )
+  {
+    if ( !layer || layer->isValid() )
+      continue;
+    QVariantMap m;
+    m.insert( QStringLiteral( "name" ), layer->name() );
+    m.insert( QStringLiteral( "id" ), layer->id() );
+    m.insert( QStringLiteral( "source" ), layer->publicSource() );
+    m.insert( QStringLiteral( "table" ), tableFromSource( layer->source() ) );
+    QString kind = QStringLiteral( "other" );
+    if ( isAttachmentLayer( layer ) )
+    {
+      QgsVectorLayer *parent = attachmentParent( project, layer );
+      kind = parent ? QStringLiteral( "attachments_missing" ) : QStringLiteral( "attachments_orphan" );
+      if ( parent )
+        m.insert( QStringLiteral( "parent" ), parent->name() );
+    }
+    m.insert( QStringLiteral( "kind" ), kind );
+    out << m;
+  }
+  return out;
+}
+
+QVariantMap NarzedziaProjektu::repairInvalidLayers( QgsProject *project, bool removeOthers )
+{
+  QVariantMap result;
+  QStringList removed, recreated, left, errors;
+  if ( !project )
+  {
+    result.insert( QStringLiteral( "ok" ), false );
+    result.insert( QStringLiteral( "opis" ), tr( "Brak projektu." ) );
+    return result;
+  }
+
+  QStringList parentIds;
+  const QVariantList bad = invalidLayers( project );
+  for ( const QVariant &v : bad )
+  {
+    const QVariantMap m = v.toMap();
+    const QString kind = m.value( QStringLiteral( "kind" ) ).toString();
+    const QString name = m.value( QStringLiteral( "name" ) ).toString();
+    const QString id = m.value( QStringLiteral( "id" ) ).toString();
+    if ( kind == QLatin1String( "attachments_missing" ) )
+    {
+      QgsVectorLayer *parent = attachmentParent( project, project->mapLayer( id ) );
+      removeLayerWithRelations( project, id );
+      if ( parent && !parentIds.contains( parent->id() ) )
+        parentIds << parent->id();
+    }
+    else if ( kind == QLatin1String( "attachments_orphan" ) || removeOthers )
+    {
+      removeLayerWithRelations( project, id );
+      removed << name;
+    }
+    else
+    {
+      left << name;
+    }
+  }
+
+  for ( const QString &parentId : std::as_const( parentIds ) )
+  {
+    QgsVectorLayer *parent = qobject_cast<QgsVectorLayer *>( project->mapLayer( parentId ) );
+    if ( !parent )
+      continue;
+    const ModulZalacznikow::Wynik w = ModulZalacznikow::setUp( project, parent );
+    if ( w.ok )
+      recreated << parent->name();
+    else
+      errors << QStringLiteral( "%1: %2" ).arg( parent->name(), w.opis );
+  }
+
+  QStringList parts;
+  if ( !removed.isEmpty() )
+    parts << tr( "Usunięto z projektu warstwy, które nie działały (nie było ich tabel w bazie): %1." ).arg( removed.join( QStringLiteral( ", " ) ) );
+  if ( !recreated.isEmpty() )
+    parts << tr( "Założono nową, pustą tabelę zdjęć dla warstw: %1." ).arg( recreated.join( QStringLiteral( ", " ) ) );
+  if ( !left.isEmpty() )
+    parts << tr( "Do decyzji (źródło do poprawienia albo usunięcia): %1." ).arg( left.join( QStringLiteral( ", " ) ) );
+  if ( !errors.isEmpty() )
+    parts << tr( "Nie wyszło: %1." ).arg( errors.join( QStringLiteral( "; " ) ) );
+  if ( parts.isEmpty() )
+    parts << tr( "Wszystkie warstwy projektu się wczytały — nie ma czego naprawiać." );
+
+  qInfo() << "WFG bad layers: removed" << removed << "recreated" << recreated << "left" << left << "errors" << errors;
+  result.insert( QStringLiteral( "ok" ), errors.isEmpty() );
+  result.insert( QStringLiteral( "removed" ), removed );
+  result.insert( QStringLiteral( "recreated" ), recreated );
+  result.insert( QStringLiteral( "left" ), left );
+  result.insert( QStringLiteral( "opis" ), parts.join( QLatin1Char( ' ' ) ) );
+  return result;
+}
+
+QVariantMap NarzedziaProjektu::removeInvalidLayer( QgsProject *project, const QString &layerName )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  if ( !project )
+    return result;
+  const QList<QgsMapLayer *> found = project->mapLayersByName( layerName );
+  for ( QgsMapLayer *layer : found )
+  {
+    if ( layer && !layer->isValid() )
+    {
+      removeLayerWithRelations( project, layer->id() );
+      result.insert( QStringLiteral( "ok" ), true );
+      result.insert( QStringLiteral( "opis" ), tr( "Warstwa „%1” usunięta z projektu." ).arg( layerName ) );
+      return result;
+    }
+  }
+  result.insert( QStringLiteral( "opis" ), tr( "Nie ma w projekcie niewczytanej warstwy „%1”." ).arg( layerName ) );
+  return result;
+}
+
 QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
 {
   QVariantMap wynik;
@@ -2041,6 +2224,31 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
              QStringLiteral( "topologia" ), 0.0, QString(),
              najmniejszaWarstwa, najmniejszyFid );
 
+  // [WF-BAD-LAYERS] Layers that did not load: each one with a solution.
+  const QVariantList badLayers = invalidLayers( projekt );
+  for ( const QVariant &v : badLayers )
+  {
+    const QVariantMap m = v.toMap();
+    const QString kind = m.value( QStringLiteral( "kind" ) ).toString();
+    const QString name = m.value( QStringLiteral( "name" ) ).toString();
+    const QString table = m.value( QStringLiteral( "table" ) ).toString();
+    if ( kind == QLatin1String( "attachments_orphan" ) )
+      ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
+               tr( "warstwa zdjęć „%1” się nie wczytuje — w bazie nie ma tabeli %2, a jej warstwy w projekcie już nie ma" ).arg( name, table ),
+               tr( "„Napraw” usunie ją z projektu. Żadne dane nie przepadną — tej tabeli w bazie i tak nie ma." ),
+               QStringLiteral( "napraw_zal" ), 0.0, QString(), name );
+    else if ( kind == QLatin1String( "attachments_missing" ) )
+      ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
+               tr( "warstwa zdjęć „%1” się nie wczytuje — w bazie nie ma tabeli %2" ).arg( name, table ),
+               tr( "„Napraw” założy pustą tabelę zdjęć dla warstwy „%1”." ).arg( m.value( QStringLiteral( "parent" ) ).toString() ),
+               QStringLiteral( "napraw_zal" ), 0.0, QString(), name );
+    else
+      ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
+               tr( "warstwa „%1” się nie wczytuje — nie ma źródła %2" ).arg( name, m.value( QStringLiteral( "source" ) ).toString() ),
+               tr( "Jeśli jest niepotrzebna — „Usuń z projektu”. Jeśli potrzebna — popraw źródło w QGIS." ),
+               QStringLiteral( "usun_zla" ), 0.0, QString(), name );
+  }
+
   // [WF-COLLAPSED] Was "smallest object < 0.5 m" — flagged real small objects
   // (Wodomierze fid 3, 0.28 m, Pasymska 23.10).
   if ( collapsedFid >= 0 )
@@ -2065,7 +2273,11 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   const bool maWskazniki = !katalog.isEmpty()
                            && QFileInfo::exists( katalog + QStringLiteral( "/wf_wskazniki.gpkg" ) );
   dane.insert( QStringLiteral( "wskazniki" ), maWskazniki );
-  if ( !maWskazniki )
+  // [WF-FITO-ONLY] The species dictionary is part of the phytosociology module,
+  // not of every project (Piotr 23.10).
+  const bool fito = usesPhytosociology( projekt );
+  dane.insert( QStringLiteral( "fitosocjologia" ), fito );
+  if ( fito && !maWskazniki )
     ostrzez( QStringLiteral( "brak" ), QStringLiteral( "projekt" ),
              tr( "brak wf_wskazniki.gpkg — metadane gatunków i podpowiadanie nie zadziałają" ),
              tr( "Wyposażenie → Słownik gatunków → „Pobierz z sieci”. "

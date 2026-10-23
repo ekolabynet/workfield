@@ -401,6 +401,8 @@ Popup {
 
     // ------------------------------------------------ pliki wspólne
     Rectangle {
+      // [WF-FITO-ONLY] The species dictionary belongs to phytosociology (Piotr 23.10).
+      visible: qgisProject && NarzedziaProjektu.usesPhytosociology(qgisProject)
       Layout.fillWidth: true
       Layout.preferredHeight: wierszSlownika.implicitHeight + 16
       radius: 4

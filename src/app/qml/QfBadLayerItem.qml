@@ -26,6 +26,52 @@ Page {
 
   property alias model: table.model
 
+  // [WF-BAD-LAYERS] What can be repaired: photo layers (ZAL_) and the rest.
+  property var invalid: []
+  readonly property int attachmentCount: invalid.filter(function (l) { return l.kind !== "other"; }).length
+  readonly property int otherCount: invalid.length - attachmentCount
+
+  function reload() {
+    invalid = qgisProject && typeof NarzedziaProjektu !== "undefined" ? NarzedziaProjektu.invalidLayers(qgisProject) : [];
+  }
+
+  function finish(result, automatic) {
+    const saved = result.ok && ProjectUtils.saveProject(qgisProject);
+    displayToast((automatic ? qsTr("Naprawiono przy otwarciu projektu. ") : "") + result.opis + (result.ok && !saved ? " " + qsTr("Projektu NIE zapisano.") : ""), result.ok && saved ? "info" : "error");
+    reload();
+    if (invalid.length === 0)
+      badLayerPage.visible = false;
+  }
+
+  onVisibleChanged: {
+    if (visible)
+      reloadTimer.restart();
+  }
+
+  Timer {
+    id: autoRepairTimer
+    interval: 800
+    repeat: false
+    onTriggered: {
+      badLayerPage.reload();
+      if (badLayerPage.invalid.length > 0 && badLayerPage.otherCount === 0) {
+        badLayerPage.finish(NarzedziaProjektu.repairInvalidLayers(qgisProject, false), true);
+        if (badLayerPage.invalid.length > 0)
+          badLayerPage.visible = true;
+      } else {
+        badLayerPage.visible = true;
+      }
+    }
+  }
+
+  // the page shows up while the project is still loading — ask a moment later
+  Timer {
+    id: reloadTimer
+    interval: 800
+    repeat: false
+    onTriggered: badLayerPage.reload()
+  }
+
   padding: 5
 
   width: mainWindow.width
@@ -54,7 +100,7 @@ Page {
       Layout.fillWidth: true
       Layout.fillHeight: false
 
-      text: qsTr("Poniższych warstw nie udało się wczytać. Pozostałe warstwy projektu działają normalnie — możesz wrócić do pracy albo poprawić źródła w QGIS.")
+      text: qsTr("Poniższych warstw nie udało się wczytać. Pozostałe warstwy projektu działają normalnie.") + (badLayerPage.attachmentCount > 0 ? " " + qsTr("Warstwy zdjęć (ZAL_) bez tabeli naprawisz od razu: te, których warstwa już nie istnieje, zostaną usunięte z projektu, a brakujące tabele zdjęć zostaną założone na nowo.") : "") // [WF-BAD-LAYERS]
       font: Theme.defaultFont
       color: Theme.mainTextColor
       wrapMode: Text.WordWrap
@@ -78,8 +124,11 @@ Page {
         model: QfBadLayerHandler {
           project: qgisProject
 
+          // [WF-NO-BANNER] Repair first: when only photo layers (ZAL_) failed, they are
+          // repaired right away and a toast says what was done. The page shows up only
+          // when something needs a decision.
           onBadLayersFound: {
-            badLayerPage.visible = true;
+            autoRepairTimer.restart();
           }
         }
 
@@ -133,9 +182,29 @@ Page {
       }
     }
 
-    Button {
+    // [WF-BAD-LAYERS] Piotr 23.10: "MUSI być SOLUTION" — the page repairs, not only lists.
+    QfDecisionButton {
+      role: "confirm"
       Layout.fillWidth: true
       Layout.topMargin: 5
+      visible: badLayerPage.attachmentCount > 0
+      text: qsTr("Napraw warstwy zdjęć (%1)").arg(badLayerPage.attachmentCount)
+      font: Theme.defaultFont
+      onClicked: badLayerPage.finish(NarzedziaProjektu.repairInvalidLayers(qgisProject, false))
+    }
+
+    QfDecisionButton {
+      role: "danger"
+      Layout.fillWidth: true
+      visible: badLayerPage.otherCount > 0
+      text: qsTr("Usuń z projektu wszystkie niewczytane (%1)").arg(badLayerPage.invalid.length)
+      font: Theme.defaultFont
+      onClicked: badLayerPage.finish(NarzedziaProjektu.repairInvalidLayers(qgisProject, true))
+    }
+
+    QfDecisionButton {
+      role: "cancel"
+      Layout.fillWidth: true
       text: qsTr("Wróć do projektu")
       font: Theme.defaultFont
       onClicked: badLayerPage.visible = false

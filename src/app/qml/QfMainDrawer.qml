@@ -415,6 +415,7 @@ Drawer {
   onOpenedChanged: {
     if (opened) {
       projectSection.refresh();
+      stanWyposazenia.odswiez(); // [WF-BAD-LAYERS] was "brak danych" until clicked
     }
     // WorkField: dokowany panel pamięta stan między sesjami (komputer)
     if (!modal) {
@@ -1897,6 +1898,22 @@ Drawer {
 
       Wyposazenie {
         id: wyposazenieProjektu
+      }
+
+      // [WF-BAD-LAYERS] After loading a project (layers settle for a moment):
+      // the docked drawer on a computer stays open, so `opened` never changes.
+      Timer {
+        id: wyposazenieRefreshTimer
+        interval: 1500
+        repeat: false
+        onTriggered: stanWyposazenia.odswiez()
+      }
+
+      Connections {
+        target: iface
+        function onLoadProjectEnded(path, name) {
+          wyposazenieRefreshTimer.restart();
+        }
       }
 
       Rectangle {

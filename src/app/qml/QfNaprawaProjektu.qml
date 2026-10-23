@@ -116,6 +116,17 @@ Popup {
     }
 
     let w = null;
+    // [WF-BAD-LAYERS] Layers that did not load — repaired here, project saved.
+    if (co === "napraw_zal" || co === "usun_zla") {
+      w = co === "napraw_zal" ? NarzedziaProjektu.repairInvalidLayers(qgisProject, false) : NarzedziaProjektu.removeInvalidLayer(qgisProject, o.warstwa);
+      if (w.ok && !ProjectUtils.saveProject(qgisProject)) {
+        w = { "ok": false, "opis": w.opis + " " + qsTr("Projektu NIE zapisano.") };
+      }
+      naprawa.komunikat = w.opis;
+      naprawa.blad = !w.ok;
+      stanProjektu.odswiez();
+      return;
+    }
     if (co === "przyc_wierzcholek")
       w = wyposazenie.ustawPrzyciaganie(qgisProject, 0, false);
     else if (co === "przyc_prog")
@@ -275,6 +286,11 @@ Popup {
           return [{ "etykieta": qsTr("Wyłącz"), "co": "topologia" }];
         case "slownik":
           return [{ "etykieta": qsTr("Pobierz"), "co": "slownik" }];
+        // [WF-BAD-LAYERS]
+        case "napraw_zal":
+          return [{ "etykieta": qsTr("Napraw"), "co": "napraw_zal" }];
+        case "usun_zla":
+          return [{ "etykieta": qsTr("Usuń z projektu"), "co": "usun_zla" }];
         }
         return [];
       }
@@ -516,8 +532,9 @@ Popup {
         const w = [];
         w.push(qsTr("Zapisuje do: %1")
                .arg(d.plikDanych !== "" ? d.plikDanych : qsTr("— brak pliku danych!")));
-        w.push(qsTr("Słownik gatunków: %1")
-               .arg(d.wskazniki ? qsTr("jest") : qsTr("BRAK — pobierzesz w Wyposażeniu")));
+        if (d.fitosocjologia) // [WF-FITO-ONLY]
+          w.push(qsTr("Słownik gatunków: %1")
+                 .arg(d.wskazniki ? qsTr("jest") : qsTr("BRAK — pobierzesz w Wyposażeniu")));
         return w.join("\n");
       }
     }

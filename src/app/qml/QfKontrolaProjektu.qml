@@ -136,7 +136,8 @@ Item {
     // panel metatagów wygląda normalnie i nic nie podpowiada
     // (phototagstore.cpp: szuka wf_wskazniki.gpkg obok projektu).
     // Pobieranie siedzi w Wyposażeniu, żeby dymek miał JEDEN cel.
-    if (!FileUtils.fileExists(katalog + "/wf_wskazniki.gpkg")) {
+    // [WF-FITO-ONLY] Only a project with the phytosociology module needs it.
+    if (NarzedziaProjektu.usesPhytosociology(qgisProject) && !FileUtils.fileExists(katalog + "/wf_wskazniki.gpkg")) {
       znalezione.push({
         "rzecz": "wskazniki",
         "opis": qsTr("słownik gatunków — podpowiadanie nie zadziała"),
@@ -229,6 +230,19 @@ Item {
   property bool naZadanie: false
 
   //! Odcisk treści — po nim poznajemy, czy to JUŻ BYŁO powiedziane.
+  //! [WF-NO-BANNER] Data errors → the repair window; missing equipment → Wyposażenie.
+  function pokazRozwiazanie() {
+    sprawdz();
+    if (bledyDanych.length > 0 && typeof wfAkcje !== 'undefined' && wfAkcje.stanProjektu) {
+      wfAkcje.stanProjektu();
+    } else if (ekranDocelowy) {
+      if (typeof ekranDocelowy.otworz === "function")
+        ekranDocelowy.otworz();
+      else
+        ekranDocelowy.open();
+    }
+  }
+
   function odcisk(tresc) {
     return tresc === null ? "" : (tresc.naglowek + "|" + tresc.tekst);
   }
@@ -306,10 +320,8 @@ Item {
     MouseArea {
       id: obszarPlakietki
       anchors.fill: parent
-      onClicked: {
-        kontrola.naZadanie = true;
-        opozniona.triggered();
-      }
+      // [WF-NO-BANNER] The badge leads straight to the solution.
+      onClicked: kontrola.pokazRozwiazanie()
     }
   }
 
@@ -319,72 +331,10 @@ Item {
     repeat: false
     onTriggered: {
       kontrola.sprawdz();
-      const tresc = kontrola.trescDymka();
-      if (tresc === null)
-        return;
-
-      // ── TYLKO ZA PIERWSZYM RAZEM (25.09.2026) ─────────────────
-      //
-      // Uwaga Piotra: „ostrzeżenie jest IRYTUJĄCE, bo pojawia się za
-      // każdym razem”. Trwały dymek witał człowieka przy KAŻDYM
-      // otwarciu tego samego projektu — a szum uczy przeklikiwać bez
-      // czytania, czyli odbiera tej kontroli jedyny powód istnienia.
-      //
-      // Pamiętamy ODCISK treści, nie sam fakt pokazania. Gdyby pamiętać
-      // fakt, to projekt, któremu w międzyczasie UBYŁO czegoś jeszcze,
-      // milczałby dalej — a to jest dokładnie ta sytuacja, dla której
-      // ta kontrola powstała.
-      //
-      // Odcisk jest osobny dla każdego projektu (klucz zawiera jego
-      // katalog), więc nowy projekt zawsze przedstawia się w całości.
-      const odcisk = kontrola.odcisk(tresc);
-      const kluczOdcisku = 'WorkField/kontrolaOdcisk/' + kontrola.katalogProjektu();
-      if (!kontrola.naZadanie && settings.value(kluczOdcisku, '') === odcisk)
-        return;
-      kontrola.naZadanie = false;
-      settings.setValue(kluczOdcisku, odcisk);
-
-      // Komunikat, którego da się posłuchać: od razu prowadzi tam, gdzie
-      // są czasowniki.
-      //
-      // DYMEK TRWAŁY, nie zwykły. Ten jeden wymienia po nazwie wszystko,
-      // czego projektowi brakuje — bywa, że trzy rzeczy. Pięć sekund nie
-      // wystarcza, żeby to przeczytać w rękawicach i w słońcu, a drugi raz
-      // komunikat nie przyjdzie: leci raz, półtorej sekundy po wczytaniu.
-      // Zwykłe dymki gasną dalej same — patrz QfToast.pokazTrwaly().
-      const akcje = [];
-      if (tresc.maUstawienia && kontrola.ekranDocelowy) {
-        akcje.push({
-          "etykieta": qsTr("USTAWIENIA"),
-          "akcja": function () {
-            if (typeof kontrola.ekranDocelowy.otworz === "function")
-              kontrola.ekranDocelowy.otworz();
-            else
-              kontrola.ekranDocelowy.open();
-          }
-        });
-      }
-      if (tresc.maBledy) {
-        // Ten sam czasownik, którego używa szuflada („Stan projektu”).
-        // Identyfikatory z QgisMobileapp.qml nie są tu widoczne, więc
-        // pytamy o rejestr akcji i sprawdzamy, czy jest.
-        akcje.push({
-          "etykieta": qsTr("BŁĘDY"),
-          "akcja": function () {
-            if (typeof wfAkcje !== 'undefined' && wfAkcje.stanProjektu)
-              wfAkcje.stanProjektu();
-          }
-        });
-      }
-
-      // Zapasowe wywołanie na wypadek starszej aplikacji bez `pokazTrwaly`:
-      // lepszy dymek gasnący niż brak dymka i błąd w dzienniku.
-      if (typeof displayToastTrwaly === "function") {
-        displayToastTrwaly(tresc.naglowek, tresc.tekst, "warning", akcje);
-      } else {
-        displayToast(tresc.naglowek + " — " + tresc.tekst.replace(/\n/g, " "),
-                     "warning");
-      }
+      // [WF-NO-BANNER] Piotr 23.10.2026: the banner after loading repeated what the
+      // "could not load" page and Wyposażenie already say — removed. What can be
+      // repaired is repaired first (QfBadLayerItem); the rest waits behind the badge
+      // (top right), which opens the solution directly.
     }
   }
 }
