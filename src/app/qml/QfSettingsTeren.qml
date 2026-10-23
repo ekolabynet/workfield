@@ -317,6 +317,73 @@ ColumnLayout {
       wrapMode: Text.Wrap
     }
 
+    // [WF-GNSS-SNAP] Field test 23.10, Piotr's decision 12:59.
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      text: qsTr("Dociąganie pomiaru GNSS/RTK")
+      color: Theme.secondaryTextColor
+      font: Theme.strongTipFont
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Switch {
+        id: gnssSnapSwitch
+        checked: settingsPage ? settingsPage.snapGnssPosition : false
+        onToggled: {
+          if (settingsPage)
+            settingsPage.snapGnssPosition = checked;
+          settings.setValue('WorkField/snapGnssPosition', checked);
+          // a choice made here replaces the answer given earlier in this session
+          if (typeof coordinateLocator !== "undefined" && coordinateLocator)
+            coordinateLocator.gnssSnapSession = -1;
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Dociągaj też pozycję GNSS/RTK do istniejących wierzchołków")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Switch {
+        checked: settingsPage ? settingsPage.snapGnssAsk : true
+        onToggled: {
+          if (settingsPage)
+            settingsPage.snapGnssAsk = checked;
+          settings.setValue('WorkField/snapGnssAsk', checked);
+          if (typeof coordinateLocator !== "undefined" && coordinateLocator)
+            coordinateLocator.gnssSnapSession = -1;
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Pytaj przy pierwszym takim pomiarze w sesji")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: gnssSnapSwitch.checked ? qsTr("Pomiar z odbiornika przeskoczy na wierzchołek w zasięgu przyciągania projektu. Każde dociągnięcie pokaże przesunięcie w centymetrach.") : qsTr("Pomiar z odbiornika zostaje tam, gdzie zmierzono. Gdy w zasięgu przyciągania jest wierzchołek, pojawi się tylko informacja, jak daleko.")
+      color: Theme.secondaryTextColor
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
+    }
+
     Text {
       Layout.fillWidth: true
       Layout.topMargin: 6

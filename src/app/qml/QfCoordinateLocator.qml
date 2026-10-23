@@ -55,7 +55,26 @@ Item {
   //! Overwritten by stylus / hoverHandler.
   property variant sourceLocation: undefined // Screen coordinate
 
-  readonly property variant currentCoordinate: !!overrideLocation && overrideLocation.x ? overrideLocation : snappingUtils.snappedCoordinate
+  /**
+   * [WF-GNSS-SNAP] Snapping of the GNSS/RTK position (field test 23.10).
+   * snapGnssPosition — the setting "Dociągaj też pozycję GNSS/RTK" (default off).
+   * snapGnssAsk      — ask at the first GNSS vertex near an existing vertex.
+   * gnssSnapSession  — answer for this session: -1 not asked, 0 no, 1 yes.
+   */
+  property bool snapGnssPosition: false
+  property bool snapGnssAsk: true
+  property int gnssSnapSession: -1
+  readonly property bool gnssSnapActive: gnssSnapSession >= 0 ? gnssSnapSession === 1 : snapGnssPosition
+  readonly property bool gnssLocked: !!overrideLocation && !!overrideLocation.x
+
+  //! [WF-GNSS-SNAP] Distance [map units] from the GNSS position to the vertex/edge
+  //! within snapping tolerance; -1 when there is none or the position is not locked.
+  readonly property real gnssSnapDistance: gnssLocked && snappingUtils.snappingResult.isValid ? Math.sqrt(Math.pow(snappingUtils.snappingResult.point.x - overrideLocation.x, 2) + Math.pow(snappingUtils.snappingResult.point.y - overrideLocation.y, 2)) : -1
+  readonly property string gnssSnapLayerName: gnssSnapDistance >= 0 ? snappingUtils.snappingResult.layerName : ""
+
+  // [WF-GNSS-SNAP] Locked to GNSS: the raw position, or the snapped one when GNSS
+  // snapping is on and something is within tolerance.
+  readonly property variant currentCoordinate: gnssLocked ? (gnssSnapActive && snappingUtils.snappingResult.isValid ? snappingUtils.snappedCoordinate : overrideLocation) : snappingUtils.snappedCoordinate
 
   // some trickery here: the first part (!mapSettings.visibleExtent) is only there to get a signal when
   // the map canvas extent changes (user pans/zooms) and the calculation of the display position is retriggered
@@ -82,7 +101,9 @@ Item {
     // wychodzi, puszcza, przy kazdym drgnieciu reki.
     mnoznikHisterezy: 2.0
     // Get the current crosshair location in screen coordinates. If `undefined`, then we use the center of the screen as input point.
-    inputCoordinate: sourceLocation === undefined ? Qt.point(locator.width / 2, locator.height / 2) : sourceLocation
+    // [WF-GNSS-SNAP] Locked to GNSS: look for vertices around the POSITION, not
+    // around the screen centre (visibleExtent only re-triggers on pan/zoom).
+    inputCoordinate: locator.gnssLocked && !!mapSettings.visibleExtent ? mapSettings.coordinateToScreen(locator.overrideLocation) : (sourceLocation === undefined ? Qt.point(locator.width / 2, locator.height / 2) : sourceLocation)
 
     property variant snappedCoordinate
     property point snappedPoint
@@ -687,7 +708,7 @@ Item {
     target: snappingUtils
 
     function onSnappingResultChanged() {
-      crosshairCircle.isSnapped = overrideLocation == undefined && snappingUtils.snappingResult.isValid;
+      crosshairCircle.isSnapped = (overrideLocation == undefined || locator.gnssSnapActive) && snappingUtils.snappingResult.isValid; // [WF-GNSS-SNAP]
     }
   }
 

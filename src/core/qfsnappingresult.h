@@ -28,6 +28,8 @@ class QfSnappingResult
     Q_GADGET
     Q_PROPERTY( QgsPoint point READ point WRITE setPoint )
     Q_PROPERTY( bool isValid READ isValid )
+    //! [WF-GNSS-SNAP] Name of the snapped layer, for the "X cm from layer Y" note.
+    Q_PROPERTY( QString layerName READ layerName )
 
   public:
     /**
@@ -80,6 +82,9 @@ class QfSnappingResult
      * Will be null if the snap happened on an intersection.
      */
     QgsVectorLayer *layer() const;
+
+    //! [WF-GNSS-SNAP] Name of the snapped layer, empty when none.
+    QString layerName() const { return mLayer ? mLayer->name() : QString(); }
 
     /**
      * The id of the feature to which the snapped geometry belongs.

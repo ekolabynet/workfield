@@ -289,11 +289,109 @@ QfVisibilityFadingRow {
         return;
       }
       lastAdditionAveraged = false;
-      if (Number(rubberbandModel.geometryType) === Qgis.GeometryType.Point || Number(rubberbandModel.geometryType) === Qgis.GeometryType.Null) {
-        confirm();
-      } else {
-        addVertex();
+      // [WF-GNSS-SNAP] First GNSS vertex near an existing one in this session:
+      // ask first, then take the point (snapped or not, as answered).
+      digitizingToolbar.withGnssSnapDecision(function () {
+        if (Number(rubberbandModel.geometryType) === Qgis.GeometryType.Point || Number(rubberbandModel.geometryType) === Qgis.GeometryType.Null) {
+          confirm();
+        } else {
+          addVertex();
+        }
+      });
+    }
+  }
+
+  // [WF-GNSS-SNAP] "Dociągać pomiar RTK do istniejących wierzchołków?" — asked once
+  // per session, at the first GNSS vertex that has an existing vertex in tolerance.
+  QfDialog {
+    id: gnssSnapQuestion
+
+    property var pendingAction: null
+    property string detail: ""
+
+    parent: mainWindow.contentItem
+    width: Math.min(420, mainWindow.width - 32)
+    closePolicy: Popup.NoAutoClose
+    title: qsTr("Dociągać pomiar RTK?")
+    standardButtons: Dialog.Yes | Dialog.No
+
+    onOpened: {
+      const yesButton = standardButton(Dialog.Yes);
+      if (yesButton)
+        yesButton.text = qsTr("Tak, w tej sesji");
+      const noButton = standardButton(Dialog.No);
+      if (noButton)
+        noButton.text = qsTr("Nie");
+    }
+
+    function decide(snap) {
+      coordinateLocator.gnssSnapSession = snap ? 1 : 0;
+      if (gnssSnapRemember.checked) {
+        settings.setValue('WorkField/snapGnssPosition', snap);
+        settings.setValue('WorkField/snapGnssAsk', false);
+        if (typeof qfieldSettings !== "undefined" && qfieldSettings) {
+          qfieldSettings.snapGnssPosition = snap;
+          qfieldSettings.snapGnssAsk = false;
+        }
       }
+      gnssSnapRemember.checked = false;
+      const action = pendingAction;
+      pendingAction = null;
+      if (action)
+        action();
+    }
+
+    onAccepted: decide(true)
+    onRejected: decide(false)
+
+    Column {
+      width: parent.width
+      spacing: 8
+
+      Label {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        text: gnssSnapQuestion.detail + "\n\n" + qsTr("Dociągać pomiar z odbiornika do istniejących wierzchołków w tej sesji? „Nie” — punkt zostaje tam, gdzie zmierzono.")
+      }
+
+      CheckBox {
+        id: gnssSnapRemember
+        width: parent.width
+        text: qsTr("Zapamiętaj (zmienisz w Ustawienia → Teren)")
+      }
+    }
+  }
+
+  //! [WF-GNSS-SNAP] "8 cm" / "1.25 m".
+  function distanceText(d) {
+    return d < 1 ? qsTr("%1 cm").arg(Math.round(d * 100)) : qsTr("%1 m").arg(d.toFixed(2));
+  }
+
+  //! [WF-GNSS-SNAP] Run `action` now, or after the session question.
+  function withGnssSnapDecision(action) {
+    if (coordinateLocator && coordinateLocator.gnssLocked && coordinateLocator.gnssSnapDistance >= 0 && coordinateLocator.gnssSnapSession < 0 && coordinateLocator.snapGnssAsk) {
+      gnssSnapQuestion.pendingAction = action;
+      gnssSnapQuestion.detail = qsTr("Pomiar jest %1 od wierzchołka warstwy „%2”.").arg(distanceText(coordinateLocator.gnssSnapDistance)).arg(coordinateLocator.gnssSnapLayerName);
+      gnssSnapQuestion.open();
+      return;
+    }
+    action();
+  }
+
+  //! [WF-GNSS-SNAP] Note for a GNSS vertex near an existing vertex: snapped or not.
+  function noteGnssSnap() {
+    if (!coordinateLocator || !coordinateLocator.gnssLocked || coordinateLocator.gnssSnapDistance < 0)
+      return;
+    const d = coordinateLocator.gnssSnapDistance;
+    const layerName = coordinateLocator.gnssSnapLayerName;
+    if (coordinateLocator.gnssSnapActive) {
+      console.log("WFG gnss snap: snapped to " + layerName + ", offset " + d.toFixed(3) + " m");
+      haptyka(30);
+      displayToast(qsTr("Dociągnięto do „%1” — przesunięcie %2").arg(layerName).arg(distanceText(d)));
+    } else {
+      console.log("WFG gnss snap: NOT snapped, " + d.toFixed(3) + " m from " + layerName);
+      haptyka(30);
+      displayToast(qsTr("Pomiar %1 od wierzchołka „%2” — nie dociągnięty").arg(distanceText(d)).arg(layerName), "warning");
     }
   }
 
@@ -362,6 +460,7 @@ QfVisibilityFadingRow {
   function addVertex() {
     // WorkField: krótki impuls — "wierzchołek dodany" (częsta operacja, subtelny ton)
     haptyka(15);
+    noteGnssSnap(); // [WF-GNSS-SNAP]
     digitizingLogger.addCoordinate(coordinateLocator.currentCoordinate);
     coordinateLocator.flash();
     rubberbandModel.addVertex();
@@ -378,6 +477,8 @@ QfVisibilityFadingRow {
   function confirm() {
     // WorkField: długi impuls — "geometria zapisana"
     haptyka(80);
+    if (Number(rubberbandModel.geometryType) === Qgis.GeometryType.Point)
+      noteGnssSnap(); // [WF-GNSS-SNAP]
     rubberbandModel.frozen = true;
     if (addVertexButton.lastAdditionAveraged) {
       rubberbandModel.removeVertex();

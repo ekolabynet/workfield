@@ -2026,6 +2026,9 @@ ApplicationWindow {
       averagedPosition: positionSource.averagedPosition
       averagedPositionCount: positionSource.averagedPositionCount
       overrideLocation: positionLocked ? positionSource.projectedPosition : undefined
+      // [WF-GNSS-SNAP] Settings → Teren → Dociąganie pomiaru GNSS/RTK
+      snapGnssPosition: qfieldSettings.snapGnssPosition
+      snapGnssAsk: qfieldSettings.snapGnssAsk
 
       snapToCommonAngles: qfieldSettings.snapToCommonAngleIsEnabled && (dashBoard.activeLayer && (dashBoard.activeLayer.geometryType() === Qgis.GeometryType.Polygon || dashBoard.activeLayer.geometryType() === Qgis.GeometryType.Line))
       snappingIsRelative: qfieldSettings.snapToCommonAngleIsRelative

@@ -34,6 +34,10 @@ Page {
   property int ksztaltMaks: settings.valueInt('WorkField/ksztaltMaks', 512)
   // Ktora krzywa: przez punkty czy obok nich. Patrz `Ksztalty`.
   property bool krzywaPrzezPunkty: settings.valueBool('WorkField/krzywaPrzezPunkty', false)
+  // [WF-GNSS-SNAP] Snapping of GNSS/RTK positions (field test 23.10): off by default,
+  // and ask at the first GNSS vertex near an existing one in a session.
+  property bool snapGnssPosition: settings.valueBool('WorkField/snapGnssPosition', false)
+  property bool snapGnssAsk: settings.valueBool('WorkField/snapGnssAsk', true)
 
   property alias projectAutoSaveInterval: registry.projectAutoSaveInterval
   property alias fastMode: registry.fastMode
