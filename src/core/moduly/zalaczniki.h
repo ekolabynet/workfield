@@ -104,6 +104,17 @@ namespace ModulZalacznikow
    * konczy sie w najlepszym razie utracona sesja.
    */
   Wynik zaloz( QgsProject *projekt );
+
+  /**
+   * WorkField 23.10.2026 [WF-NEW-LAYER] — the same for ONE layer.
+   *
+   * A new layer (or one moved into the project database) gets photos right
+   * away without touching other files of the project. Attachment table names
+   * of all other layers are reserved by the same naming rule, so the new
+   * layer never hooks into someone else's table. \a onlyLayer == nullptr
+   * means all candidate layers (identical to zaloz()).
+   */
+  Wynik setUp( QgsProject *project, QgsVectorLayer *onlyLayer );
 } // namespace ModulZalacznikow
 
 #endif // MODUL_ZALACZNIKI_H

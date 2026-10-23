@@ -19,6 +19,7 @@
 
 #include <sqlite3.h>
 #include "wfcad/eksport.hpp" // WF-EKSPORT-CAD
+#include "zalaczniki.h"        // WF-NEW-LAYER
 
 #include <qgslayertreeregistrybridge.h>
 #include <qgslayertreelayer.h>
@@ -2942,6 +2943,197 @@ QVariantMap NarzedziaProjektu::zrodloWarstwy( QgsMapLayer *warstwa ) const
   }
 
   return wynik;
+}
+
+// ---------------------------------------------------------------------------
+// WorkField 23.10.2026 [WF-NEW-LAYER] — layers in the project database.
+// See the declarations in the header.
+// ---------------------------------------------------------------------------
+QString NarzedziaProjektu::tableNameFor( const QString &text ) const
+{
+  QString t = text.trimmed();
+  t.replace( QChar( 0x0141 ), QLatin1Char( 'L' ) ); // Ł does not decompose in NFD
+  t.replace( QChar( 0x0142 ), QLatin1Char( 'l' ) ); // ł
+  t = t.normalized( QString::NormalizationForm_D );
+  QString result;
+  result.reserve( t.size() );
+  for ( const QChar c : std::as_const( t ) )
+  {
+    if ( c.category() == QChar::Mark_NonSpacing )
+      continue;
+    if ( c.unicode() < 128 && ( c.isLetterOrNumber() || c == QLatin1Char( '_' ) ) )
+      result.append( c );
+    else
+      result.append( QLatin1Char( '_' ) );
+  }
+  static const QRegularExpression repeated( QStringLiteral( "_+" ) );
+  result.replace( repeated, QStringLiteral( "_" ) );
+  while ( result.startsWith( QLatin1Char( '_' ) ) )
+    result.remove( 0, 1 );
+  while ( result.endsWith( QLatin1Char( '_' ) ) )
+    result.chop( 1 );
+  if ( result.isEmpty() )
+    return QStringLiteral( "warstwa" );
+  if ( result.at( 0 ).isDigit() )
+    result.prepend( QStringLiteral( "w_" ) );
+  return result;
+}
+
+bool NarzedziaProjektu::tableExists( const QString &gpkg, const QString &table ) const
+{
+  if ( gpkg.isEmpty() || table.isEmpty() || !QFile::exists( gpkg ) )
+    return false;
+  GDALAllRegister();
+  GDALDatasetH dataset = GDALOpenEx( gpkg.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr );
+  if ( !dataset )
+    return false;
+  const bool exists = GDALDatasetGetLayerByName( dataset, table.toUtf8().constData() ) != nullptr;
+  GDALClose( dataset );
+  return exists;
+}
+
+QVariantMap NarzedziaProjektu::setUpNewLayer( QgsProject *project, QgsVectorLayer *layer ) const
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  result.insert( QStringLiteral( "snapping" ), false );
+  result.insert( QStringLiteral( "attachments" ), false );
+
+  QgsProject *p = project ? project : QgsProject::instance();
+  if ( !p || !layer || !layer->isValid() )
+  {
+    result.insert( QStringLiteral( "error" ), tr( "Nie ma warstwy." ) );
+    return result;
+  }
+
+  // SNAPPING: the layer is enabled in the per-layer settings. Those matter
+  // in the advanced mode; in the other modes this does no harm.
+  if ( layer->isSpatial() )
+  {
+    QgsSnappingConfig config = p->snappingConfig();
+    QgsSnappingConfig::IndividualLayerSettings settings = config.individualLayerSettings( layer );
+    settings.setEnabled( true );
+    config.setIndividualLayerSettings( layer, settings );
+    p->setSnappingConfig( config );
+    result.insert( QStringLiteral( "snapping" ), true );
+  }
+
+  // PHOTOS: ZAL_ table for this layer only.
+  const ModulZalacznikow::Wynik attachments = ModulZalacznikow::setUp( p, layer );
+  result.insert( QStringLiteral( "attachments" ), attachments.ok );
+  result.insert( QStringLiteral( "attachmentsInfo" ), attachments.opis );
+  qInfo() << "WFG new layer:" << layer->name() << "| attachments:" << attachments.ok << attachments.opis;
+
+  result.insert( QStringLiteral( "ok" ), true );
+  return result;
+}
+
+QVariantMap NarzedziaProjektu::moveLayerToProjectDatabase( QgsProject *project, QgsVectorLayer *layer, const QString &tableName )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+
+  QgsProject *p = project ? project : QgsProject::instance();
+  if ( !p || !layer || !layer->isValid() )
+  {
+    result.insert( QStringLiteral( "error" ), tr( "Nie ma warstwy do przeniesienia." ) );
+    return result;
+  }
+  if ( layer->isEditable() )
+  {
+    result.insert( QStringLiteral( "error" ), tr( "Najpierw zakończ edycję warstwy „%1”." ).arg( layer->name() ) );
+    return result;
+  }
+
+  const QVariantMap source = zrodloWarstwy( layer );
+  if ( source.value( QStringLiteral( "wBazieProjektu" ) ).toBool() )
+  {
+    result.insert( QStringLiteral( "error" ), tr( "Warstwa już jest w bazie projektu." ) );
+    return result;
+  }
+  if ( !source.value( QStringLiteral( "istnieje" ) ).toBool() )
+  {
+    result.insert( QStringLiteral( "error" ), tr( "Warstwa nie leży w pliku na tym urządzeniu — nie ma czego przenosić." ) );
+    return result;
+  }
+
+  const QString database = plikDanych( p );
+  if ( database.isEmpty() || !QFile::exists( database ) )
+  {
+    result.insert( QStringLiteral( "error" ), tr( "Projekt nie ma bazy danych (dane.gpkg)." ) );
+    return result;
+  }
+
+  const QString table = tableName.trimmed();
+  static const QRegularExpression pattern( QStringLiteral( "^[A-Za-z_][A-Za-z0-9_]*$" ) );
+  if ( !pattern.match( table ).hasMatch() )
+  {
+    result.insert( QStringLiteral( "error" ), tr( "Nazwa tabeli: litery bez polskich znaków, cyfry i _, bez spacji, nie od cyfry." ) );
+    return result;
+  }
+  QgsVectorLayer *other = znajdzWarstwe( p, table );
+  if ( other && other != layer )
+  {
+    result.insert( QStringLiteral( "error" ), tr( "W projekcie jest już warstwa „%1”." ).arg( table ) );
+    return result;
+  }
+
+  const qint64 expected = layer->featureCount();
+  result.insert( QStringLiteral( "expected" ), expected );
+
+  // Copy of the table. importujWarstwe NEVER OVERWRITES and counts afterwards.
+  const QString oldSource = layer->source();
+  const QVariantMap imported = importujWarstwe( oldSource, database, table, false );
+  if ( !imported.value( QStringLiteral( "ok" ) ).toBool() )
+  {
+    result.insert( QStringLiteral( "error" ), imported.value( QStringLiteral( "blad" ) ) );
+    return result;
+  }
+  const qint64 features = imported.value( QStringLiteral( "obiektow" ) ).toLongLong();
+  result.insert( QStringLiteral( "features" ), features );
+  if ( expected >= 0 && features != expected )
+  {
+    result.insert( QStringLiteral( "error" ),
+                   tr( "Tabela %1 powstała w bazie, ale ma %2 obiektów zamiast %3. Warstwa zostaje przy starym pliku." )
+                     .arg( table ).arg( features ).arg( expected ) );
+    return result;
+  }
+
+  const QString uri = database + QStringLiteral( "|layername=" ) + table;
+  {
+    QgsVectorLayer probe( uri, table, QStringLiteral( "ogr" ) );
+    if ( !probe.isValid() )
+    {
+      result.insert( QStringLiteral( "error" ), tr( "Tabela %1 jest w bazie, ale nie daje się otworzyć. Warstwa zostaje przy starym pliku." ).arg( table ) );
+      return result;
+    }
+  }
+
+  // RE-POINTING. Same layer (id, style, form, relations), new data source.
+  // If it fails, the old source is restored.
+  const QString layerName = layer->name();
+  layer->setDataSource( uri, layerName, QStringLiteral( "ogr" ), false );
+  if ( !layer->isValid() )
+  {
+    layer->setDataSource( oldSource, layerName, QStringLiteral( "ogr" ), false );
+    result.insert( QStringLiteral( "error" ), tr( "Przepięcie warstwy nie wyszło — warstwa wróciła do starego pliku. Tabela %1 została w bazie." ).arg( table ) );
+    return result;
+  }
+  layer->triggerRepaint();
+  ++mDataSourcesRevision;
+  emit dataSourcesRevisionChanged();
+
+  const ModulZalacznikow::Wynik attachments = ModulZalacznikow::setUp( p, layer );
+  result.insert( QStringLiteral( "attachments" ), attachments.ok );
+  result.insert( QStringLiteral( "attachmentsInfo" ), attachments.opis );
+
+  qInfo() << "WFG move to database:" << layerName << "from" << oldSource << "to" << uri
+          << "features" << features << "| attachments:" << attachments.ok << attachments.opis;
+
+  result.insert( QStringLiteral( "ok" ), true );
+  result.insert( QStringLiteral( "table" ), table );
+  result.insert( QStringLiteral( "previous" ), source.value( QStringLiteral( "plik" ) ) );
+  return result;
 }
 
 

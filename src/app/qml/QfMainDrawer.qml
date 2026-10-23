@@ -2801,6 +2801,27 @@ Drawer {
             opacity: 0.85
           }
 
+          // WorkField 23.10.2026 [WF-NEW-LAYER] — layer stored OUTSIDE the project
+          // database (separate file): it does not travel with dane.gpkg and has
+          // no photos. CAD drawings (DXF/DWG) live outside on purpose — no badge.
+          QfToolButton {
+            readonly property var dataSource: isVector && typeof NarzedziaProjektu !== "undefined" && NarzedziaProjektu.dataSourcesRevision >= 0 ? NarzedziaProjektu.zrodloWarstwy(model.VectorLayerPointer) : null
+            readonly property bool isExternal: dataSource !== null && dataSource.istnieje === true && dataSource.wBazieProjektu !== true && !/\.(dxf|dwg)$/i.test(String(dataSource.plik))
+            visible: isExternal
+            width: 18
+            height: 18
+            padding: 0
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon("ic_file_black_24dp")
+            iconColor: t.warningColor
+            onClicked: {
+              moveLayerConfirm.targetLayer = model.VectorLayerPointer;
+              moveLayerConfirm.targetName = model.Name;
+              moveLayerConfirm.sourceFile = dataSource ? String(dataSource.plik) : "";
+              moveLayerConfirm.open();
+            }
+          }
+
           Text {
             text: isVector ? featureCountText : layerKind === "podklad" ? qsTr("PODKŁAD") : layerKind === "raster" ? qsTr("RASTER") : ""
             font: t.tinyFont
@@ -4452,6 +4473,90 @@ Drawer {
               displayToast(qsTr("Usunięto warstwę %1").arg(removeLayerConfirm.targetName));
             }
             removeLayerConfirm.close();
+          }
+        }
+      }
+    }
+  }
+
+  // WorkField 23.10.2026 [WF-NEW-LAYER] — move a layer from a separate file into
+  // the project database, straight from the working-layer list.
+  Popup {
+    id: moveLayerConfirm
+
+    property var targetLayer: null
+    property string targetName: ""
+    property string sourceFile: ""
+
+    parent: mainWindow.contentItem
+    width: Math.min(380, mainWindow.width - 32)
+    x: (mainWindow.width - width) / 2
+    y: (mainWindow.height - height) / 2
+    modal: true
+    closePolicy: Popup.CloseOnEscape
+
+    ColumnLayout {
+      anchors.fill: parent
+      spacing: 8
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Przenieść warstwę do bazy projektu?")
+        font: t.strongFont
+        color: t.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: moveLayerConfirm.targetName
+        font: t.tipFont
+        color: t.secondaryTextColor
+        elide: Text.ElideMiddle
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Teraz leży w osobnym pliku:\n%1\n\nTabela zostanie skopiowana do bazy projektu (dane.gpkg), a warstwa przepięta na kopię. Styl, formularz i obiekty zostają; dostanie też zdjęcia. Stary plik zostaje nietknięty.").arg(moveLayerConfirm.sourceFile)
+        font: t.tinyFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WrapAnywhere
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        Layout.topMargin: 8
+        spacing: 8
+
+        Button {
+          flat: true
+          Layout.fillWidth: true
+          text: qsTr("Anuluj")
+          onClicked: moveLayerConfirm.close()
+        }
+
+        Button {
+          flat: true
+          Layout.fillWidth: true
+          text: qsTr("Przenieś")
+          highlighted: true
+
+          onClicked: {
+            const layer = moveLayerConfirm.targetLayer;
+            const layerName = moveLayerConfirm.targetName;
+            moveLayerConfirm.close();
+            if (!layer)
+              return;
+            const result = NarzedziaProjektu.moveLayerToProjectDatabase(qgisProject, layer, NarzedziaProjektu.tableNameFor(layer.name));
+            if (!result.ok) {
+              displayToast(result.error || qsTr("Nie udało się przenieść warstwy"), "error");
+              return;
+            }
+            const saved = typeof ProjectUtils !== "undefined" && ProjectUtils.saveProject(qgisProject);
+            if (saved)
+              displayToast(qsTr("Warstwa %1 jest w bazie projektu (obiektów: %2). Projekt zapisany.").arg(layerName).arg(result.features));
+            else
+              displayToast(qsTr("Warstwa %1 przeniesiona, ale projektu NIE zapisano.").arg(layerName), "error");
           }
         }
       }

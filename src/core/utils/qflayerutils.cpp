@@ -17,6 +17,7 @@
 #include "qflayerutils.h"
 
 #include <cpl_conv.h>
+#include <gdal.h> // [WF-NEW-LAYER]
 #include <qgstextformat.h>
 #include <qgsvectorlayereditbuffer.h>
 #include <QDomDocument>
@@ -1974,6 +1975,27 @@ QgsVectorLayer *QfLayerUtils::createEmptyLayer( const QString &filePath, const Q
   saveOptions.layerOptions = QgsVectorFileWriter::defaultLayerOptions( driverName );
 
   const bool appendToGeoPackage = driverName == QLatin1String( "GPKG" ) && QFile::exists( filePath );
+
+  // WorkField 23.10.2026 [WF-NEW-LAYER] — NEVER OVERWRITE.
+  // With an existing GPKG the writer used CreateOrOverwriteLayer: a new layer
+  // named like an existing table silently replaced it, data included. Since
+  // new layers now go into the project database (dane.gpkg), that would be
+  // a whole layer lost with one tap.
+  if ( appendToGeoPackage )
+  {
+    GDALAllRegister();
+    GDALDatasetH dataset = GDALOpenEx( filePath.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr );
+    if ( dataset )
+    {
+      const bool taken = GDALDatasetGetLayerByName( dataset, layerName.toUtf8().constData() ) != nullptr;
+      GDALClose( dataset );
+      if ( taken )
+      {
+        qInfo() << QStringLiteral( "Create layer refused: table %1 already exists in %2" ).arg( layerName, filePath );
+        return nullptr;
+      }
+    }
+  }
   saveOptions.actionOnExistingFile = appendToGeoPackage
                                        ? QgsVectorFileWriter::CreateOrOverwriteLayer
                                        : QgsVectorFileWriter::CreateOrOverwriteFile;

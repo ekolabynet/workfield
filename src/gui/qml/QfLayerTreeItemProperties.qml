@@ -448,6 +448,8 @@ QfPopup {
   }
 
   onIndexChanged: {
+    // [WF-NEW-LAYER] the move panel belongs to one layer
+    moveToDatabasePanel.visible = false;
     if (index === undefined)
       return;
     updateTitle();
@@ -768,7 +770,10 @@ QfPopup {
           ColumnLayout {
             id: zrodloDanych
 
-            property var opis: index !== undefined ? NarzedziaProjektu.zrodloWarstwy(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer)) : null
+            // [WF-NEW-LAYER] Re-read after a move (NarzedziaProjektu.dataSourcesRevision).
+            // Never assign `opis` directly: that breaks the binding and the next
+            // layer shows the previous layer's source.
+            property var opis: NarzedziaProjektu.dataSourcesRevision >= 0 && index !== undefined ? NarzedziaProjektu.zrodloWarstwy(layerTree.data(index, QfFlatLayerTreeModel.MapLayerPointer)) : null
 
             Layout.fillWidth: true
             Layout.bottomMargin: visible ? 8 : 0
@@ -888,6 +893,70 @@ QfPopup {
               }
             }
           }
+          // WorkField 23.10.2026 [WF-NEW-LAYER] — "Przenieś do bazy projektu".
+          // For layers in a separate file (Kran.gpkg, Przepusty.gpkg...): copy of
+          // the table + re-pointing the layer; the original file stays untouched.
+          QfButton {
+            Layout.fillWidth: true
+            visible: !moveToDatabasePanel.visible && zrodloDanych.visible && zrodloDanych.opis !== null && zrodloDanych.opis.istnieje === true && zrodloDanych.opis.wBazieProjektu !== true && !/\.(dxf|dwg)$/i.test(String(zrodloDanych.opis.plik))
+            text: qsTr("Przenieś do bazy projektu")
+            onClicked: openMoveToDatabase()
+          }
+
+          ColumnLayout {
+            id: moveToDatabasePanel
+            visible: false
+            Layout.fillWidth: true
+            Layout.bottomMargin: 8
+            spacing: 4
+
+            Text {
+              Layout.fillWidth: true
+              wrapMode: Text.WordWrap
+              font: QfTheme.tipFont
+              color: QfTheme.mainTextColor
+              text: qsTr("Tabela zostanie skopiowana do bazy projektu (dane.gpkg), a warstwa przepięta na kopię. Styl, formularz i obiekty zostają; dostanie też zdjęcia. Stary plik zostaje nietknięty — usuń go sam, gdy sprawdzisz.")
+            }
+
+            TextField {
+              id: moveTableNameField
+              Layout.fillWidth: true
+              selectByMouse: true
+              placeholderText: qsTr("nazwa_tabeli")
+              onAccepted: moveToDatabase()
+            }
+
+            Text {
+              Layout.fillWidth: true
+              visible: text !== ""
+              wrapMode: Text.WordWrap
+              font: QfTheme.tipFont
+              color: QfTheme.errorColor
+              text: moveToDatabasePanel.visible ? bladNazwyDuplikatu(moveTableNameField.text.trim()) : ""
+            }
+
+            RowLayout {
+              Layout.fillWidth: true
+              Item {
+                Layout.fillWidth: true
+              }
+              Button {
+                flat: true
+                text: qsTr("Anuluj")
+                font: QfTheme.tipFont
+                onClicked: moveToDatabasePanel.visible = false
+              }
+              Button {
+                flat: true
+                text: qsTr("Przenieś")
+                font: QfTheme.tipFont
+                enabled: bladNazwyDuplikatu(moveTableNameField.text.trim()) === ""
+                opacity: enabled ? 1.0 : 0.35
+                onClicked: moveToDatabase()
+              }
+            }
+          }
+
           CheckBox {
             id: expandCheckBox
             Layout.fillWidth: true
@@ -2592,6 +2661,35 @@ QfPopup {
   }
 
   // WorkField 6.10.2026 [WF-DUPLIKAT-JS] — duplikat warstwy.
+  // [WF-NEW-LAYER] Move to the project database.
+  function openMoveToDatabase() {
+    const vl = index !== undefined ? layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer) : null;
+    moveTableNameField.text = vl ? NarzedziaProjektu.tableNameFor(vl.name) : "";
+    moveToDatabasePanel.visible = true;
+    moveTableNameField.forceActiveFocus();
+    moveTableNameField.selectAll();
+  }
+
+  function moveToDatabase() {
+    const vl = index !== undefined ? layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer) : null;
+    const table = moveTableNameField.text.trim();
+    if (!vl || bladNazwyDuplikatu(table) !== "")
+      return;
+    const result = NarzedziaProjektu.moveLayerToProjectDatabase(qgisProject, vl, table);
+    if (!result.ok) {
+      displayToast(result.error || qsTr("Nie udało się przenieść warstwy"), "error");
+      return;
+    }
+    moveToDatabasePanel.visible = false;
+    const saved = typeof ProjectUtils !== "undefined" && ProjectUtils.saveProject(qgisProject);
+    if (saved)
+      displayToast(qsTr("Warstwa jest w bazie projektu (tabela %1, obiektów: %2). Projekt zapisany. Stary plik zostaje do usunięcia ręcznie.").arg(table).arg(result.features));
+    else
+      displayToast(qsTr("Warstwa przepięta na tabelę %1, ale projektu NIE zapisano — zapisz go, zanim zamkniesz.").arg(table), "error");
+    // No model reset here: it crashed the app (16:39). Badges and the data
+    // source block follow NarzedziaProjektu.dataSourcesRevision instead.
+  }
+
   function otworzDuplikat() {
     const tabela = zrodloDanych.opis ? String(zrodloDanych.opis.warstwa) : "";
     nazwaDuplikatu.text = tabela !== "" ? tabela + "_kopia" : "";

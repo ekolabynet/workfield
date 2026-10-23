@@ -591,6 +591,25 @@ namespace ModulZalacznikow
 
   Wynik zaloz( QgsProject *projekt )
   {
+    return setUp( projekt, nullptr );
+  }
+
+  //! [WF-NEW-LAYER] Attachment table name of a layer — same rule as below.
+  static QString attachmentTableFor( QgsVectorLayer *layer )
+  {
+    QString gpkg;
+    if ( !layer || !gpkgWarstwy( layer, &gpkg, nullptr ) )
+      return QString();
+    const QString name = layer->name();
+    const QString table = PREFIKS_TABELI + czysteMiano( name ).toUpper();
+    const QString legacyTable = PREFIKS_TABELI + bezOgonkow( name ).toUpper();
+    if ( legacyTable != table && !tabelaIstnieje( gpkg, table ) && tabelaIstnieje( gpkg, legacyTable ) )
+      return legacyTable;
+    return table;
+  }
+
+  Wynik setUp( QgsProject *projekt, QgsVectorLayer *onlyLayer )
+  {
     Wynik w;
     if ( !projekt )
     {
@@ -598,7 +617,31 @@ namespace ModulZalacznikow
       return w;
     }
 
-    const QList<QgsVectorLayer *> wybrane = kandydaci( projekt );
+    QList<QgsVectorLayer *> wybrane = kandydaci( projekt );
+
+    //! Dwie rozne nazwy warstw moga sprowadzic sie do jednej nazwy tabeli
+    //! („Poligony (hatch)" i „Poligony hatch"). Wtedy druga warstwa
+    //! podpielaby sie pod CUDZA tabele zalacznikow — zdjecia jednej
+    //! wyswietlalyby sie przy drugiej. Lepiej odmowic i powiedziec czemu.
+    QSet<QString> zajeteTabele;
+
+    // [WF-NEW-LAYER] Single-layer mode: the other layers only reserve their
+    // table names; nothing in them is changed.
+    if ( onlyLayer )
+    {
+      if ( !wybrane.contains( onlyLayer ) )
+      {
+        w.opis = QObject::tr( "Warstwa „%1” nie może mieć załączników: musi leżeć w GeoPackage i mieć pole fid." ).arg( onlyLayer->name() );
+        return w;
+      }
+      for ( QgsVectorLayer *other : std::as_const( wybrane ) )
+      {
+        if ( other != onlyLayer )
+          zajeteTabele.insert( attachmentTableFor( other ) );
+      }
+      wybrane = { onlyLayer };
+    }
+
     if ( wybrane.isEmpty() )
     {
       w.opis = QObject::tr( "Nie znalazłem warstw, którym można dołożyć załączniki." );
@@ -624,12 +667,6 @@ namespace ModulZalacznikow
     int nowychTabel = 0;
     int przeniesionychZdjec = 0;
     int nowychRelacji = 0;
-    //! Dwie rozne nazwy warstw moga sprowadzic sie do jednej nazwy tabeli
-    //! („Poligony (hatch)" i „Poligony hatch"). Wtedy druga warstwa
-    //! podpielaby sie pod CUDZA tabele zalacznikow — zdjecia jednej
-    //! wyswietlalyby sie przy drugiej. Lepiej odmowic i powiedziec czemu.
-    QSet<QString> zajeteTabele;
-
     for ( QgsVectorLayer *rodzic : wybrane )
     {
       const QString nazwa = rodzic->name();

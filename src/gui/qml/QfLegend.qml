@@ -399,6 +399,38 @@ ListView {
             }
           }
 
+          // WorkField 23.10.2026 [WF-NEW-LAYER] — layer OUTSIDE the project database.
+          // Such a layer does not travel with dane.gpkg, has no photos and is easy
+          // to lose. CAD drawings (DXF/DWG) live outside on purpose — no badge.
+          // Refreshed by the model reset after a move (see moveToDatabase()).
+          QfToolButton {
+            id: externalFileBadge
+            property var dataSource: Type == QfFlatLayerTreeModel.Layer && LayerType === "vectorlayer" && typeof NarzedziaProjektu !== "undefined" && NarzedziaProjektu.dataSourcesRevision >= 0 ? NarzedziaProjektu.zrodloWarstwy(MapLayerPointer) : null
+            property bool isVisible: dataSource !== null && dataSource.istnieje === true && dataSource.wBazieProjektu !== true && !/\.(dxf|dwg)$/i.test(String(dataSource.plik))
+            visible: isVisible
+            height: 24
+            width: 24
+            padding: 4
+            enabled: isVisible
+            bgcolor: 'transparent'
+            icon.source: QfTheme.getThemeVectorIcon('ic_file_black_24dp')
+            icon.color: QfTheme.warningColor
+
+            onClicked: {
+              const layer = VectorLayerPointer;
+              const layerName = Name;
+              displayToast(qsTr('Warstwa „%1” leży w osobnym pliku, poza bazą projektu.').arg(layerName), 'warning', qsTr('Przenieś do bazy'), function () {
+                const result = NarzedziaProjektu.moveLayerToProjectDatabase(qgisProject, layer, NarzedziaProjektu.tableNameFor(layer.name));
+                if (!result.ok) {
+                  displayToast(result.error || qsTr('Nie udało się przenieść warstwy'), 'error');
+                  return;
+                }
+                const saved = typeof ProjectUtils !== 'undefined' && ProjectUtils.saveProject(qgisProject);
+                displayToast(saved ? qsTr('Warstwa %1 jest w bazie projektu (obiektów: %2). Projekt zapisany.').arg(layerName).arg(result.features) : qsTr('Warstwa %1 przeniesiona, ale projektu NIE zapisano.').arg(layerName), saved ? 'info' : 'error');
+              });
+            }
+          }
+
           QfToolButton {
             id: invalidBadge
             property bool isVisible: Type == QfFlatLayerTreeModel.Layer && !IsValid

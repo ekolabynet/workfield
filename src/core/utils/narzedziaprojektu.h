@@ -40,8 +40,15 @@ class NarzedziaProjektu : public QObject
 {
     Q_OBJECT
 
+    //! [WF-NEW-LAYER] Bumped whenever a layer's data source is moved; QML bindings
+    //! that show where a layer's data lives depend on it and re-read the source.
+    Q_PROPERTY( int dataSourcesRevision READ dataSourcesRevision NOTIFY dataSourcesRevisionChanged )
+
   public:
     explicit NarzedziaProjektu( QObject *parent = nullptr );
+
+    //! [WF-NEW-LAYER] See the property of the same name.
+    int dataSourcesRevision() const { return mDataSourcesRevision; }
 
     // ------------------------------------------------------------- pola i formularz
 
@@ -442,6 +449,43 @@ class NarzedziaProjektu : public QObject
      */
     Q_INVOKABLE QVariantMap zrodloWarstwy( QgsMapLayer *warstwa ) const;
 
+    // ------------------------------------------------ [WF-NEW-LAYER] 23.10.2026
+    //
+    // Field tester's report (Pasymska, 23.10): new layers ended up in separate
+    // files (Kran.gpkg, Przepusty.gpkg...), without photos and without
+    // snapping, and table names had trailing spaces and Polish letters.
+    // A new layer goes into the project database; an existing one can be
+    // moved there afterwards.
+
+    /**
+     * TABLE name derived from a name typed by a person: no diacritics,
+     * spaces and special characters become `_`, never starts with a digit.
+     * The legend name stays as typed. Empty input gives "warstwa".
+     */
+    Q_INVOKABLE QString tableNameFor( const QString &text ) const;
+
+    //! Whether the GeoPackage already contains a table of this name (case-insensitive).
+    Q_INVOKABLE bool tableExists( const QString &gpkg, const QString &table ) const;
+
+    /**
+     * Sets up a freshly added layer: enables it for snapping and creates its
+     * photo table (ZAL_) — for this layer only. Does not save the project.
+     * Returns a map: ok, snapping, attachments (bool), attachmentsInfo.
+     */
+    Q_INVOKABLE QVariantMap setUpNewLayer( QgsProject *project, QgsVectorLayer *layer ) const;
+
+    /**
+     * Moves a layer from a separate file into the project database (plikDanych).
+     *
+     * Copies the table with importujWarstwe (never overwrites), compares the
+     * feature counts, and only then re-points the layer's data source — style,
+     * form, layer id and relations stay. THE ORIGINAL FILE IS LEFT UNTOUCHED.
+     * Afterwards creates the photo table (ZAL_) for this layer. Does not save
+     * the project. \a tableName: ASCII letters, digits, _.
+     * Returns a map: ok, table, features, expected, previous, attachments, error.
+     */
+    Q_INVOKABLE QVariantMap moveLayerToProjectDatabase( QgsProject *project, QgsVectorLayer *layer, const QString &tableName );
+
     /**
      * Plik z danymi projektu — ten GPKG, do ktorego wolno pisac dane
      * nieodtwarzalne. Regula z claude/DANE_workflow.md: nazwa "data.gpkg"
@@ -527,7 +571,14 @@ class NarzedziaProjektu : public QObject
      */
     Q_INVOKABLE QVariantMap spakujProjekt( const QString &katalogProjektu, const QString &plikZip, bool tylkoDane ) const;
 
+  signals:
+    //! [WF-NEW-LAYER] A layer's data source was moved.
+    void dataSourcesRevisionChanged();
+
   private:
+    //! [WF-NEW-LAYER] See dataSourcesRevision.
+    int mDataSourcesRevision = 0;
+
     //! Indeks pola albo -1.
     static int indeksPola( const QgsVectorLayer *warstwa, const QString &pole );
 

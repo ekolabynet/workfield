@@ -13,8 +13,20 @@ Popup {
   property string layerName: ""
   property string geometryType: "Point"
   property string crsAuthId: ""
-  property string targetMode: "gpkg"
+  // [WF-NEW-LAYER] 23.10.2026 — PROJECT DATABASE (dane.gpkg) by default.
+  // A separate file does not travel with the database, gets no photos and is
+  // not snapped to — that is how Kran.gpkg and Przepusty.gpkg came about.
+  // Modes: "database" | "gpkg" (separate file) | "geojson".
+  property string targetMode: "database"
   property string gpkgPath: ""
+  property string projectDatabase: ""
+
+  //! Legend name — as typed, trimmed.
+  readonly property string displayName: layerName.trim()
+  //! TABLE name — no diacritics, no spaces.
+  readonly property string tableName: typeof NarzedziaProjektu !== "undefined" ? NarzedziaProjektu.tableNameFor(displayName) : displayName
+  //! A table of this name already exists in the target file — STOP, nothing is overwritten.
+  readonly property bool tableTaken: targetMode !== "geojson" && displayName !== "" && typeof NarzedziaProjektu !== "undefined" && NarzedziaProjektu.tableExists(targetPath, tableName)
 
   // WARSTWY ŁUKOWE (25.09.2026).
   //
@@ -56,7 +68,7 @@ Popup {
   // a `geometryType` zostałoby „MultiSurface”. Więc wybór schodzi
   // na odpowiednik prosty i mówimy dlaczego.
   onTargetModeChanged: {
-    if (targetMode === "gpkg" || !typLukowy(geometryType)) {
+    if (targetMode !== "geojson" || !typLukowy(geometryType)) {
       return;
     }
     geometryType = geometryType === "MultiCurve" ? "MultiLineString" : "MultiPolygon";
@@ -77,7 +89,9 @@ Popup {
   readonly property string targetPath: {
     if (!qgisProject)
       return "";
-    const safe = FileUtils.sanitizeFilePathPart(layerName === "" ? "warstwa" : layerName);
+    if (targetMode === "database" && projectDatabase !== "")
+      return projectDatabase;
+    const safe = FileUtils.sanitizeFilePathPart(displayName === "" ? "warstwa" : tableName);
     if (targetMode === "gpkg" && gpkgPath !== "")
       return gpkgPath;
     if (targetMode === "gpkg")
@@ -99,7 +113,8 @@ Popup {
     layerName = "";
     geometryType = "Point";
     crsAuthId = qgisProject && qgisProject.crs ? qgisProject.crs.authid : "EPSG:4326";
-    targetMode = "gpkg";
+    projectDatabase = typeof NarzedziaProjektu !== "undefined" && qgisProject ? NarzedziaProjektu.plikDanych(qgisProject) : "";
+    targetMode = projectDatabase !== "" ? "database" : "gpkg";
     gpkgPath = "";
     fieldModel.clear();
     fieldModel.append({
@@ -154,7 +169,7 @@ Popup {
           checkable: true
           // Łuki tylko w GeoPackage — GeoJSON prostuje je bez słowa.
           // `Flow` pomija niewidoczne dzieci, więc rząd sam się zwiera.
-          visible: modelData.luki !== true || newLayerDialog.targetMode === "gpkg"
+          visible: modelData.luki !== true || newLayerDialog.targetMode !== "geojson"
           checked: newLayerDialog.geometryType === modelData.key
           onClicked: newLayerDialog.geometryType = modelData.key
         }
@@ -194,7 +209,16 @@ Popup {
       spacing: 6
 
       Button {
-        text: qsTr("GeoPackage")
+        text: qsTr("Baza projektu")
+        font.pointSize: t.tinyFont.pointSize
+        checkable: true
+        visible: newLayerDialog.projectDatabase !== ""
+        checked: newLayerDialog.targetMode === "database"
+        onClicked: newLayerDialog.targetMode = "database"
+      }
+
+      Button {
+        text: qsTr("Osobny plik GPKG")
         font.pointSize: t.tinyFont.pointSize
         checkable: true
         checked: newLayerDialog.targetMode === "gpkg"
@@ -216,6 +240,25 @@ Popup {
       font: t.tinyFont
       color: t.secondaryTextColor
       wrapMode: Text.WrapAnywhere
+    }
+
+    // [WF-NEW-LAYER] table name and collision — visible BEFORE "Utwórz" is pressed.
+    Text {
+      Layout.fillWidth: true
+      visible: newLayerDialog.targetMode !== "geojson" && newLayerDialog.displayName !== ""
+      text: newLayerDialog.tableTaken ? qsTr("W tym pliku jest już tabela „%1” — zmień nazwę. Nic nie zostanie nadpisane.").arg(newLayerDialog.tableName) : qsTr("tabela w bazie: %1").arg(newLayerDialog.tableName)
+      font: t.tinyFont
+      color: newLayerDialog.tableTaken ? t.errorColor : t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    Text {
+      Layout.fillWidth: true
+      visible: newLayerDialog.targetMode !== "database" && newLayerDialog.projectDatabase !== ""
+      text: qsTr("Osobny plik nie jedzie razem z bazą projektu, nie ma zdjęć ani przyciągania. Zwykle lepiej: „Baza projektu”.")
+      font: t.tinyFont
+      color: "#e08a1e"
+      wrapMode: Text.WordWrap
     }
 
     Text {
@@ -297,7 +340,7 @@ Popup {
         Layout.fillWidth: true
         text: qsTr("Utwórz")
         highlighted: true
-        enabled: newLayerDialog.layerName !== ""
+        enabled: newLayerDialog.displayName !== "" && !newLayerDialog.tableTaken
 
         onClicked: {
           let fields = [];
@@ -320,7 +363,10 @@ Popup {
               type: "text"
             });
 
-          const layer = LayerUtils.createEmptyLayer(newLayerDialog.targetPath, newLayerDialog.layerName, newLayerDialog.geometryType, newLayerDialog.crsAuthId, fields);
+          const targetTable = newLayerDialog.targetMode === "geojson" ? newLayerDialog.displayName : newLayerDialog.tableName;
+          const layer = LayerUtils.createEmptyLayer(newLayerDialog.targetPath, targetTable, newLayerDialog.geometryType, newLayerDialog.crsAuthId, fields);
+          if (layer)
+            layer.name = newLayerDialog.displayName;
 
           if (layer) {
             let hasAttachment = false;
@@ -338,11 +384,22 @@ Popup {
           }
 
           if (layer && ProjectUtils.addMapLayer(qgisProject, layer)) {
-            displayToast(qsTr("Utworzono warstwę %1").arg(newLayerDialog.layerName));
+            // [WF-NEW-LAYER] photos (ZAL_) and snapping right away, then save the project.
+            let suffix = "";
+            if (typeof NarzedziaProjektu !== "undefined") {
+              const setUp = NarzedziaProjektu.setUpNewLayer(qgisProject, layer);
+              if (setUp.attachments === true)
+                suffix = qsTr(" — ze zdjęciami");
+            }
+            const saved = typeof ProjectUtils !== "undefined" && ProjectUtils.saveProject(qgisProject);
+            if (saved)
+              displayToast(qsTr("Utworzono warstwę %1%2. Projekt zapisany.").arg(newLayerDialog.displayName).arg(suffix));
+            else
+              displayToast(qsTr("Utworzono warstwę %1, ale projektu NIE zapisano").arg(newLayerDialog.displayName), "warning");
             newLayerDialog.layerCreated(layer);
             newLayerDialog.close();
           } else {
-            displayToast(qsTr("Nie udało się utworzyć warstwy"));
+            displayToast(qsTr("Nie udało się utworzyć warstwy"), "error");
           }
         }
       }
