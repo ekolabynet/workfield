@@ -577,13 +577,17 @@ Drawer {
         }
       }
 
+      // [WF-DRAWER-ARROW] Field test 23.10: the arrow that hides the drawer has to be
+      // big and coloured (ZASADY_INTERFEJSU: filled background, visible in the sun
+      // and with gloves). Round, brand colour, white arrow.
       QfToolButton {
-        width: 36
-        height: 36
+        width: 40
+        height: 40
         padding: 0
-        bgcolor: "transparent"
+        round: true
+        bgcolor: t.mainColor
         iconSource: t.getThemeVectorIcon("ic_arrow_right_black_24dp")
-        iconColor: t.mainTextColor
+        iconColor: "white"
         onClicked: dataDrawer.close()
       }
     }

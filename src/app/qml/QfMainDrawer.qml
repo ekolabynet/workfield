@@ -1424,13 +1424,17 @@ Drawer {
         }
       }
 
+      // [WF-DRAWER-ARROW] Field test 23.10: the arrow that hides the drawer has to be
+      // big and coloured (ZASADY_INTERFEJSU: filled background, visible in the sun
+      // and with gloves). Round, brand colour, white arrow.
       QfToolButton {
-        width: 36
-        height: 36
+        width: 40
+        height: 40
         padding: 0
-        bgcolor: "transparent"
+        round: true
+        bgcolor: Theme.mainColor
         iconSource: Theme.getThemeVectorIcon("ic_arrow_left_black_24dp")
-        iconColor: Theme.mainTextColor
+        iconColor: "white"
         onClicked: dashBoard.close()
       }
     }
@@ -2806,12 +2810,18 @@ Drawer {
             elide: Text.ElideMiddle
           }
 
-          // uklad odmienny od projektu: krotkie ostrzezenie tekstem
-          Text {
+          // [WF-CRS-ICON] Layer CRS differs from the project's: a globe with a graticule
+          // instead of the orange EPSG code, which covered the layer name on narrow
+          // screens (Piotr, 23.10). The code is one tap away.
+          QfToolButton {
             visible: crsDiffers
-            text: layerCrs
-            font: t.tinyFont
-            color: t.warningColor
+            width: 18
+            height: 18
+            padding: 0
+            bgcolor: "transparent"
+            iconSource: t.getThemeVectorIcon("ic_crs_globe_white_24dp")
+            iconColor: t.warningColor
+            onClicked: displayToast(qsTr("„%1” jest w układzie %2, a projekt w %3 — na mapie warstwa jest przeliczana w locie.").arg(model.Name).arg(layerCrs).arg(qgisProject && qgisProject.crs ? qgisProject.crs.authid : "?"))
           }
 
           QfToolButton {
