@@ -930,6 +930,7 @@ void QfLayerUtils::setSymbolColor( QgsVectorLayer *layer, const QColor &color )
   symbol->setColor( color );
   layer->triggerRepaint();
   emit layer->styleChanged();
+  emit layer->rendererChanged(); // [WF-STYLE-FIX] legend icon
 }
 
 double QfLayerUtils::symbolSize( QgsVectorLayer *layer )
@@ -969,6 +970,7 @@ void QfLayerUtils::setSymbolSize( QgsVectorLayer *layer, double size )
 
   layer->triggerRepaint();
   emit layer->styleChanged();
+  emit layer->rendererChanged(); // [WF-STYLE-FIX] legend icon
 }
 
 static QgsSymbolLayer *firstSymbolLayerOf( QgsVectorLayer *layer )
@@ -977,10 +979,14 @@ static QgsSymbolLayer *firstSymbolLayerOf( QgsVectorLayer *layer )
   return ( symbol && symbol->symbolLayerCount() > 0 ) ? symbol->symbolLayer( 0 ) : nullptr;
 }
 
+// [WF-STYLE-FIX] rendererChanged() makes the layer's legend rebuild its icon;
+// without it the styling list kept showing the old symbol (orange star while
+// the map showed red ones).
 static void refreshLayer( QgsVectorLayer *layer )
 {
   layer->triggerRepaint();
   emit layer->styleChanged();
+  emit layer->rendererChanged();
 }
 
 int QfLayerUtils::symbolType( QgsVectorLayer *layer )
@@ -1002,19 +1008,46 @@ int QfLayerUtils::symbolType( QgsVectorLayer *layer )
   }
 }
 
+// [WF-STYLE-FIX] Line symbol layers have no fill colour: QgsSymbolLayer::fillColor()
+// returns an invalid colour and setFillColor() does nothing. The styling panel's
+// "Kolor linii" swatch (and the quick style tiles) go through fillColor/setFillColor,
+// so line colour changes were silently dropped (field test 23.10, Przepusty).
+// For lines the colour of the first symbol layer is the line colour.
+static bool isLineSymbol( QgsVectorLayer *layer )
+{
+  QgsSymbol *symbol = singleSymbolOf( layer );
+  return symbol && symbol->type() == Qgis::SymbolType::Line;
+}
+
 QColor QfLayerUtils::fillColor( QgsVectorLayer *layer )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
-  return sl ? sl->fillColor() : QColor();
+  if ( !sl )
+    return QColor();
+  return isLineSymbol( layer ) ? sl->color() : sl->fillColor();
 }
 
 void QfLayerUtils::setFillColor( QgsVectorLayer *layer, const QColor &color )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   if ( !sl || !color.isValid() )
+  {
+    // [WF-STYLE-FIX] Say why nothing happened (e.g. not a single-symbol style).
+    qInfo() << QStringLiteral( "WFG style: fill colour ignored on %1 (single symbol: %2, colour valid: %3)" )
+                 .arg( layer ? layer->name() : QStringLiteral( "<no layer>" ) )
+                 .arg( singleSymbolOf( layer ) ? QStringLiteral( "yes" ) : QStringLiteral( "no" ), color.isValid() ? QStringLiteral( "yes" ) : QStringLiteral( "no" ) );
     return;
+  }
 
-  sl->setFillColor( color );
+  const bool line = isLineSymbol( layer );
+  const QColor before = line ? sl->color() : sl->fillColor();
+  if ( line )
+    sl->setColor( color );
+  else
+    sl->setFillColor( color );
+  const QColor after = line ? sl->color() : sl->fillColor();
+  qInfo() << QStringLiteral( "WFG style: %1 [%2] %3 colour %4 -> %5" )
+               .arg( layer->name(), sl->layerType(), line ? QStringLiteral( "line" ) : QStringLiteral( "fill" ), before.name( QColor::HexArgb ), after.name( QColor::HexArgb ) );
   refreshLayer( layer );
 }
 
@@ -1028,9 +1061,17 @@ void QfLayerUtils::setStrokeColor( QgsVectorLayer *layer, const QColor &color )
 {
   QgsSymbolLayer *sl = firstSymbolLayerOf( layer );
   if ( !sl || !color.isValid() )
+  {
+    qInfo() << QStringLiteral( "WFG style: stroke colour ignored on %1 (single symbol: %2, colour valid: %3)" )
+                 .arg( layer ? layer->name() : QStringLiteral( "<no layer>" ) )
+                 .arg( singleSymbolOf( layer ) ? QStringLiteral( "yes" ) : QStringLiteral( "no" ), color.isValid() ? QStringLiteral( "yes" ) : QStringLiteral( "no" ) );
     return;
+  }
 
+  const QColor before = sl->strokeColor();
   sl->setStrokeColor( color );
+  qInfo() << QStringLiteral( "WFG style: %1 [%2] stroke colour %3 -> %4" )
+               .arg( layer->name(), sl->layerType(), before.name( QColor::HexArgb ), sl->strokeColor().name( QColor::HexArgb ) );
   refreshLayer( layer );
 }
 

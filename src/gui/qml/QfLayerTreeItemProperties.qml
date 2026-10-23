@@ -35,28 +35,38 @@ QfPopup {
   property var styleTargetLayer: null
   property var styleTargetMapLayer: null
 
+  // [WF-STYLE-FIX] Both pickers drop ALL their handlers when the picker closes,
+  // "Anuluj" included. Before, a cancelled picker left its colour handler
+  // connected, so the next choice anywhere (another layer, labels, categories)
+  // also ran the stale one; and the stroke width/style handlers were never
+  // disconnected at all (disconnect() was given the wrong function), so they
+  // piled up for the whole session.
   function openStrokePicker(current, width, style, colorCallback, widthCallback, styleCallback) {
     colorPicker.title = qsTr("Kontur");
     colorPicker.showStrokeOptions = true;
     colorPicker.strokeWidth = width;
     colorPicker.strokeStyle = style;
 
-    colorPicker.colorPicked.connect(function ch(chosen) {
-      colorPicker.colorPicked.disconnect(ch);
+    function onColor(chosen) {
       colorCallback(chosen);
-    });
-    colorPicker.strokeWidthPicked.connect(function wh(w) {
+    }
+    function onWidth(w) {
       widthCallback(w);
-    });
-    colorPicker.strokeStylePicked.connect(function sh(st) {
+    }
+    function onStyle(st) {
       styleCallback(st);
-    });
-    colorPicker.closed.connect(function cl() {
-      colorPicker.closed.disconnect(cl);
+    }
+    function onClosed() {
+      colorPicker.colorPicked.disconnect(onColor);
+      colorPicker.strokeWidthPicked.disconnect(onWidth);
+      colorPicker.strokeStylePicked.disconnect(onStyle);
+      colorPicker.closed.disconnect(onClosed);
       colorPicker.showStrokeOptions = false;
-      colorPicker.strokeWidthPicked.disconnect(widthCallback);
-      colorPicker.strokeStylePicked.disconnect(styleCallback);
-    });
+    }
+    colorPicker.colorPicked.connect(onColor);
+    colorPicker.strokeWidthPicked.connect(onWidth);
+    colorPicker.strokeStylePicked.connect(onStyle);
+    colorPicker.closed.connect(onClosed);
 
     colorPicker.openFor(current);
   }
@@ -64,10 +74,17 @@ QfPopup {
   function openColorPicker(title, current, callback) {
     colorPicker.title = title;
     colorPicker.showStrokeOptions = false;
-    colorPicker.colorPicked.connect(function handler(chosen) {
-      colorPicker.colorPicked.disconnect(handler);
+
+    function onColor(chosen) {
       callback(chosen);
-    });
+    }
+    function onClosed() {
+      colorPicker.colorPicked.disconnect(onColor);
+      colorPicker.closed.disconnect(onClosed);
+    }
+    colorPicker.colorPicked.connect(onColor);
+    colorPicker.closed.connect(onClosed);
+
     colorPicker.openFor(current);
   }
   property var availableFields: []
@@ -150,19 +167,19 @@ QfPopup {
         { "n": qsTr("Cienka czarna"), "wyp": "#212121", "gr": 0.26, "st": 1 }
       ],
       "0": [
-        { "n": qsTr("Czerwone koło"), "wyp": "#e53935", "kon": "#ffffff", "gr": 0.4, "ks": 6, "r": 3 },
-        { "n": qsTr("Duże koło"), "wyp": "#ff9800", "kon": "#000000", "gr": 0.4, "ks": 6, "r": 5 },
-        { "n": qsTr("Żółty trójkąt"), "wyp": "#fdd835", "kon": "#000000", "gr": 0.4, "ks": 3, "r": 4 },
+        { "n": qsTr("Czerwone koło"), "wyp": "#e53935", "kon": "#ffffff", "gr": 0.4, "ks": 8, "r": 3 },
+        { "n": qsTr("Duże koło"), "wyp": "#ff9800", "kon": "#000000", "gr": 0.4, "ks": 8, "r": 5 },
+        { "n": qsTr("Żółty trójkąt"), "wyp": "#fdd835", "kon": "#000000", "gr": 0.4, "ks": 4, "r": 4 },
         { "n": qsTr("Niebieski kwadrat"), "wyp": "#1e88e5", "kon": "#ffffff", "gr": 0.4, "ks": 0, "r": 3 },
-        { "n": qsTr("Gwiazda"), "wyp": "#43a047", "kon": "#ffffff", "gr": 0.4, "ks": 12, "r": 5 },
-        { "n": qsTr("Krzyż"), "wyp": "#212121", "kon": "#212121", "gr": 0.5, "ks": 8, "r": 4 },
+        { "n": qsTr("Gwiazda"), "wyp": "#43a047", "kon": "#ffffff", "gr": 0.4, "ks": 6, "r": 5 },
+        { "n": qsTr("Krzyż"), "wyp": "#212121", "kon": "#212121", "gr": 0.5, "ks": 9, "r": 4 },
         { "n": qsTr("Biały kwadrat (orto)"), "wyp": "#ffffff", "kon": "#000000", "gr": 0.4, "ks": 0, "r": 3 },
-        { "n": qsTr("Czerwony krzyż"), "wyp": "#e53935", "kon": "#e53935", "gr": 0.6, "ks": 8, "r": 5 },
-        { "n": qsTr("Fioletowa gwiazda"), "wyp": "#8e24aa", "kon": "#ffffff", "gr": 0.4, "ks": 12, "r": 5 },
-        { "n": qsTr("Mały punkt"), "wyp": "#212121", "kon": "#ffffff", "gr": 0.3, "ks": 6, "r": 1.6 },
-        { "n": qsTr("Niebieskie koło"), "wyp": "#1e88e5", "kon": "#ffffff", "gr": 0.4, "ks": 6, "r": 3.5 },
-        { "n": qsTr("Pomarańczowy trójkąt"), "wyp": "#fb8c00", "kon": "#000000", "gr": 0.4, "ks": 3, "r": 4.5 },
-        { "n": qsTr("Drzewo (zielone koło)"), "wyp": "#802e7d32", "kon": "#1b5e20", "gr": 0.6, "ks": 6, "r": 6 }
+        { "n": qsTr("Czerwony krzyż"), "wyp": "#e53935", "kon": "#e53935", "gr": 0.6, "ks": 9, "r": 5 },
+        { "n": qsTr("Fioletowa gwiazda"), "wyp": "#8e24aa", "kon": "#ffffff", "gr": 0.4, "ks": 6, "r": 5 },
+        { "n": qsTr("Mały punkt"), "wyp": "#212121", "kon": "#ffffff", "gr": 0.3, "ks": 8, "r": 1.6 },
+        { "n": qsTr("Niebieskie koło"), "wyp": "#1e88e5", "kon": "#ffffff", "gr": 0.4, "ks": 8, "r": 3.5 },
+        { "n": qsTr("Pomarańczowy trójkąt"), "wyp": "#fb8c00", "kon": "#000000", "gr": 0.4, "ks": 4, "r": 4.5 },
+        { "n": qsTr("Drzewo (zielone koło)"), "wyp": "#802e7d32", "kon": "#1b5e20", "gr": 0.6, "ks": 8, "r": 6 }
       ]
     })
 
@@ -320,12 +337,13 @@ QfPopup {
     const ukryte = czytajJson(ukladUstawienia.ukryteStyle, []);
     const wlasne = czytajJson(ukladUstawienia.wlasneStyle, {});
     const lista = [];
+    // [WF-STYLE-FIX] Own tiles first (newest first), next to „+ Dodaj bieżący”.
+    (wlasne[k] || []).slice().reverse().forEach(function (s) {
+      lista.push(Object.assign({ "wlasny": true }, s));
+    });
     (szybkieStyle[k] || []).forEach(function (s) {
       if (ukryte.indexOf(k + ":" + s.n) < 0)
         lista.push(Object.assign({ "wlasny": false }, s));
-    });
-    (wlasne[k] || []).forEach(function (s) {
-      lista.push(Object.assign({ "wlasny": true }, s));
     });
     stylyBiezace = lista;
   }
@@ -358,7 +376,7 @@ QfPopup {
       s.gr = LayerUtils.strokeWidth(vl);
     }
     if (rodzaj === 0) {
-      s.ks = (typeof LayerUtils.markerShape === "function") ? LayerUtils.markerShape(vl) : 6;
+      s.ks = (typeof LayerUtils.markerShape === "function") ? LayerUtils.markerShape(vl) : 8; // [WF-STYLE-FIX] 8 = circle
       s.r = LayerUtils.symbolSize(vl);
     }
     const wlasne = czytajJson(ukladUstawienia.wlasneStyle, {});
@@ -368,7 +386,7 @@ QfPopup {
     ukladUstawienia.wlasneStyle = JSON.stringify(wlasne);
     dodawanieStylu = false;
     odswiezListeStylow();
-    kafelkiStylow.positionViewAtEnd();
+    kafelkiStylow.positionViewAtBeginning(); // [WF-STYLE-FIX] new tile sits right after „+”
     displayToast(qsTr("Dodano do szybkich stylów: %1").arg(nazwa));
   }
 
@@ -1239,12 +1257,13 @@ QfPopup {
 
                 model: stylyBiezace
 
-                // „+ Dodaj bieżący” — ostatni kafelek, jak „Dodaj do ulubionych” w QGIS
-                footer: Item {
+                // [WF-STYLE-FIX] „+ Dodaj bieżący” is the FIRST tile (Piotr, 23.10 18:21),
+                // with the user's own tiles right after it.
+                header: Item {
                   width: 84
                   height: 82
                   Rectangle {
-                    x: 6
+                    x: 0
                     width: 78
                     height: 82
                     radius: 8
@@ -1346,16 +1365,19 @@ QfPopup {
                       } else {
                         const r = Math.max(4, s.r * 2.4);
                         const x = 32, y = 20;
-                        if (s.ks === 8) {
+                        // [WF-STYLE-FIX] s.ks is Qgis::MarkerShape: 0 square, 4/5 triangle,
+                        // 6 star, 8 circle, 9/10/11 cross. Previews used the old wrong
+                        // codes, so "Czerwone koło" showed a cross on its tile.
+                        if (s.ks === 9 || s.ks === 10 || s.ks === 11) {
                           rysuj(function () { c.moveTo(x - r, y); c.lineTo(x + r, y); c.moveTo(x, y - r); c.lineTo(x, y + r); },
                                 null, kolor(s.wyp), Math.max(2, r / 2.5), []);
                         } else {
                           rysuj(function () {
                             if (s.ks === 0) {
                               c.rect(x - r, y - r, 2 * r, 2 * r);
-                            } else if (s.ks === 3) {
+                            } else if (s.ks === 4 || s.ks === 5) {
                               c.moveTo(x, y - r); c.lineTo(x + r, y + r * 0.8); c.lineTo(x - r, y + r * 0.8); c.closePath();
-                            } else if (s.ks === 12) {
+                            } else if (s.ks === 6) {
                               for (let i = 0; i < 10; i++) {
                                 const k = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 === 0 ? r : r / 2.3;
                                 if (i === 0) c.moveTo(x + rr * Math.cos(k), y + rr * Math.sin(k));
@@ -1889,25 +1911,27 @@ QfPopup {
               visible: symbolKind === 0
 
               Repeater {
+                // [WF-STYLE-FIX] Values are Qgis::MarkerShape: 0 square, 4 triangle,
+                // 8 circle, 9 cross, 6 star. (Were 3/6/8/12 = hexagon/star/circle/line.)
                 model: [
                   {
                     "s": 0,
                     "n": qsTr("Kwadrat")
                   },
                   {
-                    "s": 3,
+                    "s": 4,
                     "n": qsTr("Trójkąt")
                   },
                   {
-                    "s": 6,
+                    "s": 8,
                     "n": qsTr("Koło")
                   },
                   {
-                    "s": 8,
+                    "s": 9,
                     "n": qsTr("Krzyż")
                   },
                   {
-                    "s": 12,
+                    "s": 6,
                     "n": qsTr("Gwiazda")
                   }
                 ]
