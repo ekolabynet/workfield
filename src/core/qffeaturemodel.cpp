@@ -1031,6 +1031,19 @@ namespace
     const QgsRectangle o = g.boundingBox();
     return std::max( o.width(), o.height() );
   }
+
+  //! [WF-COLLAPSED] Thresholds for a polygon whose vertices collapsed into
+  //! a point or a line. A 25 cm meter box has 0.06 m² — far above both.
+  constexpr double kCollapsedSize = 0.05;  // m, longer bounding-box side
+  constexpr double kCollapsedArea = 0.0004; // m² (2 × 2 cm)
+
+  //! [WF-COLLAPSED] True when the polygon is a point or a line in disguise.
+  bool isCollapsedPolygon( const QgsGeometry &g, double size )
+  {
+    if ( size < 0 )
+      return false;
+    return size < kCollapsedSize || qAbs( g.area() ) < kCollapsedArea;
+  }
 }
 
 void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEditing )
@@ -1245,23 +1258,25 @@ void QfFeatureModel::applyGeometry( bool fromVertexModel, bool skipTopologicalEd
   //
   // Sprawdzane NIEZALEŻNIE od unikania nakładania, bo to inna przyczyna
   // dająca ten sam objaw.
+  //
+  // [WF-COLLAPSED] Only a REAL collapse raises the alarm: size under 5 cm or
+  // area under 4 cm². Before, any object smaller than 0.5 m was flagged —
+  // a 45 cm meter box lid included (field test 23.10).
   if ( QgsWkbTypes::geometryType( geometry.wkbType() ) == Qgis::GeometryType::Polygon )
   {
-    const double prog = mProject
-                          ? mProject->readDoubleEntry( QStringLiteral( "WorkField" ),
-                                                       QStringLiteral( "/progObwiedni" ), 0.5 )
-                          : 0.5;
-    const double bok = bokObwiedni( geometry );
-    if ( bok >= 0 && bok < prog )
+    const double size = bokObwiedni( geometry );
+    if ( isCollapsedPolygon( geometry, size ) )
     {
+      const double area = qAbs( geometry.area() );
       emit geometriaZniszczona(
         QStringLiteral( "zlepek" ),
-        tr( "Obiekt ma obwiednię %1 m — to nie jest płat, tylko zlepione "
-            "wierzchołki.\n\nNajczęstsza przyczyna: włączona EDYCJA "
-            "TOPOLOGICZNA, która przy małych obiektach ściąga sąsiednie "
+        tr( "Obiekt ma %1 cm długości i %2 cm² pola — wierzchołki zlepiły się "
+            "w jeden punkt albo w jedną linię.\n\nNajczęstsza przyczyna: włączona "
+            "EDYCJA TOPOLOGICZNA, która przy małych obiektach ściąga sąsiednie "
             "wierzchołki w jeden punkt." )
-          .arg( bok, 0, 'f', 2 ),
-        bok );
+          .arg( size * 100.0, 0, 'f', 1 )
+          .arg( area * 10000.0, 0, 'f', 1 ),
+        size );
     }
   }
 

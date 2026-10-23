@@ -1854,6 +1854,17 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   QString najmniejszaWarstwa;
   qlonglong najmniejszyFid = -1;
 
+  // [WF-COLLAPSED] First polygon that really collapsed (size < 5 cm or
+  // area < 4 cm²). Kept apart from the smallest object: a small object is
+  // not an error, a collapsed one is.
+  constexpr double kCollapsedSize = 0.05;  // m
+  constexpr double kCollapsedArea = 0.0004; // m²
+  double collapsedSize = -1.0;
+  double collapsedArea = -1.0;
+  QString collapsedObject;
+  QString collapsedLayer;
+  qlonglong collapsedFid = -1;
+
   const auto mapaWarstw = projekt->mapLayers();
   for ( auto it = mapaWarstw.constBegin(); it != mapaWarstw.constEnd(); ++it )
   {
@@ -1911,6 +1922,18 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
         }
         const QgsRectangle obw = geom.boundingBox();
         const double bok = std::max( obw.width(), obw.height() );
+        if ( collapsedFid < 0 )
+        {
+          const double area = qAbs( geom.area() );
+          if ( bok < kCollapsedSize || area < kCollapsedArea )
+          {
+            collapsedSize = bok;
+            collapsedArea = area;
+            collapsedObject = QStringLiteral( "%1 / fid %2" ).arg( wektor->name() ).arg( obiekt.id() );
+            collapsedLayer = wektor->name();
+            collapsedFid = obiekt.id();
+          }
+        }
         if ( najmniejszaObwiednia < 0 || bok < najmniejszaObwiednia )
         {
           najmniejszaObwiednia = bok;
@@ -2018,16 +2041,20 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
              QStringLiteral( "topologia" ), 0.0, QString(),
              najmniejszaWarstwa, najmniejszyFid );
 
-  if ( najmniejszaObwiednia >= 0 && najmniejszaObwiednia < 0.5 )
+  // [WF-COLLAPSED] Was "smallest object < 0.5 m" — flagged real small objects
+  // (Wodomierze fid 3, 0.28 m, Pasymska 23.10).
+  if ( collapsedFid >= 0 )
     ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
-             tr( "obiekt o obwiedni %1 m (%2) — to nie jest płat, tylko zlepione wierzchołki" )
-               .arg( najmniejszaObwiednia, 0, 'f', 2 ).arg( najmniejszyObiekt ),
+             tr( "obiekt %1 ma %2 cm długości i %3 cm² pola — wierzchołki zlepione w punkt albo w linię" )
+               .arg( collapsedObject )
+               .arg( collapsedSize * 100.0, 0, 'f', 1 )
+               .arg( collapsedArea * 10000.0, 0, 'f', 1 ),
              tr( "Obejrzyj ten obiekt na mapie. Jeżeli to pomyłka — skasuj go. "
-                 "Jeżeli miał być płatem — narysuj od nowa; ratowanie zlepionych "
+                 "Jeżeli miał być powierzchnią — narysuj od nowa; ratowanie zlepionych "
                  "wierzchołków przez przeciąganie kończy się drugim takim samym. "
                  "Zostawiony pójdzie do eksportu jako powierzchnia zero." ),
              QStringLiteral( "pokaz_obiekt" ), 0.0, QString(),
-             najmniejszaWarstwa, najmniejszyFid );
+             collapsedLayer, collapsedFid );
 
   // ----------------------------------------------------------------- dane
   QVariantMap dane;
