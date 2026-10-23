@@ -3420,6 +3420,297 @@ ApplicationWindow {
         }
       }
 
+      // [WF-FIXED-RECT] Wymiar i orientacja prostokąta o stałym wymiarze.
+      QfDialog {
+        id: oknoWymiaru
+        parent: mainWindow.contentItem
+        z: 10000
+
+        width: Math.min(mainWindow.width - Theme.popupScreenEdgeVerticalMargin * 2, 440)
+
+        title: qsTr("Prostokąt o stałym wymiarze")
+
+        property var uzyte: []
+
+        function liczba(tekst) {
+          const v = parseFloat(String(tekst).replace(",", "."));
+          return isNaN(v) ? NaN : v;
+        }
+
+        // [WF-SIZE-UNITS]
+        property string jednostka: "cm"
+
+        function zmienJednostke(nowa) {
+          const dl = mainToolbar.zJednostki(poleDlugosci.text, jednostka);
+          const sz = mainToolbar.zJednostki(poleSzerokosci.text, jednostka);
+          jednostka = nowa;
+          if (!isNaN(dl))
+            poleDlugosci.text = mainToolbar.wJednostce(dl, nowa);
+          if (!isNaN(sz))
+            poleSzerokosci.text = mainToolbar.wJednostce(sz, nowa);
+        }
+
+        function obroc(o) {
+          const teraz = isNaN(liczba(poleObrotu.text)) ? 0 : liczba(poleObrotu.text);
+          poleObrotu.text = String((((Math.round(teraz + o) % 360) + 360) % 360));
+        }
+
+        Column {
+          width: parent.width
+          spacing: 10
+
+          Label {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            color: Theme.secondaryTextColor
+            font: Theme.tipFont
+            text: qsTr("Wskaż środek i zatwierdź fajką. Drugi punkt (opcjonalnie) ustawia kierunek dłuższego boku.")
+          }
+
+          // [WF-SIZE-UNITS] unit of the sizes typed below; switching converts them
+          Flow {
+            width: parent.width
+            spacing: 6
+
+            Repeater {
+              model: [
+                { "k": "m", "n": qsTr("m") },
+                { "k": "cm", "n": qsTr("cm") },
+                { "k": "mm", "n": qsTr("mm") },
+                { "k": "cal", "n": qsTr("cale") }
+              ]
+
+              delegate: Button {
+                required property var modelData
+                text: modelData.n
+                font: Theme.tipFont
+                checkable: true
+                highlighted: checked
+                checked: oknoWymiaru.jednostka === modelData.k
+                onClicked: oknoWymiaru.zmienJednostke(modelData.k)
+              }
+            }
+          }
+
+          // sizes used in this layer, most frequent first
+          Flow {
+            width: parent.width
+            spacing: 6
+            visible: oknoWymiaru.uzyte.length > 0
+
+            Repeater {
+              model: oknoWymiaru.uzyte
+
+              delegate: QfButton {
+                required property var modelData
+                text: mainToolbar.wJednostce(modelData.d, oknoWymiaru.jednostka) + "×" + mainToolbar.wJednostce(modelData.s, oknoWymiaru.jednostka) + " " + mainToolbar.znakJednostki(oknoWymiaru.jednostka) // [WF-SIZE-UNITS]
+                font: Theme.tipFont
+                onClicked: {
+                  poleDlugosci.text = mainToolbar.wJednostce(Number(modelData.d), oknoWymiaru.jednostka);
+                  poleSzerokosci.text = mainToolbar.wJednostce(Number(modelData.s), oknoWymiaru.jednostka);
+                }
+              }
+            }
+          }
+
+          GridLayout {
+            width: parent.width
+            columns: 2
+            columnSpacing: 8
+            rowSpacing: 6
+
+            Label {
+              text: qsTr("Dłuższy bok")
+              color: Theme.mainTextColor
+            }
+            QfTextField {
+              id: poleDlugosci
+              Layout.fillWidth: true
+              font: Theme.strongFont
+              horizontalAlignment: TextInput.AlignHCenter
+              suffixText: mainToolbar.znakJednostki(oknoWymiaru.jednostka) // [WF-SIZE-UNITS]
+              inputMethodHints: Qt.ImhFormattedNumbersOnly
+            }
+
+            Label {
+              text: qsTr("Krótszy bok")
+              color: Theme.mainTextColor
+            }
+            QfTextField {
+              id: poleSzerokosci
+              Layout.fillWidth: true
+              font: Theme.strongFont
+              horizontalAlignment: TextInput.AlignHCenter
+              suffixText: mainToolbar.znakJednostki(oknoWymiaru.jednostka) // [WF-SIZE-UNITS]
+              inputMethodHints: Qt.ImhFormattedNumbersOnly
+            }
+          }
+
+          // ORIENTACJA — Piotr 20:11: "Dołóż tylko orientację do prostokąta".
+          Label {
+            width: parent.width
+            text: qsTr("Orientacja dłuższego boku (azymut od północy, w prawo)")
+            color: Theme.mainTextColor
+            wrapMode: Text.WordWrap
+          }
+
+          Row {
+            width: parent.width
+            spacing: 6
+
+            QfButton {
+              id: obrotMinus
+              width: 66
+              font: Theme.tipFont
+              text: "−15°"
+              onClicked: oknoWymiaru.obroc(-15)
+            }
+            QfTextField {
+              id: poleObrotu
+              width: parent.width - obrotMinus.width - obrotPlus.width - obrot90.width - 18
+              font: Theme.strongFont
+              horizontalAlignment: TextInput.AlignHCenter
+              suffixText: "°"
+              inputMethodHints: Qt.ImhFormattedNumbersOnly
+            }
+            QfButton {
+              id: obrotPlus
+              width: 66
+              font: Theme.tipFont
+              text: "+15°"
+              onClicked: oknoWymiaru.obroc(15)
+            }
+            QfButton {
+              id: obrot90
+              width: 66
+              font: Theme.tipFont
+              text: "↻90°"
+              onClicked: oknoWymiaru.obroc(90)
+            }
+          }
+
+          Label {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            color: Theme.secondaryTextColor
+            font: Theme.tinyFont
+            text: qsTr("Po każdym obiekcie wskazanym dwoma punktami orientacja przechodzi na następny obiekt sama.")
+          }
+
+          Label {
+            width: parent.width
+            text: qsTr("Drugi punkt to…")
+            color: Theme.mainTextColor
+          }
+
+          Flow {
+            width: parent.width
+            spacing: 6
+
+            Button {
+              text: qsTr("narożnik tego samego boku")
+              font: Theme.tipFont
+              checkable: true
+              highlighted: checked
+              checked: !oknoWymiaru.odSrodka
+              onClicked: oknoWymiaru.odSrodka = false
+            }
+            Button {
+              text: qsTr("kierunek od środka")
+              font: Theme.tipFont
+              checkable: true
+              highlighted: checked
+              checked: oknoWymiaru.odSrodka
+              onClicked: oknoWymiaru.odSrodka = true
+            }
+          }
+
+          Flow {
+            width: parent.width
+            spacing: 6
+            visible: !oknoWymiaru.odSrodka
+
+            Button {
+              text: qsTr("dobuduj w prawo")
+              font: Theme.tipFont
+              checkable: true
+              highlighted: checked
+              checked: oknoWymiaru.poPrawej
+              onClicked: oknoWymiaru.poPrawej = true
+            }
+            Button {
+              text: qsTr("dobuduj w lewo")
+              font: Theme.tipFont
+              checkable: true
+              highlighted: checked
+              checked: !oknoWymiaru.poPrawej
+              onClicked: oknoWymiaru.poPrawej = false
+            }
+          }
+
+          CheckBox {
+            id: wymiarDomyslnyWarstwy
+            width: parent.width
+            text: qsTr("Rysuj tak od razu na tej warstwie")
+          }
+        }
+
+        property bool odSrodka: false
+        property bool poPrawej: true
+
+        onOpened: {
+          const layer = dashBoard.activeLayer;
+          mainToolbar.wczytajWymiarWarstwy(layer);
+          uzyte = mainToolbar.wymiaryWarstwy(layer);
+          jednostka = mainToolbar.wymiarJednostka; // [WF-SIZE-UNITS]
+          poleDlugosci.text = mainToolbar.wJednostce(mainToolbar.wymiarDl, jednostka);
+          poleSzerokosci.text = mainToolbar.wJednostce(mainToolbar.wymiarSz, jednostka);
+          poleObrotu.text = String(Math.round(mainToolbar.wymiarAzymut));
+          odSrodka = mainToolbar.wymiarOdSrodka;
+          poPrawej = mainToolbar.wymiarPoPrawej;
+          wymiarDomyslnyWarstwy.checked = String(mainToolbar.wlasciwosc(layer, "workfield/ksztaltDomyslny", "")) === "prostokatWymiar";
+          poleDlugosci.selectAll();
+          poleDlugosci.forceActiveFocus();
+        }
+
+        onAccepted: {
+          // [WF-SIZE-UNITS] typed in the chosen unit, kept in metres
+          let dl = mainToolbar.zJednostki(poleDlugosci.text, jednostka);
+          let sz = mainToolbar.zJednostki(poleSzerokosci.text, jednostka);
+          mainToolbar.wymiarJednostka = jednostka;
+          settings.setValue('WorkField/wymiarJednostka', jednostka);
+          if (!(dl > 0) || !(sz > 0)) {
+            displayToast(qsTr("Oba boki muszą być większe od zera"), "warning");
+            return;
+          }
+          if (sz > dl) {
+            const tmp = dl;
+            dl = sz;
+            sz = tmp;
+          }
+          const ob = liczba(poleObrotu.text);
+          mainToolbar.wymiarDl = dl;
+          mainToolbar.wymiarSz = sz;
+          mainToolbar.wymiarAzymut = isNaN(ob) ? 0 : (((ob % 360) + 360) % 360);
+          mainToolbar.wymiarOdSrodka = odSrodka;
+          mainToolbar.wymiarPoPrawej = poPrawej;
+          const layer = dashBoard.activeLayer;
+          mainToolbar.zapiszWymiarWarstwie(layer);
+          const byl = String(mainToolbar.wlasciwosc(layer, "workfield/ksztaltDomyslny", ""));
+          if (wymiarDomyslnyWarstwy.checked)
+            mainToolbar.zapiszWarstwie(layer, "workfield/ksztaltDomyslny", "prostokatWymiar");
+          else if (byl === "prostokatWymiar")
+            mainToolbar.zapiszWarstwie(layer, "workfield/ksztaltDomyslny", "");
+          mainToolbar.ksztaltTrwaly = "prostokatWymiar";
+          mainToolbar.trybKsztaltu = "prostokatWymiar";
+          mainToolbar.etykietaKsztaltu = mainToolbar.nazwaKsztaltu("prostokatWymiar");
+          mainToolbar.przerysujPodglad();
+          if (typeof ProjectUtils !== "undefined")
+            ProjectUtils.saveProject(qgisProject);
+          displayToast(qsTr("Prostokąt %1 × %2 %3, obrót %4°. Wskaż środek i zatwierdź fajką.").arg(mainToolbar.wJednostce(dl)).arg(mainToolbar.wJednostce(sz)).arg(mainToolbar.znakJednostki()).arg(Math.round(mainToolbar.wymiarAzymut))); // [WF-SIZE-UNITS]
+        }
+      }
+
       // Ile punktow czlowiek juz wskazal. `vertexCount` czytamy PO TO, zeby
       // wiazanie mialo sie od czego odswiezac: `wskazanych()` jest zwyklym
       // wywolaniem i samo z siebie niczego nie zglasza.
@@ -3468,6 +3759,325 @@ ApplicationWindow {
       // zapala sie podglad i kazdy kolejny punkt go przerysowuje; drugie
       // tapniecie w ten sam przycisk zatwierdza to, co widac.
       property string trybKsztaltu: ""
+
+      // ===== [WF-FIXED-RECT] PROSTOKĄT O STAŁYM WYMIARZE (23.10.2026) =====
+      //
+      // Uwagi z terenu 10 i 11 (Pasymska): studzienki i skrzynki zaworowe mają
+      // wymiary katalogowe (np. 38,5 × 26 cm). Zamiast trzech punktów — jeden
+      // (środek z RTK) i fajka. Orientacja: wpisany obrót, ostatni kierunek tej
+      // warstwy albo drugi punkt (narożnik tego samego dłuższego boku albo
+      // kierunek osi od środka). Kształt i wymiar warstwa pamięta (customProperty
+      // workfield/…), a po zapisie obiektu kształt uzbraja się sam od nowa.
+      property string ksztaltTrwaly: ""
+      property real wymiarDl: 0.45
+      property real wymiarSz: 0.45
+      property real wymiarAzymut: 0
+      property bool wymiarPoPrawej: true
+      property bool wymiarOdSrodka: false
+      property bool wymiarUstawiony: false
+      property var warstwyZDomyslnymPowiedziane: ({})
+      readonly property string wymiarEtykieta: wJednostce(wymiarDl) + "×" + wJednostce(wymiarSz) + (wymiarJednostka === "cal" ? "″" : "") // [WF-SIZE-UNITS]
+
+      // [WF-SIZE-UNITS] m / cm / mm / cale (inches). Sizes are kept in metres.
+      property string wymiarJednostka: settings.value('WorkField/wymiarJednostka', 'cm')
+      readonly property var jednostkiWymiaru: ({
+          "m": { "f": 1.0, "miejsc": 3, "znak": "m" },
+          "cm": { "f": 0.01, "miejsc": 1, "znak": "cm" },
+          "mm": { "f": 0.001, "miejsc": 0, "znak": "mm" },
+          "cal": { "f": 0.0254, "miejsc": 2, "znak": "″" }
+        })
+
+      //! metres → text in the chosen unit (trailing zeros dropped)
+      function wJednostce(metry, jednostka) {
+        const j = jednostkiWymiaru[jednostka || wymiarJednostka] || jednostkiWymiaru["m"];
+        return String(parseFloat((metry / j.f).toFixed(j.miejsc)));
+      }
+
+      //! text in the chosen unit → metres (NaN when not a number)
+      function zJednostki(tekst, jednostka) {
+        const j = jednostkiWymiaru[jednostka || wymiarJednostka] || jednostkiWymiaru["m"];
+        const v = parseFloat(String(tekst).replace(",", "."));
+        return isNaN(v) ? NaN : v * j.f;
+      }
+
+      function znakJednostki(jednostka) {
+        const j = jednostkiWymiaru[jednostka || wymiarJednostka];
+        return j ? j.znak : "m";
+      }
+
+      function nazwaKsztaltu(k) {
+        if (k === "prostokatWymiar")
+          return qsTr("Prostokąt %1 %2").arg(wymiarEtykieta).arg(wymiarJednostka === "cal" ? "" : znakJednostki()); // [WF-SIZE-UNITS]
+        if (k === "prostokat")
+          return qsTr("Prostokąt");
+        if (k === "okrag")
+          return qsTr("Okrąg");
+        if (k === "krzywa")
+          return qsTr("Krzywa");
+        if (k === "chmurka")
+          return qsTr("Chmurka");
+        return k;
+      }
+
+      //! The shape engine, with the fixed-size rectangle added.
+      function zModeluKsztaltu(rb, nazwa, promien, zZywym) {
+        if (nazwa === "prostokatWymiar")
+          return silnikKsztaltow.prostokatOWymiarach(rb, wymiarDl, wymiarSz, wymiarAzymut, wymiarPoPrawej, wymiarOdSrodka);
+        return silnikKsztaltow.zModelu(rb, nazwa, promien, zZywym, rb.geometryType);
+      }
+
+      function wlasciwosc(layer, klucz, domyslna) {
+        if (!layer || typeof layer.customProperty !== "function")
+          return domyslna;
+        const v = layer.customProperty(klucz, domyslna);
+        return v === undefined || v === null || v === "" ? domyslna : v;
+      }
+
+      function zapiszWarstwie(layer, klucz, wartosc) {
+        if (layer && typeof NarzedziaProjektu !== "undefined")
+          NarzedziaProjektu.wlasciwoscWarstwy(layer, klucz, wartosc);
+      }
+
+      function wczytajWymiarWarstwy(layer) {
+        wymiarUstawiony = wlasciwosc(layer, "workfield/wymiarDl", "") !== "";
+        wymiarDl = parseFloat(wlasciwosc(layer, "workfield/wymiarDl", "0.45"));
+        wymiarSz = parseFloat(wlasciwosc(layer, "workfield/wymiarSz", "0.45"));
+        wymiarAzymut = parseFloat(wlasciwosc(layer, "workfield/wymiarAzymut", "0"));
+        wymiarPoPrawej = String(wlasciwosc(layer, "workfield/wymiarStrona", "prawo")) !== "lewo";
+        wymiarOdSrodka = String(wlasciwosc(layer, "workfield/wymiarDrugiPunkt", "naroznik")) === "kierunek";
+      }
+
+      function zapiszWymiarWarstwie(layer) {
+        zapiszWarstwie(layer, "workfield/wymiarDl", wymiarDl.toFixed(3));
+        zapiszWarstwie(layer, "workfield/wymiarSz", wymiarSz.toFixed(3));
+        zapiszWarstwie(layer, "workfield/wymiarAzymut", wymiarAzymut.toFixed(1));
+        zapiszWarstwie(layer, "workfield/wymiarStrona", wymiarPoPrawej ? "prawo" : "lewo");
+        zapiszWarstwie(layer, "workfield/wymiarDrugiPunkt", wymiarOdSrodka ? "kierunek" : "naroznik");
+        wymiarUstawiony = true;
+      }
+
+      //! Sizes used in this layer, most frequent first: [{d, s, n}].
+      function wymiaryWarstwy(layer) {
+        try {
+          const l = JSON.parse(String(wlasciwosc(layer, "workfield/wymiary", "[]")));
+          return Array.isArray(l) ? l.sort(function (a, b) { return b.n - a.n; }) : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function policzWymiar(layer) {
+        const l = wymiaryWarstwy(layer);
+        let jest = false;
+        for (let i = 0; i < l.length; i++) {
+          if (Math.abs(l[i].d - wymiarDl) < 0.0005 && Math.abs(l[i].s - wymiarSz) < 0.0005) {
+            l[i].n = (l[i].n || 0) + 1;
+            jest = true;
+          }
+        }
+        if (!jest)
+          l.push({ "d": wymiarDl, "s": wymiarSz, "n": 1 });
+        zapiszWarstwie(layer, "workfield/wymiary", JSON.stringify(l));
+        wariantyWersja++; // [WF-SHAPE-VARIANTS]
+      }
+
+      //! After a fixed-size rectangle went in: direction remembered, side length
+      //! compared with the size, size counted, WYMIAR attribute prepared.
+      //! Must run BEFORE setDataFromGeometry (the tapped points are gone after it).
+      function poWstawieniuWymiaru(rb) {
+        const layer = dashBoard.activeLayer;
+        const bok = silnikKsztaltow.bokPomiaru(rb);
+        if (bok.ok) {
+          // the direction of this object becomes the default for the next one
+          wymiarAzymut = Math.round(bok.azymut * 10) / 10;
+          zapiszWarstwie(layer, "workfield/wymiarAzymut", wymiarAzymut.toFixed(1));
+          if (!wymiarOdSrodka && Math.abs(bok.dlugosc - wymiarDl) > 0.05) {
+            digitizingToolbar.haptyka(60);
+            displayToast(qsTr("Zmierzony bok ma %1 cm, a wymiar %2 cm — może to inny typ?").arg(Math.round(bok.dlugosc * 100)).arg(Math.round(wymiarDl * 100)), "warning");
+          }
+        }
+        policzWymiar(layer);
+        mainWindow.wymiarDoOdlozenia = wymiarDl.toFixed(2) + "×" + wymiarSz.toFixed(2);
+      }
+
+      //! The layer's default shape, armed when drawing on it starts.
+      function uzbrojDomyslny(powiedz) {
+        const layer = dashBoard.activeLayer;
+        if (!layer || stateMachine.state !== "digitize" || edycjaGeometrii)
+          return;
+        let d = String(wlasciwosc(layer, "workfield/ksztaltDomyslny", ""));
+        const typ = typeof layer.geometryType === "function" ? layer.geometryType() : -1;
+        if (typ !== Qgis.GeometryType.Polygon && typ !== Qgis.GeometryType.Line)
+          d = "";
+        ksztaltTrwaly = d;
+        if (d === "" || trybKsztaltu === d)
+          return;
+        if (digitizingRubberband.model && silnikKsztaltow.wskazanych(digitizingRubberband.model) > 0)
+          return; // in the middle of drawing — do not switch under the finger
+        trybKsztaltu = d;
+        etykietaKsztaltu = nazwaKsztaltu(d);
+        przerysujPodglad();
+        const klucz = String(layer.id);
+        if (powiedz && warstwyZDomyslnymPowiedziane[klucz] !== true) {
+          warstwyZDomyslnymPowiedziane[klucz] = true;
+          displayToast(qsTr("Warstwa „%1”: rysujesz od razu kształtem „%2”. Wyłączysz go tapnięciem w podświetlony przycisk kształtu.").arg(layer.name).arg(nazwaKsztaltu(d)));
+        }
+      }
+
+      //! Next object gets the same shape again (no question after every save).
+      function uzbrojPonownie() {
+        if (ksztaltTrwaly === "" || trybKsztaltu !== "" || stateMachine.state !== "digitize" || edycjaGeometrii)
+          return;
+        trybKsztaltu = ksztaltTrwaly;
+        etykietaKsztaltu = nazwaKsztaltu(ksztaltTrwaly);
+        przerysujPodglad();
+      }
+
+      // ===== [WF-SHAPE-VARIANTS] MENU DWUKIERUNKOWE (23.10.2026) =====
+      // W prawo: figury (szuflada). W dół: wersje uzbrojonej figury
+      // (`panelWariantow` w oknie głównym), otwierane samo, do zwinięcia.
+      property var ostatniWariant: ({ "prostokat": "prostokat", "okrag": "okrag", "krzywa": "krzywa" })
+      property int wariantyWersja: 0
+
+      function grupaKsztaltu(k) {
+        if (k === "prostokat" || k === "prostokatWymiar")
+          return "prostokat";
+        if (k === "okrag" || k === "krzywa" || k === "chmurka")
+          return k;
+        return "";
+      }
+
+      function nazwaGrupy(g) {
+        return g === "prostokat" ? qsTr("Prostokąt") : (g === "okrag" ? qsTr("Okrąg") : (g === "krzywa" ? qsTr("Krzywa") : g));
+      }
+
+      //! Arms a variant directly (no toggling) and remembers it for its group.
+      function uzbrojWariant(k) {
+        trybKsztaltu = k;
+        ksztaltTrwaly = k;
+        etykietaKsztaltu = nazwaKsztaltu(k);
+        const o = ostatniWariant;
+        o[grupaKsztaltu(k)] = k;
+        ostatniWariant = o;
+        przerysujPodglad();
+        displayToast(silnikKsztaltow.podpowiedz(k, silnikKsztaltow.wskazanych(gumkaRobocza(), true)));
+      }
+
+      //! Figure button: arms the last variant of the group; tapped again — off.
+      function wybierzGrupe(g) {
+        if (grupaKsztaltu(trybKsztaltu) === g) {
+          rozbrojKsztalt();
+          ksztaltTrwaly = "";
+          displayToast(qsTr("%1 — wyłączony. Rysujesz zwykłą łamaną.").arg(nazwaGrupy(g)));
+          return;
+        }
+        let k = ostatniWariant[g] || g;
+        if (k === "prostokatWymiar" && !wymiarUstawiony)
+          k = "prostokat";
+        uzbrojWariant(k);
+      }
+
+      function etykietaWymiaru(d, s) {
+        return wJednostce(d) + "×" + wJednostce(s) + (wymiarJednostka === "cal" ? "″" : " " + znakJednostki());
+      }
+
+      //! Variants shown under the armed figure.
+      function wariantyGrupy(g) {
+        const out = [];
+        if (g === "prostokat") {
+          out.push({ "k": "prostokat", "l": qsTr("z 3 punktów") });
+          const uzyte = wymiaryWarstwy(dashBoard.activeLayer).slice(0, 5);
+          let jestBiezacy = false;
+          for (let i = 0; i < uzyte.length; i++) {
+            const d = Number(uzyte[i].d);
+            const s = Number(uzyte[i].s);
+            if (Math.abs(d - wymiarDl) < 0.0005 && Math.abs(s - wymiarSz) < 0.0005)
+              jestBiezacy = true;
+            out.push({ "k": "prostokatWymiar", "d": d, "s": s, "l": "□ " + etykietaWymiaru(d, s) });
+          }
+          if (!jestBiezacy)
+            out.splice(1, 0, { "k": "prostokatWymiar", "d": wymiarDl, "s": wymiarSz, "l": "□ " + etykietaWymiaru(wymiarDl, wymiarSz) });
+          out.push({ "k": "wymiarInny", "l": qsTr("inny wymiar, orientacja…") });
+        } else if (g === "okrag") {
+          out.push({ "k": "okrag", "l": qsTr("środek + punkt na obwodzie") });
+          out.push({ "k": "okragPromien", "l": qsTr("środek + wpisany promień…") });
+        } else if (g === "krzywa") {
+          out.push({ "k": "krzywaGladka", "l": qsTr("gładka — obok punktów") });
+          out.push({ "k": "krzywaPrzez", "l": qsTr("przez wskazane punkty") });
+        }
+        return out;
+      }
+
+      function wariantWybrany(v) {
+        switch (v.k) {
+        case "prostokat":
+          return trybKsztaltu === "prostokat";
+        case "prostokatWymiar":
+          return trybKsztaltu === "prostokatWymiar" && Math.abs(v.d - wymiarDl) < 0.0005 && Math.abs(v.s - wymiarSz) < 0.0005;
+        case "okrag":
+          return trybKsztaltu === "okrag";
+        case "krzywaGladka":
+          return trybKsztaltu === "krzywa" && !qfieldSettings.krzywaPrzezPunkty;
+        case "krzywaPrzez":
+          return trybKsztaltu === "krzywa" && qfieldSettings.krzywaPrzezPunkty;
+        }
+        return false;
+      }
+
+      function wybierzWariant(v) {
+        switch (v.k) {
+        case "prostokatWymiar":
+          wymiarDl = v.d;
+          wymiarSz = v.s;
+          zapiszWymiarWarstwie(dashBoard.activeLayer);
+          uzbrojWariant("prostokatWymiar");
+          return;
+        case "wymiarInny":
+          oknoWymiaru.open();
+          return;
+        case "okragPromien":
+          if (trybKsztaltu !== "okrag")
+            uzbrojWariant("okrag");
+          otworzPromien();
+          return;
+        case "krzywaGladka":
+        case "krzywaPrzez":
+          qfieldSettings.krzywaPrzezPunkty = v.k === "krzywaPrzez";
+          settings.setValue('WorkField/krzywaPrzezPunkty', qfieldSettings.krzywaPrzezPunkty);
+          uzbrojWariant("krzywa");
+          return;
+        default:
+          uzbrojWariant(v.k);
+        }
+      }
+
+      Connections {
+        target: dashBoard
+        function onActiveLayerChanged() {
+          if (mainToolbar.trybKsztaltu !== "" && mainToolbar.trybKsztaltu === mainToolbar.ksztaltTrwaly)
+            mainToolbar.rozbrojKsztalt();
+          mainToolbar.ksztaltTrwaly = "";
+          mainToolbar.wczytajWymiarWarstwy(dashBoard.activeLayer);
+          mainToolbar.uzbrojDomyslny(true);
+        }
+      }
+
+      Connections {
+        target: stateMachine
+        function onStateChanged() {
+          if (stateMachine.state === "digitize")
+            mainToolbar.uzbrojDomyslny(true);
+        }
+      }
+
+      // the rubberband empties after a save — arm the remembered shape again
+      Connections {
+        target: digitizingRubberband.model
+        function onVertexCountChanged() {
+          if (digitizingRubberband.model && digitizingRubberband.model.vertexCount <= 1)
+            mainToolbar.uzbrojPonownie();
+        }
+      }
 
       // ── ŁUKI A WARSTWA (25.09.2026) ───────────────────────────
       //
@@ -3599,7 +4209,7 @@ ApplicationWindow {
         // warstwie poligonowej powstaje od razu jako zamknieta
         // i gladka, zamiast byc domykana akordem — a akord zostawial
         // rog w punkcie, w ktory czlowiek tapnal najpierw.
-        const wTypieWarstwy = silnikKsztaltow.naTyp(silnikKsztaltow.zModelu(rb, trybKsztaltu, 0, true, rb.geometryType), rb.geometryType);
+        const wTypieWarstwy = silnikKsztaltow.naTyp(mainToolbar.zModeluKsztaltu(rb, trybKsztaltu, 0, true), rb.geometryType); // [WF-FIXED-RECT]
         const g = silnikKsztaltow.naTyp(wTypieWarstwy, Qgis.GeometryType.Line);
         if (silnikKsztaltow.pusty(g)) {
           pg.reset(false);
@@ -3618,13 +4228,18 @@ ApplicationWindow {
         // zapalona i nastepny obiekt wychodzil ksztaltem wbrew woli.
         if (trybKsztaltu === nazwa) {
           rozbrojKsztalt();
+          ksztaltTrwaly = ""; // [WF-FIXED-RECT] off means off, also for the next objects
           displayToast(qsTr("%1 — wyłączony. Rysujesz zwykłą łamaną.").arg(etykieta));
           return;
         }
         trybKsztaltu = nazwa;
         etykietaKsztaltu = etykieta;
+        // [WF-SHAPE-STAYS] Piotr 23.10: a chosen shape does not switch itself off —
+        // it stays armed for the next objects until its button is tapped again
+        // (or another layer becomes active).
+        ksztaltTrwaly = nazwa;
         przerysujPodglad();
-        displayToast(silnikKsztaltow.podpowiedz(nazwa, silnikKsztaltow.wskazanych(gumkaRobocza(), true)) + qsTr(" Zatwierdź fajką; tapnij ten przycisk ponownie, żeby wyłączyć."));
+        displayToast(silnikKsztaltow.podpowiedz(nazwa, silnikKsztaltow.wskazanych(gumkaRobocza(), true)) + qsTr(" Zatwierdź fajką. Kształt zostaje włączony dla następnych obiektów — wyłączysz go, tapiąc ten przycisk ponownie."));
       }
 
       function rozbrojKsztalt() {
@@ -3668,7 +4283,7 @@ ApplicationWindow {
         // domyka sie w pierscien — zamiast odmowy.
         // Ten sam typ, co w podgladzie — inaczej zapisaloby sie co
         // innego, niz czlowiek widzial na ekranie.
-        const ksztalt = silnikKsztaltow.naTyp(silnikKsztaltow.zModelu(rb, nazwa, promien > 0 ? promien : 0, true, rb.geometryType), rb.geometryType);
+        const ksztalt = silnikKsztaltow.naTyp(mainToolbar.zModeluKsztaltu(rb, nazwa, promien > 0 ? promien : 0, true), rb.geometryType); // [WF-FIXED-RECT]
         silnikKsztaltow.powiedz("1-zbudowany typGumki=" + rb.geometryType, ksztalt);
         // PRAWDZIWY ŁUK — liczony TERAZ, z tych samych punktów co łamana.
         //
@@ -3728,6 +4343,9 @@ ApplicationWindow {
         }
         // `setDataFromGeometry` przelicza uklad, zdejmuje zdublowany
         // wierzcholek domykajacy i sam radzi sobie z punktem zywym.
+        // [WF-FIXED-RECT] direction, side check, size count — while tapped points still exist
+        if (nazwa === "prostokatWymiar" && !edycjaGeometrii)
+          mainToolbar.poWstawieniuWymiaru(rb);
         silnikKsztaltow.powiedzOGumce("2-gumka-PRZED", rb);
         rb.setDataFromGeometry(ksztalt, rb.crs);
         silnikKsztaltow.powiedzOGumce("3-gumka-PO-wlozeniu", rb);
@@ -4096,11 +4714,48 @@ ApplicationWindow {
           // Uzbrojony ksztalt swieci jak wlaczone przyciaganie — to
           // jedyny sposob, zeby bylo widac, ktory tryb chodzi.
           iconSource: QfTheme.getThemeVectorIcon("wfg_prostokat")
-          iconColor: mainToolbar.trybKsztaltu === "prostokat" ? "#39ff14" : QfTheme.toolButtonColor
-          bgcolor: mainToolbar.trybKsztaltu === "prostokat" ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
+          // [WF-SHAPE-VARIANTS] lit for every rectangle variant; tap = last variant / off
+          iconColor: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) === "prostokat" ? "#39ff14" : QfTheme.toolButtonColor
+          bgcolor: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) === "prostokat" ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
+          bottomRightIndicatorText: mainToolbar.trybKsztaltu === "prostokatWymiar" ? mainToolbar.wymiarEtykieta : ""
 
-          onClicked: mainToolbar.uzbrojKsztalt("prostokat", qsTr("Prostokąt"))
+          onClicked: mainToolbar.wybierzGrupe("prostokat")
+          onPressAndHold: oknoWymiaru.open()
+
+          // [WF-SHAPE-VARIANTS] "▾" — this figure has a list of variants. Tap on it:
+          // the figure is armed and its list unfolded (also when it was folded).
+          Rectangle {
+            width: 18
+            height: 12
+            radius: 6
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: -1
+            color: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) === "prostokat" ? "#39ff14" : QfTheme.mainColor
+
+            Text {
+              anchors.centerIn: parent
+              text: "▾"
+              font.pixelSize: 11
+              font.bold: true
+              color: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) === "prostokat" ? "black" : "white"
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -6
+              onClicked: {
+                if (mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) !== "prostokat")
+                  mainToolbar.wybierzGrupe("prostokat");
+                panelWariantow.zwiniete = false;
+                settings.setValue('WorkField/wariantyZwiniete', false);
+              }
+            }
+          }
         }
+
+        // [WF-SHAPE-VARIANTS] The fixed-size rectangle is a variant of the rectangle
+        // (list under its button) — no separate button any more.
 
         QfToolButton {
           id: ksztaltOkragButton
@@ -4114,7 +4769,38 @@ ApplicationWindow {
           iconColor: mainToolbar.trybKsztaltu === "okrag" ? "#39ff14" : QfTheme.toolButtonColor
           bgcolor: mainToolbar.trybKsztaltu === "okrag" ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
 
-          onClicked: mainToolbar.uzbrojKsztalt("okrag", qsTr("Okrąg"))
+          onClicked: mainToolbar.wybierzGrupe("okrag") // [WF-SHAPE-VARIANTS]
+
+          // [WF-SHAPE-VARIANTS] "▾" — this figure has a list of variants. Tap on it:
+          // the figure is armed and its list unfolded (also when it was folded).
+          Rectangle {
+            width: 18
+            height: 12
+            radius: 6
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: -1
+            color: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) === "okrag" ? "#39ff14" : QfTheme.mainColor
+
+            Text {
+              anchors.centerIn: parent
+              text: "▾"
+              font.pixelSize: 11
+              font.bold: true
+              color: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) === "okrag" ? "black" : "white"
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -6
+              onClicked: {
+                if (mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) !== "okrag")
+                  mainToolbar.wybierzGrupe("okrag");
+                panelWariantow.zwiniete = false;
+                settings.setValue('WorkField/wariantyZwiniete', false);
+              }
+            }
+          }
           onPressAndHold: mainToolbar.otworzPromien()
         }
 
@@ -4130,7 +4816,38 @@ ApplicationWindow {
           iconColor: mainToolbar.trybKsztaltu === "krzywa" ? "#39ff14" : QfTheme.toolButtonColor
           bgcolor: mainToolbar.trybKsztaltu === "krzywa" ? QfTheme.toolButtonBackgroundColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
 
-          onClicked: mainToolbar.uzbrojKsztalt("krzywa", qsTr("Krzywa"))
+          onClicked: mainToolbar.wybierzGrupe("krzywa") // [WF-SHAPE-VARIANTS]
+
+          // [WF-SHAPE-VARIANTS] "▾" — this figure has a list of variants. Tap on it:
+          // the figure is armed and its list unfolded (also when it was folded).
+          Rectangle {
+            width: 18
+            height: 12
+            radius: 6
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: -1
+            color: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) === "krzywa" ? "#39ff14" : QfTheme.mainColor
+
+            Text {
+              anchors.centerIn: parent
+              text: "▾"
+              font.pixelSize: 11
+              font.bold: true
+              color: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) === "krzywa" ? "black" : "white"
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -6
+              onClicked: {
+                if (mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu) !== "krzywa")
+                  mainToolbar.wybierzGrupe("krzywa");
+                panelWariantow.zwiniete = false;
+                settings.setValue('WorkField/wariantyZwiniete', false);
+              }
+            }
+          }
           // Przytrzymanie PRZELACZA rodzaj krzywej. Dymek tylko
           // opisywal — a opis, ktory znika po dwoch sekundach, nie jest
           // do niczego potrzebny w terenie. Ustawienie jest takze
@@ -4885,6 +5602,7 @@ ApplicationWindow {
         rubberbandModel: currentRubberband ? currentRubberband.model : null
         mapSettings: mapCanvas.mapSettings
         showConfirmButton: stateMachine.state === "digitize"
+        onePointShape: mainToolbar.trybKsztaltu === "prostokatWymiar" // [WF-FIXED-RECT]
         screenHovering: mapCanvasMap.hovered
 
         cogoOperationSettings: informationDrawer.cogoOperationSettings
@@ -6450,6 +7168,8 @@ ApplicationWindow {
   // Więc `wlozKsztalt` tylko ODKŁADA opis tutaj, a wkłada go
   // `wlozOpisKsztaltu()` po każdym `resetAttributes()`.
   property string opisKsztaltuDoOdlozenia: ""
+  //! [WF-FIXED-RECT] "0.45×0.45" for the WYMIAR field (when the layer has one).
+  property string wymiarDoOdlozenia: ""
 
   /**
    * Wkłada odłożony opis do modelu, który NAPRAWDĘ zapisuje.
@@ -6459,6 +7179,13 @@ ApplicationWindow {
    * parametry, a to byłoby gorsze niż brak zapisu: nieprawdziwe.
    */
   function wlozOpisKsztaltu(model) {
+    // [WF-FIXED-RECT] size into WYMIAR / wymiar, when the layer has such a field
+    if (wymiarDoOdlozenia !== "" && model) {
+      const wymiar = wymiarDoOdlozenia;
+      wymiarDoOdlozenia = "";
+      if (!model.ustawAtrybut("WYMIAR", wymiar))
+        model.ustawAtrybut("wymiar", wymiar);
+    }
     if (opisKsztaltuDoOdlozenia === "" || !model) {
       return;
     }
@@ -6960,6 +7687,102 @@ ApplicationWindow {
     Component.onCompleted: {
       focusstack.addFocusTaker(this);
       unreadMessages = messageLogModel.rowCount() !== 0;
+    }
+  }
+
+  // [WF-SHAPE-VARIANTS] Wersje uzbrojonej figury — lista w dół pod jej przyciskiem
+  // w szufladzie kształtów. Otwiera się sama; zakładka pod spodem ją zwija.
+  Item {
+    id: panelWariantow
+
+    readonly property string grupa: mainToolbar.grupaKsztaltu(mainToolbar.trybKsztaltu)
+    readonly property var przycisk: grupa === "prostokat" ? ksztaltProstokatButton : (grupa === "okrag" ? ksztaltOkragButton : (grupa === "krzywa" ? ksztaltKrzywaButton : null))
+    property bool zwiniete: settings.valueBool('WorkField/wariantyZwiniete', false)
+    property real px: 0
+    property real py: 0
+
+    function przelicz() {
+      if (!przycisk || !panelWariantow.parent)
+        return;
+      const p = przycisk.mapToItem(panelWariantow.parent, 0, przycisk.height + 6);
+      px = p.x;
+      py = p.y;
+    }
+
+    z: 900
+    visible: przycisk !== null && przycisk.visible && stateMachine.state === "digitize" && !mainToolbar.edycjaGeometrii && !screenLocker.enabled
+    x: px
+    y: py
+    width: kolumnaWariantow.width
+    height: kolumnaWariantow.height
+
+    // follows the drawer (it slides and scrolls)
+    Timer {
+      interval: 250
+      repeat: true
+      running: panelWariantow.visible
+      triggeredOnStart: true
+      onTriggered: panelWariantow.przelicz()
+    }
+
+    Column {
+      id: kolumnaWariantow
+      spacing: 4
+
+      Repeater {
+        model: !panelWariantow.zwiniete && mainToolbar.wariantyWersja >= 0 ? mainToolbar.wariantyGrupy(panelWariantow.grupa) : []
+
+        delegate: Rectangle {
+          required property var modelData
+          readonly property bool wybrany: mainToolbar.wariantWybrany(modelData)
+
+          width: Math.max(150, etykietaWariantu.implicitWidth + 32)
+          height: 40
+          radius: 20
+          color: wybrany ? QfTheme.mainColor : QfTheme.toolButtonBackgroundColor
+          border.width: wybrany ? 2 : 0
+          border.color: "#39ff14"
+
+          Text {
+            id: etykietaWariantu
+            anchors.centerIn: parent
+            text: modelData.l
+            color: "white"
+            font: QfTheme.tipFont
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            onClicked: {
+              digitizingToolbar.haptyka(15);
+              mainToolbar.wybierzWariant(modelData);
+            }
+          }
+        }
+      }
+
+      // fold / unfold
+      Rectangle {
+        width: 44
+        height: 26
+        radius: 13
+        color: QfTheme.toolButtonBackgroundColor
+
+        Text {
+          anchors.centerIn: parent
+          text: panelWariantow.zwiniete ? "▾" : "▴"
+          color: "white"
+          font: QfTheme.strongTipFont
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: {
+            panelWariantow.zwiniete = !panelWariantow.zwiniete;
+            settings.setValue('WorkField/wariantyZwiniete', panelWariantow.zwiniete);
+          }
+        }
+      }
     }
   }
 

@@ -275,6 +275,9 @@ int Ksztalty::potrzebaPunktow( const QString &ksztalt ) const
   // Prostokat potrzebuje TRZECH: dwa na os, trzeci na szerokosc.
   if ( k == QLatin1String( "prostokat" ) )
     return 3;
+  // [WF-FIXED-RECT] Fixed size: the centre is enough.
+  if ( k == QLatin1String( "prostokatwymiar" ) )
+    return 1;
   if ( k == QLatin1String( "okrag" ) )
     return 2;
   if ( k == QLatin1String( "krzywa" ) )
@@ -298,6 +301,14 @@ QString Ksztalty::podpowiedz( const QString &ksztalt, int juzWskazanych ) const
     if ( juzWskazanych == 2 )
       return tr( "Wskaż szerokość — prostokąt stanie wzdłuż osi." );
     return tr( "Gotowe." );
+  }
+
+  // [WF-FIXED-RECT]
+  if ( k == QLatin1String( "prostokatwymiar" ) )
+  {
+    if ( juzWskazanych <= 1 )
+      return tr( "Wskaż środek i zatwierdź fajką — albo wskaż drugi punkt, żeby ustawić kierunek." );
+    return tr( "Zatwierdź fajką." );
   }
 
   if ( k == QLatin1String( "okrag" ) )
@@ -357,6 +368,94 @@ QgsGeometry Ksztalty::prostokat( const QVariantList &punkty ) const
     return QgsGeometry();
 
   return QgsGeometry( czworokat.toPolygon( false ) );
+}
+
+// [WF-FIXED-RECT] defined further down (with its default argument); declared here
+// because the fixed-size rectangle is built from the same tapped points.
+static QVector<QgsPoint> punktyGumki( QObject *model, bool zZywym );
+
+QgsGeometry Ksztalty::prostokatOWymiarach( QObject *modelGumki, double dlugosc, double szerokosc,
+                                           double azymutStopni, bool poPrawej, bool odSrodka ) const
+{
+  if ( !( dlugosc > 0 ) || !( szerokosc > 0 ) )
+    return QgsGeometry();
+
+  const QVector<QgsPoint> wskazane = punktyGumki( modelGumki, false );
+
+  // unit vector of the long side (x east, y north) and the normal to its right
+  double ux = std::sin( azymutStopni * M_PI / 180.0 );
+  double uy = std::cos( azymutStopni * M_PI / 180.0 );
+  QgsPointXY srodek;
+  bool odNaroznika = false;
+
+  if ( wskazane.size() >= 2 && wskazane.at( 0 ).distance( wskazane.at( 1 ) ) > 0.01 )
+  {
+    const double dx = wskazane.at( 1 ).x() - wskazane.at( 0 ).x();
+    const double dy = wskazane.at( 1 ).y() - wskazane.at( 0 ).y();
+    const double d = std::sqrt( dx * dx + dy * dy );
+    ux = dx / d;
+    uy = dy / d;
+    srodek = QgsPointXY( wskazane.at( 0 ).x(), wskazane.at( 0 ).y() );
+    odNaroznika = !odSrodka;
+  }
+  else if ( !wskazane.isEmpty() )
+  {
+    srodek = QgsPointXY( wskazane.first().x(), wskazane.first().y() );
+  }
+  else
+  {
+    const QVector<QgsPoint> zZywym = punktyGumki( modelGumki, true );
+    if ( zZywym.isEmpty() )
+      return QgsGeometry();
+    srodek = QgsPointXY( zZywym.last().x(), zZywym.last().y() );
+  }
+
+  // right normal of (ux, uy) is (uy, -ux)
+  const double strona = poPrawej ? 1.0 : -1.0;
+  const double vx = uy * strona;
+  const double vy = -ux * strona;
+
+  QgsPolylineXY pierscien;
+  if ( odNaroznika )
+  {
+    const QgsPointXY a = srodek;
+    const QgsPointXY b( a.x() + dlugosc * ux, a.y() + dlugosc * uy );
+    const QgsPointXY c( b.x() + szerokosc * vx, b.y() + szerokosc * vy );
+    const QgsPointXY d( a.x() + szerokosc * vx, a.y() + szerokosc * vy );
+    pierscien << a << b << c << d << a;
+  }
+  else
+  {
+    const double hl = dlugosc / 2.0;
+    const double hs = szerokosc / 2.0;
+    const QgsPointXY a( srodek.x() - hl * ux - hs * vx, srodek.y() - hl * uy - hs * vy );
+    const QgsPointXY b( srodek.x() + hl * ux - hs * vx, srodek.y() + hl * uy - hs * vy );
+    const QgsPointXY c( srodek.x() + hl * ux + hs * vx, srodek.y() + hl * uy + hs * vy );
+    const QgsPointXY d( srodek.x() - hl * ux + hs * vx, srodek.y() - hl * uy + hs * vy );
+    pierscien << a << b << c << d << a;
+  }
+  return QgsGeometry::fromPolygonXY( QgsPolygonXY() << pierscien );
+}
+
+QVariantMap Ksztalty::bokPomiaru( QObject *modelGumki ) const
+{
+  QVariantMap w;
+  w.insert( QStringLiteral( "ok" ), false );
+  const QVector<QgsPoint> wskazane = punktyGumki( modelGumki, false );
+  if ( wskazane.size() < 2 )
+    return w;
+  const double dx = wskazane.at( 1 ).x() - wskazane.at( 0 ).x();
+  const double dy = wskazane.at( 1 ).y() - wskazane.at( 0 ).y();
+  const double d = std::sqrt( dx * dx + dy * dy );
+  if ( d < 0.01 )
+    return w;
+  double az = std::atan2( dx, dy ) * 180.0 / M_PI;
+  if ( az < 0 )
+    az += 360.0;
+  w.insert( QStringLiteral( "ok" ), true );
+  w.insert( QStringLiteral( "dlugosc" ), d );
+  w.insert( QStringLiteral( "azymut" ), az );
+  return w;
 }
 
 QgsGeometry Ksztalty::okrag( const QVariantList &punkty, int segmentow ) const

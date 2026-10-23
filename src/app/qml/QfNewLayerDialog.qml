@@ -19,6 +19,15 @@ Popup {
   // not snapped to — that is how Kran.gpkg and Przepusty.gpkg came about.
   // Modes: "database" | "gpkg" (separate file) | "geojson".
   property string targetMode: "database"
+  // [WF-FIXED-RECT] Field note 10: default shape of the layer, set when it is created.
+  property string defaultShape: ""
+  property string defaultLength: "45"
+  property string defaultWidth: "45"
+  // [WF-SIZE-UNITS] the unit chosen in the size window (Settings WorkField/wymiarJednostka)
+  property string sizeUnit: "cm"
+  readonly property var unitFactors: ({ "m": 1.0, "cm": 0.01, "mm": 0.001, "cal": 0.0254 })
+  readonly property var unitSigns: ({ "m": "m", "cm": "cm", "mm": "mm", "cal": "″" })
+  readonly property bool shapesPossible: geometryType !== "Point" && geometryType !== "NoGeometry"
   property string gpkgPath: ""
   property string projectDatabase: ""
 
@@ -116,6 +125,12 @@ Popup {
     crsAuthId = qgisProject && qgisProject.crs ? qgisProject.crs.authid : "EPSG:4326";
     projectDatabase = typeof NarzedziaProjektu !== "undefined" && qgisProject ? NarzedziaProjektu.plikDanych(qgisProject) : "";
     targetMode = projectDatabase !== "" ? "database" : "gpkg";
+    defaultShape = "";
+    sizeUnit = settings.value('WorkField/wymiarJednostka', 'cm');
+    if (unitFactors[sizeUnit] === undefined)
+      sizeUnit = "cm";
+    defaultLength = String(parseFloat((0.45 / unitFactors[sizeUnit]).toFixed(3)));
+    defaultWidth = defaultLength;
     gpkgPath = "";
     fieldModel.clear();
     fieldModel.append({
@@ -176,6 +191,74 @@ Popup {
           checked: newLayerDialog.geometryType === modelData.key
           onClicked: newLayerDialog.geometryType = modelData.key
         }
+      }
+    }
+
+    // [WF-FIXED-RECT] Rysuj domyślnie — kształt uzbrajany od razu na tej warstwie.
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      visible: newLayerDialog.shapesPossible
+      text: qsTr("Rysuj domyślnie")
+      font: t.strongTipFont
+      color: t.mainTextColor
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+      visible: newLayerDialog.shapesPossible
+
+      Repeater {
+        model: [
+          { key: "", label: qsTr("Wierzchołki") },
+          { key: "prostokat", label: qsTr("Prostokąt") },
+          { key: "okrag", label: qsTr("Okrąg") },
+          { key: "prostokatWymiar", label: qsTr("Prostokąt o wymiarze") }
+        ]
+
+        delegate: Button {
+          required property var modelData
+          text: modelData.label
+          font.pointSize: t.tinyFont.pointSize
+          checkable: true
+          highlighted: checked
+          checked: newLayerDialog.defaultShape === modelData.key
+          onClicked: newLayerDialog.defaultShape = modelData.key
+        }
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 6
+      visible: newLayerDialog.shapesPossible && newLayerDialog.defaultShape === "prostokatWymiar"
+
+      TextField {
+        Layout.fillWidth: true
+        font: t.defaultFont
+        placeholderText: qsTr("dłuższy bok [%1]").arg(newLayerDialog.unitSigns[newLayerDialog.sizeUnit])
+        inputMethodHints: Qt.ImhFormattedNumbersOnly
+        text: newLayerDialog.defaultLength
+        onTextChanged: newLayerDialog.defaultLength = text
+      }
+      Text {
+        text: "×"
+        font: t.defaultFont
+        color: t.mainTextColor
+      }
+      TextField {
+        Layout.fillWidth: true
+        font: t.defaultFont
+        placeholderText: qsTr("krótszy bok [%1]").arg(newLayerDialog.unitSigns[newLayerDialog.sizeUnit])
+        inputMethodHints: Qt.ImhFormattedNumbersOnly
+        text: newLayerDialog.defaultWidth
+        onTextChanged: newLayerDialog.defaultWidth = text
+      }
+      Text {
+        text: newLayerDialog.unitSigns[newLayerDialog.sizeUnit] // [WF-SIZE-UNITS]
+        font: t.defaultFont
+        color: t.mainTextColor
       }
     }
 
@@ -398,6 +481,24 @@ Popup {
             let suffix = "";
             if (typeof NarzedziaProjektu !== "undefined") {
               const setUp = NarzedziaProjektu.setUpNewLayer(qgisProject, layer);
+              // [WF-FIXED-RECT] default shape and size travel with the project
+              if (newLayerDialog.shapesPossible && newLayerDialog.defaultShape !== "") {
+                NarzedziaProjektu.wlasciwoscWarstwy(layer, "workfield/ksztaltDomyslny", newLayerDialog.defaultShape);
+                if (newLayerDialog.defaultShape === "prostokatWymiar") {
+                  // [WF-SIZE-UNITS] typed in the chosen unit, stored in metres
+                  let dl = parseFloat(String(newLayerDialog.defaultLength).replace(",", ".")) * newLayerDialog.unitFactors[newLayerDialog.sizeUnit];
+                  let sz = parseFloat(String(newLayerDialog.defaultWidth).replace(",", ".")) * newLayerDialog.unitFactors[newLayerDialog.sizeUnit];
+                  if (dl > 0 && sz > 0) {
+                    if (sz > dl) {
+                      const tmp = dl;
+                      dl = sz;
+                      sz = tmp;
+                    }
+                    NarzedziaProjektu.wlasciwoscWarstwy(layer, "workfield/wymiarDl", dl.toFixed(3));
+                    NarzedziaProjektu.wlasciwoscWarstwy(layer, "workfield/wymiarSz", sz.toFixed(3));
+                  }
+                }
+              }
               if (setUp.attachments === true)
                 suffix = qsTr(" — ze zdjęciami");
             }

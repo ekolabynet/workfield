@@ -162,6 +162,27 @@ class Ksztalty : public QObject
     Q_INVOKABLE QgsGeometry prostokat( const QVariantList &punkty ) const;
 
     /**
+     * WorkField 23.10.2026 [WF-FIXED-RECT] — rectangle of a FIXED size
+     * (\a dlugosc × \a szerokosc, metres; dlugosc = the longer side).
+     *
+     * Built from the points already tapped in the rubberband:
+     *  - none: centred on the live crosshair (preview before the first tap);
+     *  - one:  centred on it, long side along \a azymutStopni (from north, clockwise);
+     *  - two:  \a odSrodka false — both are corners of the SAME long side,
+     *          the rectangle is added on the right (\a poPrawej) or on the left;
+     *          \a odSrodka true — the first is the centre, the second gives
+     *          the direction of the long side.
+     */
+    Q_INVOKABLE QgsGeometry prostokatOWymiarach( QObject *modelGumki, double dlugosc, double szerokosc,
+                                                 double azymutStopni, bool poPrawej, bool odSrodka ) const;
+
+    /**
+     * WorkField 23.10.2026 [WF-FIXED-RECT] — the first two tapped points:
+     * ok, dlugosc [m], azymut [° from north, clockwise]. ok = false with fewer.
+     */
+    Q_INVOKABLE QVariantMap bokPomiaru( QObject *modelGumki ) const;
+
+    /**
      * Okrag ze srodka i punktu na obwodzie (dwa punkty).
      *
      * \a segmentow to zageszczenie. 0 albo mniej znaczy AUTOMAT: tyle

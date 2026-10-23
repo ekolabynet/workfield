@@ -18,6 +18,10 @@ QfVisibilityFadingRow {
   property alias cogoExecutor: cogoExecutor
 
   property bool showConfirmButton: true //<! if the geometry type is point, it will never be shown
+  //! [WF-FIXED-RECT] A rectangle of a fixed size needs one point (its centre),
+  //! so the check mark shows up after the first tap.
+  property bool onePointShape: false
+  onOnePointShapeChanged: checkGeometryValidity()
   property bool screenHovering: false //<! if the stylus pen is used, one should not use the add button
 
   property bool geometryRequested: false
@@ -440,6 +444,9 @@ QfVisibilityFadingRow {
     } else {
       geometryValid = false;
     }
+    // [WF-FIXED-RECT]
+    if (onePointShape && rubberbandModel && rubberbandModel.vertexCount > 1)
+      geometryValid = true;
   }
 
   function triggerAddVertex() {
