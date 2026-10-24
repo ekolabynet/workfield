@@ -2275,7 +2275,8 @@ Drawer {
                   Text {
                     Layout.fillWidth: true
                     text: "↳ " + modelData.opis
-                    font: t.tinyFont
+                    font.pointSize: t.tinyFont.pointSize
+                    font.family: t.tinyFont.family
                     color: uwagaModulu.zignorowana ? "#90A4AE" : (uwagaModulu.poziom === "blad" ? t.errorColor : t.warningColor)
                     font.strikeout: uwagaModulu.zignorowana
                     wrapMode: Text.WordWrap
@@ -2295,7 +2296,8 @@ Drawer {
                     Layout.alignment: Qt.AlignRight
                     visible: uwagaModulu.poziom !== "blad"
                     text: uwagaModulu.zignorowana ? qsTr("Przywróć") : qsTr("Ignoruj")
-                    font: t.tinyFont
+                    font.pointSize: t.tinyFont.pointSize
+                    font.family: t.tinyFont.family
                     font.underline: true
                     color: uwagaModulu.zignorowana ? "#66bb6a" : "#90A4AE"
 
@@ -2344,7 +2346,8 @@ Drawer {
               Text {
                 Layout.fillWidth: true
                 text: "· " + (modelData.opis !== undefined ? modelData.opis : String(modelData))
-                font: t.tinyFont
+                font.pointSize: t.tinyFont.pointSize
+                font.family: t.tinyFont.family
                 font.strikeout: uwagaLuzem.zignorowana
                 color: uwagaLuzem.zignorowana ? "#90A4AE" : (uwagaLuzem.poziom === "blad" ? t.errorColor : t.warningColor)
                 wrapMode: Text.WordWrap
@@ -2355,7 +2358,8 @@ Drawer {
                 Layout.alignment: Qt.AlignRight
                 visible: uwagaLuzem.poziom !== "blad"
                 text: uwagaLuzem.zignorowana ? qsTr("Przywróć") : qsTr("Ignoruj")
-                font: t.tinyFont
+                font.pointSize: t.tinyFont.pointSize
+                font.family: t.tinyFont.family
                 font.underline: true
                 color: uwagaLuzem.zignorowana ? "#66bb6a" : "#90A4AE"
 
