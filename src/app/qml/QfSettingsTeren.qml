@@ -425,7 +425,7 @@ ColumnLayout {
           { "k": "fix", "n": qsTr("powrót FIX") },
           { "k": "utrataFix", "n": qsTr("utrata FIX") },
           { "k": "float", "n": qsTr("FLOAT") },
-          { "k": "prawieFix", "n": qsTr("prawie FIX") },
+          { "k": "almostFix", "n": qsTr("prawie FIX") },
           { "k": "prog", "n": qsTr("ponad próg") },
           { "k": "brak", "n": qsTr("brak pozycji") },
           { "k": "bezFix", "n": qsTr("punkt bez FIX") },

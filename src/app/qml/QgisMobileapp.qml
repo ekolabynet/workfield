@@ -391,12 +391,12 @@ ApplicationWindow {
           // agrees with the sound. Without that information (receivers that give
           // only the accuracy) the classes by accuracy stay as they were.
           readonly property int q: positionSource.active && positionSource.positionInformation ? positionSource.positionInformation.quality : 0
-          readonly property string klasa: {
+          readonly property string qualityClass: {
             if (acc < 0)
               return "brak";
             if (q === 4)
               return "fix";
-            if (q === 5 && acc * 100 <= rtkStraznik.progCm)
+            if (q === 5 && acc * 100 <= rtkStraznik.thresholdCm)
               return "prawie";
             if (q !== 5 && acc <= 0.03)
               return "fix";
@@ -405,8 +405,8 @@ ApplicationWindow {
 
           font.pointSize: Theme.tinyFont.pointSize
           font.bold: true
-          text: ({ "brak": qsTr("BRAK"), "fix": "FIX", "prawie": qsTr("PRAWIE FIX"), "float+": "FLOAT+", "float": "FLOAT", "float-": "FLOAT-", "gps": "GPS" })[klasa]
-          color: ({ "brak": "#EF5350", "fix": "#00E676", "prawie": "#C6FF00", "float+": "#B2FF59", "float": "#FFEB3B", "float-": "#FFA726", "gps": "#EF5350" })[klasa]
+          text: ({ "brak": qsTr("BRAK"), "fix": "FIX", "prawie": qsTr("PRAWIE FIX"), "float+": "FLOAT+", "float": "FLOAT", "float-": "FLOAT-", "gps": "GPS" })[qualityClass]
+          color: ({ "brak": "#EF5350", "fix": "#00E676", "prawie": "#C6FF00", "float+": "#B2FF59", "float": "#FFEB3B", "float-": "#FFA726", "gps": "#EF5350" })[qualityClass]
 
           // Tapniecie w jakosc pozycji otwiera ustawienia odbiornika —
           // stamtad wybiera sie urzadzenie i wlacza NTRIP.
@@ -3145,12 +3145,12 @@ ApplicationWindow {
     // when the bar is on the left, or there is no bar, zoom stays on the right.
     Column {
       id: zoomToolbar
-      readonly property bool poLewej: quickCaptureBar.visible && quickCaptureBar.qcKrawedz !== "lewa"
+      readonly property bool onLeft: quickCaptureBar.visible && quickCaptureBar.qcKrawedz !== "lewa"
       // x/y instead of anchors: an anchor switched to `undefined` by a binding
       // is not released (checked in the sandbox — the column stayed on the left).
       // On the left the 36 px buttons stand centred under the 48 px buttons.
-      x: poLewej ? mainWindow.sceneLeftMargin + 10 : parent.width - width - mainWindow.sceneRightMargin - 10
-      y: poLewej ? lewaKolumnaNarzedzi.y - height - 8 : parent.height - height - (parent.height - height / 2) / 2
+      x: onLeft ? mainWindow.sceneLeftMargin + 10 : parent.width - width - mainWindow.sceneRightMargin - 10
+      y: onLeft ? lewaKolumnaNarzedzi.y - height - 8 : parent.height - height - (parent.height - height / 2) / 2
       spacing: 8
       visible: qfieldSettings.showZoomControls && (!screenLocker.enabled && (locationToolbar.height + digitizingToolbarContainer.height) / (digitizingToolbarContainer.y) < 0.41)
 
@@ -7887,8 +7887,8 @@ ApplicationWindow {
     }
 
     readonly property int jakosc: positionSource.positionInformation ? positionSource.positionInformation.quality : 0
-    readonly property bool prawieFix: jakosc === 5 && rtkStraznik.stan === 6 // [WF-ALMOST-FIX]
-    readonly property color kolor: jakosc === 4 ? "#43a047" : (prawieFix ? "#9ccc65" : (jakosc === 5 ? "#fbc02d" : (rtkStraznik.bylRtk ? "#e53935" : QfTheme.positionColor)))
+    readonly property bool almostFix: jakosc === 5 && rtkStraznik.stan === 6 // [WF-ALMOST-FIX]
+    readonly property color kolor: jakosc === 4 ? "#43a047" : (almostFix ? "#9ccc65" : (jakosc === 5 ? "#fbc02d" : (rtkStraznik.bylRtk ? "#e53935" : QfTheme.positionColor)))
     readonly property color tusz: jakosc === 5 ? "black" : "white"
 
     function odleglosc(d) {
@@ -7989,7 +7989,7 @@ ApplicationWindow {
         "fix": "rtk_fix",
         "utrataFix": "rtk_utrata_fix",
         "float": "rtk_float",
-        "prawieFix": "rtk_prawie_fix", // [WF-ALMOST-FIX]
+        "almostFix": "rtk_prawie_fix", // [WF-ALMOST-FIX]
         "prog": "rtk_prog",
         "brak": "rtk_brak",
         "bezFix": "pkt_bez_fix",
@@ -8000,7 +8000,7 @@ ApplicationWindow {
         "cofnij": "btn_cofnij",
         "usun": "btn_usun"
       })
-    readonly property var rtk: ["start", "fix", "utrataFix", "float", "prawieFix", "prog", "brak", "bezFix"]
+    readonly property var rtk: ["start", "fix", "utrataFix", "float", "almostFix", "prog", "brak", "bezFix"]
 
     function czyWlaczone(nazwa) {
       if (!settings.valueBool('WorkField/dzwiekiWlaczone', true))
@@ -8035,7 +8035,7 @@ ApplicationWindow {
     function zdarzenie(nazwa, tekst, rodzaj) {
       zagraj(nazwa, false);
       if (rtk.indexOf(nazwa) >= 0)
-        wibruj(nazwa === "fix" || nazwa === "start" ? 40 : (nazwa === "prawieFix" ? 60 : 100)); // [WF-ALMOST-FIX]
+        wibruj(nazwa === "fix" || nazwa === "start" ? 40 : (nazwa === "almostFix" ? 60 : 100)); // [WF-ALMOST-FIX]
       if (tekst)
         displayToast(tekst, rodzaj || "info");
     }
@@ -8102,7 +8102,7 @@ ApplicationWindow {
     property double ostatniProg: 0
     // [WF-ALMOST-FIX] accuracy threshold [cm] (Settings → Teren); read again every
     // second, so the label and the guard follow a change in the settings at once
-    property int progCm: settings.valueInt('WorkField/rtkProgCm', 3)
+    property int thresholdCm: settings.valueInt('WorkField/rtkProgCm', 3)
 
     //! 4 = FIX, 5 = FLOAT, 6 = almost FIX (FLOAT within the accuracy threshold),
     //! 2 = DGPS, 1 = single, 0 = nothing
@@ -8115,7 +8115,7 @@ ApplicationWindow {
         // [WF-ALMOST-FIX] 1 cm of hysteresis: accuracy wavering around the
         // threshold does not switch the sound every few seconds
         const c = cm();
-        if (c >= 0 && (c <= progCm || (stan === 6 && c <= progCm + 1)))
+        if (c >= 0 && (c <= thresholdCm || (stan === 6 && c <= thresholdCm + 1)))
           return 6;
         return 5;
       }
@@ -8136,14 +8136,14 @@ ApplicationWindow {
     }
 
     function sprawdz() {
-      progCm = settings.valueInt('WorkField/rtkProgCm', 3); // [WF-ALMOST-FIX]
+      thresholdCm = settings.valueInt('WorkField/rtkProgCm', 3); // [WF-ALMOST-FIX]
       const k = klasa();
       if (!bylRtk) {
         if (k >= 4) {
           bylRtk = true;
           stan = k;
           ostatniFloat = Date.now();
-          dzwieki.zdarzenie("start", k === 4 ? qsTr("Odbiornik RTK: FIX%1.").arg(zCm(cm())) : (k === 6 ? qsTr("Odbiornik RTK: prawie FIX — FLOAT, ale dokładność %1 cm mieści się w progu %2 cm.").arg(cm()).arg(progCm) : qsTr("Odbiornik RTK: FLOAT%1 — poczekaj na FIX.").arg(zCm(cm()))), k === 5 ? "warning" : "info");
+          dzwieki.zdarzenie("start", k === 4 ? qsTr("Odbiornik RTK: FIX%1.").arg(zCm(cm())) : (k === 6 ? qsTr("Odbiornik RTK: prawie FIX — FLOAT, ale dokładność %1 cm mieści się w progu %2 cm.").arg(cm()).arg(thresholdCm) : qsTr("Odbiornik RTK: FLOAT%1 — poczekaj na FIX.").arg(zCm(cm()))), k === 5 ? "warning" : "info");
         }
         return;
       }
@@ -8156,15 +8156,15 @@ ApplicationWindow {
         }
         if (powtorzen < 2)
           return;
-        const poprzedni = stan; // [WF-ALMOST-FIX]
+        const previous = stan; // [WF-ALMOST-FIX]
         stan = k;
         ostatniFloat = Date.now();
         if (k === 4)
           dzwieki.zdarzenie("fix", qsTr("FIX odzyskany%1. Możesz mierzyć.").arg(zCm(cm())), "info");
         else if (k === 6)
-          dzwieki.zdarzenie("prawieFix", qsTr("Prawie FIX — odbiornik podaje FLOAT, ale dokładność %1 cm mieści się w progu %2 cm.").arg(cm()).arg(progCm), "info"); // [WF-ALMOST-FIX]
-        else if (k === 5 && poprzedni === 6)
-          dzwieki.zdarzenie("float", qsTr("FLOAT%1 — dokładność ponad próg %2 cm. Poczekaj na FIX.").arg(zCm(cm())).arg(progCm), "warning");
+          dzwieki.zdarzenie("almostFix", qsTr("Prawie FIX — odbiornik podaje FLOAT, ale dokładność %1 cm mieści się w progu %2 cm.").arg(cm()).arg(thresholdCm), "info"); // [WF-ALMOST-FIX]
+        else if (k === 5 && previous === 6)
+          dzwieki.zdarzenie("float", qsTr("FLOAT%1 — dokładność ponad próg %2 cm. Poczekaj na FIX.").arg(zCm(cm())).arg(thresholdCm), "warning");
         else if (k === 5)
           dzwieki.zdarzenie("utrataFix", qsTr("Utrata FIX — FLOAT%1. Odejdź na chwilę na otwarty teren.").arg(zCm(cm())), "warning");
         else if (k === 0)
@@ -8183,9 +8183,9 @@ ApplicationWindow {
       // [WF-ALMOST-FIX] the same reminder interval, its own (calmer) sound
       if (k === 6 && teraz - ostatniFloat > settings.valueInt('WorkField/rtkFloatCo', 20) * 1000) {
         ostatniFloat = teraz;
-        dzwieki.zdarzenie("prawieFix", qsTr("Nadal prawie FIX — FLOAT, %1 cm.").arg(cm()), "info");
+        dzwieki.zdarzenie("almostFix", qsTr("Nadal prawie FIX — FLOAT, %1 cm.").arg(cm()), "info");
       }
-      const prog = progCm;
+      const prog = thresholdCm;
       if (k === 4 && cm() > prog && teraz - ostatniProg > 30000) {
         ostatniProg = teraz;
         dzwieki.zdarzenie("prog", qsTr("FIX, ale dokładność %1 cm — ponad próg %2 cm.").arg(cm()).arg(prog), "warning");
