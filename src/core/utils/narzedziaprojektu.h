@@ -530,6 +530,16 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE QVariantMap repairIdentity( QgsProject *project );
 
     /**
+     * WorkField 24.10.2026 [WF-IDENTITY] — the "Powiąż tabele zdjęć" button.
+     * A photo table (ZAL_*) with no relation to a layer of objects: its photos
+     * never show in a form. Linked to the layer whose photo table it is by
+     * the attachments rule (same file); an empty table matching no layer is
+     * removed from the project (the table stays in the file); the rest is
+     * named for a human. Does not save the project.
+     */
+    Q_INVOKABLE QVariantMap linkAttachmentTables( QgsProject *project );
+
+    /**
      * WorkField 23.10.2026 [WF-BAD-LAYERS] — repairs invalid photo layers: orphans are
      * removed from the project (with their relations), missing tables are created
      * again for the parent layer. With \a removeOthers also every other invalid layer

@@ -115,6 +115,14 @@ namespace ModulZalacznikow
    * means all candidate layers (identical to zaloz()).
    */
   Wynik setUp( QgsProject *project, QgsVectorLayer *onlyLayer );
+
+  /**
+   * WorkField 24.10.2026 [WF-IDENTITY] — name of the photo table of a layer,
+   * by the same rule setUp() uses (ZAL_ + cleaned name, upper case; the older
+   * rule when such a table already exists). Empty when the layer is not in
+   * a GeoPackage. Used to find the parent of a photo table without relation.
+   */
+  QString attachmentTableFor( QgsVectorLayer *layer );
 } // namespace ModulZalacznikow
 
 #endif // MODUL_ZALACZNIKI_H

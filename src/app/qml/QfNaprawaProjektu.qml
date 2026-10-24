@@ -117,8 +117,8 @@ Popup {
 
     let w = null;
     // [WF-IDENTITY] uuid / PARENT_UUID — fields, values, project saved.
-    if (co === "tozsamosc") {
-      w = NarzedziaProjektu.repairIdentity(qgisProject);
+    if (co === "tozsamosc" || co === "powiaz_zal") {
+      w = co === "tozsamosc" ? NarzedziaProjektu.repairIdentity(qgisProject) : NarzedziaProjektu.linkAttachmentTables(qgisProject);
       if (!ProjectUtils.saveProject(qgisProject)) {
         w = { "ok": false, "opis": w.opis + " " + qsTr("Projektu NIE zapisano — ustawienia pól wrócą po ponownym otwarciu.") };
       }
@@ -305,6 +305,8 @@ Popup {
         // [WF-IDENTITY]
         case "tozsamosc":
           return [{ "etykieta": qsTr("Uzupełnij identyfikatory"), "co": "tozsamosc" }];
+        case "powiaz_zal":
+          return [{ "etykieta": qsTr("Powiąż tabele zdjęć"), "co": "powiaz_zal" }];
         }
         return [];
       }

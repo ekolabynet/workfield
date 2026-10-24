@@ -2212,6 +2212,9 @@ namespace
   }
 } // namespace
 
+static bool isAttachmentTable( const QgsVectorLayer *layer );
+static int parentRelationCount( QgsProject *project, QgsVectorLayer *layer );
+
 QVariantList NarzedziaProjektu::identityIssues( QgsProject *project ) const
 {
   QVariantList result;
@@ -2235,6 +2238,9 @@ QVariantList NarzedziaProjektu::identityIssues( QgsProject *project ) const
 
     if ( FeatureIdentity::uuidFieldIndex( layer->fields() ) < 0 )
       issue( QStringLiteral( "missing_uuid_field" ), layer->name(), 0 );
+    // [WF-IDENTITY] a photo table nobody points at: its photos never show
+    if ( isAttachmentTable( layer ) && parentRelationCount( project, layer ) == 0 )
+      issue( QStringLiteral( "attachments_without_parent" ), layer->name(), static_cast<int>( layer->featureCount() ) );
     if ( identityParentRelation( project, layer ).isValid() && FeatureIdentity::fieldIndex( layer->fields(), FeatureIdentity::parentUuidFieldName() ) < 0 )
       issue( QStringLiteral( "missing_parent_uuid_field" ), layer->name(), 0 );
 
@@ -2277,6 +2283,41 @@ int NarzedziaProjektu::fillMissingIdentity( QgsProject *project )
   return written;
 }
 
+//! [WF-IDENTITY] One layer: fields (added when missing), their configuration,
+//! values. Shared by the button (whole project) and by a new layer.
+static void repairLayerIdentity( QgsProject *project, QgsVectorLayer *layer, int &fieldsAdded, int &valuesWritten, int &renewed, QStringList &skipped, QSet<QString> &ambiguous )
+{
+  if ( layer->isEditable() )
+  {
+    skipped << NarzedziaProjektu::tr( "„%1” — warstwa jest w trakcie edycji" ).arg( layer->name() );
+    return;
+  }
+
+  bool added = false;
+  const int uuidIndex = ensureTextField( layer, FeatureIdentity::uuidFieldName(), added );
+  if ( uuidIndex < 0 )
+  {
+    skipped << NarzedziaProjektu::tr( "„%1” — nie da się dopisać pola" ).arg( layer->name() );
+    return;
+  }
+  fieldsAdded += added ? 1 : 0;
+  configureIdentityField( layer, uuidIndex, QStringLiteral( "uuid()" ), NarzedziaProjektu::tr( "Identyfikator obiektu" ) );
+
+  if ( identityParentRelation( project, layer ).isValid() )
+  {
+    const int parentIndex = ensureTextField( layer, FeatureIdentity::parentUuidFieldName(), added );
+    if ( parentIndex >= 0 )
+    {
+      fieldsAdded += added ? 1 : 0;
+      configureIdentityField( layer, parentIndex, QStringLiteral( "current_parent_value('uuid')" ), NarzedziaProjektu::tr( "Identyfikator obiektu nadrzędnego" ) );
+    }
+  }
+
+  IdentityCounts counts;
+  valuesWritten += identityPass( project, layer, true, true, counts, &ambiguous );
+  renewed += counts.repeatedUuid;
+}
+
 QVariantMap NarzedziaProjektu::repairIdentity( QgsProject *project )
 {
   QVariantMap result;
@@ -2302,38 +2343,9 @@ QVariantMap NarzedziaProjektu::repairIdentity( QgsProject *project )
       QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( mapLayer );
       if ( !carriesIdentity( layer ) )
         continue;
-      const QgsRelation relation = identityParentRelation( project, layer );
-      if ( ( round > 0 ) != relation.isValid() )
+      if ( ( round > 0 ) != identityParentRelation( project, layer ).isValid() )
         continue;
-      if ( layer->isEditable() )
-      {
-        skipped << tr( "„%1” — warstwa jest w trakcie edycji" ).arg( layer->name() );
-        continue;
-      }
-
-      bool added = false;
-      const int uuidIndex = ensureTextField( layer, FeatureIdentity::uuidFieldName(), added );
-      if ( uuidIndex < 0 )
-      {
-        skipped << tr( "„%1” — nie da się dopisać pola" ).arg( layer->name() );
-        continue;
-      }
-      fieldsAdded += added ? 1 : 0;
-      configureIdentityField( layer, uuidIndex, QStringLiteral( "uuid()" ), tr( "Identyfikator obiektu" ) );
-
-      if ( relation.isValid() )
-      {
-        const int parentIndex = ensureTextField( layer, FeatureIdentity::parentUuidFieldName(), added );
-        if ( parentIndex >= 0 )
-        {
-          fieldsAdded += added ? 1 : 0;
-          configureIdentityField( layer, parentIndex, QStringLiteral( "current_parent_value('uuid')" ), tr( "Identyfikator obiektu nadrzędnego" ) );
-        }
-      }
-
-      IdentityCounts counts;
-      valuesWritten += identityPass( project, layer, true, true, counts, &ambiguous );
-      renewed += counts.repeatedUuid;
+      repairLayerIdentity( project, layer, fieldsAdded, valuesWritten, renewed, skipped, ambiguous );
     }
   }
 
@@ -2350,9 +2362,9 @@ QVariantMap NarzedziaProjektu::repairIdentity( QgsProject *project )
   QStringList text;
   text << tr( "Dopisane pola: %1. Uzupełnione identyfikatory: %2." ).arg( fieldsAdded ).arg( valuesWritten );
   if ( renewed > 0 )
-    text << tr( "Powtórzony identyfikator dostało %1 obiektów — najstarszy w każdej grupie zachował swój, pozostałe dostały nowy." ).arg( renewed );
+    text << tr( "Obiekty z powtórzonym identyfikatorem: %1 — najstarszy w każdej grupie zachował swój, pozostałe dostały nowy." ).arg( renewed );
   if ( disagreeing > 0 )
-    text << tr( "%1 załączników wskazuje innego rodzica numerem niż identyfikatorem — tego nie poprawiam automatycznie, trzeba obejrzeć." ).arg( disagreeing );
+    text << tr( "Załączniki wskazujące innego rodzica numerem niż identyfikatorem: %1 — tego nie poprawiam automatycznie, trzeba obejrzeć." ).arg( disagreeing );
   if ( !skipped.isEmpty() )
     text << tr( "Pominięte: %1." ).arg( skipped.join( QStringLiteral( "; " ) ) );
 
@@ -2360,6 +2372,118 @@ QVariantMap NarzedziaProjektu::repairIdentity( QgsProject *project )
   result.insert( QStringLiteral( "opis" ), text.join( QLatin1Char( ' ' ) ) );
   result.insert( QStringLiteral( "fieldsAdded" ), fieldsAdded );
   result.insert( QStringLiteral( "valuesWritten" ), valuesWritten );
+  return result;
+}
+
+//! [WF-IDENTITY] A table of photos: ZAL_* by name, or the attachment fields.
+static bool isAttachmentTable( const QgsVectorLayer *layer )
+{
+  if ( identityTableName( layer ).startsWith( QLatin1String( "ZAL_" ), Qt::CaseInsensitive ) )
+    return true;
+  return FeatureIdentity::fieldIndex( layer->fields(), QStringLiteral( "SCIEZKA" ) ) >= 0
+         && FeatureIdentity::fieldIndex( layer->fields(), QStringLiteral( "ID_RODZICA" ) ) >= 0;
+}
+
+//! Number of valid relations in which the layer is the child.
+static int parentRelationCount( QgsProject *project, QgsVectorLayer *layer )
+{
+  int count = 0;
+  const QList<QgsRelation> relations = project->relationManager()->referencingRelations( layer );
+  for ( const QgsRelation &relation : relations )
+  {
+    if ( relation.isValid() )
+      ++count;
+  }
+  return count;
+}
+
+static QString identityFilePath( const QgsVectorLayer *layer )
+{
+  const QString path = QgsProviderRegistry::instance()->decodeUri( layer->providerType(), layer->source() ).value( QStringLiteral( "path" ) ).toString();
+  const QFileInfo info( path );
+  return info.exists() ? info.canonicalFilePath() : info.absoluteFilePath();
+}
+
+QVariantMap NarzedziaProjektu::linkAttachmentTables( QgsProject *project )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  if ( !project )
+  {
+    result.insert( QStringLiteral( "opis" ), tr( "Brak projektu." ) );
+    return result;
+  }
+
+  QStringList linked;
+  QStringList removed;
+  QStringList removedIds;
+  QStringList left;
+  const auto layers = project->mapLayers();
+  for ( QgsMapLayer *mapLayer : layers )
+  {
+    QgsVectorLayer *child = qobject_cast<QgsVectorLayer *>( mapLayer );
+    if ( !carriesIdentity( child ) || !isAttachmentTable( child ) || parentRelationCount( project, child ) > 0 )
+      continue;
+
+    // The parent is the layer whose photo table — by the rule of the
+    // attachments module — is exactly this table, in the same file.
+    const QString childFile = identityFilePath( child );
+    const QString childTable = identityTableName( child );
+    QList<QgsVectorLayer *> parents;
+    for ( QgsMapLayer *other : layers )
+    {
+      QgsVectorLayer *candidate = qobject_cast<QgsVectorLayer *>( other );
+      if ( !candidate || candidate == child || !carriesIdentity( candidate ) || isAttachmentTable( candidate ) )
+        continue;
+      if ( identityFilePath( candidate ) != childFile )
+        continue;
+      if ( ModulZalacznikow::attachmentTableFor( candidate ).compare( childTable, Qt::CaseInsensitive ) == 0 )
+        parents << candidate;
+    }
+
+    const long long photos = child->featureCount();
+    if ( parents.size() == 1 )
+    {
+      // The attachments module is idempotent: it finds this table and this
+      // layer and only adds what is missing (relation, form tab, naming).
+      const ModulZalacznikow::Wynik w = ModulZalacznikow::setUp( project, parents.first() );
+      if ( w.ok )
+        linked << tr( "%1 → %2" ).arg( child->name(), parents.first()->name() );
+      else
+        left << tr( "%1 (%2)" ).arg( child->name(), w.opis );
+    }
+    else if ( parents.isEmpty() && photos == 0 )
+    {
+      // removed after the loop: `layers` still holds this pointer
+      removed << child->name();
+      removedIds << child->id();
+    }
+    else
+    {
+      left << ( parents.isEmpty() ? tr( "%1 — zdjęć: %2, nie ma warstwy, do której pasuje" ).arg( child->name() ).arg( photos )
+                                  : tr( "%1 — pasuje do kilku warstw" ).arg( child->name() ) );
+    }
+  }
+
+  for ( const QString &id : std::as_const( removedIds ) )
+    removeLayerWithRelations( project, id );
+
+  // Linked tables get PARENT_UUID now (and the values).
+  if ( !linked.isEmpty() )
+    repairIdentity( project );
+
+  QStringList text;
+  if ( !linked.isEmpty() )
+    text << tr( "Powiązane: %1. Zdjęcia pokażą się w formularzach obiektów." ).arg( linked.join( QStringLiteral( ", " ) ) );
+  if ( !removed.isEmpty() )
+    text << tr( "Usunięte z projektu puste tabele bez warstwy: %1 (w pliku zostały)." ).arg( removed.join( QStringLiteral( ", " ) ) );
+  if ( !left.isEmpty() )
+    text << tr( "Do obejrzenia w QGIS: %1." ).arg( left.join( QStringLiteral( "; " ) ) );
+  if ( text.isEmpty() )
+    text << tr( "Wszystkie tabele zdjęć są już powiązane." );
+
+  result.insert( QStringLiteral( "ok" ), left.isEmpty() );
+  result.insert( QStringLiteral( "opis" ), text.join( QLatin1Char( ' ' ) ) );
   return result;
 }
 
@@ -2661,6 +2785,7 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   {
     const QVariantList identity = identityIssues( projekt );
     QStringList missingIn;
+    QStringList withoutParent;
     int emptyValues = 0;
     for ( const QVariant &v : identity )
     {
@@ -2677,26 +2802,41 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
       {
         emptyValues += count;
       }
+      else if ( kind == QLatin1String( "attachments_without_parent" ) )
+      {
+        withoutParent << tr( "%1 (zdjęć: %2)" ).arg( layerName ).arg( count );
+      }
       else if ( kind == QLatin1String( "repeated_uuid" ) )
       {
         ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
-                 tr( "warstwa „%1”: %2 obiektów ma ten sam identyfikator co inny obiekt — najpewniej skopiowane przed 24.10.2026" ).arg( layerName ).arg( count ),
+                 tr( "warstwa „%1”: obiekty z takim samym identyfikatorem jak inny obiekt: %2 — najpewniej skopiowane przed 24.10.2026" ).arg( layerName ).arg( count ),
                  tr( "„Uzupełnij identyfikatory” zostawi identyfikator najstarszemu obiektowi w każdej grupie, a pozostałym nada nowy. Atrybuty i geometria się nie zmieniają." ),
                  QStringLiteral( "tozsamosc" ), 0.0, QString(), layerName );
       }
       else if ( kind == QLatin1String( "disagreeing_parent_uuid" ) )
       {
         ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
-                 tr( "warstwa „%1”: %2 załączników wskazuje innego rodzica numerem (ID_RODZICA) niż identyfikatorem (PARENT_UUID)" ).arg( layerName ).arg( count ),
+                 tr( "warstwa „%1”: załączniki wskazujące innego rodzica numerem (ID_RODZICA) niż identyfikatorem (PARENT_UUID): %2" ).arg( layerName ).arg( count ),
                  tr( "Najpewniej numery fid rozjechały się przy scalaniu albo powiązanie zmieniono ręcznie. Aplikacja tego nie poprawia sama, bo nie wie, który klucz jest dobry — porównaj te dwa pola w QGIS." ),
                  QStringLiteral( "pokaz_warstwe" ), 0.0, QString(), layerName );
       }
     }
+    if ( !withoutParent.isEmpty() )
+    {
+      ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
+               tr( "tabele zdjęć niepowiązane z żadną warstwą obiektów — ich zdjęcia nie pokazują się w formularzach (razem %1): %2" )
+                 .arg( withoutParent.size() )
+                 .arg( withoutParent.join( QStringLiteral( ", " ) ) ),
+               tr( "„Powiąż tabele zdjęć” podłączy każdą tabelę do jej warstwy (np. ZAL_ZRASZACZE → Zraszacze), dołoży zakładkę zdjęć w formularzu "
+                   "i identyfikatory. Pustą tabelę, do której nie pasuje żadna warstwa, usunie z projektu (w pliku zostaje). "
+                   "Czego nie da się dopasować, wymieni z nazwy." ),
+               QStringLiteral( "powiaz_zal" ) );
+    }
     if ( !missingIn.isEmpty() || emptyValues > 0 )
     {
       const QString what = !missingIn.isEmpty()
-                             ? tr( "%1 warstw nie ma identyfikatora obiektów (uuid): %2" ).arg( missingIn.size() ).arg( missingIn.join( QStringLiteral( ", " ) ) )
-                             : tr( "%1 obiektów albo załączników nie ma jeszcze identyfikatora" ).arg( emptyValues );
+                             ? tr( "warstwy bez identyfikatora obiektów (uuid), razem %1: %2" ).arg( missingIn.size() ).arg( missingIn.join( QStringLiteral( ", " ) ) )
+                             : tr( "obiekty albo załączniki bez identyfikatora: %1" ).arg( emptyValues );
       ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ), what,
                tr( "„Uzupełnij identyfikatory” dopisze pole uuid (a w tabelach zdjęć także PARENT_UUID), nada identyfikator każdemu obiektowi i ukryje te pola w formularzach. "
                    "Atrybuty i geometria się nie zmieniają. Najlepiej zrobić to w biurze, przed wydaniem w teren — wtedy wszystkie telefony mają tę samą budowę bazy." ),
@@ -3717,6 +3857,26 @@ QVariantMap NarzedziaProjektu::setUpNewLayer( QgsProject *project, QgsVectorLaye
   result.insert( QStringLiteral( "attachments" ), attachments.ok );
   result.insert( QStringLiteral( "attachmentsInfo" ), attachments.opis );
   qInfo() << "WFG new layer:" << layer->name() << "| attachments:" << attachments.ok << attachments.opis;
+
+  // [WF-IDENTITY] 24.10.2026: a new layer and its photo table get uuid /
+  // PARENT_UUID at once — nothing to "complete" later.
+  {
+    int fieldsAdded = 0;
+    int valuesWritten = 0;
+    int renewed = 0;
+    QStringList skipped;
+    QSet<QString> ambiguous;
+    if ( carriesIdentity( layer ) )
+      repairLayerIdentity( p, layer, fieldsAdded, valuesWritten, renewed, skipped, ambiguous );
+    const QList<QgsRelation> children = p->relationManager()->referencedRelations( layer );
+    for ( const QgsRelation &relation : children )
+    {
+      QgsVectorLayer *child = relation.referencingLayer();
+      if ( child && child != layer && carriesIdentity( child ) )
+        repairLayerIdentity( p, child, fieldsAdded, valuesWritten, renewed, skipped, ambiguous );
+    }
+    result.insert( QStringLiteral( "identityFields" ), fieldsAdded );
+  }
 
   result.insert( QStringLiteral( "ok" ), true );
   return result;

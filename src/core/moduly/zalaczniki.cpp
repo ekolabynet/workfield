@@ -595,7 +595,8 @@ namespace ModulZalacznikow
   }
 
   //! [WF-NEW-LAYER] Attachment table name of a layer — same rule as below.
-  static QString attachmentTableFor( QgsVectorLayer *layer )
+  //! [WF-IDENTITY] exported (zalaczniki.h).
+  QString attachmentTableFor( QgsVectorLayer *layer )
   {
     QString gpkg;
     if ( !layer || !gpkgWarstwy( layer, &gpkg, nullptr ) )
