@@ -106,6 +106,10 @@ Item {
       s["InwentaryzacjaDrzew"] = InwentaryzacjaDrzew;
     if (typeof CAD !== "undefined")
       s["CAD"] = CAD;
+    // WorkFieldGIS 24.10.2026 [WF-DATA-TIDY] — moduł-narzędzie „Porządkowanie danych”
+    // (claude/MODUL_porzadkowanie_plan.md): bez przepisu, działa na każdym projekcie.
+    if (typeof TidyEngine !== "undefined")
+      s["TidyEngine"] = TidyEngine;
     for (const n in s)
       z[n] = "wbudowany";
     if (typeof iface !== "undefined" && typeof iface.modulyZWtyczek === "function") {
