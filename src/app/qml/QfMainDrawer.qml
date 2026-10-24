@@ -210,6 +210,38 @@ Drawer {
   }
 
   //! Pytanie „Cały projekt / Tylko dane” (Piotr 8.10.2026: przy obu eksportach).
+  // [WF-EXIT-BUTTONS] close the project → start screen. Like "back twice": edits
+  // in the layers are saved already, the project file is not rewritten here.
+  function zamknijProjekt() {
+    dashBoard.close();
+    iface.clearProject();
+    welcomeScreen.visible = true;
+  }
+
+  //! [WF-EXIT-BUTTONS] the same path as "back twice": mainWindow.onClosing lets it through
+  function wyjdzZAplikacji() {
+    mainWindow.closeAlreadyRequested = true;
+    mainWindow.close();
+  }
+
+  QfDialog {
+    id: potwierdzenieWyjscia
+    parent: mainWindow.contentItem
+    title: qsTr("Wyjść z aplikacji?")
+    confirmRole: "danger"
+    width: Math.min(360, mainWindow.width - 32)
+
+    Label {
+      width: parent.width
+      text: qsTr("Projekt zostanie zamknięty, a aplikacja wyłączona. Pomiar i połączenie z odbiornikiem się zakończą.")
+      wrapMode: Text.WordWrap
+      color: Theme.mainTextColor
+      font: Theme.tipFont
+    }
+
+    onAccepted: dashBoard.wyjdzZAplikacji()
+  }
+
   // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
   QfWindowFrame {
     id: pytanieEksportu
@@ -1402,6 +1434,42 @@ Drawer {
         icon.width: 30
         icon.height: 30
         onClicked: dashBoard.close()
+      }
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 1
+      color: Theme.controlBorderColor
+    }
+
+    // [WF-EXIT-BUTTONS] 24.10.2026 — two separate exits (Piotr): close the project
+    // and go back to the start screen, or leave the application. Until now the
+    // only way out was "back twice", which closes both at once.
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.leftMargin: 6
+      Layout.rightMargin: 6
+      Layout.topMargin: 4
+      Layout.bottomMargin: 4
+      spacing: 6
+
+      QfDecisionButton {
+        role: "cancel"
+        Layout.fillWidth: true
+        Layout.preferredHeight: 44
+        visible: qgisProject && qgisProject.fileName !== ""
+        text: "⏏  " + qsTr("Zamknij projekt")
+        font.pointSize: Theme.tipFont.pointSize
+        onClicked: dashBoard.zamknijProjekt()
+      }
+      QfDecisionButton {
+        role: "danger"
+        Layout.fillWidth: true
+        Layout.preferredHeight: 44
+        text: "⏻  " + qsTr("Wyjdź z aplikacji")
+        font.pointSize: Theme.tipFont.pointSize
+        onClicked: potwierdzenieWyjscia.open()
       }
     }
 
