@@ -7421,6 +7421,18 @@ ApplicationWindow {
     function onLoadProjectEnded(path, name) {
       mainWindow.refreshProjectTitle();
 
+      // [WF-IDENTITY] 24.10.2026: empty uuid / PARENT_UUID filled on every
+      // open (photos added with the capture bar get PARENT_UUID here). Only
+      // values, never fields — fields are added by "Uzupełnij identyfikatory".
+      // Templates are skipped: they are copied, and copies must not share uuids.
+      if (path.indexOf("/templates/") === -1 && path.indexOf("/szablony/") === -1) {
+        Qt.callLater(function () {
+          const written = NarzedziaProjektu.fillMissingIdentity(qgisProject);
+          if (written > 0)
+            console.log("WorkField [WF-IDENTITY]: filled " + written + " identity values");
+        });
+      }
+
       // Projekt z rysunku CAD: pusty projekt wlasnie wstal, dokladamy
       // podklad i warstwy robocze. `createEmptyLayer` wpina warstwe do
       // OTWARTEGO projektu, wiec nie dalo sie tego zrobic w kreatorze.

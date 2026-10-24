@@ -116,6 +116,17 @@ Popup {
     }
 
     let w = null;
+    // [WF-IDENTITY] uuid / PARENT_UUID — fields, values, project saved.
+    if (co === "tozsamosc") {
+      w = NarzedziaProjektu.repairIdentity(qgisProject);
+      if (!ProjectUtils.saveProject(qgisProject)) {
+        w = { "ok": false, "opis": w.opis + " " + qsTr("Projektu NIE zapisano — ustawienia pól wrócą po ponownym otwarciu.") };
+      }
+      naprawa.komunikat = w.opis;
+      naprawa.blad = !w.ok;
+      stanProjektu.odswiez();
+      return;
+    }
     // [WF-BAD-LAYERS] Layers that did not load — repaired here, project saved.
     if (co === "napraw_zal" || co === "usun_zla") {
       w = co === "napraw_zal" ? NarzedziaProjektu.repairInvalidLayers(qgisProject, false) : NarzedziaProjektu.removeInvalidLayer(qgisProject, o.warstwa);
@@ -291,6 +302,9 @@ Popup {
           return [{ "etykieta": qsTr("Napraw"), "co": "napraw_zal" }];
         case "usun_zla":
           return [{ "etykieta": qsTr("Usuń z projektu"), "co": "usun_zla" }];
+        // [WF-IDENTITY]
+        case "tozsamosc":
+          return [{ "etykieta": qsTr("Uzupełnij identyfikatory"), "co": "tozsamosc" }];
         }
         return [];
       }

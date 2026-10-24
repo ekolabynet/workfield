@@ -8,6 +8,11 @@
 
 #include "narzedziaprojektu.h"
 #include "featureidentity.h" // [WF-SPLIT-IDENTITY]
+#include <QSet>                    // [WF-IDENTITY]
+#include <qgsfeaturerequest.h>     // [WF-IDENTITY]
+#include <qgsproviderregistry.h>   // [WF-IDENTITY]
+#include <qgsvariantutils.h>       // [WF-IDENTITY]
+#include <qgsvectordataprovider.h> // [WF-IDENTITY]
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -1960,6 +1965,404 @@ QVariantMap NarzedziaProjektu::removeInvalidLayer( QgsProject *project, const QS
   return result;
 }
 
+// ===========================================================================
+// [WF-IDENTITY] 24.10.2026 — uuid of objects, PARENT_UUID of children
+// ===========================================================================
+// Decisions: claude/TOZSAMOSC_obiektow_i_dziennik_2026-10-24.md (Piotr).
+// `fid` is the row number inside one file; it drifts when returns are merged.
+// `uuid` is the identity of a row (object or attachment), `PARENT_UUID` in
+// a child table (ZAL_*, species list) points at the uuid of its parent —
+// a second key, so a link broken by drifting fid can be found and rebuilt.
+//
+// Three verbs, different weight:
+//   identityIssues      reads only; goes into stanProjektu() as "dane"
+//   fillMissingIdentity fills EMPTY values where the fields exist; no schema
+//                       change; runs on every project load
+//   repairIdentity      the button: adds missing fields (schema change, so
+//                       only on request), configures them, fills values,
+//                       renews repeated uuids
+// A PARENT_UUID that DISAGREES with the relation is never overwritten here:
+// one of the two keys is wrong and only a human can tell which.
+namespace
+{
+  QString identityTableName( const QgsVectorLayer *layer )
+  {
+    const QVariantMap parts = QgsProviderRegistry::instance()->decodeUri( layer->providerType(), layer->source() );
+    const QString name = parts.value( QStringLiteral( "layerName" ) ).toString();
+    return name.isEmpty() ? layer->name() : name;
+  }
+
+  //! Working layers of the project: editable GeoPackage tables, without the
+  //! technical ones (WF_*: our own bookkeeping, NIEBO_*: 70 000 rows of GNSS
+  //! epochs, REF_*: reference layers nobody edits).
+  bool carriesIdentity( const QgsVectorLayer *layer )
+  {
+    if ( !layer || !layer->isValid() || layer->readOnly() || layer->providerType() != QLatin1String( "ogr" ) )
+      return false;
+    const QString path = QgsProviderRegistry::instance()->decodeUri( layer->providerType(), layer->source() ).value( QStringLiteral( "path" ) ).toString();
+    if ( !path.endsWith( QLatin1String( ".gpkg" ), Qt::CaseInsensitive ) )
+      return false;
+    const QString table = identityTableName( layer ).toUpper();
+    for ( const QString &prefix : { QStringLiteral( "WF_" ), QStringLiteral( "NIEBO_" ), QStringLiteral( "REF_" ) } )
+    {
+      if ( table.startsWith( prefix ) )
+        return false;
+    }
+    return true;
+  }
+
+  //! The one relation in which \a child is the child. Invalid when there is
+  //! none or more than one (one PARENT_UUID cannot serve two parents).
+  QgsRelation identityParentRelation( QgsProject *project, QgsVectorLayer *child )
+  {
+    QList<QgsRelation> found;
+    const QList<QgsRelation> relations = project->relationManager()->referencingRelations( child );
+    for ( const QgsRelation &relation : relations )
+    {
+      if ( relation.isValid() && relation.referencedLayer() && relation.referencedLayer() != child && carriesIdentity( relation.referencedLayer() ) )
+        found << relation;
+    }
+    return found.size() == 1 ? found.first() : QgsRelation();
+  }
+
+  QString identityKey( const QgsFeature &feature, const QList<int> &indexes )
+  {
+    QStringList parts;
+    for ( const int index : indexes )
+    {
+      const QVariant value = index >= 0 ? feature.attribute( index ) : QVariant();
+      if ( QgsVariantUtils::isNull( value ) )
+        return QString();
+      parts << value.toString();
+    }
+    return parts.join( QChar( 0x1f ) );
+  }
+
+  bool isEmptyValue( const QVariant &value )
+  {
+    return QgsVariantUtils::isNull( value ) || value.toString().trimmed().isEmpty();
+  }
+
+  //! Parent key (referenced fields) → parent uuid.
+  QHash<QString, QString> identityParentMap( const QgsRelation &relation )
+  {
+    QHash<QString, QString> result;
+    QgsVectorLayer *parent = relation.referencedLayer();
+    const int uuidIndex = FeatureIdentity::uuidFieldIndex( parent->fields() );
+    if ( uuidIndex < 0 )
+      return result;
+    QList<int> keyIndexes;
+    for ( const QgsRelation::FieldPair &pair : relation.fieldPairs() )
+      keyIndexes << parent->fields().lookupField( pair.referencedField() );
+
+    QgsAttributeList wanted = keyIndexes;
+    wanted << uuidIndex;
+    QgsFeatureRequest request;
+    request.setFlags( Qgis::FeatureRequestFlag::NoGeometry );
+    request.setSubsetOfAttributes( wanted );
+    QgsFeatureIterator it = parent->getFeatures( request );
+    QgsFeature feature;
+    while ( it.nextFeature( feature ) )
+    {
+      const QString key = identityKey( feature, keyIndexes );
+      const QVariant uuid = feature.attribute( uuidIndex );
+      if ( !key.isEmpty() && !isEmptyValue( uuid ) )
+        result.insert( key, uuid.toString() );
+    }
+    return result;
+  }
+
+  struct IdentityCounts
+  {
+    int emptyUuid = 0;
+    int repeatedUuid = 0;
+    int emptyParentUuid = 0;
+    int disagreeingParentUuid = 0;
+  };
+
+  /**
+   * Walks the rows of \a layer once. With \a write, fills what is empty
+   * (uuid, and PARENT_UUID from the relation) and, with \a renewRepeated,
+   * gives a new uuid to every repeat but the oldest (lowest fid) row.
+   * \a ambiguous collects uuids that were repeated (and renewed); a child
+   * whose PARENT_UUID is one of them was filled from an ambiguous value,
+   * so there — and only there — the relation (fid) decides.
+   * Returns the number of values written.
+   */
+  int identityPass( QgsProject *project, QgsVectorLayer *layer, bool write, bool renewRepeated, IdentityCounts &counts, QSet<QString> *ambiguous = nullptr )
+  {
+    const int uuidIndex = FeatureIdentity::uuidFieldIndex( layer->fields() );
+    const int parentUuidIndex = FeatureIdentity::fieldIndex( layer->fields(), FeatureIdentity::parentUuidFieldName() );
+    if ( uuidIndex < 0 && parentUuidIndex < 0 )
+      return 0;
+
+    const QgsRelation relation = parentUuidIndex >= 0 ? identityParentRelation( project, layer ) : QgsRelation();
+    QHash<QString, QString> parents;
+    QList<int> childKeyIndexes;
+    if ( relation.isValid() )
+    {
+      parents = identityParentMap( relation );
+      for ( const QgsRelation::FieldPair &pair : relation.fieldPairs() )
+        childKeyIndexes << layer->fields().lookupField( pair.referencingField() );
+    }
+
+    QgsAttributeList wanted = childKeyIndexes;
+    if ( uuidIndex >= 0 )
+      wanted << uuidIndex;
+    if ( parentUuidIndex >= 0 )
+      wanted << parentUuidIndex;
+    QgsFeatureRequest request;
+    request.setFlags( Qgis::FeatureRequestFlag::NoGeometry );
+    request.setSubsetOfAttributes( wanted );
+    request.addOrderBy( QStringLiteral( "$id" ), true );
+
+    QHash<QString, int> seen;
+    QgsChangedAttributesMap changes;
+    QgsFeatureIterator it = layer->getFeatures( request );
+    QgsFeature feature;
+    while ( it.nextFeature( feature ) )
+    {
+      QgsAttributeMap rowChanges;
+      if ( uuidIndex >= 0 )
+      {
+        const QVariant uuid = feature.attribute( uuidIndex );
+        if ( isEmptyValue( uuid ) )
+        {
+          counts.emptyUuid++;
+          rowChanges.insert( uuidIndex, FeatureIdentity::newUuid() );
+        }
+        else if ( seen.contains( uuid.toString() ) )
+        {
+          counts.repeatedUuid++;
+          if ( renewRepeated )
+          {
+            rowChanges.insert( uuidIndex, FeatureIdentity::newUuid() );
+            if ( ambiguous )
+              ambiguous->insert( uuid.toString() );
+          }
+        }
+        else
+        {
+          seen.insert( uuid.toString(), 1 );
+        }
+      }
+      if ( parentUuidIndex >= 0 && relation.isValid() )
+      {
+        const QString expected = parents.value( identityKey( feature, childKeyIndexes ) );
+        const QVariant current = feature.attribute( parentUuidIndex );
+        if ( isEmptyValue( current ) )
+        {
+          if ( !expected.isEmpty() )
+          {
+            counts.emptyParentUuid++;
+            rowChanges.insert( parentUuidIndex, expected );
+          }
+        }
+        else if ( !expected.isEmpty() && current.toString() != expected )
+        {
+          if ( ambiguous && ambiguous->contains( current.toString() ) )
+            rowChanges.insert( parentUuidIndex, expected );
+          else
+            counts.disagreeingParentUuid++;
+        }
+      }
+      if ( !rowChanges.isEmpty() )
+        changes.insert( feature.id(), rowChanges );
+    }
+
+    if ( !write || changes.isEmpty() )
+      return 0;
+    if ( layer->isEditable() || !( layer->dataProvider()->capabilities() & Qgis::VectorProviderCapability::ChangeAttributeValues ) )
+      return 0;
+    if ( !layer->dataProvider()->changeAttributeValues( changes ) )
+      return 0;
+    int written = 0;
+    for ( auto it2 = changes.constBegin(); it2 != changes.constEnd(); ++it2 )
+      written += it2.value().size();
+    return written;
+  }
+
+  //! Field configuration: default given once, hidden, new value on split
+  //! and on duplicate (QGIS on the desktop as well), Polish alias.
+  void configureIdentityField( QgsVectorLayer *layer, int index, const QString &defaultExpression, const QString &alias )
+  {
+    layer->setDefaultValueDefinition( index, QgsDefaultValue( defaultExpression, false ) );
+    layer->setEditorWidgetSetup( index, QgsEditorWidgetSetup( QStringLiteral( "Hidden" ), QVariantMap() ) );
+    layer->setFieldAlias( index, alias );
+    layer->setFieldSplitPolicy( index, Qgis::FieldDomainSplitPolicy::DefaultValue );
+#if _QGIS_VERSION_INT >= 33800
+    layer->setFieldDuplicatePolicy( index, Qgis::FieldDuplicatePolicy::DefaultValue );
+#endif
+  }
+
+  //! Adds a TEXT field when missing. Returns its index, -1 when impossible.
+  int ensureTextField( QgsVectorLayer *layer, const QString &name, bool &added )
+  {
+    added = false;
+    int index = FeatureIdentity::fieldIndex( layer->fields(), name );
+    if ( index >= 0 )
+      return index;
+    if ( layer->isEditable() || !( layer->dataProvider()->capabilities() & Qgis::VectorProviderCapability::AddAttributes ) )
+      return -1;
+    if ( !layer->dataProvider()->addAttributes( { QgsField( name, QMetaType::Type::QString, QStringLiteral( "TEXT" ) ) } ) )
+      return -1;
+    layer->updateFields();
+    added = true;
+    return FeatureIdentity::fieldIndex( layer->fields(), name );
+  }
+} // namespace
+
+QVariantList NarzedziaProjektu::identityIssues( QgsProject *project ) const
+{
+  QVariantList result;
+  if ( !project )
+    return result;
+
+  auto issue = [&result]( const QString &kind, const QString &layer, int count ) {
+    QVariantMap m;
+    m.insert( QStringLiteral( "kind" ), kind );
+    m.insert( QStringLiteral( "layer" ), layer );
+    m.insert( QStringLiteral( "count" ), count );
+    result << m;
+  };
+
+  const auto layers = project->mapLayers();
+  for ( QgsMapLayer *mapLayer : layers )
+  {
+    QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( mapLayer );
+    if ( !carriesIdentity( layer ) )
+      continue;
+
+    if ( FeatureIdentity::uuidFieldIndex( layer->fields() ) < 0 )
+      issue( QStringLiteral( "missing_uuid_field" ), layer->name(), 0 );
+    if ( identityParentRelation( project, layer ).isValid() && FeatureIdentity::fieldIndex( layer->fields(), FeatureIdentity::parentUuidFieldName() ) < 0 )
+      issue( QStringLiteral( "missing_parent_uuid_field" ), layer->name(), 0 );
+
+    IdentityCounts counts;
+    identityPass( project, layer, false, false, counts );
+    if ( counts.emptyUuid > 0 )
+      issue( QStringLiteral( "empty_uuid" ), layer->name(), counts.emptyUuid );
+    if ( counts.repeatedUuid > 0 )
+      issue( QStringLiteral( "repeated_uuid" ), layer->name(), counts.repeatedUuid );
+    if ( counts.emptyParentUuid > 0 )
+      issue( QStringLiteral( "empty_parent_uuid" ), layer->name(), counts.emptyParentUuid );
+    if ( counts.disagreeingParentUuid > 0 )
+      issue( QStringLiteral( "disagreeing_parent_uuid" ), layer->name(), counts.disagreeingParentUuid );
+  }
+  return result;
+}
+
+int NarzedziaProjektu::fillMissingIdentity( QgsProject *project )
+{
+  if ( !project )
+    return 0;
+  int written = 0;
+  const auto layers = project->mapLayers();
+  // Objects first, children after: PARENT_UUID is copied from a filled uuid.
+  // Children twice — a child can be a parent itself (species list → its photos).
+  for ( int round = 0; round < 3; ++round )
+  {
+    for ( QgsMapLayer *mapLayer : layers )
+    {
+      QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( mapLayer );
+      if ( !carriesIdentity( layer ) )
+        continue;
+      const bool isChild = identityParentRelation( project, layer ).isValid();
+      if ( ( round > 0 ) != isChild )
+        continue;
+      IdentityCounts counts;
+      written += identityPass( project, layer, true, false, counts );
+    }
+  }
+  return written;
+}
+
+QVariantMap NarzedziaProjektu::repairIdentity( QgsProject *project )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  if ( !project )
+  {
+    result.insert( QStringLiteral( "opis" ), tr( "Brak projektu." ) );
+    return result;
+  }
+
+  int fieldsAdded = 0;
+  int valuesWritten = 0;
+  int renewed = 0;
+  QSet<QString> ambiguous;
+  QStringList skipped;
+  const auto layers = project->mapLayers();
+
+  // Objects first, children after (twice, as in fillMissingIdentity).
+  for ( int round = 0; round < 3; ++round )
+  {
+    for ( QgsMapLayer *mapLayer : layers )
+    {
+      QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( mapLayer );
+      if ( !carriesIdentity( layer ) )
+        continue;
+      const QgsRelation relation = identityParentRelation( project, layer );
+      if ( ( round > 0 ) != relation.isValid() )
+        continue;
+      if ( layer->isEditable() )
+      {
+        skipped << tr( "„%1” — warstwa jest w trakcie edycji" ).arg( layer->name() );
+        continue;
+      }
+
+      bool added = false;
+      const int uuidIndex = ensureTextField( layer, FeatureIdentity::uuidFieldName(), added );
+      if ( uuidIndex < 0 )
+      {
+        skipped << tr( "„%1” — nie da się dopisać pola" ).arg( layer->name() );
+        continue;
+      }
+      fieldsAdded += added ? 1 : 0;
+      configureIdentityField( layer, uuidIndex, QStringLiteral( "uuid()" ), tr( "Identyfikator obiektu" ) );
+
+      if ( relation.isValid() )
+      {
+        const int parentIndex = ensureTextField( layer, FeatureIdentity::parentUuidFieldName(), added );
+        if ( parentIndex >= 0 )
+        {
+          fieldsAdded += added ? 1 : 0;
+          configureIdentityField( layer, parentIndex, QStringLiteral( "current_parent_value('uuid')" ), tr( "Identyfikator obiektu nadrzędnego" ) );
+        }
+      }
+
+      IdentityCounts counts;
+      valuesWritten += identityPass( project, layer, true, true, counts, &ambiguous );
+      renewed += counts.repeatedUuid;
+    }
+  }
+
+  // After the repair: what is still wrong (disagreeing PARENT_UUID is left alone on purpose).
+  int disagreeing = 0;
+  const QVariantList left = identityIssues( project );
+  for ( const QVariant &v : left )
+  {
+    const QVariantMap m = v.toMap();
+    if ( m.value( QStringLiteral( "kind" ) ).toString() == QLatin1String( "disagreeing_parent_uuid" ) )
+      disagreeing += m.value( QStringLiteral( "count" ) ).toInt();
+  }
+
+  QStringList text;
+  text << tr( "Dopisane pola: %1. Uzupełnione identyfikatory: %2." ).arg( fieldsAdded ).arg( valuesWritten );
+  if ( renewed > 0 )
+    text << tr( "Powtórzony identyfikator dostało %1 obiektów — najstarszy w każdej grupie zachował swój, pozostałe dostały nowy." ).arg( renewed );
+  if ( disagreeing > 0 )
+    text << tr( "%1 załączników wskazuje innego rodzica numerem niż identyfikatorem — tego nie poprawiam automatycznie, trzeba obejrzeć." ).arg( disagreeing );
+  if ( !skipped.isEmpty() )
+    text << tr( "Pominięte: %1." ).arg( skipped.join( QStringLiteral( "; " ) ) );
+
+  result.insert( QStringLiteral( "ok" ), skipped.isEmpty() );
+  result.insert( QStringLiteral( "opis" ), text.join( QLatin1Char( ' ' ) ) );
+  result.insert( QStringLiteral( "fieldsAdded" ), fieldsAdded );
+  result.insert( QStringLiteral( "valuesWritten" ), valuesWritten );
+  return result;
+}
+
 QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
 {
   QVariantMap wynik;
@@ -2249,6 +2652,56 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
                tr( "warstwa „%1” się nie wczytuje — nie ma źródła %2" ).arg( name, m.value( QStringLiteral( "source" ) ).toString() ),
                tr( "Jeśli jest niepotrzebna — „Usuń z projektu”. Jeśli potrzebna — popraw źródło w QGIS." ),
                QStringLiteral( "usun_zla" ), 0.0, QString(), name );
+  }
+
+  // [WF-IDENTITY] 24.10.2026 — identity of objects and attachments. Missing
+  // fields and empty values: one entry with the "Uzupełnij identyfikatory"
+  // button. Repeated uuid: the same button. A PARENT_UUID disagreeing with the
+  // relation: only shown — one of the two keys is wrong, a human decides.
+  {
+    const QVariantList identity = identityIssues( projekt );
+    QStringList missingIn;
+    int emptyValues = 0;
+    for ( const QVariant &v : identity )
+    {
+      const QVariantMap m = v.toMap();
+      const QString kind = m.value( QStringLiteral( "kind" ) ).toString();
+      const QString layerName = m.value( QStringLiteral( "layer" ) ).toString();
+      const int count = m.value( QStringLiteral( "count" ) ).toInt();
+      if ( kind == QLatin1String( "missing_uuid_field" ) || kind == QLatin1String( "missing_parent_uuid_field" ) )
+      {
+        if ( !missingIn.contains( layerName ) )
+          missingIn << layerName;
+      }
+      else if ( kind == QLatin1String( "empty_uuid" ) || kind == QLatin1String( "empty_parent_uuid" ) )
+      {
+        emptyValues += count;
+      }
+      else if ( kind == QLatin1String( "repeated_uuid" ) )
+      {
+        ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
+                 tr( "warstwa „%1”: %2 obiektów ma ten sam identyfikator co inny obiekt — najpewniej skopiowane przed 24.10.2026" ).arg( layerName ).arg( count ),
+                 tr( "„Uzupełnij identyfikatory” zostawi identyfikator najstarszemu obiektowi w każdej grupie, a pozostałym nada nowy. Atrybuty i geometria się nie zmieniają." ),
+                 QStringLiteral( "tozsamosc" ), 0.0, QString(), layerName );
+      }
+      else if ( kind == QLatin1String( "disagreeing_parent_uuid" ) )
+      {
+        ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
+                 tr( "warstwa „%1”: %2 załączników wskazuje innego rodzica numerem (ID_RODZICA) niż identyfikatorem (PARENT_UUID)" ).arg( layerName ).arg( count ),
+                 tr( "Najpewniej numery fid rozjechały się przy scalaniu albo powiązanie zmieniono ręcznie. Aplikacja tego nie poprawia sama, bo nie wie, który klucz jest dobry — porównaj te dwa pola w QGIS." ),
+                 QStringLiteral( "pokaz_warstwe" ), 0.0, QString(), layerName );
+      }
+    }
+    if ( !missingIn.isEmpty() || emptyValues > 0 )
+    {
+      const QString what = !missingIn.isEmpty()
+                             ? tr( "%1 warstw nie ma identyfikatora obiektów (uuid): %2" ).arg( missingIn.size() ).arg( missingIn.join( QStringLiteral( ", " ) ) )
+                             : tr( "%1 obiektów albo załączników nie ma jeszcze identyfikatora" ).arg( emptyValues );
+      ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ), what,
+               tr( "„Uzupełnij identyfikatory” dopisze pole uuid (a w tabelach zdjęć także PARENT_UUID), nada identyfikator każdemu obiektowi i ukryje te pola w formularzach. "
+                   "Atrybuty i geometria się nie zmieniają. Najlepiej zrobić to w biurze, przed wydaniem w teren — wtedy wszystkie telefony mają tę samą budowę bazy." ),
+               QStringLiteral( "tozsamosc" ) );
+    }
   }
 
   // [WF-COLLAPSED] Was "smallest object < 0.5 m" — flagged real small objects

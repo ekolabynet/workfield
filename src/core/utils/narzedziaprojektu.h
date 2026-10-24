@@ -504,6 +504,32 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE bool usesPhytosociology( QgsProject *project ) const;
 
     /**
+     * WorkField 24.10.2026 [WF-IDENTITY] — identity of objects and attachments.
+     * Reads only. List of { kind, layer, count }, kind one of:
+     * missing_uuid_field, missing_parent_uuid_field, empty_uuid, repeated_uuid,
+     * empty_parent_uuid, disagreeing_parent_uuid (PARENT_UUID says one parent,
+     * the relation key another — never repaired automatically).
+     * Working layers: editable GeoPackage tables, without WF_*, NIEBO_*, REF_*.
+     */
+    Q_INVOKABLE QVariantList identityIssues( QgsProject *project ) const;
+
+    /**
+     * WorkField 24.10.2026 [WF-IDENTITY] — fills EMPTY uuid and PARENT_UUID
+     * where the fields already exist. No schema change. Run on project load.
+     * Returns the number of values written.
+     */
+    Q_INVOKABLE int fillMissingIdentity( QgsProject *project );
+
+    /**
+     * WorkField 24.10.2026 [WF-IDENTITY] — the "Uzupełnij identyfikatory"
+     * button: adds missing uuid / PARENT_UUID fields (TEXT), configures them
+     * (default given once, hidden, new value on split and duplicate, alias),
+     * fills empty values, gives a new uuid to repeats (the oldest row keeps
+     * its own). Returns { ok, opis, fieldsAdded, valuesWritten }.
+     */
+    Q_INVOKABLE QVariantMap repairIdentity( QgsProject *project );
+
+    /**
      * WorkField 23.10.2026 [WF-BAD-LAYERS] — repairs invalid photo layers: orphans are
      * removed from the project (with their relations), missing tables are created
      * again for the parent layer. With \a removeOthers also every other invalid layer
