@@ -9,21 +9,31 @@ import org.qfield.gui
 /**
  * \ingroup qml
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+QfWindowFrame {
   id: sketcher
 
+  title: qsTr("Szkic")
+  confirmText: qsTr("Zapisz")
+  // ✓ replaces the check button on the canvas (it was hidden while empty)
+  confirmEnabled: !drawingCanvas.isEmpty
+  // the canvas takes the whole screen and handles its own drags and pinches
+  preferredWidth: mainWindow.width
+  scrollable: false
+  forceFullScreen: true
+  onConfirmed: confirm()
+
   signal finished(var path)
-  signal cancelled
+  // signal cancelled: declared by QfWindowFrame — ✕ emits it and closes, as the old back button did
 
-  width: mainWindow.width
-  height: mainWindow.height
-  x: 0
-  y: 0
   z: 10000 // 1000s are embedded feature forms, use a higher value to insure feature form popups always show above embedded feature formes
-  padding: 0
-
-  closePolicy: Popup.CloseOnEscape
   focus: visible
+
+  // [WF-WINDOW-FRAME] ✓ in the title bar (was the check button on the canvas)
+  function confirm() {
+    sketcher.finished(drawingCanvas.save());
+    sketcher.close();
+  }
 
   Settings {
     id: settings
@@ -31,8 +41,8 @@ Popup {
   }
 
   Pane {
-    width: parent.width
-    height: parent.height
+    Layout.fillWidth: true
+    Layout.fillHeight: true
     padding: 0
 
     QfDrawingCanvas {
@@ -166,7 +176,7 @@ Popup {
       visible: !drawingCanvas.isEmpty
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: parent.bottom
-      anchors.bottomMargin: mainWindow.sceneBottomMargin + 5
+      anchors.bottomMargin: 5 // the frame already pads the bottom inset in full screen
       spacing: 3
 
       Repeater {
@@ -296,32 +306,13 @@ Popup {
     }
 
     QfToolButton {
-      id: backButton
-
-      anchors.left: parent.left
-      anchors.leftMargin: mainWindow.sceneLeftMargin + 5
-      anchors.top: parent.top
-      anchors.topMargin: mainWindow.sceneTopMargin + 5
-
-      iconSource: QfTheme.getThemeVectorIcon("ic_chevron_left_white_24dp")
-      iconColor: QfTheme.toolButtonColor
-      bgcolor: QfTheme.toolButtonBackgroundSemiOpaqueColor
-      round: true
-
-      onClicked: {
-        sketcher.cancelled();
-        sketcher.close();
-      }
-    }
-
-    QfToolButton {
       id: undoButton
       visible: drawingCanvas.isDirty
 
-      anchors.right: saveButton.left
-      anchors.rightMargin: 5
+      anchors.right: parent.right
+      anchors.rightMargin: mainWindow.sceneRightMargin + 5
       anchors.top: parent.top
-      anchors.topMargin: mainWindow.sceneTopMargin + 5
+      anchors.topMargin: 5 // the title bar is above; the frame pads the top inset
 
       iconSource: QfTheme.getThemeVectorIcon("ic_undo_black_24dp")
       iconColor: QfTheme.toolButtonColor
@@ -330,26 +321,6 @@ Popup {
 
       onClicked: {
         drawingCanvas.undo();
-      }
-    }
-
-    QfToolButton {
-      id: saveButton
-      visible: !drawingCanvas.isEmpty
-
-      anchors.right: parent.right
-      anchors.rightMargin: mainWindow.sceneRightMargin + 5
-      anchors.top: parent.top
-      anchors.topMargin: mainWindow.sceneTopMargin + 5
-
-      iconSource: QfTheme.getThemeVectorIcon("ic_check_white_24dp")
-      iconColor: QfTheme.toolButtonColor
-      bgcolor: drawingCanvas.isDirty ? QfTheme.mainColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
-      round: true
-
-      onClicked: {
-        sketcher.finished(drawingCanvas.save());
-        sketcher.close();
       }
     }
   }

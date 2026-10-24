@@ -13,7 +13,7 @@ import org.qfield.gui
  * "✗ = without saving" and "✓ = confirm", not an arrow.
  *
  * - Title bar: ✗ on the left, title, ✓ on the right (mode "decision").
- *   Mode "close": only an orange ← on the left — for windows that save every
+ *   exitMode "close": only an orange ← on the left — for windows that save every
  *   change immediately, so there is nothing to confirm or throw away
  *   (Piotr 24.10, 16:39).
  * - The body scrolls, with a wide bar that is always visible when the body
@@ -38,12 +38,30 @@ Popup {
   id: frame
 
   property string title: ""
-  property string mode: "decision"
+  //! "decision": ✕ (leave without saving) and ✓ (confirm);
+  //! "close": only ← (every change is already saved).
+  //! Named exitMode, not mode: windows often have their own `mode`.
+  property string exitMode: "decision"
   property string confirmText: qsTr("Zatwierdź")
   property bool confirmEnabled: true
   property bool busy: false
   property real preferredWidth: 440
   property string frameStyle: "classic"
+  //! false: the body fills the window height and does not scroll (a canvas,
+  //! an editor, a list with its own scrolling). Children then use
+  //! Layout.fillHeight to take the space.
+  property bool scrollable: true
+  //! true: always the whole screen (editors, drawing, long lists).
+  property bool forceFullScreen: false
+  //! Colours for windows with their own look (dark editors, the welcome
+  //! window). Defaults follow the theme.
+  property color backgroundColor: QfTheme.mainBackgroundColor
+  property color titleBarColor: QfTheme.controlBackgroundAlternateColor
+  property color titleTextColor: QfTheme.mainTextColor
+  property color borderColor: QfTheme.controlBorderColor
+  //! Optional function returning false to keep the window open on ✕ / ←
+  //! (e.g. "unsaved changes — tap ✕ again to discard").
+  property var cancelGuard: null
 
   default property alias content: body.data
   property alias bodySpacing: body.spacing
@@ -57,13 +75,15 @@ Popup {
   readonly property real _windowHeight: parent ? parent.height : 600
   readonly property bool narrowScreen: _windowWidth < preferredWidth + 2 * _margin
   readonly property real _naturalHeight: titleBar.implicitHeight + body.implicitHeight + 2 * _bodyPadding
-  readonly property bool fullScreen: _naturalHeight > _windowHeight - _topInset - _bottomInset - 2 * _margin
+  readonly property bool fullScreen: forceFullScreen || _naturalHeight > _windowHeight - _topInset - _bottomInset - 2 * _margin
 
   signal confirmed
   signal cancelled
 
   function cancel() {
     if (busy)
+      return;
+    if (typeof cancelGuard === "function" && cancelGuard() === false)
       return;
     cancelled();
     close();
@@ -86,10 +106,10 @@ Popup {
   onOpened: scroller.contentY = 0
 
   background: Rectangle {
-    color: QfTheme.mainBackgroundColor
+    color: frame.backgroundColor
     radius: frame.fullScreen || frame.narrowScreen ? 0 : 8
-    border.width: frame.fullScreen ? 0 : 1
-    border.color: QfTheme.controlBorderColor
+    border.width: frame.fullScreen ? 0 : (frame.borderColor === QfTheme.controlBorderColor ? 1 : 2)
+    border.color: frame.borderColor
   }
 
   contentItem: ColumnLayout {
@@ -100,7 +120,7 @@ Popup {
       id: titleBar
       Layout.fillWidth: true
       implicitHeight: Math.max(52, titleRow.implicitHeight + 12)
-      color: QfTheme.controlBackgroundAlternateColor
+      color: frame.titleBarColor
       radius: frame.background.radius
 
       Rectangle {
@@ -130,7 +150,7 @@ Popup {
         QfDecisionButton {
           id: closeButton
           role: "cancel"
-          text: frame.mode === "close" ? "←" : "✕"
+          text: frame.exitMode === "close" ? "←" : "✕"
           font.pointSize: QfTheme.strongFont.pointSize
           font.bold: true
           Layout.preferredWidth: 48
@@ -149,7 +169,7 @@ Popup {
             color: closeButton.fill
             opacity: closeButton.enabled ? 1.0 : 0.5
           }
-          Accessible.name: frame.mode === "close" ? qsTr("Wróć") : qsTr("Wyjdź bez zapisywania")
+          Accessible.name: frame.exitMode === "close" ? qsTr("Wróć") : qsTr("Wyjdź bez zapisywania")
           onClicked: frame.cancel()
         }
 
@@ -157,16 +177,16 @@ Popup {
           Layout.fillWidth: true
           text: frame.title
           font: QfTheme.strongFont
-          color: QfTheme.mainTextColor
+          color: frame.titleTextColor
           elide: Text.ElideRight
-          horizontalAlignment: frame.mode === "close" ? Text.AlignLeft : Text.AlignHCenter
+          horizontalAlignment: frame.exitMode === "close" ? Text.AlignLeft : Text.AlignHCenter
           verticalAlignment: Text.AlignVCenter
         }
 
         QfDecisionButton {
           id: confirmButton
           role: "confirm"
-          visible: frame.mode === "decision"
+          visible: frame.exitMode === "decision"
           text: "✓  " + frame.confirmText
           font.pointSize: QfTheme.tipFont.pointSize
           font.bold: true
@@ -203,11 +223,12 @@ Popup {
         anchors.fill: parent
         clip: true
         contentWidth: width
-        contentHeight: body.implicitHeight + 2 * frame._bodyPadding
+        contentHeight: frame.scrollable ? body.implicitHeight + 2 * frame._bodyPadding : height
+        interactive: frame.scrollable
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
 
-        readonly property bool overflows: contentHeight > height + 1
+        readonly property bool overflows: frame.scrollable && contentHeight > height + 1
 
         ScrollBar.vertical: QfScrollBar {
           // wide and always visible when needed: easy to see and to grab
@@ -222,6 +243,7 @@ Popup {
           x: frame._bodyPadding
           y: frame._bodyPadding
           width: scroller.width - 2 * frame._bodyPadding - (scroller.overflows ? 18 : 0)
+          height: frame.scrollable ? implicitHeight : scroller.height - 2 * frame._bodyPadding
           spacing: 8
         }
       }
@@ -241,7 +263,7 @@ Popup {
           }
           GradientStop {
             position: 1.0
-            color: QfTheme.mainBackgroundColor
+            color: frame.backgroundColor
           }
         }
 

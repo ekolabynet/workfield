@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import org.qfield.gui
 import Theme
 
 /**
@@ -28,14 +29,13 @@ import Theme
  * tyle wymaga WCAG 2.1 AA. Poniżej 3:1 napis jest praktycznie niewidoczny
  * i to jest ten przypadek, który Piotr zgłaszał.
  */
-QfPopup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar, scrolling body
+QfWindowFrame {
   id: podglad
 
-  parent: mainWindow.contentItem
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  width: Math.min(760, mainWindow.width - 32)
-  height: Math.min(mainWindow.height - 80, 640)
+  title: qsTr("Podgląd stylizacji")
+  exitMode: "close"
+  preferredWidth: 760
 
   /**
    * Względna luminancja wedle WCAG 2.1.
@@ -122,410 +122,324 @@ QfPopup {
     return n;
   }
 
-  Item {
-    /*
-     * ANCHORS.FILL JEST TU KONIECZNE, A NIE OZDOBNE.
-     *
-     * Zmierzone 24.08.2026 programem, ktory laduje ten plik i wypisuje
-     * geometrie (skrypty/proba_ukladu/): bez tego ramka brala rozmiar
-     * WLASNY, wyliczony z zawartosci — 841x84 — zamiast rozmiaru okna
-     * 760x640. Flickable dostawal wtedy wysokosc ZERO i cala tabela znikala,
-     * choc byla poprawnie ulozona na 971 pikseli.
-     *
-     * Popup NIE zastepuje swojego contentItem zadeklarowanym dzieckiem —
-     * on je do niego WSTAWIA. Dziecko, ktore samo sie nie rozciagnie, po
-     * prostu nie dostanie rozmiaru okna. Tak dziala kazde okno w tej
-     * aplikacji, tylko wczesniej ColumnLayout mial anchors.fill wprost
-     * i dlatego problem nie istnial, dopoki nie wsadzilem miedzy nie ramki.
-     */
-    anchors.fill: parent
-    implicitWidth: uklad.implicitWidth
-    implicitHeight: uklad.implicitHeight
+  RowLayout {
+    Layout.fillWidth: true
 
-    ColumnLayout {
-      id: uklad
+    Text {
+      text: podglad.slabych === 0
+            ? qsTr("wszystkie pary czytelne")
+            : qsTr("par za słabych: %1").arg(podglad.slabych)
+      font: Theme.tipFont
+      color: podglad.slabych === 0 ? Theme.goodColor : Theme.errorColor
+    }
+  }
 
-      anchors.fill: parent
-      spacing: 8
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Kontrast liczony wedle WCAG 2.1. Próg 4.5:1 dla zwykłego tekstu, 3:1 dla dużego. Zmień barwy w Wyglądzie — tabela przeliczy się od razu.")
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-      RowLayout {
+  ColumnLayout {
+    id: kolumna
+
+    // [WF-WINDOW-FRAME] was the content of an own Flickable; the frame scrolls
+    // now, the column stays only to keep its 10 px spacing
+    Layout.fillWidth: true
+    spacing: 10
+
+    // ------------------------------------------------------- kontrast
+    Text {
+      Layout.topMargin: 4
+      text: qsTr("KONTRAST PAR, KTÓRE WYSTĘPUJĄ W INTERFEJSIE")
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+    }
+
+    Repeater {
+      model: podglad.pary
+
+      Rectangle {
+        required property var modelData
+
+        readonly property real k: podglad.kontrast(modelData.przod, modelData.tyl)
+
         Layout.fillWidth: true
+        Layout.preferredHeight: 30
+        color: modelData.tyl
+        border.width: 1
+        border.color: Theme.controlBorderColor
+        radius: 3
 
-        Text {
-          Layout.fillWidth: true
-          Layout.minimumWidth: 0
-          text: qsTr("Podgląd stylizacji")
-          font: Theme.strongFont
-          color: Theme.mainTextColor
-        }
-        Text {
-          text: podglad.slabych === 0
-                ? qsTr("wszystkie pary czytelne")
-                : qsTr("par za słabych: %1").arg(podglad.slabych)
-          font: Theme.tipFont
-          color: podglad.slabych === 0 ? Theme.goodColor : Theme.errorColor
+        RowLayout {
+          anchors.fill: parent
+          anchors.leftMargin: 8
+          anchors.rightMargin: 8
+          spacing: 8
+
+          Text {
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            // Napis rysowany DOKŁADNIE tą parą barw, o której mowa —
+            // liczba obok mówi, ile ten kontrast wynosi, a oko widzi
+            // to samo, co liczba mierzy.
+            text: modelData.napis
+            font: Theme.tipFont
+            color: modelData.przod
+            elide: Text.ElideRight
+          }
+          Text {
+            Layout.preferredWidth: 54
+            horizontalAlignment: Text.AlignRight
+            text: parent.parent.k.toFixed(1) + ":1"
+            font: Theme.tinyFont
+            color: modelData.przod
+          }
+          Text {
+            Layout.preferredWidth: 108
+            horizontalAlignment: Text.AlignRight
+            text: podglad.ocena(parent.parent.k)
+            font: Theme.tinyFont
+            color: podglad.barwaOceny(parent.parent.k)
+          }
         }
       }
+    }
+
+    // ------------------------------------------------------- przyciski
+    Text {
+      Layout.topMargin: 8
+      text: qsTr("PRZYCISKI WE WSZYSTKICH STANACH")
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Button {
+        text: qsTr("zwykły")
+        font: Theme.tipFont
+      }
+      Button {
+        text: qsTr("wyróżniony")
+        font: Theme.tipFont
+        highlighted: true
+      }
+      Button {
+        text: qsTr("płaski")
+        font: Theme.tipFont
+        flat: true
+      }
+      Button {
+        text: qsTr("wyłączony")
+        font: Theme.tipFont
+        enabled: false
+      }
+      Button {
+        text: qsTr("płaski wyłączony")
+        font: Theme.tipFont
+        flat: true
+        enabled: false
+      }
+      Button {
+        text: qsTr("przełącznik wciśnięty")
+        font: Theme.tipFont
+        checkable: true
+        checked: true
+      }
+    }
+
+    // ------------------------------------------------------- kontrolki
+    Text {
+      Layout.topMargin: 8
+      text: qsTr("POZOSTAŁE KONTROLKI")
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 10
+
+      TextField {
+        Layout.preferredWidth: 150
+        font: Theme.tipFont
+        text: qsTr("pole tekstowe")
+      }
+      TextField {
+        Layout.preferredWidth: 150
+        font: Theme.tipFont
+        placeholderText: qsTr("podpowiedź w pustym")
+      }
+      CheckBox {
+        text: qsTr("zaznaczone")
+        font: Theme.tipFont
+        checked: true
+      }
+      CheckBox {
+        text: qsTr("puste")
+        font: Theme.tipFont
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 10
+
+      Switch {
+        text: qsTr("przełącznik")
+        font: Theme.tipFont
+        checked: true
+      }
+      ComboBox {
+        Layout.preferredWidth: 150
+        font: Theme.tipFont
+        model: [qsTr("lista rozwijana"), qsTr("druga pozycja")]
+      }
+      Slider {
+        Layout.preferredWidth: 120
+        value: 0.6
+      }
+      ProgressBar {
+        Layout.preferredWidth: 120
+        value: 0.4
+      }
+    }
+
+    // ---------------------------------------------------------- napisy
+    Text {
+      Layout.topMargin: 8
+      text: qsTr("KROJE I ROZMIARY")
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+    }
+
+    Repeater {
+      model: [
+        { "opis": "strongFont", "font": Theme.strongFont, "barwa": Theme.mainTextColor },
+        { "opis": "defaultFont", "font": Theme.defaultFont, "barwa": Theme.mainTextColor },
+        { "opis": "strongTipFont", "font": Theme.strongTipFont, "barwa": Theme.mainTextColor },
+        { "opis": "tipFont", "font": Theme.tipFont, "barwa": Theme.mainTextColor },
+        { "opis": "tinyFont", "font": Theme.tinyFont, "barwa": Theme.secondaryTextColor }
+      ]
 
       Text {
+        required property var modelData
+
         Layout.fillWidth: true
-        text: qsTr("Kontrast liczony wedle WCAG 2.1. Próg 4.5:1 dla zwykłego tekstu, 3:1 dla dużego. Zmień barwy w Wyglądzie — tabela przeliczy się od razu.")
-        font: Theme.tinyFont
-        color: Theme.secondaryTextColor
-        wrapMode: Text.WordWrap
+        text: modelData.opis + " — " + qsTr("Zażółć gęślą jaźń, 0123456789")
+        font: modelData.font
+        color: modelData.barwa
+        elide: Text.ElideRight
       }
+    }
 
-      /*
-       * FLICKABLE Z JAWNYM contentHeight, A NIE ScrollView.
-       *
-       * ScrollView bierze wysokosc z zawartosci, a zawartosc tej strony jest
-       * dluzsza niz okno. Uklad nie zwezi sie ponizej swojego minimum, wiec
-       * przyciski, pola i kroje pisma wyjechaly POD okno i rysowaly sie na
-       * stronie ustawien pod spodem. Ta sama rodzina bledu, co tabela migawek
-       * wychodzaca bokiem — tym razem w pionie.
-       *
-       * Flickable z podanym wprost `contentHeight` i `Layout.minimumHeight: 0`
-       * nie ma jak urosnac: przewija, zamiast wypychac.
-       */
-      Flickable {
-        id: przewijak
+    // --------------------------------------------------------- swatche
+    Text {
+      Layout.topMargin: 8
+      text: qsTr("BARWY MOTYWU")
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+    }
 
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        Layout.minimumHeight: 0
-        clip: true
-        contentWidth: width
-        contentHeight: kolumna.height
-        boundsBehavior: Flickable.StopAtBounds
+    Flow {
+      Layout.fillWidth: true
+      Layout.bottomMargin: 6
+      spacing: 6
 
-        ScrollBar.vertical: ScrollBar {
-          policy: ScrollBar.AlwaysOn
-        }
+      Repeater {
+        model: [
+          { "n": "mainColor", "b": Theme.mainColor },
+          { "n": "mainOverlayColor", "b": Theme.mainOverlayColor },
+          { "n": "mainBackgroundColor", "b": Theme.mainBackgroundColor },
+          { "n": "mainTextColor", "b": Theme.mainTextColor },
+          { "n": "mainTextDisabledColor", "b": Theme.mainTextDisabledColor },
+          { "n": "secondaryTextColor", "b": Theme.secondaryTextColor },
+          { "n": "controlBackgroundColor", "b": Theme.controlBackgroundColor },
+          { "n": "controlBackgroundAlternateColor", "b": Theme.controlBackgroundAlternateColor },
+          { "n": "controlBackgroundDisabledColor", "b": Theme.controlBackgroundDisabledColor },
+          { "n": "controlBorderColor", "b": Theme.controlBorderColor },
+          { "n": "buttonColor", "b": Theme.buttonColor },
+          { "n": "buttonBackgroundColor", "b": Theme.buttonBackgroundColor },
+          { "n": "toolButtonColor", "b": Theme.toolButtonColor },
+          { "n": "toolButtonBackgroundColor", "b": Theme.toolButtonBackgroundColor },
+          { "n": "groupBoxBackgroundColor", "b": Theme.groupBoxBackgroundColor },
+          { "n": "groupBoxSurfaceColor", "b": Theme.groupBoxSurfaceColor },
+          { "n": "goodColor", "b": Theme.goodColor },
+          { "n": "warningColor", "b": Theme.warningColor },
+          { "n": "errorColor", "b": Theme.errorColor }
+        ]
 
-        ColumnLayout {
-          id: kolumna
+        Rectangle {
+          required property var modelData
 
-          // Minus szerokosc paska przewijania — inaczej ostatnia kolumna
-          // ("dobrze" / "ZA SLABO") chowa sie pod nim i widac z niej polowe.
-          width: przewijak.width - 16
+          width: 150
+          height: 34
+          color: modelData.b
+          border.width: 1
+          border.color: Theme.controlBorderColor
+          radius: 3
 
-          /*
-           * WYSOKOSC MUSI BYC PODANA JAWNIE.
-           *
-           * `Flickable` nie jest ukladem i NIE nadaje rozmiaru swoim dzieciom.
-           * ColumnLayout bez wlasnej wysokosci dostaje zero — wszystkie dzieci
-           * uklada sie wtedy w zerowej wysokosci i po prostu nie widac ich
-           * wcale. Dokladnie to sie stalo 24.08.2026: naglowek i stopka
-           * rysowaly sie normalnie, a cala tabela zniknela. Raport do schowka
-           * dzialal, bo liczby nie maja nic wspolnego z rysowaniem — i to
-           * wlasnie ta rozbieznosc pokazala, ze to blad ukladu, nie danych.
-           *
-           * ScrollView tego nie wymagal, bo sam ustawia rozmiar zawartosci.
-           * Flickable jest golym plotnem i trzeba mu powiedziec wszystko.
-           */
-          height: implicitHeight
-
-          spacing: 10
-
-          // ------------------------------------------------------- kontrast
-          Text {
-            Layout.topMargin: 4
-            text: qsTr("KONTRAST PAR, KTÓRE WYSTĘPUJĄ W INTERFEJSIE")
-            font: Theme.tinyFont
-            color: Theme.secondaryTextColor
-          }
-
-          Repeater {
-            model: podglad.pary
-
-            Rectangle {
-              required property var modelData
-
-              readonly property real k: podglad.kontrast(modelData.przod, modelData.tyl)
-
-              Layout.fillWidth: true
-              Layout.preferredHeight: 30
-              color: modelData.tyl
-              border.width: 1
-              border.color: Theme.controlBorderColor
-              radius: 3
-
-              RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                spacing: 8
-
-                Text {
-                  Layout.fillWidth: true
-                  Layout.minimumWidth: 0
-                  // Napis rysowany DOKŁADNIE tą parą barw, o której mowa —
-                  // liczba obok mówi, ile ten kontrast wynosi, a oko widzi
-                  // to samo, co liczba mierzy.
-                  text: modelData.napis
-                  font: Theme.tipFont
-                  color: modelData.przod
-                  elide: Text.ElideRight
-                }
-                Text {
-                  Layout.preferredWidth: 54
-                  horizontalAlignment: Text.AlignRight
-                  text: parent.parent.k.toFixed(1) + ":1"
-                  font: Theme.tinyFont
-                  color: modelData.przod
-                }
-                Text {
-                  Layout.preferredWidth: 108
-                  horizontalAlignment: Text.AlignRight
-                  text: podglad.ocena(parent.parent.k)
-                  font: Theme.tinyFont
-                  color: podglad.barwaOceny(parent.parent.k)
-                }
-              }
-            }
-          }
-
-          // ------------------------------------------------------- przyciski
-          Text {
-            Layout.topMargin: 8
-            text: qsTr("PRZYCISKI WE WSZYSTKICH STANACH")
-            font: Theme.tinyFont
-            color: Theme.secondaryTextColor
-          }
-
-          Flow {
-            Layout.fillWidth: true
-            spacing: 6
-
-            Button {
-              text: qsTr("zwykły")
-              font: Theme.tipFont
-            }
-            Button {
-              text: qsTr("wyróżniony")
-              font: Theme.tipFont
-              highlighted: true
-            }
-            Button {
-              text: qsTr("płaski")
-              font: Theme.tipFont
-              flat: true
-            }
-            Button {
-              text: qsTr("wyłączony")
-              font: Theme.tipFont
-              enabled: false
-            }
-            Button {
-              text: qsTr("płaski wyłączony")
-              font: Theme.tipFont
-              flat: true
-              enabled: false
-            }
-            Button {
-              text: qsTr("przełącznik wciśnięty")
-              font: Theme.tipFont
-              checkable: true
-              checked: true
-            }
-          }
-
-          // ------------------------------------------------------- kontrolki
-          Text {
-            Layout.topMargin: 8
-            text: qsTr("POZOSTAŁE KONTROLKI")
-            font: Theme.tinyFont
-            color: Theme.secondaryTextColor
-          }
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-
-            TextField {
-              Layout.preferredWidth: 150
-              font: Theme.tipFont
-              text: qsTr("pole tekstowe")
-            }
-            TextField {
-              Layout.preferredWidth: 150
-              font: Theme.tipFont
-              placeholderText: qsTr("podpowiedź w pustym")
-            }
-            CheckBox {
-              text: qsTr("zaznaczone")
-              font: Theme.tipFont
-              checked: true
-            }
-            CheckBox {
-              text: qsTr("puste")
-              font: Theme.tipFont
-            }
-          }
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-
-            Switch {
-              text: qsTr("przełącznik")
-              font: Theme.tipFont
-              checked: true
-            }
-            ComboBox {
-              Layout.preferredWidth: 150
-              font: Theme.tipFont
-              model: [qsTr("lista rozwijana"), qsTr("druga pozycja")]
-            }
-            Slider {
-              Layout.preferredWidth: 120
-              value: 0.6
-            }
-            ProgressBar {
-              Layout.preferredWidth: 120
-              value: 0.4
-            }
-          }
-
-          // ---------------------------------------------------------- napisy
-          Text {
-            Layout.topMargin: 8
-            text: qsTr("KROJE I ROZMIARY")
-            font: Theme.tinyFont
-            color: Theme.secondaryTextColor
-          }
-
-          Repeater {
-            model: [
-              { "opis": "strongFont", "font": Theme.strongFont, "barwa": Theme.mainTextColor },
-              { "opis": "defaultFont", "font": Theme.defaultFont, "barwa": Theme.mainTextColor },
-              { "opis": "strongTipFont", "font": Theme.strongTipFont, "barwa": Theme.mainTextColor },
-              { "opis": "tipFont", "font": Theme.tipFont, "barwa": Theme.mainTextColor },
-              { "opis": "tinyFont", "font": Theme.tinyFont, "barwa": Theme.secondaryTextColor }
-            ]
+          Column {
+            anchors.centerIn: parent
+            spacing: 0
 
             Text {
-              required property var modelData
-
-              Layout.fillWidth: true
-              text: modelData.opis + " — " + qsTr("Zażółć gęślą jaźń, 0123456789")
-              font: modelData.font
-              color: modelData.barwa
+              text: modelData.n
+              font: Theme.tinyFont
+              // Napis na próbce ma być czytelny NA NIEJ, więc bierzemy
+              // biel albo czerń — zależnie od tego, która ma większy
+              // kontrast z tą konkretną barwą. Ten sam rachunek, co wyżej.
+              color: podglad.kontrast(modelData.b, "#ffffff") > podglad.kontrast(modelData.b, "#000000")
+                     ? "#ffffff" : "#000000"
+              width: 142
+              horizontalAlignment: Text.AlignHCenter
               elide: Text.ElideRight
             }
-          }
-
-          // --------------------------------------------------------- swatche
-          Text {
-            Layout.topMargin: 8
-            text: qsTr("BARWY MOTYWU")
-            font: Theme.tinyFont
-            color: Theme.secondaryTextColor
-          }
-
-          Flow {
-            Layout.fillWidth: true
-            Layout.bottomMargin: 6
-            spacing: 6
-
-            Repeater {
-              model: [
-                { "n": "mainColor", "b": Theme.mainColor },
-                { "n": "mainOverlayColor", "b": Theme.mainOverlayColor },
-                { "n": "mainBackgroundColor", "b": Theme.mainBackgroundColor },
-                { "n": "mainTextColor", "b": Theme.mainTextColor },
-                { "n": "mainTextDisabledColor", "b": Theme.mainTextDisabledColor },
-                { "n": "secondaryTextColor", "b": Theme.secondaryTextColor },
-                { "n": "controlBackgroundColor", "b": Theme.controlBackgroundColor },
-                { "n": "controlBackgroundAlternateColor", "b": Theme.controlBackgroundAlternateColor },
-                { "n": "controlBackgroundDisabledColor", "b": Theme.controlBackgroundDisabledColor },
-                { "n": "controlBorderColor", "b": Theme.controlBorderColor },
-                { "n": "buttonColor", "b": Theme.buttonColor },
-                { "n": "buttonBackgroundColor", "b": Theme.buttonBackgroundColor },
-                { "n": "toolButtonColor", "b": Theme.toolButtonColor },
-                { "n": "toolButtonBackgroundColor", "b": Theme.toolButtonBackgroundColor },
-                { "n": "groupBoxBackgroundColor", "b": Theme.groupBoxBackgroundColor },
-                { "n": "groupBoxSurfaceColor", "b": Theme.groupBoxSurfaceColor },
-                { "n": "goodColor", "b": Theme.goodColor },
-                { "n": "warningColor", "b": Theme.warningColor },
-                { "n": "errorColor", "b": Theme.errorColor }
-              ]
-
-              Rectangle {
-                required property var modelData
-
-                width: 150
-                height: 34
-                color: modelData.b
-                border.width: 1
-                border.color: Theme.controlBorderColor
-                radius: 3
-
-                Column {
-                  anchors.centerIn: parent
-                  spacing: 0
-
-                  Text {
-                    text: modelData.n
-                    font: Theme.tinyFont
-                    // Napis na próbce ma być czytelny NA NIEJ, więc bierzemy
-                    // biel albo czerń — zależnie od tego, która ma większy
-                    // kontrast z tą konkretną barwą. Ten sam rachunek, co wyżej.
-                    color: podglad.kontrast(modelData.b, "#ffffff") > podglad.kontrast(modelData.b, "#000000")
-                           ? "#ffffff" : "#000000"
-                    width: 142
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideRight
-                  }
-                  Text {
-                    text: modelData.b.toString()
-                    font: Theme.tinyFont
-                    color: podglad.kontrast(modelData.b, "#ffffff") > podglad.kontrast(modelData.b, "#000000")
-                           ? "#ffffff" : "#000000"
-                    width: 142
-                    horizontalAlignment: Text.AlignHCenter
-                  }
-                }
-              }
+            Text {
+              text: modelData.b.toString()
+              font: Theme.tinyFont
+              color: podglad.kontrast(modelData.b, "#ffffff") > podglad.kontrast(modelData.b, "#000000")
+                     ? "#ffffff" : "#000000"
+              width: 142
+              horizontalAlignment: Text.AlignHCenter
             }
           }
         }
       }
+    }
+  }
 
-      RowLayout {
-        Layout.fillWidth: true
+  RowLayout {
+    Layout.fillWidth: true
 
-        Text {
-          Layout.fillWidth: true
-          Layout.minimumWidth: 0
-          text: qsTr("Motyw: %1").arg(Theme.darkTheme ? qsTr("ciemny") : qsTr("jasny"))
-          font: Theme.tinyFont
-          color: Theme.secondaryTextColor
+    Text {
+      Layout.fillWidth: true
+      Layout.minimumWidth: 0
+      text: qsTr("Motyw: %1").arg(Theme.darkTheme ? qsTr("ciemny") : qsTr("jasny"))
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+    }
+    Button {
+      text: qsTr("Kopiuj raport")
+      font: Theme.tinyFont
+      flat: true
+      // Ten sam powód, co przy migawkach: liczby, które program wyświetla,
+      // powinny dać się wyjąć bez przepisywania ich ręcznie ze zrzutu.
+      onClicked: {
+        const l = [qsTr("para\tkontrast\tocena")];
+        for (let i = 0; i < podglad.pary.length; i++) {
+          const p = podglad.pary[i];
+          const k = podglad.kontrast(p.przod, p.tyl);
+          l.push([p.napis, k.toFixed(2) + ":1", podglad.ocena(k),
+                  p.przod.toString(), p.tyl.toString()].join("\t"));
         }
-        Button {
-          text: qsTr("Kopiuj raport")
-          font: Theme.tinyFont
-          flat: true
-          // Ten sam powód, co przy migawkach: liczby, które program wyświetla,
-          // powinny dać się wyjąć bez przepisywania ich ręcznie ze zrzutu.
-          onClicked: {
-            const l = [qsTr("para\tkontrast\tocena")];
-            for (let i = 0; i < podglad.pary.length; i++) {
-              const p = podglad.pary[i];
-              const k = podglad.kontrast(p.przod, p.tyl);
-              l.push([p.napis, k.toFixed(2) + ":1", podglad.ocena(k),
-                      p.przod.toString(), p.tyl.toString()].join("\t"));
-            }
-            platformUtilities.copyTextToClipboard(l.join("\n"));
-            displayToast(qsTr("Raport kontrastu skopiowany do schowka"));
-          }
-        }
-        Button {
-          text: qsTr("Zamknij")
-          font: Theme.tipFont
-          flat: true
-          onClicked: podglad.close()
-        }
+        platformUtilities.copyTextToClipboard(l.join("\n"));
+        displayToast(qsTr("Raport kontrastu skopiowany do schowka"));
       }
     }
   }

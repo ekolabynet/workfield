@@ -25,29 +25,23 @@ import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import org.qgis
 import Theme
 
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: kreatorCAD
+
+  title: qsTr("Projekt z rysunku CAD")
+  confirmText: qsTr("Utwórz")
+  confirmEnabled: kreatorCAD.plikCAD !== "" && poleNazwy.text.trim() !== ""
+  onConfirmed: kreatorCAD.utworz()
+  preferredWidth: 540
+  bodySpacing: 10
 
   property string plikCAD: ""
   property string ukladWybrany: "EPSG:2178"
 
   signal utworzono(string sciezka)
 
-  parent: mainWindow.contentItem
-  x: (parent.width - width) / 2
-  y: (parent.height - height) / 2
-  width: Math.min(parent.width - 24, 540)
-  height: Math.min(parent.height - 48, 620)
-  modal: true
   focus: true
-  closePolicy: Popup.CloseOnEscape
-
-  background: Rectangle {
-    color: Theme.mainBackgroundColor
-    radius: 8
-    border.width: 1
-    border.color: Theme.controlBorderColor
-  }
 
   function otworz() {
     plikCAD = "";
@@ -147,113 +141,80 @@ Popup {
     kreatorCAD.utworzono(cel);
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 16
-    spacing: 10
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Rysunek zostaje podkładem. Do niego dojdą trzy warstwy robocze: punkty, linie i poligony — każda z opisem, datą i zdjęciem.")
+    font: Theme.tipFont
+    color: Theme.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    Layout.topMargin: 6
+    spacing: 8
 
     Text {
       Layout.fillWidth: true
-      text: qsTr("Projekt z rysunku CAD")
-      font: Theme.strongFont
-      color: Theme.mainTextColor
-    }
-
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Rysunek zostaje podkładem. Do niego dojdą trzy warstwy robocze: punkty, linie i poligony — każda z opisem, datą i zdjęciem.")
+      text: kreatorCAD.plikCAD !== ""
+            ? FileUtils.fileName(kreatorCAD.plikCAD)
+            : qsTr("nie wskazano rysunku")
       font: Theme.tipFont
-      color: Theme.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.topMargin: 6
-      spacing: 8
-
-      Text {
-        Layout.fillWidth: true
-        text: kreatorCAD.plikCAD !== ""
-              ? FileUtils.fileName(kreatorCAD.plikCAD)
-              : qsTr("nie wskazano rysunku")
-        font: Theme.tipFont
-        color: kreatorCAD.plikCAD !== "" ? Theme.mainTextColor
-                                         : Theme.secondaryTextColor
-        elide: Text.ElideMiddle
-      }
-
-      Button {
-        text: qsTr("Wybierz…")
-        onClicked: wybieraczPliku.open()
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      visible: kreatorCAD.plikCAD !== ""
-      text: kreatorCAD.plikCAD
-      font: Theme.tinyFont
-      color: Theme.secondaryTextColor
+      color: kreatorCAD.plikCAD !== "" ? Theme.mainTextColor
+                                       : Theme.secondaryTextColor
       elide: Text.ElideMiddle
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
-
-      Text {
-        text: qsTr("Układ")
-        font: Theme.tipFont
-        color: Theme.mainTextColor
-      }
-
-      ComboBox {
-        Layout.fillWidth: true
-        // PL-2000 strefa 7 pierwsza (Mazowsze), dalej pozostale strefy 2000,
-        // PL-1992 na koncu jako wyjatek.
-        model: ["EPSG:2178", "EPSG:2179", "EPSG:2177", "EPSG:2176", "EPSG:2180"]
-        currentIndex: 0
-        onActivated: kreatorCAD.ukladWybrany = model[currentIndex]
-      }
+    Button {
+      text: qsTr("Wybierz…")
+      onClicked: wybieraczPliku.open()
     }
+  }
 
-    TextField {
-      id: poleNazwy
+  Text {
+    Layout.fillWidth: true
+    visible: kreatorCAD.plikCAD !== ""
+    text: kreatorCAD.plikCAD
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
+    elide: Text.ElideMiddle
+  }
 
-      Layout.fillWidth: true
-      placeholderText: qsTr("Nazwa projektu")
-      font: Theme.tipFont
-    }
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 8
 
     Text {
-      id: komunikat
-
-      Layout.fillWidth: true
-      visible: text !== ""
-      color: Theme.errorColor
+      text: qsTr("Układ")
       font: Theme.tipFont
-      wrapMode: Text.WordWrap
+      color: Theme.mainTextColor
     }
 
-    RowLayout {
+    ComboBox {
       Layout.fillWidth: true
-      spacing: 8
-
-      Item { Layout.fillWidth: true }
-
-      QfDecisionButton {
-        role: "cancel" // [WF-BUTTONS]
-        text: qsTr("Anuluj")
-        onClicked: kreatorCAD.close()
-      }
-
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        text: qsTr("Utwórz")
-        enabled: kreatorCAD.plikCAD !== "" && poleNazwy.text.trim() !== ""
-        onClicked: kreatorCAD.utworz()
-      }
+      // PL-2000 strefa 7 pierwsza (Mazowsze), dalej pozostale strefy 2000,
+      // PL-1992 na koncu jako wyjatek.
+      model: ["EPSG:2178", "EPSG:2179", "EPSG:2177", "EPSG:2176", "EPSG:2180"]
+      currentIndex: 0
+      onActivated: kreatorCAD.ukladWybrany = model[currentIndex]
     }
+  }
+
+  TextField {
+    id: poleNazwy
+
+    Layout.fillWidth: true
+    placeholderText: qsTr("Nazwa projektu")
+    font: Theme.tipFont
+  }
+
+  Text {
+    id: komunikat
+
+    Layout.fillWidth: true
+    visible: text !== ""
+    color: Theme.errorColor
+    font: Theme.tipFont
+    wrapMode: Text.WordWrap
   }
 }

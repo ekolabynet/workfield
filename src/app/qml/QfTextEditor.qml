@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import org.qgis
 import org.qfield
+import org.qfield.gui
 import Theme
 
 /**
@@ -16,16 +17,32 @@ import Theme
  * warstwy w projekcie, wzorcowy wpis klawisza. Kopia .bak przy
  * pierwszym zapisie. Plik pozostaje czystym JSON-em.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+QfWindowFrame {
   id: textEditor
 
-  parent: mainWindow.contentItem
-  width: Math.min(760, mainWindow.width - 16)
-  height: Math.min(880, mainWindow.height - 24)
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  modal: true
-  closePolicy: Popup.CloseOnEscape
+  title: textEditor.sciezka === "" ? qsTr("Pliki projektu — edytor") : textEditor.nazwaPliku(textEditor.sciezka) + (textEditor.zmieniono ? " \u25cf" : "")
+  // ✓ saves and keeps the file open (as the old „Zapisz” button did).
+  // Nothing changed → only ← (nothing to save or to throw away);
+  // unsaved changes → ✕ (asks: tap again to discard) and ✓ Zapisz.
+  exitMode: textEditor.zmieniono ? "decision" : "close"
+  confirmText: qsTr("Zapisz")
+  cancelGuard: function () {
+    if (textEditor.sciezka === "" || !textEditor.zmieniono)
+      return true;
+    textEditor.sprobujWyjsc(2); // second tap closes (wykonajWyjscie → close)
+    return false;
+  }
+  // the editor's own dark look (texts below are light)
+  backgroundColor: "#EE263238"
+  titleBarColor: "#37474F"
+  titleTextColor: "white"
+  borderColor: "#455A64"
+  preferredWidth: 760
+  // the file list / the text area take the height and scroll by themselves
+  scrollable: false
+  forceFullScreen: true
+  onConfirmed: textEditor.zapisz()
 
   property string sciezka: ""
   property string oryginal: ""
@@ -60,13 +77,6 @@ Popup {
       "seriaMs": qsTr("interwał serii wierzchołków przy przytrzymaniu: ms 250–5000 (domyślnie 1000)"),
       "kotwicaLimitS": qsTr("ile sekund kotwica czeka na fix: 5–120 (domyślnie 30)")
     })
-
-  background: Rectangle {
-    color: "#EE263238"
-    radius: 8
-    border.color: "#455A64"
-    border.width: 1
-  }
 
   function nazwaPliku(fp) {
     return String(fp).split('/').pop();
@@ -477,240 +487,213 @@ Popup {
     sortField: FolderListModel.Name
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 12
-    spacing: 8
+  // ---------------- widok 1: lista plikow ----------------
+  ListView {
+    visible: textEditor.sciezka === ""
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    clip: true
+    model: plikiProjektu
+    spacing: 2
+
+    delegate: ItemDelegate {
+      width: ListView.view.width
+      height: 52
+
+      contentItem: RowLayout {
+        spacing: 8
+
+        Text {
+          Layout.fillWidth: true
+          text: fileName
+          color: "white"
+          font: Theme.defaultFont
+          elide: Text.ElideMiddle
+        }
+
+        Text {
+          text: (fileSize / 1024).toFixed(1) + " kB"
+          color: "#B0BEC5"
+          font: Theme.tinyFont
+        }
+      }
+
+      onClicked: textEditor.wczytaj(filePath.toString().replace("file://", ""))
+    }
 
     Text {
-      Layout.fillWidth: true
-      text: textEditor.sciezka === "" ? qsTr("Pliki projektu — edytor") : textEditor.nazwaPliku(textEditor.sciezka) + (textEditor.zmieniono ? " \u25cf" : "")
-      color: textEditor.zmieniono ? "#FFC107" : "#80CBC4"
-      font: Theme.strongFont
-      elide: Text.ElideMiddle
+      anchors.centerIn: parent
+      visible: parent.count === 0
+      text: qgisProject && qgisProject.homePath !== "" ? qsTr("Brak plików json/txt/md/csv w katalogu projektu") : qsTr("Najpierw otwórz projekt")
+      color: "#B0BEC5"
+      font: Theme.tipFont
+    }
+  }
+
+  // ---------------- widok 2: edycja ----------------
+  ScrollView {
+    visible: textEditor.sciezka !== ""
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    clip: true
+
+    TextArea {
+      id: obszar
+
+      wrapMode: TextArea.Wrap
+      selectByMouse: true
+      font.family: "monospace"
+      font.pointSize: Theme.tipFont.pointSize
+      color: "white"
+      placeholderText: qsTr("(pusty plik)")
+
+      background: Rectangle {
+        color: "#1B262C"
+        radius: 4
+        border.color: "#455A64"
+        border.width: 1
+      }
+
+      onTextChanged: {
+        if (!textEditor.ladowanie && textEditor.sciezka !== "") {
+          textEditor.zmieniono = true;
+        }
+        if (textEditor.sciezka !== "" && textEditor.czyJson()) {
+          textEditor.statusJson = "sprawdzam";
+          walidator.restart();
+        }
+      }
+
+      onCursorPositionChanged: textEditor.odswiezHint()
+    }
+  }
+
+  // ---------------- pasek statusu walidacji ----------------
+  Rectangle {
+    visible: textEditor.sciezka !== "" && textEditor.czyJson()
+    Layout.fillWidth: true
+    implicitHeight: 30
+    radius: 4
+    color: textEditor.statusJson === "ok" ? "#1B5E20" : textEditor.statusJson === "blad" ? "#B71C1C" : "#37474F"
+
+    Text {
+      anchors.fill: parent
+      anchors.leftMargin: 8
+      anchors.rightMargin: 8
+      verticalAlignment: Text.AlignVCenter
+      elide: Text.ElideRight
+      color: "white"
+      font: Theme.tinyFont
+      text: textEditor.statusJson === "ok" ? qsTr("✓ JSON poprawny") : textEditor.statusJson === "blad" ? qsTr("✗ linia %1: %2 — tapnij, by skoczyć").arg(textEditor.bladWiersz).arg(textEditor.bladOpis) : qsTr("… sprawdzam")
     }
 
-    // ---------------- widok 1: lista plikow ----------------
-    ListView {
-      visible: textEditor.sciezka === ""
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      clip: true
-      model: plikiProjektu
-      spacing: 2
-
-      delegate: ItemDelegate {
-        width: ListView.view.width
-        height: 52
-
-        contentItem: RowLayout {
-          spacing: 8
-
-          Text {
-            Layout.fillWidth: true
-            text: fileName
-            color: "white"
-            font: Theme.defaultFont
-            elide: Text.ElideMiddle
-          }
-
-          Text {
-            text: (fileSize / 1024).toFixed(1) + " kB"
-            color: "#B0BEC5"
-            font: Theme.tinyFont
-          }
-        }
-
-        onClicked: textEditor.wczytaj(filePath.toString().replace("file://", ""))
-      }
-
-      Text {
-        anchors.centerIn: parent
-        visible: parent.count === 0
-        text: qgisProject && qgisProject.homePath !== "" ? qsTr("Brak plików json/txt/md/csv w katalogu projektu") : qsTr("Najpierw otwórz projekt")
-        color: "#B0BEC5"
-        font: Theme.tipFont
+    MouseArea {
+      anchors.fill: parent
+      enabled: textEditor.statusJson === "blad"
+      onClicked: {
+        obszar.cursorPosition = Math.min(textEditor.bladPozycja, obszar.text.length);
+        obszar.forceActiveFocus();
       }
     }
+  }
 
-    // ---------------- widok 2: edycja ----------------
-    ScrollView {
-      visible: textEditor.sciezka !== ""
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      clip: true
-
-      TextArea {
-        id: obszar
-
-        wrapMode: TextArea.Wrap
-        selectByMouse: true
-        font.family: "monospace"
-        font.pointSize: Theme.tipFont.pointSize
-        color: "white"
-        placeholderText: qsTr("(pusty plik)")
-
-        background: Rectangle {
-          color: "#1B262C"
-          radius: 4
-          border.color: "#455A64"
-          border.width: 1
-        }
-
-        onTextChanged: {
-          if (!textEditor.ladowanie && textEditor.sciezka !== "") {
-            textEditor.zmieniono = true;
-          }
-          if (textEditor.sciezka !== "" && textEditor.czyJson()) {
-            textEditor.statusJson = "sprawdzam";
-            walidator.restart();
-          }
-        }
-
-        onCursorPositionChanged: textEditor.odswiezHint()
-      }
-    }
-
-    // ---------------- pasek statusu walidacji ----------------
-    Rectangle {
-      visible: textEditor.sciezka !== "" && textEditor.czyJson()
-      Layout.fillWidth: true
-      implicitHeight: 30
-      radius: 4
-      color: textEditor.statusJson === "ok" ? "#1B5E20" : textEditor.statusJson === "blad" ? "#B71C1C" : "#37474F"
-
-      Text {
-        anchors.fill: parent
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
-        verticalAlignment: Text.AlignVCenter
-        elide: Text.ElideRight
-        color: "white"
-        font: Theme.tinyFont
-        text: textEditor.statusJson === "ok" ? qsTr("✓ JSON poprawny") : textEditor.statusJson === "blad" ? qsTr("✗ linia %1: %2 — tapnij, by skoczyć").arg(textEditor.bladWiersz).arg(textEditor.bladOpis) : qsTr("… sprawdzam")
-      }
-
-      MouseArea {
-        anchors.fill: parent
-        enabled: textEditor.statusJson === "blad"
-        onClicked: {
-          obszar.cursorPosition = Math.min(textEditor.bladPozycja, obszar.text.length);
-          obszar.forceActiveFocus();
-        }
-      }
-    }
-
-    // ---------------- pasek podpowiedzi ----------------
-    Rectangle {
-      visible: textEditor.sciezka !== "" && textEditor.hint !== null
-      Layout.fillWidth: true
-      implicitHeight: hintRow.implicitHeight + 12
-      radius: 4
-      color: "#1B262C"
-      border.color: "#455A64"
-      border.width: 1
-
-      RowLayout {
-        id: hintRow
-
-        anchors.fill: parent
-        anchors.margins: 6
-        spacing: 10
-
-        Rectangle {
-          visible: textEditor.hint !== null && textEditor.hint.pole === "kolor"
-          Layout.alignment: Qt.AlignVCenter
-          width: 28
-          height: 28
-          radius: 5
-          color: textEditor.hint !== null && textEditor.hint.kolor !== "" ? textEditor.hint.kolor : "transparent"
-          border.color: "white"
-          border.width: 1
-
-          MouseArea {
-            anchors.fill: parent
-            anchors.margins: -10
-            onClicked: textEditor.otworzPalete()
-          }
-        }
-
-        Item {
-          visible: textEditor.hint !== null && textEditor.hint.rozmiar > 0
-          Layout.alignment: Qt.AlignVCenter
-          width: 44
-          height: 44
-
-          Rectangle {
-            anchors.centerIn: parent
-            width: textEditor.hint !== null ? Math.min(44, Math.max(6, textEditor.hint.rozmiar / 3)) : 0
-            height: width
-            radius: width / 2
-            color: "#FF7043"
-            border.color: "#003D33"
-            border.width: 1
-          }
-        }
-
-        ColumnLayout {
-          Layout.fillWidth: true
-          spacing: 1
-
-          Text {
-            text: textEditor.hint !== null ? textEditor.hint.pole + (textEditor.hint.rozmiar > 0 ? "  —  " + textEditor.hint.rozmiar + " px" : "") : ""
-            color: "#80CBC4"
-            font: Theme.strongTipFont
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: textEditor.hint !== null ? textEditor.hint.opis : ""
-            color: "#B0BEC5"
-            font: Theme.tinyFont
-            wrapMode: Text.Wrap
-          }
-
-          Text {
-            visible: textEditor.hint !== null && textEditor.hint.warstwaInfo !== ""
-            Layout.fillWidth: true
-            text: textEditor.hint !== null ? textEditor.hint.warstwaInfo : ""
-            color: textEditor.hint !== null && textEditor.hint.warstwaInfo.indexOf("\u2717") === 0 ? "#FF8A80" : "#B9F6CA"
-            font: Theme.tinyFont
-            wrapMode: Text.Wrap
-          }
-        }
-      }
-    }
+  // ---------------- pasek podpowiedzi ----------------
+  Rectangle {
+    visible: textEditor.sciezka !== "" && textEditor.hint !== null
+    Layout.fillWidth: true
+    implicitHeight: hintRow.implicitHeight + 12
+    radius: 4
+    color: "#1B262C"
+    border.color: "#455A64"
+    border.width: 1
 
     RowLayout {
-      visible: textEditor.sciezka !== ""
-      Layout.fillWidth: true
-      spacing: 8
+      id: hintRow
 
-      Button {
-        Layout.fillWidth: true
-        text: textEditor.potwierdz === 1 ? qsTr("Porzucić zmiany?") : qsTr("Wróć do listy")
-        onClicked: textEditor.sprobujWyjsc(1)
+      anchors.fill: parent
+      anchors.margins: 6
+      spacing: 10
+
+      Rectangle {
+        visible: textEditor.hint !== null && textEditor.hint.pole === "kolor"
+        Layout.alignment: Qt.AlignVCenter
+        width: 28
+        height: 28
+        radius: 5
+        color: textEditor.hint !== null && textEditor.hint.kolor !== "" ? textEditor.hint.kolor : "transparent"
+        border.color: "white"
+        border.width: 1
+
+        MouseArea {
+          anchors.fill: parent
+          anchors.margins: -10
+          onClicked: textEditor.otworzPalete()
+        }
       }
 
-      Button {
-        visible: textEditor.nazwaPliku(textEditor.sciezka) === "workfield_klawisze.json"
-        Layout.fillWidth: true
-        text: qsTr("Wzorcowy wpis")
-        onClicked: textEditor.wstawWzorzec()
+      Item {
+        visible: textEditor.hint !== null && textEditor.hint.rozmiar > 0
+        Layout.alignment: Qt.AlignVCenter
+        width: 44
+        height: 44
+
+        Rectangle {
+          anchors.centerIn: parent
+          width: textEditor.hint !== null ? Math.min(44, Math.max(6, textEditor.hint.rozmiar / 3)) : 0
+          height: width
+          radius: width / 2
+          color: "#FF7043"
+          border.color: "#003D33"
+          border.width: 1
+        }
       }
 
-      Button {
+      ColumnLayout {
         Layout.fillWidth: true
-        enabled: textEditor.zmieniono
-        text: qsTr("Zapisz")
-        onClicked: textEditor.zapisz()
+        spacing: 1
+
+        Text {
+          text: textEditor.hint !== null ? textEditor.hint.pole + (textEditor.hint.rozmiar > 0 ? "  —  " + textEditor.hint.rozmiar + " px" : "") : ""
+          color: "#80CBC4"
+          font: Theme.strongTipFont
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: textEditor.hint !== null ? textEditor.hint.opis : ""
+          color: "#B0BEC5"
+          font: Theme.tinyFont
+          wrapMode: Text.Wrap
+        }
+
+        Text {
+          visible: textEditor.hint !== null && textEditor.hint.warstwaInfo !== ""
+          Layout.fillWidth: true
+          text: textEditor.hint !== null ? textEditor.hint.warstwaInfo : ""
+          color: textEditor.hint !== null && textEditor.hint.warstwaInfo.indexOf("\u2717") === 0 ? "#FF8A80" : "#B9F6CA"
+          font: Theme.tinyFont
+          wrapMode: Text.Wrap
+        }
       }
     }
+  }
+
+  RowLayout {
+    visible: textEditor.sciezka !== ""
+    Layout.fillWidth: true
+    spacing: 8
 
     Button {
       Layout.fillWidth: true
-      text: textEditor.potwierdz === 2 ? qsTr("Porzucić zmiany?") : qsTr("Zamknij")
-      onClicked: textEditor.sciezka !== "" ? textEditor.sprobujWyjsc(2) : textEditor.close()
+      text: textEditor.potwierdz === 1 ? qsTr("Porzucić zmiany?") : qsTr("Wróć do listy")
+      onClicked: textEditor.sprobujWyjsc(1)
+    }
+
+    Button {
+      visible: textEditor.nazwaPliku(textEditor.sciezka) === "workfield_klawisze.json"
+      Layout.fillWidth: true
+      text: qsTr("Wzorcowy wpis")
+      onClicked: textEditor.wstawWzorzec()
     }
   }
 }

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui
 import org.qfield.core
 import Theme
 
@@ -22,8 +23,15 @@ import Theme
  * Najpierw POLICZ, potem zapisz — bo symboli bywa więcej niż tekstów
  * i warto zobaczyć, ilu obiektów to dotyczy, zanim cokolwiek wejdzie.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: oknoOpisowCAD
+
+  title: qsTr("Dociągnij opisy z rysunku")
+  confirmText: qsTr("Zapisz")
+  confirmEnabled: oknoOpisowCAD.policzone
+  busy: oknoOpisowCAD.zajety
+  onConfirmed: oknoOpisowCAD.wykonaj(true)
 
   property var t: Theme
   property string stan: ""
@@ -81,115 +89,77 @@ Popup {
     policzone = false;
   }
 
-  parent: mainWindow.contentItem
-  width: Math.min(460, mainWindow.width - 24)
-  x: (mainWindow.width - width) / 2
-  y: Math.max(12, (mainWindow.height - height) / 3)
-  modal: true
   focus: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
-  background: Rectangle {
-    color: oknoOpisowCAD.t.mainBackgroundColor
-    radius: 8
-    border.width: 1
-    border.color: oknoOpisowCAD.t.controlBorderColor
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Rzędne i opisy stoją w rysunku jako osobne teksty — na warstwach „…-Atr2” i „…_O”, nazwanych po warstwie symbolu. Każdy tekst zostanie użyty raz, dla najbliższego symbolu.")
+    font: oknoOpisowCAD.t.tinyFont
+    color: oknoOpisowCAD.t.secondaryTextColor
+    wrapMode: Text.WordWrap
   }
 
-  contentItem: ColumnLayout {
-    spacing: 8
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
 
     Text {
-      Layout.fillWidth: true
-      text: qsTr("Dociągnij opisy z rysunku")
-      font: oknoOpisowCAD.t.strongFont
+      text: qsTr("Szukaj w promieniu [m]")
+      font: oknoOpisowCAD.t.tipFont
       color: oknoOpisowCAD.t.mainTextColor
     }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Rzędne i opisy stoją w rysunku jako osobne teksty — na warstwach „…-Atr2” i „…_O”, nazwanych po warstwie symbolu. Każdy tekst zostanie użyty raz, dla najbliższego symbolu.")
-      font: oknoOpisowCAD.t.tinyFont
-      color: oknoOpisowCAD.t.secondaryTextColor
-      wrapMode: Text.WordWrap
+    TextField {
+      id: polePromienia
+
+      Layout.preferredWidth: 70
+      text: "3"
+      inputMethodHints: Qt.ImhFormattedNumbersOnly
+      font.pointSize: oknoOpisowCAD.t.tipFont.pointSize
+      onTextChanged: oknoOpisowCAD.policzone = false
     }
 
-    RowLayout {
+    Item {
       Layout.fillWidth: true
-      spacing: 6
+    }
+  }
 
-      Text {
-        text: qsTr("Szukaj w promieniu [m]")
-        font: oknoOpisowCAD.t.tipFont
-        color: oknoOpisowCAD.t.mainTextColor
-      }
+  Text {
+    Layout.fillWidth: true
+    visible: oknoOpisowCAD.stan !== ""
+    text: oknoOpisowCAD.stan
+    font: oknoOpisowCAD.t.tipFont
+    color: oknoOpisowCAD.policzone ? oknoOpisowCAD.t.mainTextColor : oknoOpisowCAD.t.warningColor
+    wrapMode: Text.WordWrap
+  }
 
-      TextField {
-        id: polePromienia
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Wypełniane są tylko puste pola — to, co wpisano w terenie, zostaje.")
+    font: oknoOpisowCAD.t.tinyFont
+    color: oknoOpisowCAD.t.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-        Layout.preferredWidth: 70
-        text: "3"
-        inputMethodHints: Qt.ImhFormattedNumbersOnly
-        font.pointSize: oknoOpisowCAD.t.tipFont.pointSize
-        onTextChanged: oknoOpisowCAD.policzone = false
-      }
+  RowLayout {
+    Layout.fillWidth: true
 
-      Item {
-        Layout.fillWidth: true
-      }
+    BusyIndicator {
+      implicitWidth: 20
+      implicitHeight: 20
+      running: oknoOpisowCAD.zajety
+      visible: running
     }
 
-    Text {
+    Item {
       Layout.fillWidth: true
-      visible: oknoOpisowCAD.stan !== ""
-      text: oknoOpisowCAD.stan
-      font: oknoOpisowCAD.t.tipFont
-      color: oknoOpisowCAD.policzone ? oknoOpisowCAD.t.mainTextColor : oknoOpisowCAD.t.warningColor
-      wrapMode: Text.WordWrap
     }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Wypełniane są tylko puste pola — to, co wpisano w terenie, zostaje.")
-      font: oknoOpisowCAD.t.tinyFont
-      color: oknoOpisowCAD.t.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-
-      BusyIndicator {
-        implicitWidth: 20
-        implicitHeight: 20
-        running: oknoOpisowCAD.zajety
-        visible: running
-      }
-
-      Item {
-        Layout.fillWidth: true
-      }
-
-      Button {
-        text: qsTr("Zamknij")
-        font.pointSize: oknoOpisowCAD.t.tinyFont.pointSize
-        onClicked: oknoOpisowCAD.close()
-      }
-
-      Button {
-        text: qsTr("Policz")
-        font.pointSize: oknoOpisowCAD.t.tinyFont.pointSize
-        enabled: !oknoOpisowCAD.zajety
-        onClicked: oknoOpisowCAD.wykonaj(false)
-      }
-
-      Button {
-        text: qsTr("Zapisz")
-        font.pointSize: oknoOpisowCAD.t.tinyFont.pointSize
-        highlighted: true
-        enabled: !oknoOpisowCAD.zajety && oknoOpisowCAD.policzone
-        onClicked: oknoOpisowCAD.wykonaj(true)
-      }
+    Button {
+      text: qsTr("Policz")
+      font.pointSize: oknoOpisowCAD.t.tinyFont.pointSize
+      enabled: !oknoOpisowCAD.zajety
+      onClicked: oknoOpisowCAD.wykonaj(false)
     }
   }
 }

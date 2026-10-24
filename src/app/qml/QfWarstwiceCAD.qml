@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui
 import org.qfield.core
 import Theme
 
@@ -20,8 +21,15 @@ import Theme
  * kanciaste i z prostymi artefaktami — sprawdzone na 1240 rzędnych
  * z rysunku 3853_24_pin. „Gładko" daje linie, jakich geodeta się spodziewa.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: oknoWarstwicCAD
+
+  title: qsTr("Warstwice z rzędnych")
+  confirmText: qsTr("Policz warstwice")
+  confirmEnabled: oknoWarstwicCAD.pola.length > 0
+  busy: oknoWarstwicCAD.zajety
+  onConfirmed: oknoWarstwicCAD.policz()
 
   property var t: Theme
   property var pola: []
@@ -76,156 +84,118 @@ Popup {
 
   onOpened: odswiez()
 
-  parent: mainWindow.contentItem
-  width: Math.min(460, mainWindow.width - 24)
-  x: (mainWindow.width - width) / 2
-  y: Math.max(12, (mainWindow.height - height) / 3)
-  modal: true
   focus: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
-  background: Rectangle {
-    color: oknoWarstwicCAD.t.mainBackgroundColor
-    radius: 8
-    border.width: 1
-    border.color: oknoWarstwicCAD.t.controlBorderColor
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Z rzędnych wczytanych z rysunku powstaje powierzchnia, a z niej warstwice. Poza obrysem pomiaru warstwic nie ma i nie powinno być.")
+    font: oknoWarstwicCAD.t.tinyFont
+    color: oknoWarstwicCAD.t.secondaryTextColor
+    wrapMode: Text.WordWrap
   }
 
-  contentItem: ColumnLayout {
-    spacing: 8
+  Text {
+    Layout.fillWidth: true
+    visible: oknoWarstwicCAD.pola.length === 0
+    text: qsTr("W warstwie symboli nie ma pola z wysokościami. Najpierw „Wczytaj bloki” i „Dociągnij opisy”.")
+    font: oknoWarstwicCAD.t.tipFont
+    color: oknoWarstwicCAD.t.warningColor
+    wrapMode: Text.WordWrap
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+    visible: oknoWarstwicCAD.pola.length > 0
 
     Text {
-      Layout.fillWidth: true
-      text: qsTr("Warstwice z rzędnych")
-      font: oknoWarstwicCAD.t.strongFont
+      text: qsTr("Wysokości z pola")
+      font: oknoWarstwicCAD.t.tipFont
       color: oknoWarstwicCAD.t.mainTextColor
     }
 
-    Text {
+    ComboBox {
+      id: wyborPola
+
       Layout.fillWidth: true
-      text: qsTr("Z rzędnych wczytanych z rysunku powstaje powierzchnia, a z niej warstwice. Poza obrysem pomiaru warstwic nie ma i nie powinno być.")
-      font: oknoWarstwicCAD.t.tinyFont
-      color: oknoWarstwicCAD.t.secondaryTextColor
-      wrapMode: Text.WordWrap
+      font.pointSize: oknoWarstwicCAD.t.tipFont.pointSize
+      model: oknoWarstwicCAD.pola
+      // Liczba obok nazwy: pole z trzema wartosciami i pole z tysiacem
+      // wygladaja tak samo, dopoki sie ich nie policzy.
+      textRole: "pole"
+      displayText: oknoWarstwicCAD.pola.length > 0 && currentIndex >= 0
+                   ? qsTr("%1  ·  %2 wartości").arg(oknoWarstwicCAD.pola[currentIndex].pole).arg(oknoWarstwicCAD.pola[currentIndex].ile)
+                   : ""
     }
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+    visible: oknoWarstwicCAD.pola.length > 0
 
     Text {
-      Layout.fillWidth: true
-      visible: oknoWarstwicCAD.pola.length === 0
-      text: qsTr("W warstwie symboli nie ma pola z wysokościami. Najpierw „Wczytaj bloki” i „Dociągnij opisy”.")
+      text: qsTr("Co ile metrów")
       font: oknoWarstwicCAD.t.tipFont
-      color: oknoWarstwicCAD.t.warningColor
-      wrapMode: Text.WordWrap
+      color: oknoWarstwicCAD.t.mainTextColor
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-      visible: oknoWarstwicCAD.pola.length > 0
+    TextField {
+      id: poleOdstepu
 
-      Text {
-        text: qsTr("Wysokości z pola")
-        font: oknoWarstwicCAD.t.tipFont
-        color: oknoWarstwicCAD.t.mainTextColor
-      }
-
-      ComboBox {
-        id: wyborPola
-
-        Layout.fillWidth: true
-        font.pointSize: oknoWarstwicCAD.t.tipFont.pointSize
-        model: oknoWarstwicCAD.pola
-        // Liczba obok nazwy: pole z trzema wartosciami i pole z tysiacem
-        // wygladaja tak samo, dopoki sie ich nie policzy.
-        textRole: "pole"
-        displayText: oknoWarstwicCAD.pola.length > 0 && currentIndex >= 0
-                     ? qsTr("%1  ·  %2 wartości").arg(oknoWarstwicCAD.pola[currentIndex].pole).arg(oknoWarstwicCAD.pola[currentIndex].ile)
-                     : ""
-      }
+      Layout.preferredWidth: 70
+      text: "0,5"
+      inputMethodHints: Qt.ImhFormattedNumbersOnly
+      font.pointSize: oknoWarstwicCAD.t.tipFont.pointSize
     }
 
-    RowLayout {
+    Item {
       Layout.fillWidth: true
-      spacing: 6
-      visible: oknoWarstwicCAD.pola.length > 0
+    }
+  }
 
-      Text {
-        text: qsTr("Co ile metrów")
-        font: oknoWarstwicCAD.t.tipFont
-        color: oknoWarstwicCAD.t.mainTextColor
-      }
+  CheckBox {
+    id: przelacznikMetody
 
-      TextField {
-        id: poleOdstepu
+    Layout.fillWidth: true
+    visible: oknoWarstwicCAD.pola.length > 0
+    text: qsTr("Wiernie punktom (kanciaste)")
+    font.pointSize: oknoWarstwicCAD.t.tinyFont.pointSize
+    checked: false
+  }
 
-        Layout.preferredWidth: 70
-        text: "0,5"
-        inputMethodHints: Qt.ImhFormattedNumbersOnly
-        font.pointSize: oknoWarstwicCAD.t.tipFont.pointSize
-      }
+  Text {
+    Layout.fillWidth: true
+    visible: oknoWarstwicCAD.pola.length > 0
+    text: przelacznikMetody.checked
+          ? qsTr("Triangulacja: linie trzymają się punktów co do centymetra, ale przy pomiarze wzdłuż dróg wychodzą kanciaste.")
+          : qsTr("Wygładzone: linie czytelne, jak na mapie — kosztem drobnych załamań terenu.")
+    font: oknoWarstwicCAD.t.tinyFont
+    color: oknoWarstwicCAD.t.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-      Item {
-        Layout.fillWidth: true
-      }
+  Text {
+    Layout.fillWidth: true
+    visible: oknoWarstwicCAD.stan !== ""
+    text: oknoWarstwicCAD.stan
+    font: oknoWarstwicCAD.t.tipFont
+    color: oknoWarstwicCAD.t.warningColor
+    wrapMode: Text.WordWrap
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+
+    BusyIndicator {
+      implicitWidth: 20
+      implicitHeight: 20
+      running: oknoWarstwicCAD.zajety
+      visible: running
     }
 
-    CheckBox {
-      id: przelacznikMetody
-
+    Item {
       Layout.fillWidth: true
-      visible: oknoWarstwicCAD.pola.length > 0
-      text: qsTr("Wiernie punktom (kanciaste)")
-      font.pointSize: oknoWarstwicCAD.t.tinyFont.pointSize
-      checked: false
-    }
-
-    Text {
-      Layout.fillWidth: true
-      visible: oknoWarstwicCAD.pola.length > 0
-      text: przelacznikMetody.checked
-            ? qsTr("Triangulacja: linie trzymają się punktów co do centymetra, ale przy pomiarze wzdłuż dróg wychodzą kanciaste.")
-            : qsTr("Wygładzone: linie czytelne, jak na mapie — kosztem drobnych załamań terenu.")
-      font: oknoWarstwicCAD.t.tinyFont
-      color: oknoWarstwicCAD.t.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    Text {
-      Layout.fillWidth: true
-      visible: oknoWarstwicCAD.stan !== ""
-      text: oknoWarstwicCAD.stan
-      font: oknoWarstwicCAD.t.tipFont
-      color: oknoWarstwicCAD.t.warningColor
-      wrapMode: Text.WordWrap
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-
-      BusyIndicator {
-        implicitWidth: 20
-        implicitHeight: 20
-        running: oknoWarstwicCAD.zajety
-        visible: running
-      }
-
-      Item {
-        Layout.fillWidth: true
-      }
-
-      Button {
-        text: qsTr("Zamknij")
-        font.pointSize: oknoWarstwicCAD.t.tinyFont.pointSize
-        onClicked: oknoWarstwicCAD.close()
-      }
-
-      Button {
-        text: qsTr("Policz warstwice")
-        font.pointSize: oknoWarstwicCAD.t.tinyFont.pointSize
-        highlighted: true
-        enabled: !oknoWarstwicCAD.zajety && oknoWarstwicCAD.pola.length > 0
-        onClicked: oknoWarstwicCAD.policz()
-      }
     }
   }
 }

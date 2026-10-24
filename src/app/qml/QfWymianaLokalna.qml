@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import org.qfield
+import org.qfield.gui
 import Theme
 
 /**
@@ -25,8 +26,16 @@ import Theme
  * do wybranego folderu…” przeniesione do lewej szuflady jako pozycje CORE
  * „Eksportuj paczkę” i „Eksportuj na dysk”. Tu zostaje podpowiedź, gdzie są.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar; the incoming list fills the height and scrolls by itself
+QfWindowFrame {
   id: wymiana
+
+  title: qsTr("Wymiana lokalna")
+  exitMode: "close"
+  preferredWidth: mainWindow.width - 16
+  scrollable: false
+  forceFullScreen: true
+  bodySpacing: 10
 
   property var t
 
@@ -42,13 +51,6 @@ Popup {
   readonly property string przychodzace: korzen + "/przychodzace"
 
   property string stan: ""
-
-  width: mainWindow.width - 16
-  height: mainWindow.height - 32
-  x: Math.round((mainWindow.width - width) / 2)
-  y: Math.round((mainWindow.height - height) / 2)
-  modal: true
-  focus: true
 
   onOpened: {
     // katalogi tworzymy przy pierwszym otwarciu; jeśli się nie da (brak
@@ -149,245 +151,197 @@ Popup {
     }
   }
 
-  background: Rectangle {
-    color: t.mainBackgroundColor
-    radius: 6
+  Text {
+    Layout.fillWidth: true
+    wrapMode: Text.WordWrap
+    text: qsTr("Folder Documents/WorkField widać po podłączeniu telefonu do komputera i w menedżerze plików.")
+    font: wymiana.t.tinyFont
+    color: wymiana.t.secondaryTextColor
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 12
-    spacing: 10
+  // ---------------------------------------------------------- wynoszenie
+  Text {
+    text: qsTr("Wynieś z telefonu")
+    font: wymiana.t.strongTipFont
+    color: wymiana.t.mainTextColor
+  }
 
-    RowLayout {
+  Text {
+    Layout.fillWidth: true
+    text: wymiana.projectName !== ""
+          ? qsTr("bieżący projekt: %1").arg(wymiana.projectName)
+          : qsTr("nie ma otwartego projektu")
+    font: wymiana.t.tinyFont
+    color: wymiana.t.secondaryTextColor
+    elide: Text.ElideMiddle
+  }
+
+  GridLayout {
+    Layout.fillWidth: true
+    columns: 2
+    columnSpacing: 6
+    rowSpacing: 6
+
+    Button {
       Layout.fillWidth: true
+      enabled: wymiana.projectDir !== ""
+      text: qsTr("Wyślij migawkę bazy")
+      font: wymiana.t.tipFont
+      onClicked: wymiana.wyslijMigawke()
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Wymiana lokalna")
-        font: wymiana.t.strongFont
-        color: wymiana.t.mainTextColor
-      }
+    Button {
+      Layout.fillWidth: true
+      enabled: wymiana.projectDir !== ""
+      text: qsTr("Do folderu wymiany")
+      font: wymiana.t.tipFont
+      onClicked: wymiana.wyniesProjekt()
+    }
 
-      ToolButton {
-        implicitWidth: 96
-        implicitHeight: 48
-        onClicked: wymiana.close()
+    Text {
+      Layout.fillWidth: true
+      Layout.columnSpan: 2
+      wrapMode: Text.WordWrap
+      text: qsTr("Paczkę do wysłania i eksport na dysk znajdziesz w menu projektu: „Eksportuj paczkę” i „Eksportuj na dysk”.")
+      font: wymiana.t.tinyFont
+      color: wymiana.t.secondaryTextColor
+    }
+  }
 
-        contentItem: RowLayout {
-          spacing: 6
+  // ---------------------------------------------------------- wnoszenie
+  Text {
+    Layout.topMargin: 6
+    text: qsTr("Wnieś do telefonu")
+    font: wymiana.t.strongTipFont
+    color: wymiana.t.mainTextColor
+  }
 
-          Image {
-            source: wymiana.t.getThemeVectorIcon("ic_clear_black_18dp")
-            sourceSize.width: 26
-            sourceSize.height: 26
-            Layout.preferredWidth: 26
-            Layout.preferredHeight: 26
-            fillMode: Image.PreserveAspectFit
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("połóż projekt lub paczkę w Documents/WorkField/przychodzace")
+    font: wymiana.t.tinyFont
+    color: wymiana.t.secondaryTextColor
+  }
+
+  FolderListModel {
+    id: modelPrzychodzace
+    showDirs: true
+    showDirsFirst: true
+    showDotAndDotDot: false
+    sortField: FolderListModel.Time
+  }
+
+  ListView {
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    clip: true
+    spacing: 2
+    model: modelPrzychodzace
+
+    ScrollBar.vertical: ScrollBar {
+    }
+
+    delegate: Rectangle {
+      width: ListView.view.width
+      height: 56
+      color: "transparent"
+
+      RowLayout {
+        anchors.fill: parent
+        anchors.leftMargin: 4
+        anchors.rightMargin: 4
+        spacing: 8
+
+        Image {
+          source: fileIsDir
+                  ? wymiana.t.getThemeVectorIcon("ic_folder_open_black_24dp")
+                  : (/\.zip$/i.test(fileName)
+                     ? wymiana.t.getThemeVectorIcon("wf_project_template")
+                     : wymiana.t.getThemeVectorIcon("ic_vectorlayer_polygon_18dp"))
+          sourceSize.width: 24
+          sourceSize.height: 24
+          Layout.preferredWidth: 24
+          Layout.preferredHeight: 24
+          fillMode: Image.PreserveAspectFit
+        }
+
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 0
+
+          Text {
+            Layout.fillWidth: true
+            text: fileName
+            font: wymiana.t.tipFont
+            color: wymiana.t.mainTextColor
+            elide: Text.ElideMiddle
           }
 
           Text {
-            text: qsTr("Powrót")
-            font: wymiana.t.tipFont
-            color: wymiana.t.mainTextColor
-            verticalAlignment: Text.AlignVCenter
+            text: fileIsDir ? qsTr("projekt w folderze") : (/\.zip$/i.test(fileName) ? qsTr("paczka") : qsTr("warstwa"))
+            font: wymiana.t.tinyFont
+            color: wymiana.t.secondaryTextColor
           }
+        }
+
+        Button {
+          text: qsTr("Wnieś")
+          font: wymiana.t.tipFont
+          onClicked: wymiana.wniesPozycje(fileName, fileIsDir)
         }
       }
     }
+  }
 
-    Text {
-      Layout.fillWidth: true
-      wrapMode: Text.WordWrap
-      text: qsTr("Folder Documents/WorkField widać po podłączeniu telefonu do komputera i w menedżerze plików.")
-      font: wymiana.t.tinyFont
-      color: wymiana.t.secondaryTextColor
-    }
+  Text {
+    Layout.fillWidth: true
+    visible: modelPrzychodzace.count === 0
+    wrapMode: Text.WordWrap
+    text: qsTr("Folder przychodzace jest pusty.")
+    font: wymiana.t.tipFont
+    color: wymiana.t.secondaryTextColor
+  }
 
-    // ---------------------------------------------------------- wynoszenie
-    Text {
-      text: qsTr("Wynieś z telefonu")
-      font: wymiana.t.strongTipFont
-      color: wymiana.t.mainTextColor
-    }
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 8
 
-    Text {
-      Layout.fillWidth: true
-      text: wymiana.projectName !== ""
-            ? qsTr("bieżący projekt: %1").arg(wymiana.projectName)
-            : qsTr("nie ma otwartego projektu")
-      font: wymiana.t.tinyFont
-      color: wymiana.t.secondaryTextColor
-      elide: Text.ElideMiddle
-    }
-
-    GridLayout {
-      Layout.fillWidth: true
-      columns: 2
-      columnSpacing: 6
-      rowSpacing: 6
-
-      Button {
-        Layout.fillWidth: true
-        enabled: wymiana.projectDir !== ""
-        text: qsTr("Wyślij migawkę bazy")
-        font: wymiana.t.tipFont
-        onClicked: wymiana.wyslijMigawke()
-      }
-
-      Button {
-        Layout.fillWidth: true
-        enabled: wymiana.projectDir !== ""
-        text: qsTr("Do folderu wymiany")
-        font: wymiana.t.tipFont
-        onClicked: wymiana.wyniesProjekt()
-      }
-
-      Text {
-        Layout.fillWidth: true
-        Layout.columnSpan: 2
-        wrapMode: Text.WordWrap
-        text: qsTr("Paczkę do wysłania i eksport na dysk znajdziesz w menu projektu: „Eksportuj paczkę” i „Eksportuj na dysk”.")
-        font: wymiana.t.tinyFont
-        color: wymiana.t.secondaryTextColor
-      }
-    }
-
-    // ---------------------------------------------------------- wnoszenie
-    Text {
-      Layout.topMargin: 6
-      text: qsTr("Wnieś do telefonu")
-      font: wymiana.t.strongTipFont
-      color: wymiana.t.mainTextColor
-    }
-
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("połóż projekt lub paczkę w Documents/WorkField/przychodzace")
-      font: wymiana.t.tinyFont
-      color: wymiana.t.secondaryTextColor
-    }
-
-    FolderListModel {
-      id: modelPrzychodzace
-      showDirs: true
-      showDirsFirst: true
-      showDotAndDotDot: false
-      sortField: FolderListModel.Time
-    }
-
-    ListView {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      clip: true
-      spacing: 2
-      model: modelPrzychodzace
-
-      ScrollBar.vertical: ScrollBar {
-      }
-
-      delegate: Rectangle {
-        width: ListView.view.width
-        height: 56
-        color: "transparent"
-
-        RowLayout {
-          anchors.fill: parent
-          anchors.leftMargin: 4
-          anchors.rightMargin: 4
-          spacing: 8
-
-          Image {
-            source: fileIsDir
-                    ? wymiana.t.getThemeVectorIcon("ic_folder_open_black_24dp")
-                    : (/\.zip$/i.test(fileName)
-                       ? wymiana.t.getThemeVectorIcon("wf_project_template")
-                       : wymiana.t.getThemeVectorIcon("ic_vectorlayer_polygon_18dp"))
-            sourceSize.width: 24
-            sourceSize.height: 24
-            Layout.preferredWidth: 24
-            Layout.preferredHeight: 24
-            fillMode: Image.PreserveAspectFit
-          }
-
-          ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 0
-
-            Text {
-              Layout.fillWidth: true
-              text: fileName
-              font: wymiana.t.tipFont
-              color: wymiana.t.mainTextColor
-              elide: Text.ElideMiddle
-            }
-
-            Text {
-              text: fileIsDir ? qsTr("projekt w folderze") : (/\.zip$/i.test(fileName) ? qsTr("paczka") : qsTr("warstwa"))
-              font: wymiana.t.tinyFont
-              color: wymiana.t.secondaryTextColor
-            }
-          }
-
-          Button {
-            text: qsTr("Wnieś")
-            font: wymiana.t.tipFont
-            onClicked: wymiana.wniesPozycje(fileName, fileIsDir)
-          }
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      visible: modelPrzychodzace.count === 0
-      wrapMode: Text.WordWrap
-      text: qsTr("Folder przychodzace jest pusty.")
+    Button {
+      flat: true
+      visible: platformUtilities.capabilities & PlatformUtilities.CustomImport
+      text: qsTr("Importuj folder…")
       font: wymiana.t.tipFont
-      color: wymiana.t.secondaryTextColor
+      onClicked: platformUtilities.importProjectFolder()
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
-
-      Button {
-        flat: true
-        visible: platformUtilities.capabilities & PlatformUtilities.CustomImport
-        text: qsTr("Importuj folder…")
-        font: wymiana.t.tipFont
-        onClicked: platformUtilities.importProjectFolder()
-      }
-
-      Button {
-        flat: true
-        visible: platformUtilities.capabilities & PlatformUtilities.CustomImport
-        text: qsTr("Importuj paczkę…")
-        font: wymiana.t.tipFont
-        onClicked: platformUtilities.importProjectArchive()
-      }
-
-      Item {
-        Layout.fillWidth: true
-      }
-
-      ToolButton {
-        text: qsTr("Odśwież")
-        font: wymiana.t.tipFont
-        onClicked: {
-          modelPrzychodzace.folder = "";
-          modelPrzychodzace.folder = "file://" + wymiana.przychodzace;
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      visible: wymiana.stan !== ""
-      wrapMode: Text.WordWrap
-      text: wymiana.stan
+    Button {
+      flat: true
+      visible: platformUtilities.capabilities & PlatformUtilities.CustomImport
+      text: qsTr("Importuj paczkę…")
       font: wymiana.t.tipFont
-      color: wymiana.t.secondaryTextColor
+      onClicked: platformUtilities.importProjectArchive()
     }
+
+    Item {
+      Layout.fillWidth: true
+    }
+
+    ToolButton {
+      text: qsTr("Odśwież")
+      font: wymiana.t.tipFont
+      onClicked: {
+        modelPrzychodzace.folder = "";
+        modelPrzychodzace.folder = "file://" + wymiana.przychodzace;
+      }
+    }
+  }
+
+  Text {
+    Layout.fillWidth: true
+    visible: wymiana.stan !== ""
+    wrapMode: Text.WordWrap
+    text: wymiana.stan
+    font: wymiana.t.tipFont
+    color: wymiana.t.secondaryTextColor
   }
 }

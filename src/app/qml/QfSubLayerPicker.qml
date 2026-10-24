@@ -6,22 +6,19 @@ import org.qfield
 import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: subLayerPicker
+
+  title: qsTr("Wybierz warstwy")
+  confirmText: qsTr("Dodaj")
+  onConfirmed: confirm()
 
   property var t
   property string sourcePath: ""
   property var entries: []
 
   signal layersChosen(var uris)
-
-  parent: mainWindow.contentItem
-  width: Math.min(420, mainWindow.width - 32)
-  height: Math.min(implicitHeight, mainWindow.height - 64)
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  modal: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
   function openFor(path) {
     sourcePath = path;
@@ -37,110 +34,80 @@ Popup {
     open();
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    spacing: 8
-
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Wybierz warstwy")
-      font: t.strongFont
-      color: t.mainTextColor
+  // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Dodaj” button below)
+  function confirm() {
+    let chosen = [];
+    for (let i = 0; i < subLayerPicker.entries.length; i++) {
+      if (entryList.selection[i] === true)
+        chosen.push(subLayerPicker.entries[i]);
     }
+    if (chosen.length > 0)
+      subLayerPicker.layersChosen(chosen);
+    subLayerPicker.close();
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: FileUtils.fileName(subLayerPicker.sourcePath)
-      font: t.tipFont
-      color: t.secondaryTextColor
-      elide: Text.ElideMiddle
-    }
+  Text {
+    Layout.fillWidth: true
+    text: FileUtils.fileName(subLayerPicker.sourcePath)
+    font: t.tipFont
+    color: t.secondaryTextColor
+    elide: Text.ElideMiddle
+  }
 
-    ListView {
-      id: entryList
+  ListView {
+    id: entryList
 
-      Layout.fillWidth: true
-      Layout.preferredHeight: Math.min(contentHeight, 320)
-      clip: true
-      model: subLayerPicker.entries
+    Layout.fillWidth: true
+    Layout.preferredHeight: Math.min(contentHeight, 320)
+    clip: true
+    model: subLayerPicker.entries
 
-      property var selection: ({})
+    property var selection: ({})
 
-      delegate: ItemDelegate {
-        required property int index
-        required property var modelData
+    delegate: ItemDelegate {
+      required property int index
+      required property var modelData
 
-        width: entryList.width
-        height: 56
+      width: entryList.width
+      height: 56
 
-        contentItem: RowLayout {
-          spacing: 8
+      contentItem: RowLayout {
+        spacing: 8
 
-          CheckBox {
-            checked: entryList.selection[index] === true
-            onToggled: {
-              let sel = entryList.selection;
-              sel[index] = checked;
-              entryList.selection = sel;
-            }
-          }
-
-          ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 0
-
-            Text {
-              Layout.fillWidth: true
-              text: modelData.name
-              font: t.strongTipFont
-              color: t.mainTextColor
-              elide: Text.ElideRight
-            }
-
-            Text {
-              Layout.fillWidth: true
-              // WorkField 23.08.2026 — druga polowa naprawy "-2 obiektów".
-              // Nawet po dolozeniu liczenia w querySublayers czesc zrodel
-              // policzyc sie nie da. Wtedy mowimy, ze nie wiemy, zamiast
-              // pokazywac ujemna liczbe obiektow.
-              text: modelData.featureCount < 0
-                    ? modelData.geometry + " · " + qsTr("liczba obiektów nieznana")
-                    : modelData.geometry + " · " + qsTr("obiektów: %1").arg(modelData.featureCount)
-              font: t.tinyFont
-              color: t.secondaryTextColor
-              elide: Text.ElideRight
-            }
+        CheckBox {
+          checked: entryList.selection[index] === true
+          onToggled: {
+            let sel = entryList.selection;
+            sel[index] = checked;
+            entryList.selection = sel;
           }
         }
-      }
-    }
 
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.topMargin: 8
-      spacing: 8
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 0
 
-      QfDecisionButton {
-        role: "cancel" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Anuluj")
-        onClicked: subLayerPicker.close()
-      }
-
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Dodaj")
-
-        onClicked: {
-          let chosen = [];
-          for (let i = 0; i < subLayerPicker.entries.length; i++) {
-            if (entryList.selection[i] === true)
-              chosen.push(subLayerPicker.entries[i]);
+          Text {
+            Layout.fillWidth: true
+            text: modelData.name
+            font: t.strongTipFont
+            color: t.mainTextColor
+            elide: Text.ElideRight
           }
-          if (chosen.length > 0)
-            subLayerPicker.layersChosen(chosen);
-          subLayerPicker.close();
+
+          Text {
+            Layout.fillWidth: true
+            // WorkField 23.08.2026 — druga polowa naprawy "-2 obiektów".
+            // Nawet po dolozeniu liczenia w querySublayers czesc zrodel
+            // policzyc sie nie da. Wtedy mowimy, ze nie wiemy, zamiast
+            // pokazywac ujemna liczbe obiektow.
+            text: modelData.featureCount < 0
+                  ? modelData.geometry + " · " + qsTr("liczba obiektów nieznana")
+                  : modelData.geometry + " · " + qsTr("obiektów: %1").arg(modelData.featureCount)
+            font: t.tinyFont
+            color: t.secondaryTextColor
+            elide: Text.ElideRight
+          }
         }
       }
     }

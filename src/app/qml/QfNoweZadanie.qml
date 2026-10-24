@@ -18,8 +18,16 @@ import Theme
  * Świadomie NIE pytamy o nazwę katalogu wprost: nazwa jest wnioskiem
  * z wypełnionych pól, a nie kolejnym polem do wymyślenia w deszczu.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: kreator
+
+  title: kreator.dziedziczone ? qsTr("Nowy projekt w zleceniu") : qsTr("Nowe zlecenie")
+  confirmText: qsTr("Utwórz")
+  confirmEnabled: kreator.nazwaZadania() !== ""
+  preferredWidth: 520
+  bodySpacing: 10
+  onConfirmed: kreator.utworz()
 
   property var t
   //! katalog, w którym szukamy szablonów
@@ -77,20 +85,6 @@ Popup {
     if (Qt.platform.os === "android")
       return iface.dataRoot() + "Imported Projects";
     return ustawieniaMagazynu.korzenProjektow !== "" ? String(ustawieniaMagazynu.korzenProjektow).replace(/^file:\/+/, "/") : iface.dataRoot();
-  }
-
-  width: Math.min(mainWindow.width - 32, 520)
-  height: Math.min(mainWindow.height - 64, 640)
-  x: Math.round((mainWindow.width - width) / 2)
-  y: Math.round((mainWindow.height - height) / 2)
-  modal: true
-  focus: true
-  closePolicy: Popup.CloseOnEscape
-
-  background: Rectangle {
-    color: t.mainBackgroundColor
-    radius: 8
-    border.color: t.controlBorderColor
   }
 
   onOpened: {
@@ -169,146 +163,109 @@ Popup {
     return klient + "_" + teren + "_" + rok + "_" + typZadania();
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 14
-    spacing: 10
+  // ---------------------------------------------------------- szablon
+  Label {
+    text: qsTr("Szablon")
+    font: t.tinyFont
+    color: t.secondaryTextColor
+  }
 
-    Label {
-      text: kreator.dziedziczone ? qsTr("Nowy projekt w zleceniu") : qsTr("Nowe zlecenie")
-      font: t.strongTipFont
-      color: t.mainTextColor
-    }
+  FolderListModel {
+    id: modelSzablonow
+    folder: kreator.katalogSzablonow !== "" ? "file://" + kreator.katalogSzablonow : ""
+    showFiles: false
+    showDirs: true
+    showDotAndDotDot: false
+    onCountChanged: kreator.przebudujListe()
+  }
 
-    // ---------------------------------------------------------- szablon
-    Label {
-      text: qsTr("Szablon")
-      font: t.tinyFont
-      color: t.secondaryTextColor
-    }
+  ComboBox {
+    id: wyborSzablonu
+    Layout.fillWidth: true
+    model: kreator.listaSzablonow
+    onCurrentTextChanged: kreator.szablonWybrany = (currentText === kreator.bezSzablonu ? "" : currentText)
+  }
 
-    FolderListModel {
-      id: modelSzablonow
-      folder: kreator.katalogSzablonow !== "" ? "file://" + kreator.katalogSzablonow : ""
-      showFiles: false
-      showDirs: true
-      showDotAndDotDot: false
-      onCountChanged: kreator.przebudujListe()
-    }
+  // ---------------------------------------------------------- kontekst
+  Label {
+    text: qsTr("Zleceniodawca")
+    font: t.tinyFont
+    color: t.secondaryTextColor
+  }
+  TextField {
+    id: poleKlient
+    Layout.fillWidth: true
+    placeholderText: qsTr("np. ZZW")
+  }
 
-    ComboBox {
-      id: wyborSzablonu
+  Label {
+    text: qsTr("Teren opracowania")
+    font: t.tinyFont
+    color: t.secondaryTextColor
+  }
+  TextField {
+    id: poleTeren
+    Layout.fillWidth: true
+    placeholderText: qsTr("np. Park Żerański")
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 8
+
+    ColumnLayout {
       Layout.fillWidth: true
-      model: kreator.listaSzablonow
-      onCurrentTextChanged: kreator.szablonWybrany = (currentText === kreator.bezSzablonu ? "" : currentText)
-    }
-
-    // ---------------------------------------------------------- kontekst
-    Label {
-      text: qsTr("Zleceniodawca")
-      font: t.tinyFont
-      color: t.secondaryTextColor
-    }
-    TextField {
-      id: poleKlient
-      Layout.fillWidth: true
-      placeholderText: qsTr("np. ZZW")
-    }
-
-    Label {
-      text: qsTr("Teren opracowania")
-      font: t.tinyFont
-      color: t.secondaryTextColor
-    }
-    TextField {
-      id: poleTeren
-      Layout.fillWidth: true
-      placeholderText: qsTr("np. Park Żerański")
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
-
-      ColumnLayout {
-        Layout.fillWidth: true
-        Label {
-          text: qsTr("Data")
-          font: t.tinyFont
-          color: t.secondaryTextColor
-        }
-        TextField {
-          id: poleData
-          Layout.fillWidth: true
-          inputMask: "9999-99-99"
-        }
-      }
-
-      ColumnLayout {
-        Layout.fillWidth: true
-        Label {
-          text: qsTr("Tagi (oddziel przecinkiem)")
-          font: t.tinyFont
-          color: t.secondaryTextColor
-        }
-        TextField {
-          id: poleTagi
-          Layout.fillWidth: true
-          placeholderText: qsTr("np. rekonesans, etap 1")
-        }
-      }
-    }
-
-    // ---------------------------------------------------------- podgląd nazwy
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 46
-      color: t.controlBackgroundAlternateColor
-      radius: 4
-
       Label {
-        anchors.centerIn: parent
-        text: kreator.nazwaZadania() !== ""
-              ? qsTr("katalog: %1").arg(kreator.nazwaZadania())
-              : qsTr("uzupełnij zleceniodawcę i teren")
-        font: t.tipFont
-        color: kreator.nazwaZadania() !== "" ? t.mainTextColor : t.secondaryTextColor
+        text: qsTr("Data")
+        font: t.tinyFont
+        color: t.secondaryTextColor
+      }
+      TextField {
+        id: poleData
+        Layout.fillWidth: true
+        inputMask: "9999-99-99"
       }
     }
+
+    ColumnLayout {
+      Layout.fillWidth: true
+      Label {
+        text: qsTr("Tagi (oddziel przecinkiem)")
+        font: t.tinyFont
+        color: t.secondaryTextColor
+      }
+      TextField {
+        id: poleTagi
+        Layout.fillWidth: true
+        placeholderText: qsTr("np. rekonesans, etap 1")
+      }
+    }
+  }
+
+  // ---------------------------------------------------------- podgląd nazwy
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: 46
+    color: t.controlBackgroundAlternateColor
+    radius: 4
 
     Label {
-      id: komunikat
-      Layout.fillWidth: true
-      wrapMode: Text.WordWrap
-      font: t.tinyFont
-      color: t.errorColor
-      visible: text !== ""
+      anchors.centerIn: parent
+      text: kreator.nazwaZadania() !== ""
+            ? qsTr("katalog: %1").arg(kreator.nazwaZadania())
+            : qsTr("uzupełnij zleceniodawcę i teren")
+      font: t.tipFont
+      color: kreator.nazwaZadania() !== "" ? t.mainTextColor : t.secondaryTextColor
     }
+  }
 
-    Item {
-      Layout.fillHeight: true
-    }
-
-    // ---------------------------------------------------------- przyciski
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
-
-      QfDecisionButton {
-        role: "cancel" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Anuluj")
-        onClicked: kreator.close()
-      }
-
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Utwórz")
-        enabled: kreator.nazwaZadania() !== ""
-        onClicked: kreator.utworz()
-      }
-    }
+  Label {
+    id: komunikat
+    Layout.fillWidth: true
+    wrapMode: Text.WordWrap
+    font: t.tinyFont
+    color: t.errorColor
+    visible: text !== ""
   }
 
   // ------------------------------------------------------------ utworzenie

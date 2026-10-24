@@ -5,6 +5,7 @@ import QtCore
 import org.qgis
 import org.qfield
 import org.qfield.core
+import org.qfield.gui
 import Theme
 
 /**
@@ -47,16 +48,16 @@ import Theme
  * widoczny i milczący jest gorszy od braku przycisku — to zasada z 17.08,
  * ta sama, przez którą zniknęły „Magazyn" i „Nowy z szablonu" z telefonu.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+QfWindowFrame {
   id: ekranWyposazenia
 
-  parent: mainWindow.contentItem
-  width: Math.min(720, mainWindow.width - 16)
-  height: Math.min(860, mainWindow.height - 24)
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  modal: true
-  closePolicy: Popup.CloseOnEscape
+  title: qsTr("Wyposażenie projektu")
+  exitMode: "close"
+  preferredWidth: 720
+  // the module list scrolls by itself and takes the height
+  scrollable: false
+  forceFullScreen: true
 
   property var pozycje: []
   property string komunikat: ""
@@ -227,189 +228,62 @@ Popup {
     return qsTr("nie ma — aplikacja oczekuje wersji %1").arg(m.wAplikacji);
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 12
+  RowLayout {
+    Layout.fillWidth: true
     spacing: 8
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Wyposażenie projektu")
-        color: "#80CBC4"
-        font: Theme.strongFont
-        elide: Text.ElideRight
-      }
-
-      // Zrzut ustawień projektu — przyciąganie, tolerancja, edycja
-      // topologiczna, warstwy. Jedyny ekran, który na to odpowiada;
-      // od 23.09.2026 dymek startowy już tam nie prowadzi, więc wejście
-      // musi być stąd.
-      ToolButton {
-        text: qsTr("Ustawienia")
-        font: Theme.tinyFont
-        visible: ekranWyposazenia.ekranUstawien !== null
-        onClicked: ekranWyposazenia.ekranUstawien.open()
-      }
-
-      ToolButton {
-        text: qsTr("Odśwież")
-        font: Theme.tinyFont
-        onClicked: ekranWyposazenia.odswiez()
-      }
-
-      ToolButton {
-        text: qsTr("Zamknij")
-        font: Theme.tinyFont
-        onClicked: ekranWyposazenia.close()
-      }
+    // Zrzut ustawień projektu — przyciąganie, tolerancja, edycja
+    // topologiczna, warstwy. Jedyny ekran, który na to odpowiada;
+    // od 23.09.2026 dymek startowy już tam nie prowadzi, więc wejście
+    // musi być stąd.
+    ToolButton {
+      text: qsTr("Ustawienia")
+      font: Theme.tinyFont
+      visible: ekranWyposazenia.ekranUstawien !== null
+      onClicked: ekranWyposazenia.ekranUstawien.open()
     }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Katalog modułów jedzie w aplikacji, więc nie może się z nią rozjechać. Stempel siedzi w tabeli WF_WYPOSAZENIE w bazie projektu.")
-      color: "#B0BEC5"
-      font: Theme.tipFont
-      wrapMode: Text.Wrap
+    ToolButton {
+      text: qsTr("Odśwież")
+      font: Theme.tinyFont
+      onClicked: ekranWyposazenia.odswiez()
     }
+  }
 
-    Text {
-      Layout.fillWidth: true
-      visible: ekranWyposazenia.komunikat !== ""
-      text: ekranWyposazenia.komunikat
-      color: ekranWyposazenia.blad ? "#EF5350" : "#9CCC65"
-      font: Theme.tipFont
-      wrapMode: Text.Wrap
-    }
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Katalog modułów jedzie w aplikacji, więc nie może się z nią rozjechać. Stempel siedzi w tabeli WF_WYPOSAZENIE w bazie projektu.")
+    color: "#B0BEC5"
+    font: Theme.tipFont
+    wrapMode: Text.Wrap
+  }
 
-    ListView {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      clip: true
-      spacing: 6
-      model: ekranWyposazenia.pozycje
+  Text {
+    Layout.fillWidth: true
+    visible: ekranWyposazenia.komunikat !== ""
+    text: ekranWyposazenia.komunikat
+    color: ekranWyposazenia.blad ? "#EF5350" : "#9CCC65"
+    font: Theme.tipFont
+    wrapMode: Text.Wrap
+  }
 
-      delegate: Rectangle {
-        width: ListView.view.width
-        height: tresc.implicitHeight + 16
-        radius: 4
-        color: "#14FFFFFF"
+  ListView {
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    clip: true
+    spacing: 6
+    model: ekranWyposazenia.pozycje
 
-        readonly property string powodOdmowy: wyposazenie.mozeZalozyc(modelData.modul)
-
-        ColumnLayout {
-          id: tresc
-
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          anchors.margins: 8
-          spacing: 3
-
-          RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Rectangle {
-              width: 10
-              height: 10
-              radius: 5
-              color: ekranWyposazenia.barwa(modelData.stan)
-            }
-
-            Text {
-              Layout.fillWidth: true
-              text: modelData.nazwa
-              color: "white"
-              font: Theme.defaultFont
-              elide: Text.ElideRight
-            }
-
-            Button {
-              // Napis mówi, CO SIĘ STANIE: „Załóż…” z wielokropkiem, gdy
-              // przedtem będzie pytanie; „Sprawdź” przy module, który niczego
-              // nie zakłada; „Dołóż…” przy kaflach, które wolno uzupełniać
-              // także po założeniu. Napis obiecujący czynność, której kod nie
-              // wykonuje, kończył się do 23.09.2026 zdaniem „Krok się nie
-              // powiódł” — i to była cała odpowiedź.
-              text: ekranWyposazenia.napisPrzycisku(modelData)
-              font: Theme.tinyFont
-              // Sprawdzenie wolno powtórzyć ZAWSZE — nic nie zapisuje, nie robi
-              // kopii i nic nie kosztuje. Poprawiasz plik kafli i pytasz znowu.
-              // Moduł POWTARZALNY (kafle) zostaje czynny także po założeniu:
-              // każda nowa warstwa to nowy kafel, a stempel mówi tylko, że
-              // plik jest poprawny — nie że jest kompletny.
-              visible: modelData.stan !== "nowszy"
-                       && (modelData.tylkoSprawdza || modelData.powtarzalny
-                           || modelData.stan !== "zgodny")
-              enabled: powodOdmowy === ""
-              onClicked: ekranWyposazenia.uruchom(modelData)
-            }
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: ekranWyposazenia.opisStanu(modelData)
-            color: ekranWyposazenia.barwa(modelData.stan)
-            font: Theme.tinyFont
-            wrapMode: Text.Wrap
-          }
-
-          // Powód odmowy PRZY przycisku, nie w osobnym okienku: człowiek
-          // w rękawicach nie będzie szukał, czemu nie da się kliknąć.
-          Text {
-            Layout.fillWidth: true
-            visible: powodOdmowy !== "" && modelData.stan !== "zgodny"
-            text: qsTr("nie założę tego z telefonu — %1").arg(powodOdmowy)
-            color: "#90A4AE"
-            font: Theme.tinyFont
-            wrapMode: Text.Wrap
-          }
-
-          Text {
-            Layout.fillWidth: true
-            visible: modelData.opis !== ""
-            text: modelData.opis
-            color: "#78909C"
-            font: Theme.tipFont
-            wrapMode: Text.Wrap
-            maximumLineCount: 3
-            elide: Text.ElideRight
-          }
-
-          Text {
-            Layout.fillWidth: true
-            visible: modelData.data !== undefined && String(modelData.data) !== ""
-            text: qsTr("ostatnio: %1").arg(String(modelData.data).replace("T", " "))
-            color: "#607D8B"
-            font: Theme.tinyFont
-          }
-        }
-      }
-
-      Text {
-        anchors.centerIn: parent
-        visible: parent.count === 0
-        text: qsTr("Nie udało się odczytać katalogu wyposażenia.")
-        color: "#EF5350"
-        font: Theme.tipFont
-      }
-    }
-
-    // ------------------------------------------------ pliki wspólne
-    Rectangle {
-      // [WF-FITO-ONLY] The species dictionary belongs to phytosociology (Piotr 23.10).
-      visible: qgisProject && NarzedziaProjektu.usesPhytosociology(qgisProject)
-      Layout.fillWidth: true
-      Layout.preferredHeight: wierszSlownika.implicitHeight + 16
+    delegate: Rectangle {
+      width: ListView.view.width
+      height: tresc.implicitHeight + 16
       radius: 4
       color: "#14FFFFFF"
 
+      readonly property string powodOdmowy: wyposazenie.mozeZalozyc(modelData.modul)
+
       ColumnLayout {
-        id: wierszSlownika
+        id: tresc
 
         anchors.left: parent.left
         anchors.right: parent.right
@@ -425,61 +299,168 @@ Popup {
             width: 10
             height: 10
             radius: 5
-            color: ekranWyposazenia.slownikJest ? "#81C784" : "#EF5350"
+            color: ekranWyposazenia.barwa(modelData.stan)
           }
 
           Text {
             Layout.fillWidth: true
-            text: qsTr("Słownik gatunków")
+            text: modelData.nazwa
             color: "white"
             font: Theme.defaultFont
             elide: Text.ElideRight
           }
 
           Button {
-            text: qsTr("Pobierz z sieci")
+            // Napis mówi, CO SIĘ STANIE: „Załóż…” z wielokropkiem, gdy
+            // przedtem będzie pytanie; „Sprawdź” przy module, który niczego
+            // nie zakłada; „Dołóż…” przy kaflach, które wolno uzupełniać
+            // także po założeniu. Napis obiecujący czynność, której kod nie
+            // wykonuje, kończył się do 23.09.2026 zdaniem „Krok się nie
+            // powiódł” — i to była cała odpowiedź.
+            text: ekranWyposazenia.napisPrzycisku(modelData)
             font: Theme.tinyFont
-            visible: !ekranWyposazenia.slownikJest
-            onClicked: ekranWyposazenia.pobierzSlownik()
+            // Sprawdzenie wolno powtórzyć ZAWSZE — nic nie zapisuje, nie robi
+            // kopii i nic nie kosztuje. Poprawiasz plik kafli i pytasz znowu.
+            // Moduł POWTARZALNY (kafle) zostaje czynny także po założeniu:
+            // każda nowa warstwa to nowy kafel, a stempel mówi tylko, że
+            // plik jest poprawny — nie że jest kompletny.
+            visible: modelData.stan !== "nowszy"
+                     && (modelData.tylkoSprawdza || modelData.powtarzalny
+                         || modelData.stan !== "zgodny")
+            enabled: powodOdmowy === ""
+            onClicked: ekranWyposazenia.uruchom(modelData)
           }
         }
 
         Text {
           Layout.fillWidth: true
-          text: ekranWyposazenia.slownikJest
-                  ? qsTr("wf_wskazniki.gpkg leży obok projektu")
-                  : qsTr("nie ma wf_wskazniki.gpkg — podpowiadanie gatunków nie zadziała")
-          color: ekranWyposazenia.slownikJest ? "#81C784" : "#EF5350"
+          text: ekranWyposazenia.opisStanu(modelData)
+          color: ekranWyposazenia.barwa(modelData.stan)
+          font: Theme.tinyFont
+          wrapMode: Text.Wrap
+        }
+
+        // Powód odmowy PRZY przycisku, nie w osobnym okienku: człowiek
+        // w rękawicach nie będzie szukał, czemu nie da się kliknąć.
+        Text {
+          Layout.fillWidth: true
+          visible: powodOdmowy !== "" && modelData.stan !== "zgodny"
+          text: qsTr("nie założę tego z telefonu — %1").arg(powodOdmowy)
+          color: "#90A4AE"
           font: Theme.tinyFont
           wrapMode: Text.Wrap
         }
 
         Text {
           Layout.fillWidth: true
-          text: qsTr("To nie struktura, tylko wiedza — żaden kod jej nie wymyśli, musi przyjechać. Potrzebny internet.")
+          visible: modelData.opis !== ""
+          text: modelData.opis
           color: "#78909C"
           font: Theme.tipFont
           wrapMode: Text.Wrap
+          maximumLineCount: 3
+          elide: Text.ElideRight
         }
 
         Text {
           Layout.fillWidth: true
-          visible: ekranWyposazenia.bladPobierania !== ""
-          text: qsTr("Ostatni błąd pobierania: %1").arg(ekranWyposazenia.bladPobierania)
-          color: "#EF5350"
+          visible: modelData.data !== undefined && String(modelData.data) !== ""
+          text: qsTr("ostatnio: %1").arg(String(modelData.data).replace("T", " "))
+          color: "#607D8B"
           font: Theme.tinyFont
-          wrapMode: Text.Wrap
         }
       }
     }
 
     Text {
-      Layout.fillWidth: true
-      text: qsTr("Przed każdym założeniem powstaje kopia projektu, a gdy moduł rusza bazę — także kopia dane.gpkg. Moduły, których aplikacja nie umie wykonać, zostają w biurze i mówią o tym przy przycisku.")
-      color: "#78909C"
-      font: Theme.tinyFont
-      wrapMode: Text.Wrap
+      anchors.centerIn: parent
+      visible: parent.count === 0
+      text: qsTr("Nie udało się odczytać katalogu wyposażenia.")
+      color: "#EF5350"
+      font: Theme.tipFont
     }
+  }
+
+  // ------------------------------------------------ pliki wspólne
+  Rectangle {
+    // [WF-FITO-ONLY] The species dictionary belongs to phytosociology (Piotr 23.10).
+    visible: qgisProject && NarzedziaProjektu.usesPhytosociology(qgisProject)
+    Layout.fillWidth: true
+    Layout.preferredHeight: wierszSlownika.implicitHeight + 16
+    radius: 4
+    color: "#14FFFFFF"
+
+    ColumnLayout {
+      id: wierszSlownika
+
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.margins: 8
+      spacing: 3
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+
+        Rectangle {
+          width: 10
+          height: 10
+          radius: 5
+          color: ekranWyposazenia.slownikJest ? "#81C784" : "#EF5350"
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("Słownik gatunków")
+          color: "white"
+          font: Theme.defaultFont
+          elide: Text.ElideRight
+        }
+
+        Button {
+          text: qsTr("Pobierz z sieci")
+          font: Theme.tinyFont
+          visible: !ekranWyposazenia.slownikJest
+          onClicked: ekranWyposazenia.pobierzSlownik()
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: ekranWyposazenia.slownikJest
+                ? qsTr("wf_wskazniki.gpkg leży obok projektu")
+                : qsTr("nie ma wf_wskazniki.gpkg — podpowiadanie gatunków nie zadziała")
+        color: ekranWyposazenia.slownikJest ? "#81C784" : "#EF5350"
+        font: Theme.tinyFont
+        wrapMode: Text.Wrap
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("To nie struktura, tylko wiedza — żaden kod jej nie wymyśli, musi przyjechać. Potrzebny internet.")
+        color: "#78909C"
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+
+      Text {
+        Layout.fillWidth: true
+        visible: ekranWyposazenia.bladPobierania !== ""
+        text: qsTr("Ostatni błąd pobierania: %1").arg(ekranWyposazenia.bladPobierania)
+        color: "#EF5350"
+        font: Theme.tinyFont
+        wrapMode: Text.Wrap
+      }
+    }
+  }
+
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Przed każdym założeniem powstaje kopia projektu, a gdy moduł rusza bazę — także kopia dane.gpkg. Moduły, których aplikacja nie umie wykonać, zostają w biurze i mówią o tym przy przycisku.")
+    color: "#78909C"
+    font: Theme.tinyFont
+    wrapMode: Text.Wrap
   }
 
   // ======================================================================
@@ -488,16 +469,15 @@ Popup {
   // „TO TECHNICZNA WARSTWA” (uwaga Piotra, 23.09.2026). Właśnie dlatego
   // aplikacja umie ją założyć sama — i właśnie dlatego pyta: dwa pola
   // i kafel to zmiana mała, ale w CUDZYM projekcie.
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: potwierdzenie
 
-    parent: mainWindow.contentItem
-    width: Math.min(560, mainWindow.width - 24)
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    modal: true
-    closePolicy: Popup.CloseOnEscape
-    padding: 14
+    title: potwierdzenie.tytul
+    confirmText: qsTr("Załóż")
+    preferredWidth: 560
+    bodySpacing: 10
+    onConfirmed: confirm()
 
     property string modul: ""
     property string tytul: ""
@@ -510,55 +490,26 @@ Popup {
       open();
     }
 
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 10
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Załóż” button below)
+    function confirm() {
+      potwierdzenie.close();
+      ekranWyposazenia.zaloz(potwierdzenie.modul, {});
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: potwierdzenie.tytul
-        color: "#80CBC4"
-        font: Theme.strongFont
-        wrapMode: Text.Wrap
-      }
+    Text {
+      Layout.fillWidth: true
+      text: potwierdzenie.tresc
+      color: "white"
+      font: Theme.tipFont
+      wrapMode: Text.Wrap
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: potwierdzenie.tresc
-        color: "white"
-        font: Theme.tipFont
-        wrapMode: Text.Wrap
-      }
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Kopia projektu i kopia dane.gpkg powstaną obok, przed zmianą.")
-        color: "#78909C"
-        font: Theme.tinyFont
-        wrapMode: Text.Wrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Item { Layout.fillWidth: true }
-
-        ToolButton {
-          text: qsTr("Nie teraz")
-          font: Theme.tinyFont
-          onClicked: potwierdzenie.close()
-        }
-
-        Button {
-          text: qsTr("Załóż")
-          font: Theme.tinyFont
-          onClicked: {
-            potwierdzenie.close();
-            ekranWyposazenia.zaloz(potwierdzenie.modul, {});
-          }
-        }
-      }
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Kopia projektu i kopia dane.gpkg powstaną obok, przed zmianą.")
+      color: "#78909C"
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
     }
   }
 
@@ -568,17 +519,19 @@ Popup {
   // Treść paska jest BRANŻOWA (D/G/U/T w dendro, inna w płatach), więc
   // moduł jej nie zgaduje. Wskazuje ją człowiek, jednym tapnięciem na
   // warstwę — a etykiety dobiera kod, żeby się nie zderzały.
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: wyborKafli
 
-    parent: mainWindow.contentItem
-    width: Math.min(620, mainWindow.width - 16)
-    height: Math.min(720, mainWindow.height - 24)
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    modal: true
-    closePolicy: Popup.CloseOnEscape
-    padding: 12
+    title: qsTr("Którym warstwom kafel?")
+    // Pusty wybór też wolno zatwierdzić: krok wykonuje wtedy samą
+    // KONTROLĘ pliku — dokładnie to, co moduł robił do 23.09.2026.
+    confirmText: wyborKafli.wybrane().length > 0 ? qsTr("Załóż kafle") : qsTr("Tylko sprawdź")
+    preferredWidth: 620
+    // the layer list scrolls by itself and takes the height
+    scrollable: false
+    forceFullScreen: true
+    onConfirmed: confirm()
 
     property string modul: ""
     property var lista: []
@@ -615,155 +568,132 @@ Popup {
       return w;
     }
 
-    ColumnLayout {
-      anchors.fill: parent
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Załóż kafle / Tylko sprawdź” button below)
+    function confirm() {
+      const w = wyborKafli.wybrane();
+      wyborKafli.close();
+      ekranWyposazenia.zaloz(wyborKafli.modul, { "warstwy": w });
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Kafel zakłada obiekt jednym tapnięciem, bez chodzenia po menu warstw. Etykietę dobiera aplikacja tak, żeby dwa kafle nie wyszły takie same. Plik jest SCALANY — kafle dopisane ręcznie zostają.")
+      color: "#B0BEC5"
+      font: Theme.tipFont
+      wrapMode: Text.Wrap
+    }
+
+    ListView {
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      clip: true
+      spacing: 4
+      model: wyborKafli.lista
+
+      delegate: Rectangle {
+        id: wiersz
+
+        width: ListView.view.width
+        height: 46
+        radius: 4
+        color: modelData.maKafel ? "#0AFFFFFF" : "#14FFFFFF"
+
+        readonly property bool wybrany: wyborKafli.zaznaczone[modelData.warstwa] === true
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: !modelData.maKafel
+          onClicked: wyborKafli.przelacz(modelData.warstwa)
+        }
+
+        RowLayout {
+          anchors.fill: parent
+          anchors.leftMargin: 8
+          anchors.rightMargin: 8
+          spacing: 10
+
+          // Kwadrat zamiast CheckBoksa: duży cel dla palca w rękawicy
+          // i wygląd, który nie zależy od stylu kontrolek.
+          Rectangle {
+            width: 24
+            height: 24
+            radius: 3
+            color: "transparent"
+            border.width: 2
+            border.color: modelData.maKafel ? "#546E7A"
+                                            : (wiersz.wybrany ? "#81C784" : "#90A4AE")
+
+            Text {
+              anchors.centerIn: parent
+              text: modelData.maKafel ? "·" : (wiersz.wybrany ? "✓" : "")
+              color: modelData.maKafel ? "#546E7A" : "#81C784"
+              font: Theme.defaultFont
+            }
+          }
+
+          // Etykieta tak, jak wyjdzie na pasku — żeby nie była
+          // niespodzianką dopiero w terenie.
+          Rectangle {
+            width: 34
+            height: 26
+            radius: 3
+            color: modelData.maKafel ? "#37474F" : (wiersz.wybrany ? "#2E7D32" : "#37474F")
+
+            Text {
+              anchors.centerIn: parent
+              text: modelData.etykieta
+              color: "white"
+              font: Theme.tinyFont
+            }
+          }
+
+          ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 0
+
+            Text {
+              Layout.fillWidth: true
+              text: modelData.warstwa
+              color: modelData.maKafel ? "#90A4AE" : "white"
+              font: Theme.defaultFont
+              elide: Text.ElideRight
+            }
+
+            Text {
+              Layout.fillWidth: true
+              text: modelData.maKafel
+                      ? qsTr("%1 — kafel już jest").arg(modelData.geometria)
+                      : modelData.geometria
+              color: "#78909C"
+              font: Theme.tinyFont
+              elide: Text.ElideRight
+            }
+          }
+        }
+      }
+
+      Text {
+        anchors.centerIn: parent
+        anchors.margins: 12
+        width: parent.width - 24
+        visible: parent.count === 0
+        text: qsTr("Projekt nie ma warstwy, której można dać kafel. Podkłady, słowniki i tabele załączników się nie liczą — kafel zakłada obiekt, więc warstwa musi mieć geometrię.")
+        color: "#EF5350"
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+        horizontalAlignment: Text.AlignHCenter
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
       spacing: 8
 
       Text {
         Layout.fillWidth: true
-        text: qsTr("Którym warstwom kafel?")
-        color: "#80CBC4"
-        font: Theme.strongFont
-      }
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Kafel zakłada obiekt jednym tapnięciem, bez chodzenia po menu warstw. Etykietę dobiera aplikacja tak, żeby dwa kafle nie wyszły takie same. Plik jest SCALANY — kafle dopisane ręcznie zostają.")
+        text: qsTr("zaznaczonych: %1").arg(wyborKafli.wybrane().length)
         color: "#B0BEC5"
-        font: Theme.tipFont
-        wrapMode: Text.Wrap
-      }
-
-      ListView {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        clip: true
-        spacing: 4
-        model: wyborKafli.lista
-
-        delegate: Rectangle {
-          id: wiersz
-
-          width: ListView.view.width
-          height: 46
-          radius: 4
-          color: modelData.maKafel ? "#0AFFFFFF" : "#14FFFFFF"
-
-          readonly property bool wybrany: wyborKafli.zaznaczone[modelData.warstwa] === true
-
-          MouseArea {
-            anchors.fill: parent
-            enabled: !modelData.maKafel
-            onClicked: wyborKafli.przelacz(modelData.warstwa)
-          }
-
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 8
-            spacing: 10
-
-            // Kwadrat zamiast CheckBoksa: duży cel dla palca w rękawicy
-            // i wygląd, który nie zależy od stylu kontrolek.
-            Rectangle {
-              width: 24
-              height: 24
-              radius: 3
-              color: "transparent"
-              border.width: 2
-              border.color: modelData.maKafel ? "#546E7A"
-                                              : (wiersz.wybrany ? "#81C784" : "#90A4AE")
-
-              Text {
-                anchors.centerIn: parent
-                text: modelData.maKafel ? "·" : (wiersz.wybrany ? "✓" : "")
-                color: modelData.maKafel ? "#546E7A" : "#81C784"
-                font: Theme.defaultFont
-              }
-            }
-
-            // Etykieta tak, jak wyjdzie na pasku — żeby nie była
-            // niespodzianką dopiero w terenie.
-            Rectangle {
-              width: 34
-              height: 26
-              radius: 3
-              color: modelData.maKafel ? "#37474F" : (wiersz.wybrany ? "#2E7D32" : "#37474F")
-
-              Text {
-                anchors.centerIn: parent
-                text: modelData.etykieta
-                color: "white"
-                font: Theme.tinyFont
-              }
-            }
-
-            ColumnLayout {
-              Layout.fillWidth: true
-              spacing: 0
-
-              Text {
-                Layout.fillWidth: true
-                text: modelData.warstwa
-                color: modelData.maKafel ? "#90A4AE" : "white"
-                font: Theme.defaultFont
-                elide: Text.ElideRight
-              }
-
-              Text {
-                Layout.fillWidth: true
-                text: modelData.maKafel
-                        ? qsTr("%1 — kafel już jest").arg(modelData.geometria)
-                        : modelData.geometria
-                color: "#78909C"
-                font: Theme.tinyFont
-                elide: Text.ElideRight
-              }
-            }
-          }
-        }
-
-        Text {
-          anchors.centerIn: parent
-          anchors.margins: 12
-          width: parent.width - 24
-          visible: parent.count === 0
-          text: qsTr("Projekt nie ma warstwy, której można dać kafel. Podkłady, słowniki i tabele załączników się nie liczą — kafel zakłada obiekt, więc warstwa musi mieć geometrię.")
-          color: "#EF5350"
-          font: Theme.tipFont
-          wrapMode: Text.Wrap
-          horizontalAlignment: Text.AlignHCenter
-        }
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Text {
-          Layout.fillWidth: true
-          text: qsTr("zaznaczonych: %1").arg(wyborKafli.wybrane().length)
-          color: "#B0BEC5"
-          font: Theme.tinyFont
-        }
-
-        ToolButton {
-          text: qsTr("Anuluj")
-          font: Theme.tinyFont
-          onClicked: wyborKafli.close()
-        }
-
-        Button {
-          // Pusty wybór też wolno zatwierdzić: krok wykonuje wtedy samą
-          // KONTROLĘ pliku — dokładnie to, co moduł robił do 23.09.2026.
-          text: wyborKafli.wybrane().length > 0 ? qsTr("Załóż kafle") : qsTr("Tylko sprawdź")
-          font: Theme.tinyFont
-          onClicked: {
-            const w = wyborKafli.wybrane();
-            wyborKafli.close();
-            ekranWyposazenia.zaloz(wyborKafli.modul, { "warstwy": w });
-          }
-        }
+        font: Theme.tinyFont
       }
     }
   }

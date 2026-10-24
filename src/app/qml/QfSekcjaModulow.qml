@@ -425,8 +425,15 @@ Item {
   }
 
   // ── Zakres prac: z pliku albo z działek ewidencyjnych ─────────────────
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: oknoZakresu
+
+    title: qsTr("Zakres prac")
+    confirmText: qsTr("Dodaj do zakresu")
+    confirmEnabled: !oknoZakresu.zajety && oknoZakresu.dzialki.length > 0
+    preferredWidth: 520
+    onConfirmed: confirm()
 
     property var akcja: ({})
     property var dzialki: []
@@ -436,14 +443,6 @@ Item {
     property bool osieOdwrotne: false
     readonly property string uldk: "https://uldk.gugik.gov.pl/?"
     readonly property string wynikUldk: "&result=teryt,parcel,region,commune,geom_wkt"
-
-    parent: typeof mainWindow !== "undefined" ? mainWindow.contentItem : sekcja
-    x: (parent.width - width) / 2
-    y: Math.max(12, (parent.height - height) / 4)
-    width: Math.min(parent.width - 24, 520)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape
 
     function otworz(a) {
       akcja = a;
@@ -631,6 +630,19 @@ Item {
       });
     }
 
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Dodaj do zakresu” button below)
+    function confirm() {
+      const wybrane = oknoZakresu.dzialki.filter(function (d) {
+        return d.wybrana;
+      });
+      if (wybrane.length === 0) {
+        oknoZakresu.stan = qsTr("Zaznacz co najmniej jedną działkę.");
+        return;
+      }
+      const f = sekcja.czynnosc(oknoZakresu.akcja.z_dzialek);
+      oknoZakresu.zakonczone(f(qgisProject, wybrane, oknoZakresu.bufor()), qsTr("działek: %1").arg(wybrane.length));
+    }
+
     SystemoweOkna.FileDialog {
       id: wybieraczZakresu
       title: qsTr("Wskaż plik z zakresem prac")
@@ -641,290 +653,188 @@ Item {
       onAccepted: oknoZakresu.zPliku(String(selectedFile).replace(/^file:\/\//, ""))
     }
 
-    background: Rectangle {
-      color: Theme.mainBackgroundColor
-      radius: 8
-      border.width: 1
-      border.color: Theme.controlBorderColor
-    }
-
-    contentItem: ColumnLayout {
+    RowLayout {
+      Layout.fillWidth: true
       spacing: 8
-
       Text {
-        Layout.fillWidth: true
-        text: qsTr("Zakres prac")
-        font: Theme.strongTipFont
-        color: Theme.mainTextColor
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-        Text {
-          text: qsTr("Bufor wokół zakresu [m]")
-          font: Theme.tipFont
-          color: Theme.mainTextColor
-        }
-        TextField {
-          id: poleBufor
-          Layout.preferredWidth: 70
-          inputMethodHints: Qt.ImhFormattedNumbersOnly
-          font: Theme.tipFont
-        }
-        Text {
-          Layout.fillWidth: true
-          text: qsTr("0 = bez bufora")
-          font: Theme.tinyFont
-          color: Theme.secondaryTextColor
-          wrapMode: Text.WordWrap
-        }
-      }
-
-      QfPozycjaMenu {
-        Layout.fillWidth: true
-        text: qsTr("Z pliku (GPKG, KML, GeoJSON, DXF, SHP)…")
-        ikona: "wfg_przeglad"
-        enabled: !oknoZakresu.zajety
-        onClicked: wybieraczZakresu.open()
-      }
-
-      Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 4
-        text: qsTr("Z działek ewidencyjnych — adres albo numer działki:")
+        text: qsTr("Bufor wokół zakresu [m]")
         font: Theme.tipFont
         color: Theme.mainTextColor
-        wrapMode: Text.WordWrap
       }
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 6
-        TextField {
-          id: poleSzukaj
-          Layout.fillWidth: true
-          placeholderText: qsTr("np. Warszawa, Bruzdowa 100 · 146516_8.0625.4/1")
-          font: Theme.tipFont
-          onAccepted: oknoZakresu.szukaj(text)
-        }
-        Button {
-          text: qsTr("Szukaj")
-          enabled: !oknoZakresu.zajety && poleSzukaj.text.trim() !== ""
-          onClicked: oknoZakresu.szukaj(poleSzukaj.text)
-        }
+      TextField {
+        id: poleBufor
+        Layout.preferredWidth: 70
+        inputMethodHints: Qt.ImhFormattedNumbersOnly
+        font: Theme.tipFont
       }
-
-      Repeater {
-        model: oknoZakresu.dzialki
-        delegate: CheckBox {
-          required property var modelData
-          required property int index
-          Layout.fillWidth: true
-          checked: modelData.wybrana
-          text: qsTr("%1 · %2 m² · %3").arg(modelData.id).arg(modelData.powierzchnia).arg(modelData.opis)
-          font: Theme.tinyFont
-          onToggled: oknoZakresu.dzialki[index].wybrana = checked
-        }
-      }
-
       Text {
         Layout.fillWidth: true
-        visible: text !== ""
-        text: oknoZakresu.stan
+        text: qsTr("0 = bez bufora")
         font: Theme.tinyFont
         color: Theme.secondaryTextColor
         wrapMode: Text.WordWrap
       }
+    }
 
-      RowLayout {
+    QfPozycjaMenu {
+      Layout.fillWidth: true
+      text: qsTr("Z pliku (GPKG, KML, GeoJSON, DXF, SHP)…")
+      ikona: "wfg_przeglad"
+      enabled: !oknoZakresu.zajety
+      onClicked: wybieraczZakresu.open()
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      text: qsTr("Z działek ewidencyjnych — adres albo numer działki:")
+      font: Theme.tipFont
+      color: Theme.mainTextColor
+      wrapMode: Text.WordWrap
+    }
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 6
+      TextField {
+        id: poleSzukaj
         Layout.fillWidth: true
-        spacing: 8
-        BusyIndicator {
-          Layout.preferredWidth: 28
-          Layout.preferredHeight: 28
-          running: oknoZakresu.zajety
-          visible: running
-        }
-        Item {
-          Layout.fillWidth: true
-        }
-        Button {
-          text: qsTr("Zamknij")
-          onClicked: oknoZakresu.close()
-        }
-        Button {
-          text: qsTr("Dodaj do zakresu")
-          enabled: !oknoZakresu.zajety && oknoZakresu.dzialki.length > 0
-          onClicked: {
-            const wybrane = oknoZakresu.dzialki.filter(function (d) {
-              return d.wybrana;
-            });
-            if (wybrane.length === 0) {
-              oknoZakresu.stan = qsTr("Zaznacz co najmniej jedną działkę.");
-              return;
-            }
-            const f = sekcja.czynnosc(oknoZakresu.akcja.z_dzialek);
-            oknoZakresu.zakonczone(f(qgisProject, wybrane, oknoZakresu.bufor()), qsTr("działek: %1").arg(wybrane.length));
-          }
-        }
+        placeholderText: qsTr("np. Warszawa, Bruzdowa 100 · 146516_8.0625.4/1")
+        font: Theme.tipFont
+        onAccepted: oknoZakresu.szukaj(text)
+      }
+      Button {
+        text: qsTr("Szukaj")
+        enabled: !oknoZakresu.zajety && poleSzukaj.text.trim() !== ""
+        onClicked: oknoZakresu.szukaj(poleSzukaj.text)
+      }
+    }
+
+    Repeater {
+      model: oknoZakresu.dzialki
+      delegate: CheckBox {
+        required property var modelData
+        required property int index
+        Layout.fillWidth: true
+        checked: modelData.wybrana
+        text: qsTr("%1 · %2 m² · %3").arg(modelData.id).arg(modelData.powierzchnia).arg(modelData.opis)
+        font: Theme.tinyFont
+        onToggled: oknoZakresu.dzialki[index].wybrana = checked
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      visible: text !== ""
+      text: oknoZakresu.stan
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+      BusyIndicator {
+        Layout.preferredWidth: 28
+        Layout.preferredHeight: 28
+        running: oknoZakresu.zajety
+        visible: running
+      }
+      Item {
+        Layout.fillWidth: true
       }
     }
   }
 
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: oknoPotwierdzenia
+
+    title: oknoPotwierdzenia.akcja.etykieta || ""
+    confirmText: oknoPotwierdzenia.akcja.etykieta || qsTr("Wykonaj")
+    bodySpacing: 10
+    // red frame as before: this action changes the project
+    borderColor: Theme.errorColor
+    onConfirmed: confirm()
 
     property var akcja: ({})
     property string tekst: ""
 
-    parent: typeof mainWindow !== "undefined" ? mainWindow.contentItem : sekcja
-    x: (parent.width - width) / 2
-    y: Math.max(12, (parent.height - height) / 3)
-    width: Math.min(parent.width - 24, 440)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape
-
-    background: Rectangle {
-      color: Theme.mainBackgroundColor
-      radius: 8
-      border.width: 1
-      border.color: Theme.errorColor
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the confirm button below)
+    function confirm() {
+      const a = oknoPotwierdzenia.akcja;
+      oknoPotwierdzenia.close();
+      sekcja.wykonaj(a);
     }
 
-    contentItem: ColumnLayout {
-      spacing: 10
-
-      Text {
-        Layout.fillWidth: true
-        text: oknoPotwierdzenia.akcja.etykieta || ""
-        font: Theme.strongTipFont
-        color: Theme.mainTextColor
-      }
-      Text {
-        Layout.fillWidth: true
-        text: oknoPotwierdzenia.tekst
-        font: Theme.tipFont
-        color: Theme.mainTextColor
-        wrapMode: Text.WordWrap
-      }
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-        Item {
-          Layout.fillWidth: true
-        }
-        QfDecisionButton {
-          role: "cancel" // [WF-BUTTONS]
-          text: qsTr("Anuluj")
-          onClicked: oknoPotwierdzenia.close()
-        }
-        QfDecisionButton {
-          role: "confirm" // [WF-BUTTONS]
-          text: oknoPotwierdzenia.akcja.etykieta || qsTr("Wykonaj")
-          onClicked: {
-            const a = oknoPotwierdzenia.akcja;
-            oknoPotwierdzenia.close();
-            sekcja.wykonaj(a);
-          }
-        }
-      }
+    Text {
+      Layout.fillWidth: true
+      text: oknoPotwierdzenia.tekst
+      font: Theme.tipFont
+      color: Theme.mainTextColor
+      wrapMode: Text.WordWrap
     }
   }
 
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: oknoNowego
+
+    title: qsTr("Nowy projekt: %1").arg(oknoNowego.opis.nazwa || "")
+    confirmText: qsTr("Utwórz")
+    confirmEnabled: poleNazwy.text.trim() !== ""
+    bodySpacing: 10
+    onConfirmed: confirm()
 
     property var opis: ({})
 
-    parent: typeof mainWindow !== "undefined" ? mainWindow.contentItem : sekcja
-    x: (parent.width - width) / 2
-    y: Math.max(12, (parent.height - height) / 3)
-    width: Math.min(parent.width - 24, 480)
-    modal: true
-    focus: true
-    closePolicy: Popup.CloseOnEscape
-
-    background: Rectangle {
-      color: Theme.mainBackgroundColor
-      radius: 8
-      border.width: 1
-      border.color: Theme.controlBorderColor
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Utwórz” button below)
+    function confirm() {
+      const blad = sekcja.nowyProjekt(oknoNowego.opis, poleNazwy.text, wyborUkladu.currentText);
+      if (blad !== "") {
+        komunikatNowego.text = blad;
+        return;
+      }
+      oknoNowego.close();
     }
 
-    contentItem: ColumnLayout {
-      spacing: 10
-
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Warstwy: %1").arg(((oknoNowego.opis.przepis || {}).warstwy || []).map(function (w) {
+        return w.nazwa;
+      }).join(", "))
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+    TextField {
+      id: poleNazwy
+      Layout.fillWidth: true
+      placeholderText: qsTr("Nazwa projektu")
+      font: Theme.tipFont
+    }
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
       Text {
-        Layout.fillWidth: true
-        text: qsTr("Nowy projekt: %1").arg(oknoNowego.opis.nazwa || "")
-        font: Theme.strongTipFont
+        text: qsTr("Układ")
+        font: Theme.tipFont
         color: Theme.mainTextColor
-        wrapMode: Text.WordWrap
       }
-      Text {
+      ComboBox {
+        id: wyborUkladu
         Layout.fillWidth: true
-        text: qsTr("Warstwy: %1").arg(((oknoNowego.opis.przepis || {}).warstwy || []).map(function (w) {
-          return w.nazwa;
-        }).join(", "))
-        font: Theme.tinyFont
-        color: Theme.secondaryTextColor
-        wrapMode: Text.WordWrap
+        // jak w kreatorze "Projekt z DXF": PL-2000 strefa 7 pierwsza
+        model: ["EPSG:2178", "EPSG:2179", "EPSG:2177", "EPSG:2176", "EPSG:2180"]
       }
-      TextField {
-        id: poleNazwy
-        Layout.fillWidth: true
-        placeholderText: qsTr("Nazwa projektu")
-        font: Theme.tipFont
-      }
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-        Text {
-          text: qsTr("Układ")
-          font: Theme.tipFont
-          color: Theme.mainTextColor
-        }
-        ComboBox {
-          id: wyborUkladu
-          Layout.fillWidth: true
-          // jak w kreatorze "Projekt z DXF": PL-2000 strefa 7 pierwsza
-          model: ["EPSG:2178", "EPSG:2179", "EPSG:2177", "EPSG:2176", "EPSG:2180"]
-        }
-      }
-      Text {
-        id: komunikatNowego
-        Layout.fillWidth: true
-        visible: text !== ""
-        color: Theme.errorColor
-        font: Theme.tipFont
-        wrapMode: Text.WordWrap
-      }
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-        Item {
-          Layout.fillWidth: true
-        }
-        QfDecisionButton {
-          role: "cancel" // [WF-BUTTONS]
-          text: qsTr("Anuluj")
-          onClicked: oknoNowego.close()
-        }
-        QfDecisionButton {
-          role: "confirm" // [WF-BUTTONS]
-          text: qsTr("Utwórz")
-          enabled: poleNazwy.text.trim() !== ""
-          onClicked: {
-            const blad = sekcja.nowyProjekt(oknoNowego.opis, poleNazwy.text, wyborUkladu.currentText);
-            if (blad !== "") {
-              komunikatNowego.text = blad;
-              return;
-            }
-            oknoNowego.close();
-          }
-        }
-      }
+    }
+    Text {
+      id: komunikatNowego
+      Layout.fillWidth: true
+      visible: text !== ""
+      color: Theme.errorColor
+      font: Theme.tipFont
+      wrapMode: Text.WordWrap
     }
   }
 

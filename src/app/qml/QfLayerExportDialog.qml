@@ -6,8 +6,14 @@ import org.qfield
 import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: exportDialog
+
+  title: qsTr("Eksport warstwy")
+  confirmText: exportDialog.willOverwrite ? qsTr("Nadpisz") : qsTr("Eksportuj")
+  confirmEnabled: exportDialog.baseName !== "" && exportDialog.layer
+  onConfirmed: exportDialog.confirm()
 
   property var t
   property var layer: null
@@ -52,14 +58,6 @@ Popup {
   readonly property string targetPath: targetDir + "/" + baseName + "." + formats[formatIndex].ext
   readonly property bool willOverwrite: baseName !== "" && FileUtils.fileExists(targetPath)
 
-  parent: mainWindow.contentItem
-  width: Math.min(420, mainWindow.width - 32)
-  height: Math.min(implicitHeight, mainWindow.height - 64)
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  modal: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
   function openFor(vectorLayer) {
     layer = vectorLayer;
     baseName = vectorLayer ? FileUtils.sanitizeFilePathPart(vectorLayer.name) : "";
@@ -67,211 +65,180 @@ Popup {
     open();
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    spacing: 8
+  Text {
+    Layout.fillWidth: true
+    text: exportDialog.layer ? exportDialog.layer.name : ""
+    font: t.tipFont
+    color: t.secondaryTextColor
+    elide: Text.ElideRight
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Eksport warstwy")
-      font: t.strongFont
-      color: t.mainTextColor
-    }
+  Text {
+    Layout.fillWidth: true
+    Layout.topMargin: 4
+    text: qsTr("Format")
+    font: t.strongTipFont
+    color: t.mainTextColor
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: exportDialog.layer ? exportDialog.layer.name : ""
-      font: t.tipFont
-      color: t.secondaryTextColor
-      elide: Text.ElideRight
-    }
+  ComboBox {
+    Layout.fillWidth: true
+    model: exportDialog.formats.map(f => f.label + " (." + f.ext + ")")
+    currentIndex: exportDialog.formatIndex
+    font: t.defaultFont
+    onActivated: exportDialog.formatIndex = currentIndex
+  }
 
-    Text {
-      Layout.fillWidth: true
-      Layout.topMargin: 4
-      text: qsTr("Format")
-      font: t.strongTipFont
-      color: t.mainTextColor
-    }
+  Text {
+    Layout.fillWidth: true
+    Layout.topMargin: 4
+    text: qsTr("Układ współrzędnych")
+    font: t.strongTipFont
+    color: t.mainTextColor
+  }
 
-    ComboBox {
-      Layout.fillWidth: true
-      model: exportDialog.formats.map(f => f.label + " (." + f.ext + ")")
-      currentIndex: exportDialog.formatIndex
-      font: t.defaultFont
-      onActivated: exportDialog.formatIndex = currentIndex
-    }
+  Text {
+    Layout.fillWidth: true
+    visible: exportDialog.formats[exportDialog.formatIndex].wgs84 && exportDialog.targetCrs !== "EPSG:4326"
+    text: qsTr("Standard tego formatu zakłada WGS84 — inny układ może nie być czytany przez wszystkie programy")
+    font: t.tipFont
+    color: t.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-    Text {
-      Layout.fillWidth: true
-      Layout.topMargin: 4
-      text: qsTr("Układ współrzędnych")
-      font: t.strongTipFont
-      color: t.mainTextColor
-    }
+  Flow {
+    Layout.fillWidth: true
+    spacing: 6
 
-    Text {
-      Layout.fillWidth: true
-      visible: exportDialog.formats[exportDialog.formatIndex].wgs84 && exportDialog.targetCrs !== "EPSG:4326"
-      text: qsTr("Standard tego formatu zakłada WGS84 — inny układ może nie być czytany przez wszystkie programy")
-      font: t.tipFont
-      color: t.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
+    Repeater {
+      model: [
+        { key: "layer", label: qsTr("Warstwy") },
+        { key: "wgs84", label: "WGS 84" },
+        { key: "pl1992", label: "PL-1992" },
+        { key: "pl2000", label: "PL-2000/21" },
+        { key: "custom", label: qsTr("Inny") }
+      ]
 
-    Flow {
-      Layout.fillWidth: true
-      spacing: 6
-
-      Repeater {
-        model: [
-          { key: "layer", label: qsTr("Warstwy") },
-          { key: "wgs84", label: "WGS 84" },
-          { key: "pl1992", label: "PL-1992" },
-          { key: "pl2000", label: "PL-2000/21" },
-          { key: "custom", label: qsTr("Inny") }
-        ]
-
-        delegate: Button {
-          required property var modelData
-          text: modelData.label
-          font.pointSize: t.tinyFont.pointSize
-          checkable: true
-          // [WF-BUTTONS] checked chip filled with white text (was green on dark).
-          highlighted: checked
-          checked: exportDialog.crsChoice === modelData.key
-          onClicked: exportDialog.crsChoice = modelData.key
-        }
+      delegate: Button {
+        required property var modelData
+        text: modelData.label
+        font.pointSize: t.tinyFont.pointSize
+        checkable: true
+        // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+        highlighted: checked
+        checked: exportDialog.crsChoice === modelData.key
+        onClicked: exportDialog.crsChoice = modelData.key
       }
     }
+  }
 
-    TextField {
-      Layout.fillWidth: true
-      visible: exportDialog.crsChoice === "custom"
-      placeholderText: "EPSG:2177"
-      text: exportDialog.customCrs
-      font: t.defaultFont
-      onTextChanged: exportDialog.customCrs = text
-    }
+  TextField {
+    Layout.fillWidth: true
+    visible: exportDialog.crsChoice === "custom"
+    placeholderText: "EPSG:2177"
+    text: exportDialog.customCrs
+    font: t.defaultFont
+    onTextChanged: exportDialog.customCrs = text
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Docelowo: %1").arg(exportDialog.targetCrs === "" ? exportDialog.layerCrs : exportDialog.targetCrs)
-      font: t.tipFont
-      color: t.secondaryTextColor
-    }
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Docelowo: %1").arg(exportDialog.targetCrs === "" ? exportDialog.layerCrs : exportDialog.targetCrs)
+    font: t.tipFont
+    color: t.secondaryTextColor
+  }
 
-    Text {
-      Layout.fillWidth: true
-      Layout.topMargin: 4
-      text: qsTr("Kodowanie")
-      font: t.strongTipFont
-      color: t.mainTextColor
-    }
+  Text {
+    Layout.fillWidth: true
+    Layout.topMargin: 4
+    text: qsTr("Kodowanie")
+    font: t.strongTipFont
+    color: t.mainTextColor
+  }
 
-    Flow {
-      Layout.fillWidth: true
-      spacing: 6
+  Flow {
+    Layout.fillWidth: true
+    spacing: 6
 
-      Repeater {
-        model: ["UTF-8", "CP1250", "ISO-8859-2"]
+    Repeater {
+      model: ["UTF-8", "CP1250", "ISO-8859-2"]
 
-        delegate: Button {
-          required property string modelData
-          text: modelData
-          font.pointSize: t.tinyFont.pointSize
-          checkable: true
-          // [WF-BUTTONS] checked chip filled with white text (was green on dark).
-          highlighted: checked
-          checked: exportDialog.encoding === modelData
-          onClicked: exportDialog.encoding = modelData
-        }
+      delegate: Button {
+        required property string modelData
+        text: modelData
+        font.pointSize: t.tinyFont.pointSize
+        checkable: true
+        // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+        highlighted: checked
+        checked: exportDialog.encoding === modelData
+        onClicked: exportDialog.encoding = modelData
       }
     }
+  }
 
-    Text {
-      Layout.fillWidth: true
-      Layout.topMargin: 4
-      text: qsTr("Katalog")
-      font: t.strongTipFont
-      color: t.mainTextColor
-    }
+  Text {
+    Layout.fillWidth: true
+    Layout.topMargin: 4
+    text: qsTr("Katalog")
+    font: t.strongTipFont
+    color: t.mainTextColor
+  }
 
-    Flow {
-      Layout.fillWidth: true
-      spacing: 6
+  Flow {
+    Layout.fillWidth: true
+    spacing: 6
 
-      Repeater {
-        model: ["export", "OUT", "."]
+    Repeater {
+      model: ["export", "OUT", "."]
 
-        delegate: Button {
-          required property string modelData
-          text: modelData === "." ? qsTr("Folder projektu") : modelData + "/"
-          font.pointSize: t.tinyFont.pointSize
-          checkable: true
-          // [WF-BUTTONS] checked chip filled with white text (was green on dark).
-          highlighted: checked
-          checked: exportDialog.subfolder === modelData
-          onClicked: exportDialog.subfolder = modelData
-        }
+      delegate: Button {
+        required property string modelData
+        text: modelData === "." ? qsTr("Folder projektu") : modelData + "/"
+        font.pointSize: t.tinyFont.pointSize
+        checkable: true
+        // [WF-BUTTONS] checked chip filled with white text (was green on dark).
+        highlighted: checked
+        checked: exportDialog.subfolder === modelData
+        onClicked: exportDialog.subfolder = modelData
       }
     }
+  }
 
-    TextField {
-      Layout.fillWidth: true
-      text: exportDialog.baseName
-      font: t.defaultFont
-      placeholderText: qsTr("Nazwa pliku")
-      onTextChanged: exportDialog.baseName = text
-    }
+  TextField {
+    Layout.fillWidth: true
+    text: exportDialog.baseName
+    font: t.defaultFont
+    placeholderText: qsTr("Nazwa pliku")
+    onTextChanged: exportDialog.baseName = text
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: exportDialog.targetPath
-      font: t.tinyFont
-      color: t.secondaryTextColor
-      wrapMode: Text.WrapAnywhere
-    }
+  Text {
+    Layout.fillWidth: true
+    text: exportDialog.targetPath
+    font: t.tinyFont
+    color: t.secondaryTextColor
+    wrapMode: Text.WrapAnywhere
+  }
 
-    Text {
-      Layout.fillWidth: true
-      visible: exportDialog.willOverwrite
-      text: qsTr("Uwaga: plik istnieje i zostanie nadpisany")
-      font: t.tipFont
-      color: t.warningColor
-      wrapMode: Text.WordWrap
-    }
+  Text {
+    Layout.fillWidth: true
+    visible: exportDialog.willOverwrite
+    text: qsTr("Uwaga: plik istnieje i zostanie nadpisany")
+    font: t.tipFont
+    color: t.warningColor
+    wrapMode: Text.WordWrap
+  }
 
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.topMargin: 8
-      spacing: 8
-
-      QfDecisionButton {
-        role: "cancel" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Anuluj")
-        onClicked: exportDialog.close()
-      }
-
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: exportDialog.willOverwrite ? qsTr("Nadpisz") : qsTr("Eksportuj")
-        enabled: exportDialog.baseName !== "" && exportDialog.layer
-
-        onClicked: {
-          if (exportDialog.subfolder !== ".")
-            platformUtilities.createDir(qgisProject.homePath, exportDialog.subfolder);
-          const written = LayerUtils.exportVectorLayer(exportDialog.layer, exportDialog.targetPath, exportDialog.targetCrs, exportDialog.encoding);
-          if (written !== "")
-            displayToast(qsTr("Wyeksportowano: %1").arg(written));
-          else
-            displayToast(qsTr("Eksport nie powiódł się"));
-          exportDialog.close();
-        }
-      }
-    }
+  // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Eksportuj / Nadpisz” button below)
+  function confirm() {
+    if (exportDialog.subfolder !== ".")
+      platformUtilities.createDir(qgisProject.homePath, exportDialog.subfolder);
+    const written = LayerUtils.exportVectorLayer(exportDialog.layer, exportDialog.targetPath, exportDialog.targetCrs, exportDialog.encoding);
+    if (written !== "")
+      displayToast(qsTr("Wyeksportowano: %1").arg(written));
+    else
+      displayToast(qsTr("Eksport nie powiódł się"));
+    exportDialog.close();
   }
 }
 

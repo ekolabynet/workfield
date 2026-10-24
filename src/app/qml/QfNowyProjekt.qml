@@ -37,8 +37,16 @@ import org.qfield
 import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: kreator
+
+  title: qsTr("Nowy projekt w zleceniu")
+  confirmText: qsTr("Utwórz projekt")
+  confirmEnabled: kreator.nazwaProjektu() !== ""
+  preferredWidth: 520
+  bodySpacing: 10
+  onConfirmed: kreator.utworz()
 
   property var t
 
@@ -100,20 +108,6 @@ Popup {
   property string szablonWybrany: ""
 
   readonly property string bezSzablonu: qsTr("(pusty projekt — bez szablonu)")
-
-  width: Math.min(mainWindow.width - 32, 520)
-  height: Math.min(mainWindow.height - 64, 620)
-  x: Math.round((mainWindow.width - width) / 2)
-  y: Math.round((mainWindow.height - height) / 2)
-  modal: true
-  focus: true
-  closePolicy: Popup.CloseOnEscape
-
-  background: Rectangle {
-    color: t.mainBackgroundColor
-    radius: 8
-    border.color: t.controlBorderColor
-  }
 
   onOpened: {
     if (katalogSzablonow === "")
@@ -334,164 +328,134 @@ Popup {
   }
 
   // ── widok ──────────────────────────────────────────────────────────────
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 14
-    spacing: 10
+  Label {
+    Layout.fillWidth: true
+    visible: kreator.projekty.length === 0
+    text: qsTr("Nie ma jeszcze żadnego zlecenia. Załóż je w zakładce Zlecenia („Nowe zlecenie”), potem wróć tu po kolejne aspekty.")
+    font: t.tipFont
+    color: t.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
+
+  // ── zleceniodawca ──
+  Label {
+    text: qsTr("Zleceniodawca")
+    font: t.tinyFont
+    color: t.secondaryTextColor
+  }
+  ComboBox {
+    id: poleZleceniodawca
+    Layout.fillWidth: true
+    enabled: kreator.projekty.length > 0
+    model: kreator.listaZleceniodawcow
+    textRole: "etykieta"
+    valueRole: "kod"
+    onActivated: {
+      kreator.wybZleceniodawca = currentValue;
+      kreator.wybTeren = "";
+      kreator.wybZlecenie = "";
+    }
+  }
+
+  // ── teren ──
+  Label {
+    text: qsTr("Teren")
+    font: t.tinyFont
+    color: t.secondaryTextColor
+  }
+  ComboBox {
+    id: poleTeren
+    Layout.fillWidth: true
+    enabled: kreator.wybZleceniodawca !== ""
+    model: kreator.listaTerenow
+    textRole: "etykieta"
+    valueRole: "kod"
+    onActivated: {
+      kreator.wybTeren = currentValue;
+      kreator.wybZlecenie = "";
+    }
+  }
+
+  // ── zlecenie ──
+  Label {
+    text: qsTr("Zlecenie")
+    font: t.tinyFont
+    color: t.secondaryTextColor
+  }
+  ComboBox {
+    id: poleZlecenie
+    Layout.fillWidth: true
+    enabled: kreator.wybTeren !== ""
+    model: kreator.listaZlecen
+    textRole: "etykieta"
+    valueRole: "kod"
+    onActivated: kreator.wybZlecenie = currentValue
+  }
+
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: 1
+    color: t.controlBorderColor
+  }
+
+  // ── rodzaj nowego projektu ──
+  Label {
+    text: qsTr("Rodzaj (aspekt) nowego projektu")
+    font: t.tinyFont
+    color: t.secondaryTextColor
+  }
+  ComboBox {
+    id: poleRodzaj
+    Layout.fillWidth: true
+    editable: true
+    enabled: kreator.wybZlecenie !== ""
+    model: ["inw", "obs", "ciecia", "rekonesans"]
+  }
+  Label {
+    Layout.fillWidth: true
+    visible: kreator.wybZlecenie !== "" && kreator.rodzajeWZleceniu.indexOf(poleRodzaj.currentText.trim().toLowerCase()) !== -1
+    text: qsTr("Uwaga: rodzaj „%1” już jest w tym zleceniu.").arg(poleRodzaj.currentText.trim().toLowerCase())
+    font: t.tinyFont
+    color: t.warningColor
+    wrapMode: Text.WordWrap
+  }
+
+  // ── szablon ──
+  Label {
+    text: qsTr("Szablon")
+    font: t.tinyFont
+    color: t.secondaryTextColor
+  }
+  ComboBox {
+    id: wyborSzablonu
+    Layout.fillWidth: true
+    model: kreator.listaSzablonow
+    onCurrentTextChanged: kreator.szablonWybrany = (currentText === kreator.bezSzablonu ? "" : currentText)
+  }
+
+  // ── podgląd nazwy ──
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: 40
+    radius: 6
+    color: "transparent"
+    border.color: t.controlBorderColor
+    visible: kreator.nazwaProjektu() !== ""
 
     Label {
-      text: qsTr("Nowy projekt w zleceniu")
+      anchors.centerIn: parent
+      text: kreator.nazwaProjektu()
       font: t.strongTipFont
       color: t.mainTextColor
     }
+  }
 
-    Label {
-      Layout.fillWidth: true
-      visible: kreator.projekty.length === 0
-      text: qsTr("Nie ma jeszcze żadnego zlecenia. Załóż je w zakładce Zlecenia („Nowe zlecenie”), potem wróć tu po kolejne aspekty.")
-      font: t.tipFont
-      color: t.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    // ── zleceniodawca ──
-    Label {
-      text: qsTr("Zleceniodawca")
-      font: t.tinyFont
-      color: t.secondaryTextColor
-    }
-    ComboBox {
-      id: poleZleceniodawca
-      Layout.fillWidth: true
-      enabled: kreator.projekty.length > 0
-      model: kreator.listaZleceniodawcow
-      textRole: "etykieta"
-      valueRole: "kod"
-      onActivated: {
-        kreator.wybZleceniodawca = currentValue;
-        kreator.wybTeren = "";
-        kreator.wybZlecenie = "";
-      }
-    }
-
-    // ── teren ──
-    Label {
-      text: qsTr("Teren")
-      font: t.tinyFont
-      color: t.secondaryTextColor
-    }
-    ComboBox {
-      id: poleTeren
-      Layout.fillWidth: true
-      enabled: kreator.wybZleceniodawca !== ""
-      model: kreator.listaTerenow
-      textRole: "etykieta"
-      valueRole: "kod"
-      onActivated: {
-        kreator.wybTeren = currentValue;
-        kreator.wybZlecenie = "";
-      }
-    }
-
-    // ── zlecenie ──
-    Label {
-      text: qsTr("Zlecenie")
-      font: t.tinyFont
-      color: t.secondaryTextColor
-    }
-    ComboBox {
-      id: poleZlecenie
-      Layout.fillWidth: true
-      enabled: kreator.wybTeren !== ""
-      model: kreator.listaZlecen
-      textRole: "etykieta"
-      valueRole: "kod"
-      onActivated: kreator.wybZlecenie = currentValue
-    }
-
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: t.controlBorderColor
-    }
-
-    // ── rodzaj nowego projektu ──
-    Label {
-      text: qsTr("Rodzaj (aspekt) nowego projektu")
-      font: t.tinyFont
-      color: t.secondaryTextColor
-    }
-    ComboBox {
-      id: poleRodzaj
-      Layout.fillWidth: true
-      editable: true
-      enabled: kreator.wybZlecenie !== ""
-      model: ["inw", "obs", "ciecia", "rekonesans"]
-    }
-    Label {
-      Layout.fillWidth: true
-      visible: kreator.wybZlecenie !== "" && kreator.rodzajeWZleceniu.indexOf(poleRodzaj.currentText.trim().toLowerCase()) !== -1
-      text: qsTr("Uwaga: rodzaj „%1” już jest w tym zleceniu.").arg(poleRodzaj.currentText.trim().toLowerCase())
-      font: t.tinyFont
-      color: t.warningColor
-      wrapMode: Text.WordWrap
-    }
-
-    // ── szablon ──
-    Label {
-      text: qsTr("Szablon")
-      font: t.tinyFont
-      color: t.secondaryTextColor
-    }
-    ComboBox {
-      id: wyborSzablonu
-      Layout.fillWidth: true
-      model: kreator.listaSzablonow
-      onCurrentTextChanged: kreator.szablonWybrany = (currentText === kreator.bezSzablonu ? "" : currentText)
-    }
-
-    // ── podgląd nazwy ──
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 40
-      radius: 6
-      color: "transparent"
-      border.color: t.controlBorderColor
-      visible: kreator.nazwaProjektu() !== ""
-
-      Label {
-        anchors.centerIn: parent
-        text: kreator.nazwaProjektu()
-        font: t.strongTipFont
-        color: t.mainTextColor
-      }
-    }
-
-    Label {
-      id: komunikat
-      Layout.fillWidth: true
-      color: t.warningColor
-      font: t.tinyFont
-      wrapMode: Text.WordWrap
-      visible: text !== ""
-    }
-
-    Item { Layout.fillHeight: true }
-
-    RowLayout {
-      Layout.fillWidth: true
-      Item { Layout.fillWidth: true }
-      QfDecisionButton {
-        role: "cancel" // [WF-BUTTONS]
-        text: qsTr("Anuluj")
-        onClicked: kreator.close()
-      }
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        text: qsTr("Utwórz projekt")
-        enabled: kreator.nazwaProjektu() !== ""
-        onClicked: kreator.utworz()
-      }
-    }
+  Label {
+    id: komunikat
+    Layout.fillWidth: true
+    color: t.warningColor
+    font: t.tinyFont
+    wrapMode: Text.WordWrap
+    visible: text !== ""
   }
 }

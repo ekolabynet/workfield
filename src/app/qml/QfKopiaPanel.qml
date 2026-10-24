@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
 import org.qfield.core
+import org.qfield.gui
 import Theme
 
 /**
@@ -17,8 +18,18 @@ import Theme
  * Ścieżka montowania nie jest tożsamością: `/media/piotr/WF_BACKUP` to
  * miejsce, w którym coś akurat stoi.
  */
-QfPopup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar, scrolling body
+QfWindowFrame {
   id: kopiaPanel
+
+  title: qsTr("Kopia na nośnik")
+  exitMode: "close"
+  // [WF-WINDOW-FRAME] no `busy`: leaving while a copy runs is allowed (it goes on);
+  // the old „Zamknij (kopia leci dalej)” label is now this toast
+  onCancelled: {
+    if (KopieZapasowe.pracuje)
+      displayToast(qsTr("Kopia leci dalej"));
+  }
 
   property string korzen: dashBoard.korzenMagazynu
   property var nosniki: []
@@ -317,9 +328,6 @@ QfPopup {
   property int szerokoscWybrana: settings.valueInt("/WorkField/KopiaPanel/szerokosc", 580)
   property int wysokoscWybrana: settings.valueInt("/WorkField/KopiaPanel/wysokosc", 0)
 
-  parent: mainWindow.contentItem
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
   /*
    * OKNO NIGDY WEZSZE, NIZ WYMAGA JEGO ZAWARTOSC.
    *
@@ -332,10 +340,10 @@ QfPopup {
    * Wiec szerokosc bierze wieksza z dwoch: wybranej przez czlowieka i tej,
    * ktorej zada uklad. Gorna granica to okno aplikacji.
    */
-  width: Math.min(Math.max(dostepna, ramka.implicitWidth + 10), mainWindow.width - 32)
-  height: wysokoscWybrana > 0
-          ? Math.min(Math.max(320, wysokoscWybrana), mainWindow.height - 80)
-          : Math.min(implicitHeight, mainWindow.height - 80)
+  // [WF-WINDOW-FRAME] the frame owns width/height; the content need is the table's
+  // minimum width (below) plus the body padding (2 × 12) and the scroll bar (18).
+  // Height follows the content now, a dragged height only shows 8 table rows.
+  preferredWidth: Math.max(dostepna, (szeroko ? 600 : 430) + 42)
 
   /**
    * WorkField 24.08.2026 — W TRAKCIE KOPIOWANIA OKNO NIE ZAMYKA SIĘ SAMO.
@@ -352,8 +360,8 @@ QfPopup {
    * i oba wyraźne — „Przerwij" zatrzymuje, „Zamknij" schodzi z drogi
    * i mówi wprost, że kopia leci dalej.
    */
-  closePolicy: KopieZapasowe.pracuje ? Popup.NoAutoClose
-                                     : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
+  // [WF-WINDOW-FRAME] kept over the frame's policy: no Esc while copying, ← stays the exit
+  closePolicy: KopieZapasowe.pracuje ? Popup.NoAutoClose : Popup.CloseOnEscape
 
   onOpened: {
     wynik = null;
@@ -361,676 +369,620 @@ QfPopup {
     odswiez();
   }
 
-  /*
-   * JEDNO DZIECKO, NIE DWOJE — i to nie jest kosmetyka.
-   *
-   * `Popup` z JEDNYM zadeklarowanym dzieckiem robi z niego swoj contentItem
-   * i bierze z niego implicitHeight. Z DWOJGIEM opakowuje je we wlasny, goly
-   * `Item`, ktorego implicitHeight wynosi ZERO — a wtedy wysokosc okna spada
-   * do samych marginesow.
-   *
-   * Dokladnie to stalo sie 24.08.2026, kiedy dolozylem uchwyt do rozciagania
-   * jako drugie dziecko: tlo skurczylo sie do czarnego paska u gory, a cala
-   * zawartosc wylala sie poza nie i pojechala po bialym tle aplikacji.
-   * Wygladalo to na zepsute kolory, a bylo zepsute WYSOKOSCI.
-   *
-   * Wiec: jedno dziecko — ta oto ramka — ktore przekazuje rozmiary z ukladu
-   * w gore. Uchwyt siedzi w niej obok ukladu i niczego nie liczy.
-   */
-  Item {
-    id: ramka
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Kopia jedzie ze spisem swojej zawartości — po pół roku da się sprawdzić, czy nośnik nadal ma to, co dostał, bez oryginału.")
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-    /*
-     * ANCHORS.FILL JEST KONIECZNE. Popup NIE zastepuje swojego contentItem
-     * zadeklarowanym dzieckiem — on je do niego WSTAWIA. Dziecko, ktore samo
-     * sie nie rozciagnie, bierze rozmiar wyliczony z zawartosci zamiast
-     * rozmiaru okna. Zmierzone 24.08.2026 (skrypty/proba_ukladu): w podgladzie
-     * stylizacji dawalo to ramke 841x84 w oknie 760x640 i Flickable o zerowej
-     * wysokosci — cala tabela znikala, choc byla ulozona na 971 pikseli.
-     */
-    anchors.fill: parent
-    implicitWidth: uklad.implicitWidth
-    implicitHeight: uklad.implicitHeight
+  // ---------------------------------------------------------- nośniki
+  Text {
+    Layout.fillWidth: true
+    Layout.topMargin: 4
+    text: kopiaPanel.nosniki.length === 0
+          ? qsTr("Nie widzę żadnego podpiętego nośnika. Podłącz pendrive i naciśnij „Odśwież”.")
+          : qsTr("Podpięte nośniki:")
+    font: Theme.tipFont
+    color: kopiaPanel.nosniki.length === 0 ? Theme.warningColor : Theme.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-  ColumnLayout {
-    id: uklad
+  Repeater {
+    model: kopiaPanel.nosniki
 
-    anchors.fill: parent
-    spacing: 8
+    ItemDelegate {
+      required property int index
+      required property var modelData
+
+      Layout.fillWidth: true
+      height: 46
+      highlighted: kopiaPanel.wybrany === index
+
+      background: Rectangle {
+        color: kopiaPanel.wybrany === index
+               ? Qt.rgba(Theme.mainColor.r, Theme.mainColor.g, Theme.mainColor.b, 0.45)
+               : "transparent"
+        radius: 4
+      }
+
+      contentItem: ColumnLayout {
+        spacing: 0
+
+        Text {
+          Layout.fillWidth: true
+          text: modelData.znany
+                ? modelData.nazwa
+                : qsTr("nowy nośnik — %1").arg(modelData.etykieta)
+          font: Theme.strongTipFont
+          color: modelData.znany ? Theme.mainTextColor : Theme.warningColor
+          elide: Text.ElideRight
+        }
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("%1 · wolne %2 z %3 · migawek: %4")
+                .arg(modelData.system)
+                .arg(FileUtils.representFileSize(modelData.wolne))
+                .arg(FileUtils.representFileSize(modelData.pojemnosc))
+                .arg(modelData.migawek)
+          font: Theme.tinyFont
+          color: Theme.secondaryTextColor
+          elide: Text.ElideRight
+        }
+      }
+
+      onClicked: {
+        kopiaPanel.wybrany = index;
+        kopiaPanel.zbadaj();
+      }
+    }
+  }
+
+  // ------------------------------------------------- nazwa nowego nośnika
+  RowLayout {
+    Layout.fillWidth: true
+    visible: kopiaPanel.nosnik !== null && !kopiaPanel.nosnik.znany
+    spacing: 6
 
     Text {
-      Layout.fillWidth: true
-      text: qsTr("Kopia na nośnik")
-      font: Theme.strongFont
+      text: qsTr("Nazwij go:")
+      font: Theme.tipFont
       color: Theme.mainTextColor
     }
-
-    Text {
+    TextField {
+      id: poleNazwy
       Layout.fillWidth: true
-      text: qsTr("Kopia jedzie ze spisem swojej zawartości — po pół roku da się sprawdzić, czy nośnik nadal ma to, co dostał, bez oryginału.")
-      font: Theme.tinyFont
-      color: Theme.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    // ---------------------------------------------------------- nośniki
-    Text {
-      Layout.fillWidth: true
-      Layout.topMargin: 4
-      text: kopiaPanel.nosniki.length === 0
-            ? qsTr("Nie widzę żadnego podpiętego nośnika. Podłącz pendrive i naciśnij „Odśwież”.")
-            : qsTr("Podpięte nośniki:")
       font: Theme.tipFont
-      color: kopiaPanel.nosniki.length === 0 ? Theme.warningColor : Theme.secondaryTextColor
-      wrapMode: Text.WordWrap
+      placeholderText: qsTr("np. USB biuro czerwony")
+    }
+  }
+
+  // ------------------------------------------------------------- zakres
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+
+    Text {
+      text: qsTr("Zakres:")
+      font: Theme.tipFont
+      color: Theme.secondaryTextColor
+    }
+    Button {
+      text: qsTr("nieodtwarzalne")
+      font: Theme.tinyFont
+      flat: kopiaPanel.zakres !== "dane"
+      highlighted: kopiaPanel.zakres === "dane"
+      onClicked: {
+        kopiaPanel.zakres = "dane";
+        kopiaPanel.zbadaj();
+      }
+    }
+    Button {
+      text: qsTr("wszystko")
+      font: Theme.tinyFont
+      flat: kopiaPanel.zakres !== "wszystko"
+      highlighted: kopiaPanel.zakres === "wszystko"
+      onClicked: {
+        kopiaPanel.zakres = "wszystko";
+        kopiaPanel.zbadaj();
+      }
+    }
+    Item {
+      Layout.fillWidth: true
     }
 
-    Repeater {
-      model: kopiaPanel.nosniki
+    /*
+     * „WYKONAJ KOPIĘ", A NIE „KOPIUJ" — I PRZY ZAKRESIE, NIE NA DOLE.
+     *
+     * Piotr, 24.08.2026: „Kopiuj powinno umożliwiać skopiowanie danych
+     * i informacji o kopii". Ma rację i to jest ostrzejsze, niż wyglada:
+     * w kazdym innym oknie tej aplikacji „Kopiuj" znaczy „do schowka".
+     * Ten jeden przycisk znaczyl „przepisz 88 GB na dysk zewnetrzny" —
+     * to samo slowo, zupelnie inna waga, i zadnego sygnalu o roznicy.
+     *
+     * Stad: czasownik mowi, co robi, i stoi TAM, gdzie sie podejmuje
+     * decyzje — obok zakresu, ktory wlasnie sie wybralo. Jasne tlo, bo to
+     * jedyny przycisk w tym oknie, ktory cos pisze na cudzym dysku.
+     */
+    Button {
+      id: przyciskWykonaj
 
-      ItemDelegate {
-        required property int index
-        required property var modelData
+      // Napis mowi, co sie stanie PO KLIKNIECIU — a przy pustym lancuchu
+      // stanie sie cos znacznie drozszego niz zwykla kopia.
+      text: kopiaPanel.pelnaZbrojona
+            ? qsTr("Na pewno? Pełna kopia %1")
+                .arg(kopiaPanel.rozpoznanie
+                     ? FileUtils.representFileSize(kopiaPanel.rozpoznanie.bajtow)
+                     : "")
+            : qsTr("Wykonaj kopię")
+      font: Theme.strongTipFont
+      enabled: !KopieZapasowe.pracuje && kopiaPanel.nosnik !== null
+      Layout.preferredHeight: 34
 
-        Layout.fillWidth: true
-        height: 46
-        highlighted: kopiaPanel.wybrany === index
+      background: Rectangle {
+        radius: 4
+        color: !przyciskWykonaj.enabled ? Theme.controlBackgroundDisabledColor
+               : przyciskWykonaj.pressed ? Qt.darker(Theme.mainColor, 1.2)
+               : Theme.mainColor
+        border.width: 1
+        border.color: przyciskWykonaj.enabled ? Qt.lighter(Theme.mainColor, 1.4) : "transparent"
+      }
+      contentItem: Text {
+        text: przyciskWykonaj.text
+        font: przyciskWykonaj.font
+        color: przyciskWykonaj.enabled ? Theme.mainOverlayColor : Theme.mainTextDisabledColor
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+        leftPadding: 10
+        rightPadding: 10
+      }
 
-        background: Rectangle {
-          color: kopiaPanel.wybrany === index
-                 ? Qt.rgba(Theme.mainColor.r, Theme.mainColor.g, Theme.mainColor.b, 0.45)
-                 : "transparent"
-          radius: 4
-        }
+      onClicked: kopiaPanel.kopiuj()
+    }
 
-        contentItem: ColumnLayout {
-          spacing: 0
+    Button {
+      text: qsTr("Odśwież")
+      font: Theme.tinyFont
+      flat: true
+      onClicked: kopiaPanel.odswiez()
+    }
+  }
+
+  // -------------------------------------------------------- rozpoznanie
+  Text {
+    Layout.fillWidth: true
+    visible: kopiaPanel.rozpoznanie !== null
+    text: {
+      const r = kopiaPanel.rozpoznanie;
+      if (!r)
+        return "";
+      let s = qsTr("Do skopiowania: %1 plików, %2. Wolne na nośniku: %3.")
+              .arg(r.plikow)
+              .arg(FileUtils.representFileSize(r.bajtow))
+              .arg(FileUtils.representFileSize(r.wolne));
+      if (!r.zmiesciSie)
+        s += "\n" + qsTr("⚠ To się nie zmieści.");
+      // Dziennik obok bazy znaczy „ktoś ją ma otwartą”. Mówimy o tym PRZED
+      // kopiowaniem, żeby dało się zamknąć QGIS-a, a nie po fakcie.
+      if (r.otwarteBazy.length > 0)
+        s += "\n" + qsTr("⚠ Otwarte bazy (zostaną pominięte): %1").arg(r.otwarteBazy.join(", "));
+      // Tekst sklejany PLUSEM, a nie sąsiedztwem. W C++ dwa literały obok
+      // siebie łączą się same; w JavaScripcie to błąd składni — i właśnie
+      // tak wyłożył się tu build 24.08.2026. To samo miejsce w pliku .cpp
+      // byłoby poprawne, więc odruch przenosi się niezauważony.
+      if (kopiaPanel.nowyLancuch())
+        s += "\n" + qsTr("⚠ Na tym nośniku nie ma jeszcze kompletnej migawki o zakresie „%1”. Ta kopia pójdzie w całości — dowiązywać się nie ma do czego. Migawki innego zakresu, które tu leżą, nie zostaną użyte.")
+                      .arg(kopiaPanel.nazwaZakresu(kopiaPanel.zakres));
+      return s;
+    }
+    font: Theme.tinyFont
+    color: kopiaPanel.rozpoznanie && (!kopiaPanel.rozpoznanie.zmiesciSie
+                                      || kopiaPanel.rozpoznanie.otwarteBazy.length > 0
+                                      || kopiaPanel.nowyLancuch())
+           ? Theme.warningColor
+           : Theme.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
+
+  // -------------------------------------------------- migawki na nośniku
+  Text {
+    Layout.fillWidth: true
+    Layout.topMargin: 4
+    visible: kopiaPanel.listaMigawek.length > 0
+    text: qsTr("Migawki na tym nośniku (%1) — zaznacz wiersz, żeby działać na nim przyciskami poniżej:").arg(kopiaPanel.listaMigawek.length)
+    font: Theme.tipFont
+    color: Theme.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
+
+  /*
+   * TABELA, A NIE LISTA AKAPITÓW — prośba Piotra: „lista kopii w postaci
+   * takiej tabeli danych jak Warstwy: zakres, data, itp.".
+   *
+   * Ma to jeden konkretny skutek poza wyglądem: liczby stoją w kolumnach,
+   * więc `dowiązanych: 0` w trzech wierszach z rzędu widać jako wzór,
+   * a nie trzeba go szukać w trzech różnych zdaniach. To pytanie, które
+   * zadawaliśmy sobie dziś przez pół dnia.
+   *
+   * Kolumna pierwsza to DATA I GODZINA Z NAZWY KATALOGU, nie czas
+   * zakończenia. Migawka zaczęta o 8:47 skończyła się o 12:41 i nazywa się
+   * snap_2026-08-24_0847_wszystko — Piotr szukał jej pod „12:41" i nie
+   * znalazł. Godzina zakończenia ma własną kolumnę.
+   *
+   * Przy wąskim oknie kolumny „zakres" i „danych" znikają: zakres i tak
+   * siedzi w nazwie, a nazwa jest w podglądzie pod tabelą.
+   */
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: naglowekTabeli.height + listaMig.height + 2
+    // Rectangle sam z siebie ma implicitWidth ZERO, wiec uklad nie wiedzialby,
+    // ze mieszka w nim tabela o twardych minimach kolumn — i tabela wyszlaby
+    // bokiem poza okno. Suma kolumn: 412 w trybie waskim, 582 w szerokim,
+    // plus marginesy.
+    Layout.minimumWidth: kopiaPanel.szeroko ? 600 : 430
+    visible: kopiaPanel.listaMigawek.length > 0
+    color: "transparent"
+    border.width: 1
+    border.color: Qt.rgba(1, 1, 1, 0.12)
+    radius: 4
+    clip: true
+
+    Column {
+      anchors.fill: parent
+      anchors.margins: 1
+
+      Rectangle {
+        id: naglowekTabeli
+
+        width: parent.width
+        height: 24
+        color: Qt.rgba(1, 1, 1, 0.07)
+
+        RowLayout {
+          anchors.fill: parent
+          anchors.leftMargin: 8
+          anchors.rightMargin: 8
+          spacing: 8
 
           Text {
             Layout.fillWidth: true
-            text: modelData.znany
-                  ? modelData.nazwa
-                  : qsTr("nowy nośnik — %1").arg(modelData.etykieta)
-            font: Theme.strongTipFont
-            color: modelData.znany ? Theme.mainTextColor : Theme.warningColor
-            elide: Text.ElideRight
+            Layout.minimumWidth: 110
+            text: qsTr("MIGAWKA")
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
           }
           Text {
-            Layout.fillWidth: true
-            text: qsTr("%1 · wolne %2 z %3 · migawek: %4")
-                  .arg(modelData.system)
-                  .arg(FileUtils.representFileSize(modelData.wolne))
-                  .arg(FileUtils.representFileSize(modelData.pojemnosc))
-                  .arg(modelData.migawek)
+            Layout.preferredWidth: 100
+            visible: kopiaPanel.szeroko
+            text: qsTr("ZAKRES")
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
+          }
+          Text {
+            Layout.preferredWidth: 48
+            horizontalAlignment: Text.AlignRight
+            text: qsTr("KONIEC")
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
+          }
+          Text {
+            Layout.preferredWidth: 58
+            horizontalAlignment: Text.AlignRight
+            text: qsTr("PLIKÓW")
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
+          }
+          Text {
+            Layout.preferredWidth: 78
+            horizontalAlignment: Text.AlignRight
+            text: qsTr("DOWIĄZANYCH")
             font: Theme.tinyFont
             color: Theme.secondaryTextColor
             elide: Text.ElideRight
           }
-        }
-
-        onClicked: {
-          kopiaPanel.wybrany = index;
-          kopiaPanel.zbadaj();
-        }
-      }
-    }
-
-    // ------------------------------------------------- nazwa nowego nośnika
-    RowLayout {
-      Layout.fillWidth: true
-      visible: kopiaPanel.nosnik !== null && !kopiaPanel.nosnik.znany
-      spacing: 6
-
-      Text {
-        text: qsTr("Nazwij go:")
-        font: Theme.tipFont
-        color: Theme.mainTextColor
-      }
-      TextField {
-        id: poleNazwy
-        Layout.fillWidth: true
-        font: Theme.tipFont
-        placeholderText: qsTr("np. USB biuro czerwony")
-      }
-    }
-
-    // ------------------------------------------------------------- zakres
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-
-      Text {
-        text: qsTr("Zakres:")
-        font: Theme.tipFont
-        color: Theme.secondaryTextColor
-      }
-      Button {
-        text: qsTr("nieodtwarzalne")
-        font: Theme.tinyFont
-        flat: kopiaPanel.zakres !== "dane"
-        highlighted: kopiaPanel.zakres === "dane"
-        onClicked: {
-          kopiaPanel.zakres = "dane";
-          kopiaPanel.zbadaj();
+          Text {
+            Layout.preferredWidth: 70
+            visible: kopiaPanel.szeroko
+            horizontalAlignment: Text.AlignRight
+            text: qsTr("DANYCH")
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
+          }
+          Text {
+            Layout.preferredWidth: 70
+            horizontalAlignment: Text.AlignRight
+            text: qsTr("STAN")
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
+          }
         }
       }
-      Button {
-        text: qsTr("wszystko")
-        font: Theme.tinyFont
-        flat: kopiaPanel.zakres !== "wszystko"
-        highlighted: kopiaPanel.zakres === "wszystko"
-        onClicked: {
-          kopiaPanel.zakres = "wszystko";
-          kopiaPanel.zbadaj();
-        }
-      }
-      Item {
-        Layout.fillWidth: true
-      }
 
-      /*
-       * „WYKONAJ KOPIĘ", A NIE „KOPIUJ" — I PRZY ZAKRESIE, NIE NA DOLE.
-       *
-       * Piotr, 24.08.2026: „Kopiuj powinno umożliwiać skopiowanie danych
-       * i informacji o kopii". Ma rację i to jest ostrzejsze, niż wyglada:
-       * w kazdym innym oknie tej aplikacji „Kopiuj" znaczy „do schowka".
-       * Ten jeden przycisk znaczyl „przepisz 88 GB na dysk zewnetrzny" —
-       * to samo slowo, zupelnie inna waga, i zadnego sygnalu o roznicy.
-       *
-       * Stad: czasownik mowi, co robi, i stoi TAM, gdzie sie podejmuje
-       * decyzje — obok zakresu, ktory wlasnie sie wybralo. Jasne tlo, bo to
-       * jedyny przycisk w tym oknie, ktory cos pisze na cudzym dysku.
-       */
-      Button {
-        id: przyciskWykonaj
+      ListView {
+        id: listaMig
 
-        // Napis mowi, co sie stanie PO KLIKNIECIU — a przy pustym lancuchu
-        // stanie sie cos znacznie drozszego niz zwykla kopia.
-        text: kopiaPanel.pelnaZbrojona
-              ? qsTr("Na pewno? Pełna kopia %1")
-                  .arg(kopiaPanel.rozpoznanie
-                       ? FileUtils.representFileSize(kopiaPanel.rozpoznanie.bajtow)
-                       : "")
-              : qsTr("Wykonaj kopię")
-        font: Theme.strongTipFont
-        enabled: !KopieZapasowe.pracuje && kopiaPanel.nosnik !== null
-        Layout.preferredHeight: 34
+        width: parent.width
+        height: Math.min(contentHeight, kopiaPanel.wysokoscWybrana > 0 ? 8 * 26 : 4 * 26)
+        clip: true
+        model: kopiaPanel.listaMigawek
 
-        background: Rectangle {
-          radius: 4
-          color: !przyciskWykonaj.enabled ? Theme.controlBackgroundDisabledColor
-                 : przyciskWykonaj.pressed ? Qt.darker(Theme.mainColor, 1.2)
-                 : Theme.mainColor
-          border.width: 1
-          border.color: przyciskWykonaj.enabled ? Qt.lighter(Theme.mainColor, 1.4) : "transparent"
-        }
-        contentItem: Text {
-          text: przyciskWykonaj.text
-          font: przyciskWykonaj.font
-          color: przyciskWykonaj.enabled ? Theme.mainOverlayColor : Theme.mainTextDisabledColor
-          horizontalAlignment: Text.AlignHCenter
-          verticalAlignment: Text.AlignVCenter
-          leftPadding: 10
-          rightPadding: 10
-        }
+        delegate: ItemDelegate {
+          required property int index
+          required property var modelData
 
-        onClicked: kopiaPanel.kopiuj()
-      }
+          width: listaMig.width
+          height: 26
 
-      Button {
-        text: qsTr("Odśwież")
-        font: Theme.tinyFont
-        flat: true
-        onClicked: kopiaPanel.odswiez()
-      }
-    }
+          background: Rectangle {
+            color: kopiaPanel.zaznaczona === index
+                   ? Qt.rgba(Theme.mainColor.r, Theme.mainColor.g, Theme.mainColor.b, 0.45)
+                   : (index % 2 ? Qt.rgba(1, 1, 1, 0.03) : "transparent")
+          }
 
-    // -------------------------------------------------------- rozpoznanie
-    Text {
-      Layout.fillWidth: true
-      visible: kopiaPanel.rozpoznanie !== null
-      text: {
-        const r = kopiaPanel.rozpoznanie;
-        if (!r)
-          return "";
-        let s = qsTr("Do skopiowania: %1 plików, %2. Wolne na nośniku: %3.")
-                .arg(r.plikow)
-                .arg(FileUtils.representFileSize(r.bajtow))
-                .arg(FileUtils.representFileSize(r.wolne));
-        if (!r.zmiesciSie)
-          s += "\n" + qsTr("⚠ To się nie zmieści.");
-        // Dziennik obok bazy znaczy „ktoś ją ma otwartą”. Mówimy o tym PRZED
-        // kopiowaniem, żeby dało się zamknąć QGIS-a, a nie po fakcie.
-        if (r.otwarteBazy.length > 0)
-          s += "\n" + qsTr("⚠ Otwarte bazy (zostaną pominięte): %1").arg(r.otwarteBazy.join(", "));
-        // Tekst sklejany PLUSEM, a nie sąsiedztwem. W C++ dwa literały obok
-        // siebie łączą się same; w JavaScripcie to błąd składni — i właśnie
-        // tak wyłożył się tu build 24.08.2026. To samo miejsce w pliku .cpp
-        // byłoby poprawne, więc odruch przenosi się niezauważony.
-        if (kopiaPanel.nowyLancuch())
-          s += "\n" + qsTr("⚠ Na tym nośniku nie ma jeszcze kompletnej migawki o zakresie „%1”. Ta kopia pójdzie w całości — dowiązywać się nie ma do czego. Migawki innego zakresu, które tu leżą, nie zostaną użyte.")
-                        .arg(kopiaPanel.nazwaZakresu(kopiaPanel.zakres));
-        return s;
-      }
-      font: Theme.tinyFont
-      color: kopiaPanel.rozpoznanie && (!kopiaPanel.rozpoznanie.zmiesciSie
-                                        || kopiaPanel.rozpoznanie.otwarteBazy.length > 0
-                                        || kopiaPanel.nowyLancuch())
-             ? Theme.warningColor
-             : Theme.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    // -------------------------------------------------- migawki na nośniku
-    Text {
-      Layout.fillWidth: true
-      Layout.topMargin: 4
-      visible: kopiaPanel.listaMigawek.length > 0
-      text: qsTr("Migawki na tym nośniku (%1) — zaznacz wiersz, żeby działać na nim przyciskami poniżej:").arg(kopiaPanel.listaMigawek.length)
-      font: Theme.tipFont
-      color: Theme.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    /*
-     * TABELA, A NIE LISTA AKAPITÓW — prośba Piotra: „lista kopii w postaci
-     * takiej tabeli danych jak Warstwy: zakres, data, itp.".
-     *
-     * Ma to jeden konkretny skutek poza wyglądem: liczby stoją w kolumnach,
-     * więc `dowiązanych: 0` w trzech wierszach z rzędu widać jako wzór,
-     * a nie trzeba go szukać w trzech różnych zdaniach. To pytanie, które
-     * zadawaliśmy sobie dziś przez pół dnia.
-     *
-     * Kolumna pierwsza to DATA I GODZINA Z NAZWY KATALOGU, nie czas
-     * zakończenia. Migawka zaczęta o 8:47 skończyła się o 12:41 i nazywa się
-     * snap_2026-08-24_0847_wszystko — Piotr szukał jej pod „12:41" i nie
-     * znalazł. Godzina zakończenia ma własną kolumnę.
-     *
-     * Przy wąskim oknie kolumny „zakres" i „danych" znikają: zakres i tak
-     * siedzi w nazwie, a nazwa jest w podglądzie pod tabelą.
-     */
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: naglowekTabeli.height + listaMig.height + 2
-      // Rectangle sam z siebie ma implicitWidth ZERO, wiec uklad nie wiedzialby,
-      // ze mieszka w nim tabela o twardych minimach kolumn — i tabela wyszlaby
-      // bokiem poza okno. Suma kolumn: 412 w trybie waskim, 582 w szerokim,
-      // plus marginesy.
-      Layout.minimumWidth: kopiaPanel.szeroko ? 600 : 430
-      visible: kopiaPanel.listaMigawek.length > 0
-      color: "transparent"
-      border.width: 1
-      border.color: Qt.rgba(1, 1, 1, 0.12)
-      radius: 4
-      clip: true
-
-      Column {
-        anchors.fill: parent
-        anchors.margins: 1
-
-        Rectangle {
-          id: naglowekTabeli
-
-          width: parent.width
-          height: 24
-          color: Qt.rgba(1, 1, 1, 0.07)
-
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 8
+          contentItem: RowLayout {
             spacing: 8
 
             Text {
               Layout.fillWidth: true
               Layout.minimumWidth: 110
-              text: qsTr("MIGAWKA")
-              font: Theme.tinyFont
-              color: Theme.secondaryTextColor
+              text: kopiaPanel.etykietaMigawki(modelData)
+              font: Theme.tipFont
+              color: modelData.przerwane ? Theme.warningColor : Theme.mainTextColor
+              elide: Text.ElideRight
             }
             Text {
               Layout.preferredWidth: 100
               visible: kopiaPanel.szeroko
-              text: qsTr("ZAKRES")
+              text: kopiaPanel.nazwaZakresu(modelData.zakres)
               font: Theme.tinyFont
               color: Theme.secondaryTextColor
+              elide: Text.ElideRight
             }
             Text {
               Layout.preferredWidth: 48
               horizontalAlignment: Text.AlignRight
-              text: qsTr("KONIEC")
+              text: String(modelData.data).slice(11, 16)
               font: Theme.tinyFont
               color: Theme.secondaryTextColor
             }
             Text {
               Layout.preferredWidth: 58
               horizontalAlignment: Text.AlignRight
-              text: qsTr("PLIKÓW")
+              // `plikow` to PLAN, `skopiowanych` to WYNIK. Przerwana
+              // migawka z 2,7 GB na dysku stala w tabeli jako 73 109
+              // plikow i 185,7 GB, bo pokazywalismy plan. 06.10.2026.
+              text: modelData.przerwane ? modelData.skopiowanych
+                                        : modelData.plikow
               font: Theme.tinyFont
               color: Theme.secondaryTextColor
             }
             Text {
               Layout.preferredWidth: 78
               horizontalAlignment: Text.AlignRight
-              text: qsTr("DOWIĄZANYCH")
+              text: modelData.dowiazanych
               font: Theme.tinyFont
-              color: Theme.secondaryTextColor
-              elide: Text.ElideRight
+              // Zero dowiązań w migawce, która MIAŁA do czego się dowiązać,
+              // to jedyna liczba w tej tabeli warta koloru.
+              color: modelData.dowiazanych === 0 && index < kopiaPanel.listaMigawek.length - 1
+                     ? Theme.warningColor
+                     : Theme.secondaryTextColor
             }
             Text {
               Layout.preferredWidth: 70
               visible: kopiaPanel.szeroko
               horizontalAlignment: Text.AlignRight
-              text: qsTr("DANYCH")
+              text: FileUtils.representFileSize(modelData.bajtow)
               font: Theme.tinyFont
               color: Theme.secondaryTextColor
             }
             Text {
               Layout.preferredWidth: 70
               horizontalAlignment: Text.AlignRight
-              text: qsTr("STAN")
+              text: modelData.przerwane ? qsTr("przerwana")
+                    : modelData.bledow > 0 ? qsTr("błędów: %1").arg(modelData.bledow)
+                    : qsTr("ok")
               font: Theme.tinyFont
-              color: Theme.secondaryTextColor
+              color: modelData.przerwane || modelData.bledow > 0
+                     ? Theme.warningColor
+                     : Theme.secondaryTextColor
+              elide: Text.ElideRight
             }
           }
-        }
 
-        ListView {
-          id: listaMig
-
-          width: parent.width
-          height: Math.min(contentHeight, kopiaPanel.wysokoscWybrana > 0 ? 8 * 26 : 4 * 26)
-          clip: true
-          model: kopiaPanel.listaMigawek
-
-          delegate: ItemDelegate {
-            required property int index
-            required property var modelData
-
-            width: listaMig.width
-            height: 26
-
-            background: Rectangle {
-              color: kopiaPanel.zaznaczona === index
-                     ? Qt.rgba(Theme.mainColor.r, Theme.mainColor.g, Theme.mainColor.b, 0.45)
-                     : (index % 2 ? Qt.rgba(1, 1, 1, 0.03) : "transparent")
-            }
-
-            contentItem: RowLayout {
-              spacing: 8
-
-              Text {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 110
-                text: kopiaPanel.etykietaMigawki(modelData)
-                font: Theme.tipFont
-                color: modelData.przerwane ? Theme.warningColor : Theme.mainTextColor
-                elide: Text.ElideRight
-              }
-              Text {
-                Layout.preferredWidth: 100
-                visible: kopiaPanel.szeroko
-                text: kopiaPanel.nazwaZakresu(modelData.zakres)
-                font: Theme.tinyFont
-                color: Theme.secondaryTextColor
-                elide: Text.ElideRight
-              }
-              Text {
-                Layout.preferredWidth: 48
-                horizontalAlignment: Text.AlignRight
-                text: String(modelData.data).slice(11, 16)
-                font: Theme.tinyFont
-                color: Theme.secondaryTextColor
-              }
-              Text {
-                Layout.preferredWidth: 58
-                horizontalAlignment: Text.AlignRight
-                // `plikow` to PLAN, `skopiowanych` to WYNIK. Przerwana
-                // migawka z 2,7 GB na dysku stala w tabeli jako 73 109
-                // plikow i 185,7 GB, bo pokazywalismy plan. 06.10.2026.
-                text: modelData.przerwane ? modelData.skopiowanych
-                                          : modelData.plikow
-                font: Theme.tinyFont
-                color: Theme.secondaryTextColor
-              }
-              Text {
-                Layout.preferredWidth: 78
-                horizontalAlignment: Text.AlignRight
-                text: modelData.dowiazanych
-                font: Theme.tinyFont
-                // Zero dowiązań w migawce, która MIAŁA do czego się dowiązać,
-                // to jedyna liczba w tej tabeli warta koloru.
-                color: modelData.dowiazanych === 0 && index < kopiaPanel.listaMigawek.length - 1
-                       ? Theme.warningColor
-                       : Theme.secondaryTextColor
-              }
-              Text {
-                Layout.preferredWidth: 70
-                visible: kopiaPanel.szeroko
-                horizontalAlignment: Text.AlignRight
-                text: FileUtils.representFileSize(modelData.bajtow)
-                font: Theme.tinyFont
-                color: Theme.secondaryTextColor
-              }
-              Text {
-                Layout.preferredWidth: 70
-                horizontalAlignment: Text.AlignRight
-                text: modelData.przerwane ? qsTr("przerwana")
-                      : modelData.bledow > 0 ? qsTr("błędów: %1").arg(modelData.bledow)
-                      : qsTr("ok")
-                font: Theme.tinyFont
-                color: modelData.przerwane || modelData.bledow > 0
-                       ? Theme.warningColor
-                       : Theme.secondaryTextColor
-                elide: Text.ElideRight
-              }
-            }
-
-            onClicked: kopiaPanel.zaznaczona = index
-            onDoubleClicked: kopiaPanel.sprawdzMigawke(modelData, false)
-          }
+          onClicked: kopiaPanel.zaznaczona = index
+          onDoubleClicked: kopiaPanel.sprawdzMigawke(modelData, false)
         }
       }
     }
+  }
 
-    // ---------------------------------------- co można zrobić z zaznaczoną
-    //
-    // Przyciski zamiast dotknięcia i przytrzymania. Ukryta akcja to akcja,
-    // której nie ma: „przytrzymaj, żeby policzyć sumy" stało w napisie nad
-    // listą i nikt tego nie robił, bo nic na ekranie o tym nie przypominało.
-    RowLayout {
+  // ---------------------------------------- co można zrobić z zaznaczoną
+  //
+  // Przyciski zamiast dotknięcia i przytrzymania. Ukryta akcja to akcja,
+  // której nie ma: „przytrzymaj, żeby policzyć sumy" stało w napisie nad
+  // listą i nikt tego nie robił, bo nic na ekranie o tym nie przypominało.
+  RowLayout {
+    Layout.fillWidth: true
+    visible: kopiaPanel.listaMigawek.length > 0
+    spacing: 6
+
+    Text {
+      text: kopiaPanel.migawka ? kopiaPanel.migawka.nazwa : qsTr("nie zaznaczono migawki")
+      font: Theme.tinyFont
+      color: kopiaPanel.migawka ? Theme.mainTextColor : Theme.secondaryTextColor
+      elide: Text.ElideMiddle
       Layout.fillWidth: true
-      visible: kopiaPanel.listaMigawek.length > 0
-      spacing: 6
-
-      Text {
-        text: kopiaPanel.migawka ? kopiaPanel.migawka.nazwa : qsTr("nie zaznaczono migawki")
-        font: Theme.tinyFont
-        color: kopiaPanel.migawka ? Theme.mainTextColor : Theme.secondaryTextColor
-        elide: Text.ElideMiddle
-        Layout.fillWidth: true
-        // Bez tego pelna szerokosc napisu staje sie minimum calego wiersza
-        // i przyciski obok wyjezdzaja poza okno.
-        Layout.minimumWidth: 0
-      }
-      Button {
-        text: qsTr("Sprawdź")
-        font: Theme.tinyFont
-        flat: true
-        // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
-        // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
-        // w ogole dziala. 06.10.2026.
-        opacity: enabled ? 1.0 : 0.35   // A
-        enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
-        onClicked: kopiaPanel.sprawdzMigawke(kopiaPanel.migawka, false)
-      }
-      Button {
-        text: qsTr("…z sumami")
-        font: Theme.tinyFont
-        flat: true
-        // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
-        // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
-        // w ogole dziala. 06.10.2026.
-        opacity: enabled ? 1.0 : 0.35   // B
-        enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
-        onClicked: kopiaPanel.sprawdzMigawke(kopiaPanel.migawka, true)
-      }
-      Button {
-        text: qsTr("Napraw czasy")
-        font: Theme.tinyFont
-        flat: true
-        // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
-        // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
-        // w ogole dziala. 06.10.2026.
-        opacity: enabled ? 1.0 : 0.35   // C
-        // Warunek mowi „jest co naprawiac”, nie „migawka jest cala zepsuta”.
-        // Migawka z 04.10.2026 ma dowiazanych 10344 i jednoczesnie innyCzas
-        // 20787 — zepsuta w polowie. Stary warunek `dowiazanych === 0`
-        // blokowal naprawe dokladnie tam, gdzie byla potrzebna. Pierwszy
-        // czlon zostaje dla migawek sprzed instrumentacji, ktore rozkladu
-        // w KOPIA.json jeszcze nie maja. 05.10.2026.
-        enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
-                 && (kopiaPanel.migawka.dowiazanych === 0
-                     || (kopiaPanel.migawka.dlaczegoNieDowiazano !== undefined
-                         && kopiaPanel.migawka.dlaczegoNieDowiazano.innyCzas > 0))
-        onClicked: kopiaPanel.napraw(kopiaPanel.migawka)
-      }
-      Button {
-        text: qsTr("Kopiuj")
-        font: Theme.tinyFont
-        flat: true
-        onClicked: kopiaPanel.doSchowka()
-      }
+      // Bez tego pelna szerokosc napisu staje sie minimum calego wiersza
+      // i przyciski obok wyjezdzaja poza okno.
+      Layout.minimumWidth: 0
     }
-
-    // ------------------------------------------------------------ postęp
-    ColumnLayout {
-      Layout.fillWidth: true
-      visible: KopieZapasowe.pracuje
-      spacing: 2
-
-      ProgressBar {
-        Layout.fillWidth: true
-        from: 0
-        to: 100
-        value: KopieZapasowe.postep
-      }
-      Text {
-        Layout.fillWidth: true
-        text: KopieZapasowe.etap
-        font: Theme.tinyFont
-        color: Theme.secondaryTextColor
-      }
+    Button {
+      text: qsTr("Sprawdź")
+      font: Theme.tinyFont
+      flat: true
+      // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
+      // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
+      // w ogole dziala. 06.10.2026.
+      opacity: enabled ? 1.0 : 0.35   // A
+      enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
+      onClicked: kopiaPanel.sprawdzMigawke(kopiaPanel.migawka, false)
     }
+    Button {
+      text: qsTr("…z sumami")
+      font: Theme.tinyFont
+      flat: true
+      // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
+      // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
+      // w ogole dziala. 06.10.2026.
+      opacity: enabled ? 1.0 : 0.35   // B
+      enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
+      onClicked: kopiaPanel.sprawdzMigawke(kopiaPanel.migawka, true)
+    }
+    Button {
+      text: qsTr("Napraw czasy")
+      font: Theme.tinyFont
+      flat: true
+      // Styl `flat` wyglada tak samo wlaczony i wylaczony. 05.10.2026
+      // kosztowalo to schodzenie do kodu, zeby ustalic, czy przycisk
+      // w ogole dziala. 06.10.2026.
+      opacity: enabled ? 1.0 : 0.35   // C
+      // Warunek mowi „jest co naprawiac”, nie „migawka jest cala zepsuta”.
+      // Migawka z 04.10.2026 ma dowiazanych 10344 i jednoczesnie innyCzas
+      // 20787 — zepsuta w polowie. Stary warunek `dowiazanych === 0`
+      // blokowal naprawe dokladnie tam, gdzie byla potrzebna. Pierwszy
+      // czlon zostaje dla migawek sprzed instrumentacji, ktore rozkladu
+      // w KOPIA.json jeszcze nie maja. 05.10.2026.
+      enabled: kopiaPanel.migawka !== null && !KopieZapasowe.pracuje
+               && (kopiaPanel.migawka.dowiazanych === 0
+                   || (kopiaPanel.migawka.dlaczegoNieDowiazano !== undefined
+                       && kopiaPanel.migawka.dlaczegoNieDowiazano.innyCzas > 0))
+      onClicked: kopiaPanel.napraw(kopiaPanel.migawka)
+    }
+    Button {
+      text: qsTr("Kopiuj")
+      font: Theme.tinyFont
+      flat: true
+      onClicked: kopiaPanel.doSchowka()
+    }
+  }
 
-    // ------------------------------------------------------------- wynik
-    Rectangle {
+  // ------------------------------------------------------------ postęp
+  ColumnLayout {
+    Layout.fillWidth: true
+    visible: KopieZapasowe.pracuje
+    spacing: 2
+
+    ProgressBar {
       Layout.fillWidth: true
-      Layout.preferredHeight: tekstWyniku.implicitHeight + 12
-      Layout.maximumHeight: 180
-      visible: kopiaPanel.wynik !== null
-      color: Qt.rgba(0, 0, 0, 0.18)
-      radius: 4
+      from: 0
+      to: 100
+      value: KopieZapasowe.postep
+    }
+    Text {
+      Layout.fillWidth: true
+      text: KopieZapasowe.etap
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+    }
+  }
+
+  // ------------------------------------------------------------- wynik
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: tekstWyniku.implicitHeight + 12
+    Layout.maximumHeight: 180
+    visible: kopiaPanel.wynik !== null
+    color: Qt.rgba(0, 0, 0, 0.18)
+    radius: 4
+    clip: true
+
+    ScrollView {
+      anchors.fill: parent
+      anchors.margins: 6
       clip: true
 
-      ScrollView {
-        anchors.fill: parent
-        anchors.margins: 6
-        clip: true
+      Text {
+        id: tekstWyniku
+        width: parent.width
+        font: Theme.tinyFont
+        wrapMode: Text.WordWrap
+        color: kopiaPanel.wynik && kopiaPanel.wynik.ok ? Theme.mainTextColor : Theme.warningColor
+        text: {
+          const w = kopiaPanel.wynik;
+          if (!w)
+            return "";
+          if (w.sprawdzenie === true)
+            return w.linie.join("\n");
+          if (w.blad !== undefined)
+            return w.blad;
 
-        Text {
-          id: tekstWyniku
-          width: parent.width
-          font: Theme.tinyFont
-          wrapMode: Text.WordWrap
-          color: kopiaPanel.wynik && kopiaPanel.wynik.ok ? Theme.mainTextColor : Theme.warningColor
-          text: {
-            const w = kopiaPanel.wynik;
-            if (!w)
-              return "";
-            if (w.sprawdzenie === true)
-              return w.linie.join("\n");
-            if (w.blad !== undefined)
-              return w.blad;
+          const l = [];
+          l.push(w.przerwane
+                 ? qsTr("PRZERWANE — migawka jest niepełna.")
+                 : qsTr("Kopia na „%1”").arg(w.nazwaNosnika));
+          l.push(qsTr("plików: %1, skopiowanych: %2, dowiązanych: %3, pominiętych: %4")
+                 .arg(w.plikow).arg(w.skopiowanych).arg(w.dowiazanych).arg(w.pominietych));
+          l.push(qsTr("baz sprawdzonych (quick_check): %1").arg(w.bazySprawdzone));
+          l.push(qsTr("czas: %1").arg(w.czas));
 
-            const l = [];
-            l.push(w.przerwane
-                   ? qsTr("PRZERWANE — migawka jest niepełna.")
-                   : qsTr("Kopia na „%1”").arg(w.nazwaNosnika));
-            l.push(qsTr("plików: %1, skopiowanych: %2, dowiązanych: %3, pominiętych: %4")
-                   .arg(w.plikow).arg(w.skopiowanych).arg(w.dowiazanych).arg(w.pominietych));
-            l.push(qsTr("baz sprawdzonych (quick_check): %1").arg(w.bazySprawdzone));
-            l.push(qsTr("czas: %1").arg(w.czas));
-
-            // Bez twardych dowiązań KAŻDA migawka jest pełną kopią. Przy
-            // drzewie kilkudziesięciogigabajtowym to różnica między „dysk
-            // starczy na rok” a „dysk starczy na tydzień” — i człowiek ma
-            // prawo dowiedzieć się tego teraz, a nie gdy dysk się zapełni.
-            // Zdanie po polsku, dlaczego dowiązań było tyle, ile było.
-            // 24.08.2026 Piotr zobaczył trzy pełne migawki i musiał zgadywać,
-            // co jest nie tak; silnik wie to dokładnie i teraz mówi.
-            if (w.dowiazaniaPowod !== undefined && w.dowiazaniaPowod !== "") {
-              l.push("");
-              l.push(w.dowiazaniaPowod);
-            } else if (!w.dowiazaniaDzialaja) {
-              l.push(qsTr("⚠ Ten nośnik nie obsługuje twardych dowiązań — każda migawka będzie pełną kopią."));
-            }
-
-            if (w.bledy.length > 0) {
-              l.push("");
-              for (let i = 0; i < Math.min(w.bledy.length, 12); i++)
-                l.push("⚠ " + w.bledy[i]);
-              if (w.bledy.length > 12)
-                l.push(qsTr("… i jeszcze %1").arg(w.bledy.length - 12));
-            }
+          // Bez twardych dowiązań KAŻDA migawka jest pełną kopią. Przy
+          // drzewie kilkudziesięciogigabajtowym to różnica między „dysk
+          // starczy na rok” a „dysk starczy na tydzień” — i człowiek ma
+          // prawo dowiedzieć się tego teraz, a nie gdy dysk się zapełni.
+          // Zdanie po polsku, dlaczego dowiązań było tyle, ile było.
+          // 24.08.2026 Piotr zobaczył trzy pełne migawki i musiał zgadywać,
+          // co jest nie tak; silnik wie to dokładnie i teraz mówi.
+          if (w.dowiazaniaPowod !== undefined && w.dowiazaniaPowod !== "") {
             l.push("");
-            l.push(w.migawka);
-            return l.join("\n");
+            l.push(w.dowiazaniaPowod);
+          } else if (!w.dowiazaniaDzialaja) {
+            l.push(qsTr("⚠ Ten nośnik nie obsługuje twardych dowiązań — każda migawka będzie pełną kopią."));
           }
+
+          if (w.bledy.length > 0) {
+            l.push("");
+            for (let i = 0; i < Math.min(w.bledy.length, 12); i++)
+              l.push("⚠ " + w.bledy[i]);
+            if (w.bledy.length > 12)
+              l.push(qsTr("… i jeszcze %1").arg(w.bledy.length - 12));
+          }
+          l.push("");
+          l.push(w.migawka);
+          return l.join("\n");
         }
       }
     }
+  }
 
-    // ------------------------------------------------------------ przyciski
-    RowLayout {
+  // ------------------------------------------------------------ przyciski
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+
+    Button {
+      text: qsTr("Przerwij")
+      font: Theme.tinyFont
+      flat: true
+      visible: KopieZapasowe.pracuje
+      onClicked: KopieZapasowe.przerwij()
+    }
+    Item {
       Layout.fillWidth: true
-      spacing: 6
-
-      Button {
-        text: qsTr("Przerwij")
-        font: Theme.tinyFont
-        flat: true
-        visible: KopieZapasowe.pracuje
-        onClicked: KopieZapasowe.przerwij()
-      }
-      Item {
-        Layout.fillWidth: true
-      }
-      Button {
-        flat: true
-        // W trakcie kopiowania zamkniecie jest dozwolone, ale etykieta musi
-        // powiedziec, co sie stanie. Przycisk, ktory nie mowi, czy zatrzymuje
-        // robote, jest gorszy od przycisku wygaszonego.
-        text: KopieZapasowe.pracuje ? qsTr("Zamknij (kopia leci dalej)") : qsTr("Zamknij")
-        font: Theme.tipFont
-        onClicked: kopiaPanel.close()
-      }
     }
   }
 
   // ------------------------------------------------- uchwyt do rozciągania
   //
-  // Leży NA zawartości, w rogu, poza układem — dlatego nie ma go w
-  // ColumnLayout. Rysuje trzy kreski, bo nienarysowany uchwyt jest tym samym,
+  // [WF-WINDOW-FRAME] now the last row of the body (the frame owns the window corner).
+  // Rysuje trzy kreski, bo nienarysowany uchwyt jest tym samym,
   // co jego brak: nikt nie zgadnie, że można ciągnąć za róg.
   Item {
     id: uchwyt
 
-    width: 18
-    height: 18
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-    anchors.margins: 2
+    Layout.preferredWidth: 18
+    Layout.preferredHeight: 18
+    Layout.alignment: Qt.AlignRight
 
     Canvas {
       anchors.fill: parent
@@ -1052,6 +1004,8 @@ QfPopup {
     MouseArea {
       anchors.fill: parent
       cursorShape: Qt.SizeFDiagCursor
+      // [WF-WINDOW-FRAME] the body is a Flickable now: without this it takes the drag
+      preventStealing: true
 
       /*
        * MIERZYMY OD PUNKTU CHWYTU, W UKLADZIE SCENY — nie od biezacych
@@ -1106,6 +1060,5 @@ QfPopup {
         settings.setValue("/WorkField/KopiaPanel/wysokosc", 0);
       }
     }
-  }
   }
 }

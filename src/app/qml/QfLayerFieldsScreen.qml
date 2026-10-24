@@ -6,8 +6,12 @@ import org.qfield
 import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 import Theme
 
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar (fields are saved at once), scrolling body
+QfWindowFrame {
   id: fieldsScreen
+
+  title: qsTr("Pola warstwy")
+  exitMode: "close"
 
   property var t
   property var layer: null
@@ -39,180 +43,152 @@ Popup {
     entries = layer ? LayerUtils.layerFields(layer) : [];
   }
 
-  parent: mainWindow.contentItem
-  width: Math.min(440, mainWindow.width - 24)
-  height: Math.min(implicitHeight, mainWindow.height - 48)
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  modal: true
-  closePolicy: Popup.CloseOnEscape
+  Text {
+    Layout.fillWidth: true
+    text: fieldsScreen.layer ? fieldsScreen.layer.name : ""
+    font: t.tipFont
+    color: t.secondaryTextColor
+    elide: Text.ElideMiddle
+  }
 
-  ColumnLayout {
-    anchors.fill: parent
-    spacing: 8
+  Text {
+    Layout.fillWidth: true
+    visible: fieldsScreen.layer && !LayerUtils.canEditFields(fieldsScreen.layer)
+    text: qsTr("Ta warstwa nie pozwala na zmianę struktury pól.")
+    font: t.tipFont
+    color: t.warningColor
+    wrapMode: Text.WordWrap
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Pola warstwy")
-      font: t.strongFont
-      color: t.mainTextColor
-    }
+  ListView {
+    Layout.fillWidth: true
+    Layout.preferredHeight: Math.min(contentHeight, 260)
+    clip: true
+    model: fieldsScreen.entries
 
-    Text {
-      Layout.fillWidth: true
-      text: fieldsScreen.layer ? fieldsScreen.layer.name : ""
-      font: t.tipFont
-      color: t.secondaryTextColor
-      elide: Text.ElideMiddle
-    }
+    delegate: RowLayout {
+      required property var modelData
 
-    Text {
-      Layout.fillWidth: true
-      visible: fieldsScreen.layer && !LayerUtils.canEditFields(fieldsScreen.layer)
-      text: qsTr("Ta warstwa nie pozwala na zmianę struktury pól.")
-      font: t.tipFont
-      color: t.warningColor
-      wrapMode: Text.WordWrap
-    }
+      readonly property bool isSystemField: modelData.name === "uuid"
 
-    ListView {
-      Layout.fillWidth: true
-      Layout.preferredHeight: Math.min(contentHeight, 260)
-      clip: true
-      model: fieldsScreen.entries
+      width: ListView.view.width
+      height: 44
+      spacing: 8
 
-      delegate: RowLayout {
-        required property var modelData
-
-        readonly property bool isSystemField: modelData.name === "uuid"
-
-        width: ListView.view.width
-        height: 44
-        spacing: 8
-
-        ColumnLayout {
-          Layout.fillWidth: true
-          Layout.leftMargin: 4
-          spacing: 0
-
-          Text {
-            Layout.fillWidth: true
-            text: isSystemField ? qsTr("Identyfikator załączników") : modelData.name
-            font: t.defaultFont
-            color: isSystemField ? t.secondaryTextColor : t.mainTextColor
-            elide: Text.ElideRight
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: isSystemField ? qsTr("wymagane przez pola zdjęć") : modelData.type
-            font: t.tinyFont
-            color: t.secondaryTextColor
-          }
-        }
-
-        QfToolButton {
-          Layout.rightMargin: 4
-          width: 32
-          height: 32
-          padding: 0
-          bgcolor: "transparent"
-          enabled: !isSystemField && fieldsScreen.layer && LayerUtils.canEditFields(fieldsScreen.layer)
-          iconSource: t.getThemeVectorIcon("ic_delete_forever_white_24dp")
-          iconColor: t.errorColor
-
-          onClicked: {
-            removeFieldConfirm.fieldName = modelData.name;
-            removeFieldConfirm.open();
-          }
-        }
-      }
-    }
-
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: t.controlBorderColor
-    }
-
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Nowe pole")
-      font: t.strongTipFont
-      color: t.mainTextColor
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-
-      TextField {
+      ColumnLayout {
         Layout.fillWidth: true
-        font: t.defaultFont
-        placeholderText: qsTr("nazwa pola")
-        text: fieldsScreen.newFieldName
-        onTextChanged: fieldsScreen.newFieldName = text
+        Layout.leftMargin: 4
+        spacing: 0
+
+        Text {
+          Layout.fillWidth: true
+          text: isSystemField ? qsTr("Identyfikator załączników") : modelData.name
+          font: t.defaultFont
+          color: isSystemField ? t.secondaryTextColor : t.mainTextColor
+          elide: Text.ElideRight
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: isSystemField ? qsTr("wymagane przez pola zdjęć") : modelData.type
+          font: t.tinyFont
+          color: t.secondaryTextColor
+        }
       }
 
-      ComboBox {
-        Layout.preferredWidth: 150
-        font: t.defaultFont
-        model: fieldsScreen.fieldTypes.map(f => f.label)
-        currentIndex: fieldsScreen.newFieldTypeIndex
-        onActivated: idx => fieldsScreen.newFieldTypeIndex = idx
+      QfToolButton {
+        Layout.rightMargin: 4
+        width: 32
+        height: 32
+        padding: 0
+        bgcolor: "transparent"
+        enabled: !isSystemField && fieldsScreen.layer && LayerUtils.canEditFields(fieldsScreen.layer)
+        iconSource: t.getThemeVectorIcon("ic_delete_forever_white_24dp")
+        iconColor: t.errorColor
+
+        onClicked: {
+          removeFieldConfirm.fieldName = modelData.name;
+          removeFieldConfirm.open();
+        }
       }
     }
+  }
 
-    Button {
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: 1
+    color: t.controlBorderColor
+  }
+
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Nowe pole")
+    font: t.strongTipFont
+    color: t.mainTextColor
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+
+    TextField {
       Layout.fillWidth: true
-      text: qsTr("Dodaj pole")
-      enabled: fieldsScreen.newFieldName.trim() !== "" && fieldsScreen.layer && LayerUtils.canEditFields(fieldsScreen.layer)
+      font: t.defaultFont
+      placeholderText: qsTr("nazwa pola")
+      text: fieldsScreen.newFieldName
+      onTextChanged: fieldsScreen.newFieldName = text
+    }
 
-      onClicked: {
-        const type = fieldsScreen.fieldTypes[fieldsScreen.newFieldTypeIndex].key;
-        const name = fieldsScreen.newFieldName.trim();
+    ComboBox {
+      Layout.preferredWidth: 150
+      font: t.defaultFont
+      model: fieldsScreen.fieldTypes.map(f => f.label)
+      currentIndex: fieldsScreen.newFieldTypeIndex
+      onActivated: idx => fieldsScreen.newFieldTypeIndex = idx
+    }
+  }
 
-        if (type === "attachment") {
-          const existing = LayerUtils.layerFields(fieldsScreen.layer);
-          const hasUuid = existing.some(f => f.name === "uuid");
-          if (!hasUuid) {
-            const uuidError = LayerUtils.addLayerField(fieldsScreen.layer, "uuid", "text");
-            if (uuidError !== "") {
-              displayToast(uuidError);
-              return;
-            }
-          }
+  Button {
+    Layout.fillWidth: true
+    text: qsTr("Dodaj pole")
+    enabled: fieldsScreen.newFieldName.trim() !== "" && fieldsScreen.layer && LayerUtils.canEditFields(fieldsScreen.layer)
 
-          const fieldError = LayerUtils.addLayerField(fieldsScreen.layer, name, "text");
-          if (fieldError !== "") {
-            displayToast(fieldError);
+    onClicked: {
+      const type = fieldsScreen.fieldTypes[fieldsScreen.newFieldTypeIndex].key;
+      const name = fieldsScreen.newFieldName.trim();
+
+      if (type === "attachment") {
+        const existing = LayerUtils.layerFields(fieldsScreen.layer);
+        const hasUuid = existing.some(f => f.name === "uuid");
+        if (!hasUuid) {
+          const uuidError = LayerUtils.addLayerField(fieldsScreen.layer, "uuid", "text");
+          if (uuidError !== "") {
+            displayToast(uuidError);
             return;
           }
+        }
 
-          LayerUtils.setAttachmentField(fieldsScreen.layer, name);
-          displayToast(qsTr("Dodano pole zdjęć %1").arg(name));
-          fieldsScreen.newFieldName = "";
-          fieldsScreen.reload();
+        const fieldError = LayerUtils.addLayerField(fieldsScreen.layer, name, "text");
+        if (fieldError !== "") {
+          displayToast(fieldError);
           return;
         }
 
-        const error = LayerUtils.addLayerField(fieldsScreen.layer, name, type);
-        if (error === "") {
-          displayToast(qsTr("Dodano pole %1").arg(name));
-          fieldsScreen.newFieldName = "";
-          fieldsScreen.reload();
-        } else {
-          displayToast(error);
-        }
+        LayerUtils.setAttachmentField(fieldsScreen.layer, name);
+        displayToast(qsTr("Dodano pole zdjęć %1").arg(name));
+        fieldsScreen.newFieldName = "";
+        fieldsScreen.reload();
+        return;
       }
-    }
 
-    Button {
-      Layout.fillWidth: true
-      Layout.topMargin: 8
-      text: qsTr("Gotowe")
-      highlighted: true
-      onClicked: fieldsScreen.close()
+      const error = LayerUtils.addLayerField(fieldsScreen.layer, name, type);
+      if (error === "") {
+        displayToast(qsTr("Dodano pole %1").arg(name));
+        fieldsScreen.newFieldName = "";
+        fieldsScreen.reload();
+      } else {
+        displayToast(error);
+      }
     }
   }
 

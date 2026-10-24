@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
 import org.qfield.core
+import org.qfield.gui
 import Theme
 
 /**
@@ -39,8 +40,14 @@ import Theme
  * powodu, zeby jakikolwiek nasz panel dziedziczyl po golym Popupie.
  * Pilnuje tego teraz `skrypty/sito_tla.py`.
  */
-QfPopup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar, scrolling body
+QfWindowFrame {
   id: spisPanel
+
+  title: qsTr("Spis plików")
+  exitMode: "close"
+  preferredWidth: 560
+  busy: pracuje
 
   //! Korzeń magazynu; na komputerze ~/WorkField, na telefonie katalog aplikacji.
   property string korzen: dashBoard.korzenMagazynu
@@ -168,175 +175,151 @@ QfPopup {
     };
   }
 
-  parent: mainWindow.contentItem
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  width: Math.min(560, mainWindow.width - 32)
-  height: Math.min(implicitHeight, mainWindow.height - 80)
-
   onOpened: {
     wynik = null;
     odswiez();
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    spacing: 8
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Spis nie chroni danych — mówi, czego brakuje i od kiedy. Jest tani: kilkanaście tysięcy plików to kilka megabajtów tekstu.")
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Spis plików")
-      font: Theme.strongFont
-      color: Theme.mainTextColor
-    }
+  Text {
+    Layout.fillWidth: true
+    text: spisPanel.korzen
+    font: Theme.tinyFont
+    color: Theme.secondaryTextColor
+    elide: Text.ElideMiddle
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Spis nie chroni danych — mówi, czego brakuje i od kiedy. Jest tani: kilkanaście tysięcy plików to kilka megabajtów tekstu.")
-      font: Theme.tinyFont
-      color: Theme.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
 
-    Text {
-      Layout.fillWidth: true
-      text: spisPanel.korzen
-      font: Theme.tinyFont
-      color: Theme.secondaryTextColor
-      elide: Text.ElideMiddle
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-
-      Button {
-        text: qsTr("Zrób spis")
-        font: Theme.tipFont
-        enabled: !spisPanel.pracuje
-        highlighted: true
-        onClicked: spisPanel.zrobSpis("dane")
-      }
-      Button {
-        text: qsTr("…także podkłady")
-        font: Theme.tinyFont
-        flat: true
-        enabled: !spisPanel.pracuje
-        onClicked: spisPanel.zrobSpis("wszystko")
-      }
-      Item {
-        Layout.fillWidth: true
-      }
-      Button {
-        text: qsTr("Porównaj")
-        font: Theme.tipFont
-        flat: true
-        enabled: !spisPanel.pracuje && spisPanel.lista.length >= 2
-        onClicked: spisPanel.porownajDwaOstatnie()
-      }
-    }
-
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: Theme.controlBorderColor
-    }
-
-    Text {
-      Layout.fillWidth: true
-      text: spisPanel.lista.length === 0
-            ? qsTr("Nie ma jeszcze żadnego spisu.")
-            : qsTr("Spisy (%1) — dotknij, żeby sprawdzić drzewo wobec niego:").arg(spisPanel.lista.length)
+    Button {
+      text: qsTr("Zrób spis")
       font: Theme.tipFont
-      color: Theme.secondaryTextColor
-      wrapMode: Text.WordWrap
+      enabled: !spisPanel.pracuje
+      highlighted: true
+      onClicked: spisPanel.zrobSpis("dane")
     }
-
-    ListView {
-      id: listaSpisow
-
+    Button {
+      text: qsTr("…także podkłady")
+      font: Theme.tinyFont
+      flat: true
+      enabled: !spisPanel.pracuje
+      onClicked: spisPanel.zrobSpis("wszystko")
+    }
+    Item {
       Layout.fillWidth: true
-      // Wielokrotnosc wysokosci wiersza: przy 150 px ostatni wpis urywal sie
-      // w polowie i wygladal na uszkodzony, a nie na przewijalny.
-      Layout.preferredHeight: Math.min(contentHeight, 5 * 40)
-      clip: true
-      model: spisPanel.lista
+    }
+    Button {
+      text: qsTr("Porównaj")
+      font: Theme.tipFont
+      flat: true
+      enabled: !spisPanel.pracuje && spisPanel.lista.length >= 2
+      onClicked: spisPanel.porownajDwaOstatnie()
+    }
+  }
 
-      delegate: ItemDelegate {
-        width: listaSpisow.width
-        height: 40
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: 1
+    color: Theme.controlBorderColor
+  }
 
-        contentItem: RowLayout {
-          spacing: 8
+  Text {
+    Layout.fillWidth: true
+    text: spisPanel.lista.length === 0
+          ? qsTr("Nie ma jeszcze żadnego spisu.")
+          : qsTr("Spisy (%1) — dotknij, żeby sprawdzić drzewo wobec niego:").arg(spisPanel.lista.length)
+    font: Theme.tipFont
+    color: Theme.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-          ColumnLayout {
+  ListView {
+    id: listaSpisow
+
+    Layout.fillWidth: true
+    // Wielokrotnosc wysokosci wiersza: przy 150 px ostatni wpis urywal sie
+    // w polowie i wygladal na uszkodzony, a nie na przewijalny.
+    Layout.preferredHeight: Math.min(contentHeight, 5 * 40)
+    clip: true
+    model: spisPanel.lista
+
+    delegate: ItemDelegate {
+      width: listaSpisow.width
+      height: 40
+
+      contentItem: RowLayout {
+        spacing: 8
+
+        ColumnLayout {
+          Layout.fillWidth: true
+          spacing: 0
+
+          Text {
             Layout.fillWidth: true
-            spacing: 0
-
-            Text {
-              Layout.fillWidth: true
-              text: String(modelData.data).slice(0, 16).replace("T", "  ")
-              font: Theme.tipFont
-              color: Theme.mainTextColor
-            }
-            Text {
-              Layout.fillWidth: true
-              text: qsTr("%1 · plików: %2 · %3").arg(modelData.zakres).arg(modelData.plikow).arg(FileUtils.representFileSize(modelData.bajtow))
-              font: Theme.tinyFont
-              color: Theme.secondaryTextColor
-              elide: Text.ElideRight
-            }
+            text: String(modelData.data).slice(0, 16).replace("T", "  ")
+            font: Theme.tipFont
+            color: Theme.mainTextColor
+          }
+          Text {
+            Layout.fillWidth: true
+            text: qsTr("%1 · plików: %2 · %3").arg(modelData.zakres).arg(modelData.plikow).arg(FileUtils.representFileSize(modelData.bajtow))
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
+            elide: Text.ElideRight
           }
         }
-
-        onClicked: spisPanel.sprawdzWobec(modelData.sciezka, false)
-        // Dłuższe przytrzymanie liczy sumy: wolniej, ale to jedyne, co wykrywa
-        // ciche przekłamanie bitów na dysku.
-        onPressAndHold: spisPanel.sprawdzWobec(modelData.sciezka, true)
       }
-    }
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: wynikTekst.implicitHeight + 12
-      Layout.maximumHeight: 220
-      visible: spisPanel.wynik !== null
-      color: Qt.rgba(0, 0, 0, 0.18)
-      radius: 4
+      onClicked: spisPanel.sprawdzWobec(modelData.sciezka, false)
+      // Dłuższe przytrzymanie liczy sumy: wolniej, ale to jedyne, co wykrywa
+      // ciche przekłamanie bitów na dysku.
+      onPressAndHold: spisPanel.sprawdzWobec(modelData.sciezka, true)
+    }
+  }
+
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: wynikTekst.implicitHeight + 12
+    Layout.maximumHeight: 220
+    visible: spisPanel.wynik !== null
+    color: Qt.rgba(0, 0, 0, 0.18)
+    radius: 4
+    clip: true
+
+    ScrollView {
+      anchors.fill: parent
+      anchors.margins: 6
       clip: true
 
-      ScrollView {
-        anchors.fill: parent
-        anchors.margins: 6
-        clip: true
-
-        Text {
-          id: wynikTekst
-          width: parent.width
-          text: spisPanel.wynik ? spisPanel.wynik.linie.join("\n") : ""
-          font: Theme.tinyFont
-          color: spisPanel.wynik && spisPanel.wynik.alarm ? Theme.warningColor : Theme.mainTextColor
-          wrapMode: Text.WrapAnywhere
-        }
+      Text {
+        id: wynikTekst
+        width: parent.width
+        text: spisPanel.wynik ? spisPanel.wynik.linie.join("\n") : ""
+        font: Theme.tinyFont
+        color: spisPanel.wynik && spisPanel.wynik.alarm ? Theme.warningColor : Theme.mainTextColor
+        wrapMode: Text.WrapAnywhere
       }
     }
+  }
 
-    RowLayout {
+  RowLayout {
+    Layout.fillWidth: true
+
+    Text {
       Layout.fillWidth: true
-
-      Text {
-        Layout.fillWidth: true
-        text: spisPanel.pracuje ? qsTr("Liczę…") : spisPanel.tytulWyniku
-        font: Theme.tinyFont
-        color: Theme.secondaryTextColor
-        elide: Text.ElideRight
-      }
-      Button {
-        flat: true
-        text: qsTr("Zamknij")
-        font: Theme.tipFont
-        onClicked: spisPanel.close()
-      }
+      text: spisPanel.pracuje ? qsTr("Liczę…") : spisPanel.tytulWyniku
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+      elide: Text.ElideRight
     }
   }
 }

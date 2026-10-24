@@ -660,15 +660,18 @@ ColumnLayout {
   // przepis. Czlowiek WIDZI liste z liczbami wierszy i decyduje przed
   // wykonaniem. Podpowiedz zawodzi wtedy przez zaznaczenie za duzo, co widac
   // od razu, a nie przez niedoczyszczenie, ktorego nie widac wcale.
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: dialogSzablonu
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(560, mainWindow.width - 32)
-    height: Math.min(620, mainWindow.height - 48)
-    modal: true
+    title: qsTr("Zamień projekt na szablon")
+    confirmText: qsTr("Utwórz szablon")
+    confirmEnabled: poleNazwySzablonu.text.trim() !== ""
+    preferredWidth: 560
+    // the table list scrolls by itself and takes the height
+    scrollable: false
+    forceFullScreen: true
+    onConfirmed: confirm()
 
     //! [{ tabela, wierszy, plik, proponowane, odniesienie }]
     property var tabele: []
@@ -718,139 +721,113 @@ ColumnLayout {
       return lista;
     }
 
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
-
-      Text {
-        text: qsTr("Zamień projekt na szablon")
-        font: Theme.strongTipFont
-        color: Theme.mainTextColor
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Utwórz szablon” button below)
+    function confirm() {
+      const doWyczyszczenia = dialogSzablonu.wybrane();
+      const w = procesy.zamienNaSzablon(studio.celSzablonu.sciezka,
+                                        studio.korzen,
+                                        poleNazwySzablonu.text,
+                                        doWyczyszczenia);
+      if (w.ok) {
+        zapis.dopisz(qsTr("Szablon utworzony: %1 — wyczyszczono %2 z %3 zaznaczonych tabel").arg(w.sciezka).arg(w.wyczyszczono).arg(doWyczyszczenia.length));
+        if (w.wyczyszczono < doWyczyszczenia.length)
+          zapis.dopisz(qsTr("UWAGA: nie wszystkie zaznaczone tabele zostały wyczyszczone. Sprawdź szablon przed wydaniem."));
+        dialogSzablonu.close();
+        studio.przeladuj();
+      } else {
+        zapis.dopisz(qsTr("✗ %1").arg(w.blad));
       }
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: studio.celSzablonu
-              ? qsTr("Kopia %1 trafi do szablonów bez części terenowej: bez DCIM, zdjęć, foto_tagi, katalogu kopii i kosza, bez plików roboczych i dziennika bazy. Oryginał pozostanie nietknięty.").arg(studio.celSzablonu.nazwa)
-              : ""
-        font: Theme.tinyFont
-        color: Theme.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
+    Text {
+      Layout.fillWidth: true
+      text: studio.celSzablonu
+            ? qsTr("Kopia %1 trafi do szablonów bez części terenowej: bez DCIM, zdjęć, foto_tagi, katalogu kopii i kosza, bez plików roboczych i dziennika bazy. Oryginał pozostanie nietknięty.").arg(studio.celSzablonu.nazwa)
+            : ""
+      font: Theme.tinyFont
+      color: Theme.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
 
-      TextField {
-        id: poleNazwySzablonu
-        Layout.fillWidth: true
-        placeholderText: qsTr("nazwa szablonu")
-      }
+    TextField {
+      id: poleNazwySzablonu
+      Layout.fillWidth: true
+      placeholderText: qsTr("nazwa szablonu")
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Zaznacz tabele do wyczyszczenia w kopii:")
-        font: Theme.tipFont
-        color: Theme.mainTextColor
-      }
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Zaznacz tabele do wyczyszczenia w kopii:")
+      font: Theme.tipFont
+      color: Theme.mainTextColor
+    }
 
-      ListView {
-        id: listaTabel
+    ListView {
+      id: listaTabel
 
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        clip: true
-        model: dialogSzablonu.tabele
-        spacing: 1
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      clip: true
+      model: dialogSzablonu.tabele
+      spacing: 1
 
-        delegate: Rectangle {
-          id: wierszTabeli
+      delegate: Rectangle {
+        id: wierszTabeli
 
-          required property var modelData
+        required property var modelData
 
-          readonly property bool zaznaczony: dialogSzablonu.zaznaczone(modelData.tabela)
+        readonly property bool zaznaczony: dialogSzablonu.zaznaczone(modelData.tabela)
 
-          width: ListView.view.width
-          height: 30
-          radius: 3
-          color: zaznaczony ? Qt.rgba(Theme.errorColor.r, Theme.errorColor.g, Theme.errorColor.b, 0.25) : "transparent"
+        width: ListView.view.width
+        height: 30
+        radius: 3
+        color: zaznaczony ? Qt.rgba(Theme.errorColor.r, Theme.errorColor.g, Theme.errorColor.b, 0.25) : "transparent"
 
-          RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 6
-            anchors.rightMargin: 6
-            spacing: 8
+        RowLayout {
+          anchors.fill: parent
+          anchors.leftMargin: 6
+          anchors.rightMargin: 6
+          spacing: 8
 
-            QfPrzelacznikMaly {
-              checked: wierszTabeli.zaznaczony
-              onPrzelaczono: dialogSzablonu.przelacz(wierszTabeli.modelData.tabela)
-            }
+          QfPrzelacznikMaly {
+            checked: wierszTabeli.zaznaczony
+            onPrzelaczono: dialogSzablonu.przelacz(wierszTabeli.modelData.tabela)
+          }
 
-            Text {
-              Layout.fillWidth: true
-              text: wierszTabeli.modelData.tabela
-              font: Theme.tipFont
-              color: Theme.mainTextColor
-              elide: Text.ElideMiddle
-            }
+          Text {
+            Layout.fillWidth: true
+            text: wierszTabeli.modelData.tabela
+            font: Theme.tipFont
+            color: Theme.mainTextColor
+            elide: Text.ElideMiddle
+          }
 
-            Text {
-              // Liczba wierszy jest jedyna rzecza, na ktorej opiera sie
-              // decyzja — dlatego liczona naprawde, a nie z licznika GDAL-a.
-              text: wierszTabeli.modelData.wierszy >= 0
-                    ? qsTr("%1 w.").arg(wierszTabeli.modelData.wierszy)
-                    : "?"
-              font: Theme.tinyFont
-              color: wierszTabeli.modelData.wierszy > 0 ? Theme.mainTextColor : Theme.secondaryTextColor
-            }
+          Text {
+            // Liczba wierszy jest jedyna rzecza, na ktorej opiera sie
+            // decyzja — dlatego liczona naprawde, a nie z licznika GDAL-a.
+            text: wierszTabeli.modelData.wierszy >= 0
+                  ? qsTr("%1 w.").arg(wierszTabeli.modelData.wierszy)
+                  : "?"
+            font: Theme.tinyFont
+            color: wierszTabeli.modelData.wierszy > 0 ? Theme.mainTextColor : Theme.secondaryTextColor
+          }
 
-            Text {
-              text: wierszTabeli.modelData.plik
-              font: Theme.tinyFont
-              color: Theme.secondaryTextColor
-            }
+          Text {
+            text: wierszTabeli.modelData.plik
+            font: Theme.tinyFont
+            color: Theme.secondaryTextColor
           }
         }
       }
+    }
 
-      Text {
-        Layout.fillWidth: true
-        visible: dialogSzablonu.tabele.length === 0
-        text: qsTr("Nie znalazłem żadnej tabeli. Szablon powstanie bez czyszczenia — sprawdź go przed wydaniem.")
-        font: Theme.tinyFont
-        color: Theme.warningColor
-        wrapMode: Text.WordWrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        Item {
-          Layout.fillWidth: true
-        }
-        QfDecisionButton {
-          role: "cancel" // [WF-BUTTONS]
-          text: qsTr("Anuluj")
-          onClicked: dialogSzablonu.close()
-        }
-        QfDecisionButton {
-          role: "confirm" // [WF-BUTTONS]
-          text: qsTr("Utwórz szablon")
-          enabled: poleNazwySzablonu.text.trim() !== ""
-          onClicked: {
-            const doWyczyszczenia = dialogSzablonu.wybrane();
-            const w = procesy.zamienNaSzablon(studio.celSzablonu.sciezka,
-                                              studio.korzen,
-                                              poleNazwySzablonu.text,
-                                              doWyczyszczenia);
-            if (w.ok) {
-              zapis.dopisz(qsTr("Szablon utworzony: %1 — wyczyszczono %2 z %3 zaznaczonych tabel").arg(w.sciezka).arg(w.wyczyszczono).arg(doWyczyszczenia.length));
-              if (w.wyczyszczono < doWyczyszczenia.length)
-                zapis.dopisz(qsTr("UWAGA: nie wszystkie zaznaczone tabele zostały wyczyszczone. Sprawdź szablon przed wydaniem."));
-              dialogSzablonu.close();
-              studio.przeladuj();
-            } else {
-              zapis.dopisz(qsTr("✗ %1").arg(w.blad));
-            }
-          }
-        }
-      }
+    Text {
+      Layout.fillWidth: true
+      visible: dialogSzablonu.tabele.length === 0
+      text: qsTr("Nie znalazłem żadnej tabeli. Szablon powstanie bez czyszczenia — sprawdź go przed wydaniem.")
+      font: Theme.tinyFont
+      color: Theme.warningColor
+      wrapMode: Text.WordWrap
     }
   }
 }
