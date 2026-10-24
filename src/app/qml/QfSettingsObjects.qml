@@ -28,7 +28,10 @@ import Theme
  * ZalacznikiUtils::photoNaming. The quick capture bar and the gallery in the
  * form use the same rule (ZalacznikiUtils::photoPath).
  *
- * Thumbnails and the view cone come to this page in the next steps.
+ * [WF-VIEW-CONE] 24.10.2026 — the view cone after a photo:
+ * QSettings WorkField/viewConeMode = "ask" (default) | "show" | "off".
+ *
+ * Thumbnails come to this page in the next step.
  */
 ColumnLayout {
   id: objectsSection
@@ -37,6 +40,9 @@ ColumnLayout {
 
   //! Application default; a property, because reading settings is not reactive.
   property string defaultChoice: settings.value("WorkField/objectNumberDefault", "auto")
+
+  //! [WF-VIEW-CONE] a property, because reading settings is not reactive
+  property string viewConeMode: settings.value("WorkField/viewConeMode", "ask")
 
   //! [WF-PHOTO-NAMING] The convention in force and the one being edited.
   property var photoNaming: ({})
@@ -512,6 +518,70 @@ ColumnLayout {
     Text {
       Layout.fillWidth: true
       text: qsTr("Zdjęcia już zrobione zostają pod swoimi nazwami. Nr obiektu bierze się z ustawienia „Numer obiektu” powyżej; obiekt jeszcze niezapisany dostaje w nazwie początek swojego identyfikatora.")
+      color: Theme.secondaryTextColor
+      font: Theme.tinyFont
+      wrapMode: Text.WordWrap
+    }
+
+    // ---------------------------------------------------------------------
+    // [WF-VIEW-CONE] Stożek widoku po zdjęciu
+    // ---------------------------------------------------------------------
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 16
+      text: qsTr("Stożek widoku po zdjęciu")
+      color: Theme.secondaryTextColor
+      font: Theme.strongTipFont
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Po zdjęciu obiektu mapa pokazuje, w co patrzył aparat (środek kadru, do 8 m) i w które obiekty trafia. Stożki zapisują się w tabeli WF_VIEW_CONES obok danych — pomagają potem przypisać zdjęcia przy podziale i porządkowaniu.")
+      color: Theme.mainTextColor
+      font: Theme.tipFont
+      wrapMode: Text.WordWrap
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Repeater {
+        model: [
+          {
+            "key": "ask",
+            "text": qsTr("Pokaż i pytaj")
+          },
+          {
+            "key": "show",
+            "text": qsTr("Pokaż i zapisz bez pytania")
+          },
+          {
+            "key": "off",
+            "text": qsTr("Wyłączony")
+          }
+        ]
+
+        delegate: Button {
+          id: coneChip
+          required property var modelData
+          text: modelData.text
+          font: Theme.tipFont
+          checkable: true
+          highlighted: checked
+          checked: objectsSection.viewConeMode === modelData.key
+          onClicked: {
+            settings.setValue("WorkField/viewConeMode", modelData.key);
+            objectsSection.viewConeMode = modelData.key;
+            coneChip.checked = Qt.binding(() => objectsSection.viewConeMode === coneChip.modelData.key);
+          }
+        }
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("W trybie szybkim (błyskawica) i przy zapisie odroczonych zdjęć stożek zapisuje się bez pytania, jako niepotwierdzony.")
       color: Theme.secondaryTextColor
       font: Theme.tinyFont
       wrapMode: Text.WordWrap

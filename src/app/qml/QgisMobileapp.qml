@@ -2656,6 +2656,42 @@ ApplicationWindow {
       objectName: "geometryHighlighter"
     }
 
+    // [WF-VIEW-CONE] 24.10.2026: the view cone of the photo just taken
+    QfGeometryRenderer {
+      id: viewConeRenderer
+      mapSettings: mapCanvas.mapSettings
+      visible: viewConeDialog.visible
+      color: "#ff9800"
+      lineWidth: 3
+    }
+
+    // [WF-VIEW-CONE] "Popraw kierunek": a drag from where the camera stood
+    // sets the direction; the map does not pan meanwhile
+    MouseArea {
+      id: viewConeAim
+      anchors.fill: parent
+      enabled: viewConeDialog.visible && viewConeDialog.correcting
+      visible: enabled
+      z: 1001
+
+      function aim(mouse) {
+        if (!viewConeDialog.standPoint)
+          return;
+        const stand = mapCanvas.mapSettings.coordinateToScreen(viewConeDialog.standPoint);
+        const dx = mouse.x - stand.x;
+        const dy = mouse.y - stand.y;
+        if (dx * dx + dy * dy < 400)
+          return;
+        // screen angle clockwise from up; a map rotated clockwise by R
+        // shows north R degrees to the right
+        const screenAngle = Math.atan2(dx, -dy) * 180 / Math.PI;
+        viewConeDialog.aimAt(screenAngle - mapCanvas.mapSettings.rotation);
+      }
+
+      onPressed: mouse => aim(mouse)
+      onPositionChanged: mouse => aim(mouse)
+    }
+
     // [WF-SPLIT-HEIR] 24.10.2026: numbers of the parts on the map while the
     // split dialog is open — the part is chosen by its number there
     Repeater {
@@ -9495,6 +9531,31 @@ ApplicationWindow {
     id: splitHeirDialog
     highlighter: geometryHighlighter.geometryWrapper
     mapSettings: mapCanvas.mapSettings
+  }
+
+  // [WF-VIEW-CONE] 24.10.2026: after a photo attached to an object — the
+  // cone on the map, to confirm (setting "ask") or saved without asking.
+  QfViewConeDialog {
+    id: viewConeDialog
+    renderer: viewConeRenderer.geometryWrapper
+    mapSettings: mapCanvas.mapSettings
+  }
+
+  Connections {
+    target: ViewConeUtils
+
+    function onConeRequested(parentLayer, photo, sensor, ask) {
+      if (ask && !viewConeDialog.visible) {
+        viewConeDialog.offer(parentLayer, photo, sensor);
+        return;
+      }
+      const built = viewConeDialog.saveQuietly(parentLayer, photo, sensor);
+      // a short glimpse on the map, without a question
+      if (built && !viewConeDialog.visible) {
+        geometryHighlighter.geometryWrapper.qgsGeometry = built.geometry;
+        geometryHighlighter.geometryWrapper.crs = mapCanvas.mapSettings.destinationCrs;
+      }
+    }
   }
 
   Connections {

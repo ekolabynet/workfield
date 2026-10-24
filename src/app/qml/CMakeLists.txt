@@ -78,6 +78,7 @@ set(QFIELD_APP_QML_FILES
     QfSettingsTeren.qml
     QfSettingsObjects.qml
     QfSplitHeirDialog.qml
+    QfViewConeDialog.qml
     QfStudioSection.qml
     QfSubLayerPicker.qml
     QfTerenSettings.qml

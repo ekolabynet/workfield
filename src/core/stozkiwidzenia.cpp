@@ -42,6 +42,11 @@ namespace
     if ( i < 0 )
       return qQNaN();
     int j = i + klucz.length();
+    // [WF-VIEW-CONE] 24.10.2026: our own camera writes "pitch_deg" (JSON from
+    // CaptureAttitude) — without skipping the suffix the pitch was lost and
+    // every one of our photos fell back to -45 degrees
+    if ( tekst.mid( j, 4 ).compare( QLatin1String( "_deg" ), Qt::CaseInsensitive ) == 0 )
+      j += 4;
     while ( j < tekst.length() && ( tekst.at( j ) == ':' || tekst.at( j ) == '"'
                                     || tekst.at( j ) == ' ' ) )
       ++j;
@@ -101,6 +106,10 @@ QVariantMap StozkiWidzenia::odczytaj( const QString &sciezkaZdjecia ) const
   const double yaw = wyjmijLiczbe( komentarz, QStringLiteral( "Yaw" ) );
   if ( !std::isnan( yaw ) && std::isnan( w[QStringLiteral( "azymut" )].toDouble() ) )
     w[QStringLiteral( "azymut" )] = yaw;
+  // [WF-VIEW-CONE] our own camera: {"azymut_deg": ...} in UserComment
+  const double azymutJson = wyjmijLiczbe( komentarz, QStringLiteral( "azymut" ) );
+  if ( !std::isnan( azymutJson ) && std::isnan( w[QStringLiteral( "azymut" )].toDouble() ) )
+    w[QStringLiteral( "azymut" )] = azymutJson;
 
   const QVariant wys =
     QgsExifTools::readTag( sciezkaZdjecia,

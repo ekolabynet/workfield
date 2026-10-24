@@ -491,6 +491,9 @@ Column {
     }
     const kolejka = odroczone;
     odroczone = [];
+    // [WF-VIEW-CONE] many photos at once: their cones are saved without asking
+    viewConeQuiet = true;
+    Qt.callLater(() => quickCaptureBar.viewConeQuiet = false);
     let zapisane = 0;
     let nieudane = 0;
     const zalacznikiNieudane = [];
@@ -1627,7 +1630,43 @@ Column {
     zalacznikFeatureModel.currentLayer = opis.warstwa;
     zalacznikFeatureModel.feature = dziecko;
     const wynikDiag = zalacznikFeatureModel.create();
+    if (wynikDiag && (!typ || typ === "foto"))
+      requestViewCone(layerRodzica, featureRodzica, sciezka, zalacznikFeatureModel.feature);
     return wynikDiag;
+  }
+
+  // [WF-VIEW-CONE] 24.10.2026: after a photo is attached — its view cone.
+  // Settings → „Obiekty i zdjęcia” → „Stożek widoku”: ask (default), show
+  // (saved without a question) or off. In fast mode and for a batch of
+  // deferred photos never a question: the cone is saved as not confirmed.
+  property bool viewConeQuiet: false
+
+  function requestViewCone(layer, parentFeature, path, attachmentFeature) {
+    const mode = String(settings.value("WorkField/viewConeMode", "ask"));
+    if (mode === "off")
+      return;
+    try {
+      const pos = positionSource.positionInformation;
+      const sensor = {
+        "lat": pos && pos.latitudeValid ? pos.latitude : NaN,
+        "lon": pos && pos.longitudeValid ? pos.longitude : NaN,
+        "heading": pos && pos.orientationValid ? pos.orientation : NaN,
+        "pitch": captureAttitude.hasReading ? captureAttitude.pitch : NaN
+      };
+      let photoUuid = "";
+      try {
+        photoUuid = String(attachmentFeature.attribute("uuid") || "");
+      } catch (e) {
+        photoUuid = "";
+      }
+      const ask = mode === "ask" && !qfieldSettings.fastMode && !viewConeQuiet;
+      ViewConeUtils.requestCone(layer, parentFeature, {
+          "path": path,
+          "uuid": photoUuid
+        }, sensor, ask);
+    } catch (e) {
+      console.log("WorkField [WF-VIEW-CONE]: request failed: " + e);
+    }
   }
 
   Connections {
