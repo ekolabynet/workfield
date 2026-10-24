@@ -680,6 +680,22 @@ QfWindowFrame {
         }
       }
 
+      // [WF-ATTRIBUTE-TABLE] 24.10.2026 — this layer's attribute table (gallery, first tab)
+      QfButton {
+        id: tabelaAtrybutow
+        Layout.fillWidth: true
+        text: qsTr("Tabela")
+        visible: jestWektor && typeof photoGallery !== "undefined"
+        icon.source: QfTheme.getThemeVectorIcon('ic_list_black_24dp')
+
+        onClicked: {
+          const vl = layerTree.data(index, QfFlatLayerTreeModel.VectorLayerPointer);
+          close();
+          dashBoard.visible = false;
+          photoGallery.openTableFor(vl);
+        }
+      }
+
       QfToolButton {
         id: podgladMapy
         visible: jestWektor || opacitySliderVisible

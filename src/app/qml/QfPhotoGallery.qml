@@ -28,7 +28,9 @@ QfWindowFrame {
   property var photos: []
 
   // the photo counter of the old header row now rides in the title
-  title: galleryTabs.currentIndex === 0 ? qsTr("Galeria projektu") + "  ·  " + qsTr("Zdjęć: %1").arg(photoGallery.photos.length) : qsTr("Galeria projektu")
+  title: galleryTabs.currentIndex === tabPhotos ? qsTr("Galeria projektu") + "  ·  " + qsTr("Zdjęć: %1").arg(photoGallery.photos.length)
+       : galleryTabs.currentIndex === tabTable ? qsTr("Tabela atrybutów") + (zakladkaTabele.tabela !== "" ? "  ·  " + zakladkaTabele.tabela : "")
+       : qsTr("Galeria projektu")
   exitMode: "close"
   scrollable: false
   forceFullScreen: true
@@ -36,8 +38,18 @@ QfWindowFrame {
 
   // katalog, od ktorego zaczyna zakladka Pliki; pusty = katalog projektu
   property string startowyKatalog: ""
-  // ktora zakladka ma byc widoczna po otwarciu (0 zdjecia, 1 pliki)
-  property int startowaZakladka: 0
+  // [WF-ATTRIBUTE-TABLE] 24.10.2026 — the attribute table is the FIRST tab
+  // (Piotr: "galeria powinna mieć taki widok na początku — tabela atrybutów
+  // dla wybranej lub aktywnej warstwy"). Tab numbers by name, not by digits.
+  readonly property int tabTable: 0
+  readonly property int tabPhotos: 1
+  readonly property int tabFiles: 2
+  readonly property int tabCloud: 3
+  readonly property int tabTags: 4
+  // ktora zakladka ma byc widoczna po otwarciu; domyślnie tabela atrybutów
+  property int startowaZakladka: tabTable
+  //! layer whose table the table tab shows; null = the active layer
+  property var warstwaTabeli: null
 
   // Rozszerzenia, które QField potrafi otworzyć. Projekty i dane idą tym samym
   // wywołaniem iface.loadFile() — różni je tylko to, co dzieje się potem.
@@ -236,6 +248,8 @@ QfWindowFrame {
     odswiezChmure();
     filesPage.browsePath = startowyKatalog !== "" ? startowyKatalog : projectDir;
     galleryTabs.currentIndex = startowaZakladka;
+    if (startowaZakladka === tabTable)
+      zakladkaTabele.inicjuj(); // also when the tab index did not change
     rebuildPhotos();
   }
 
@@ -402,7 +416,7 @@ QfWindowFrame {
 
   function openFiles(sciezka) {
     startowyKatalog = sciezka ? sciezka : projectDir;
-    startowaZakladka = 1;
+    startowaZakladka = tabFiles;
     open();
   }
 
@@ -410,20 +424,29 @@ QfWindowFrame {
   //! Otwiera galerię od razu na zakładce Chmura.
   function openCloud() {
     startowyKatalog = "";
-    startowaZakladka = 2;
+    startowaZakladka = tabCloud;
     open();
   }
 
   function openPhotos() {
     startowyKatalog = "";
-    startowaZakladka = 0;
+    startowaZakladka = tabPhotos;
     open();
   }
 
-  //! Otwiera galerie na przegladarce tabel danych.
+  //! Otwiera galerie na przegladarce tabel danych (tabela aktywnej warstwy).
   function openTables() {
     startowyKatalog = "";
-    startowaZakladka = 4;
+    warstwaTabeli = null;
+    startowaZakladka = tabTable;
+    open();
+  }
+
+  //! [WF-ATTRIBUTE-TABLE] the attribute table of \a layer (from the layer's properties)
+  function openTableFor(layer) {
+    startowyKatalog = "";
+    warstwaTabeli = layer;
+    startowaZakladka = tabTable;
     open();
   }
   onLayerFilterChanged: rebuildPhotos()
@@ -744,6 +767,10 @@ QfWindowFrame {
     Layout.alignment: Qt.AlignLeft
 
     TabButton {
+      text: qsTr("Tabela atrybutów") // [WF-ATTRIBUTE-TABLE] first
+      width: implicitWidth
+    }
+    TabButton {
       text: qsTr("Zdjęcia")
       width: implicitWidth
     }
@@ -759,16 +786,12 @@ QfWindowFrame {
       text: qsTr("Tagi")
       width: implicitWidth
     }
-    TabButton {
-      text: qsTr("Tabele")
-      width: implicitWidth
-    }
   }
 
   // WorkField: masowe wskazywanie gatunków na miniaturach
   RowLayout {
     Layout.fillWidth: true
-    visible: galleryTabs.currentIndex === 0
+    visible: galleryTabs.currentIndex === photoGallery.tabPhotos
     spacing: 8
 
     Button {
@@ -807,7 +830,7 @@ QfWindowFrame {
 
     Layout.fillWidth: true
     Layout.preferredHeight: visible ? 140 : 0
-    visible: photoGallery.trybMasowy && galleryTabs.currentIndex === 0
+    visible: photoGallery.trybMasowy && galleryTabs.currentIndex === photoGallery.tabPhotos
     clip: true
     model: tagPanel.suggestions
 
@@ -869,14 +892,268 @@ QfWindowFrame {
     currentIndex: galleryTabs.currentIndex
     // lista z chmury pobiera się przy pierwszym wejściu na zakładkę
     onCurrentIndexChanged: {
-      if (currentIndex === 2 && photoGallery.chmuraLista.length === 0) {
+      if (currentIndex === photoGallery.tabCloud && photoGallery.chmuraLista.length === 0) {
         photoGallery.chmuraOdswiez();
       }
-      if (currentIndex === 3) {
+      if (currentIndex === photoGallery.tabTags) {
         widokTagow.odswiez();
       }
-      if (currentIndex === 4) {
+      if (currentIndex === photoGallery.tabTable) {
         zakladkaTabele.inicjuj();
+      }
+    }
+
+    // ── Tabele: przegladarka tabel danych (WorkField) ─────────
+    ColumnLayout {
+      id: zakladkaTabele
+      spacing: 6
+
+      property string plik: ""
+      property var listaTabel: []
+      property int aktywnyWiersz: -1
+      //! [WF-ATTRIBUTE-TABLE] the table shown and the map layer it belongs to (or null)
+      readonly property string tabela: listaTabel.length > 0 && wyborTabeli.currentIndex >= 0 ? listaTabel[wyborTabeli.currentIndex] || "" : ""
+      property var warstwa: null
+      property string tabelaWarstwy: ""
+      readonly property bool tabelaToWarstwa: warstwa !== null && tabela !== "" && tabela === tabelaWarstwy
+
+      function szer(k) {
+        return Math.min(360, Math.max(90, modelTabeli.szerokoscKolumny(k) * 7 + 26));
+      }
+
+      //! [WF-ATTRIBUTE-TABLE] the table of the chosen layer (from its properties)
+      //! or of the active layer; otherwise, the first time, dane.gpkg of the project
+      function inicjuj() {
+        const l = photoGallery.warstwaTabeli ? photoGallery.warstwaTabeli : (typeof dashBoard !== "undefined" && dashBoard.activeLayer ? dashBoard.activeLayer : null);
+        const z = l && typeof NarzedziaProjektu !== "undefined" ? NarzedziaProjektu.zrodloWarstwy(l) : null;
+        if (z && z.ok && z.istnieje && z.plik !== "") {
+          const t = modelTabeli.tabeleZPliku(z.plik);
+          if (t.indexOf(z.warstwa) >= 0) {
+            warstwa = l;
+            tabelaWarstwy = z.warstwa;
+            if (plik !== z.plik || tabela !== z.warstwa)
+              ustawPlik(z.plik, t, z.warstwa);
+            return;
+          }
+        }
+        if (plik !== "")
+          return;
+        const kandydat = photoGallery.projectDir + "/dane.gpkg";
+        const t = modelTabeli.tabeleZPliku(kandydat);
+        if (t.length > 0)
+          ustawPlik(kandydat, t);
+      }
+
+      function ustawPlik(p, gotoweTabele, wybrana) {
+        plik = p;
+        aktywnyWiersz = -1;
+        listaTabel = gotoweTabele !== undefined ? gotoweTabele : modelTabeli.tabeleZPliku(p);
+        if (listaTabel.length === 0)
+          return;
+        let i = wybrana !== undefined ? listaTabel.indexOf(wybrana) : -1;
+        if (i < 0)
+          i = listaTabel.indexOf("taksony");
+        if (i < 0)
+          i = 0;
+        wyborTabeli.currentIndex = i;
+        poleFiltra.text = "";
+        modelTabeli.wczytaj(plik, listaTabel[i]);
+      }
+
+      TabelaModel {
+        id: modelTabeli
+      }
+
+      //! [WF-ATTRIBUTE-TABLE] the object of the active row on the map (list of features)
+      function pokazObiekt() {
+        if (!tabelaToWarstwa || aktywnyWiersz < 0)
+          return;
+        let kol = -1;
+        for (let k = 0; k < modelTabeli.liczbaKolumn; k++) {
+          if (modelTabeli.nazwaKolumny(k).toLowerCase() === "fid") {
+            kol = k;
+            break;
+          }
+        }
+        if (kol < 0) {
+          displayToast(qsTr("Ta tabela nie ma kolumny fid"), "warning");
+          return;
+        }
+        const fid = parseInt(modelTabeli.komorka(aktywnyWiersz, kol));
+        if (isNaN(fid))
+          return;
+        featureListForm.model.setFeatures(warstwa, "$id = " + fid);
+        photoGallery.close();
+      }
+
+      FileDialog {
+        id: dialogTabel
+        title: qsTr("Wybierz plik z tabelami")
+        nameFilters: [qsTr("Tabele danych (*.gpkg *.csv)"), qsTr("Wszystkie pliki (*)")]
+        onAccepted: zakladkaTabele.ustawPlik(String(selectedFile).replace(/^file:\/\//, ""))
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 6
+
+        Button {
+          text: qsTr("Plik…")
+          onClicked: dialogTabel.open()
+        }
+        ComboBox {
+          id: wyborTabeli
+          Layout.preferredWidth: 250
+          model: zakladkaTabele.listaTabel
+          onActivated: {
+            zakladkaTabele.aktywnyWiersz = -1;
+            poleFiltra.text = "";
+            modelTabeli.wczytaj(zakladkaTabele.plik, currentText);
+          }
+        }
+        TextField {
+          id: poleFiltra
+          Layout.fillWidth: true
+          placeholderText: qsTr("Filtr — szuka we wszystkich kolumnach")
+          onTextChanged: {
+            zakladkaTabele.aktywnyWiersz = -1;
+            modelTabeli.ustawFiltr(text);
+          }
+        }
+        Text {
+          text: modelTabeli.liczbaWierszy === modelTabeli.liczbaWszystkich
+                ? qsTr("%1 wierszy").arg(modelTabeli.liczbaWszystkich)
+                : qsTr("%1 / %2").arg(modelTabeli.liczbaWierszy).arg(modelTabeli.liczbaWszystkich)
+          font: photoGallery.t.tipFont
+          color: Theme.secondaryTextColor
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        visible: zakladkaTabele.tabelaToWarstwa
+        spacing: 6
+
+        Text {
+          Layout.fillWidth: true
+          text: zakladkaTabele.aktywnyWiersz >= 0 ? qsTr("Wiersz %1 — pokaż go na mapie albo stuknij dwa razy komórkę, aby ją skopiować").arg(zakladkaTabele.aktywnyWiersz + 1)
+                                                   : qsTr("Stuknij wiersz, aby pokazać obiekt na mapie")
+          font: photoGallery.t.tinyFont
+          color: Theme.secondaryTextColor
+          wrapMode: Text.WordWrap
+        }
+        QfDecisionButton {
+          role: "confirm"
+          text: qsTr("Pokaż obiekt")
+          enabled: zakladkaTabele.aktywnyWiersz >= 0
+          onClicked: zakladkaTabele.pokazObiekt()
+        }
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: modelTabeli.komunikat !== "" ? modelTabeli.komunikat
+            : (zakladkaTabele.plik !== "" ? zakladkaTabele.plik
+               : qsTr("Wybierz plik GPKG lub CSV — np. dane.gpkg projektu albo tabele z szablony/wskazniki"))
+        font: photoGallery.t.tinyFont
+        color: Theme.secondaryTextColor
+        elide: Text.ElideMiddle
+      }
+
+      // naglowek: klik sortuje (drugi klik odwraca), przewija sie razem z tabela
+      Flickable {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 32
+        contentX: widokTabeli.contentX
+        interactive: false
+        clip: true
+
+        Row {
+          Repeater {
+            model: modelTabeli.liczbaKolumn
+
+            delegate: Rectangle {
+              required property int index
+              // zależność od liczbaWszystkich wymusza przeliczenie po wczytaniu
+              width: (modelTabeli.liczbaWszystkich, zakladkaTabele.szer(index))
+              height: 32
+              color: Theme.mainColor
+              border.color: Qt.darker(Theme.mainColor, 1.15)
+
+              Text {
+                anchors.fill: parent
+                anchors.leftMargin: 6
+                anchors.rightMargin: 6
+                verticalAlignment: Text.AlignVCenter
+                text: modelTabeli.nazwaKolumny(parent.index)
+                      + (modelTabeli.kolumnaSortowania === parent.index
+                         ? (modelTabeli.sortMalejaco ? " ▾" : " ▴") : "")
+                color: "white"
+                font: photoGallery.t.strongTipFont
+                elide: Text.ElideRight
+              }
+              TapHandler {
+                onTapped: modelTabeli.sortuj(parent.index)
+              }
+            }
+          }
+        }
+      }
+
+      TableView {
+        id: widokTabeli
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        model: modelTabeli
+        columnSpacing: 0
+        rowSpacing: 0
+        Connections {
+          target: modelTabeli
+          function onZmieniona() {
+            widokTabeli.forceLayout();
+          }
+        }
+        columnWidthProvider: function (k) {
+          return zakladkaTabele.szer(k);
+        }
+        rowHeightProvider: function (r) {
+          return 30;
+        }
+        ScrollBar.vertical: ScrollBar {
+        }
+        ScrollBar.horizontal: ScrollBar {
+        }
+
+        delegate: Rectangle {
+          required property int row
+          required property int column
+          required property var display
+
+          implicitHeight: 30
+          color: row === zakladkaTabele.aktywnyWiersz ? Qt.alpha(Theme.mainColor, 0.25)
+               : (row % 2 === 1 ? Qt.alpha(Theme.mainColor, 0.05) : "transparent")
+
+          Text {
+            anchors.fill: parent
+            anchors.leftMargin: 6
+            anchors.rightMargin: 6
+            verticalAlignment: Text.AlignVCenter
+            text: parent.display !== undefined && parent.display !== null ? parent.display : ""
+            font: photoGallery.t.tipFont
+            color: Theme.mainTextColor
+            elide: Text.ElideRight
+          }
+          TapHandler {
+            onTapped: zakladkaTabele.aktywnyWiersz = parent.row
+            onDoubleTapped: {
+              const wartosc = modelTabeli.komorka(parent.row, parent.column);
+              platformUtilities.copyTextToClipboard(wartosc);
+              displayToast(qsTr("Skopiowano: %1").arg(wartosc));
+              zakladkaTabele.aktywnyWiersz = parent.row;
+            }
+          }
+        }
       }
     }
 
@@ -1880,196 +2157,6 @@ QfWindowFrame {
       }
     }
 
-    // ── Tabele: przegladarka tabel danych (WorkField) ─────────
-    ColumnLayout {
-      id: zakladkaTabele
-      spacing: 6
-
-      property string plik: ""
-      property var listaTabel: []
-      property int aktywnyWiersz: -1
-
-      function szer(k) {
-        return Math.min(360, Math.max(90, modelTabeli.szerokoscKolumny(k) * 7 + 26));
-      }
-
-      //! przy pierwszym wejsciu: sprobuj dane.gpkg biezacego projektu
-      function inicjuj() {
-        if (plik !== "")
-          return;
-        const kandydat = photoGallery.projectDir + "/dane.gpkg";
-        const t = modelTabeli.tabeleZPliku(kandydat);
-        if (t.length > 0)
-          ustawPlik(kandydat, t);
-      }
-
-      function ustawPlik(p, gotoweTabele) {
-        plik = p;
-        aktywnyWiersz = -1;
-        listaTabel = gotoweTabele !== undefined ? gotoweTabele : modelTabeli.tabeleZPliku(p);
-        if (listaTabel.length === 0)
-          return;
-        let i = listaTabel.indexOf("taksony");
-        if (i < 0)
-          i = 0;
-        wyborTabeli.currentIndex = i;
-        poleFiltra.text = "";
-        modelTabeli.wczytaj(plik, listaTabel[i]);
-      }
-
-      TabelaModel {
-        id: modelTabeli
-      }
-
-      FileDialog {
-        id: dialogTabel
-        title: qsTr("Wybierz plik z tabelami")
-        nameFilters: [qsTr("Tabele danych (*.gpkg *.csv)"), qsTr("Wszystkie pliki (*)")]
-        onAccepted: zakladkaTabele.ustawPlik(String(selectedFile).replace(/^file:\/\//, ""))
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 6
-
-        Button {
-          text: qsTr("Plik…")
-          onClicked: dialogTabel.open()
-        }
-        ComboBox {
-          id: wyborTabeli
-          Layout.preferredWidth: 250
-          model: zakladkaTabele.listaTabel
-          onActivated: {
-            zakladkaTabele.aktywnyWiersz = -1;
-            poleFiltra.text = "";
-            modelTabeli.wczytaj(zakladkaTabele.plik, currentText);
-          }
-        }
-        TextField {
-          id: poleFiltra
-          Layout.fillWidth: true
-          placeholderText: qsTr("Filtr — szuka we wszystkich kolumnach")
-          onTextChanged: {
-            zakladkaTabele.aktywnyWiersz = -1;
-            modelTabeli.ustawFiltr(text);
-          }
-        }
-        Text {
-          text: modelTabeli.liczbaWierszy === modelTabeli.liczbaWszystkich
-                ? qsTr("%1 wierszy").arg(modelTabeli.liczbaWszystkich)
-                : qsTr("%1 / %2").arg(modelTabeli.liczbaWierszy).arg(modelTabeli.liczbaWszystkich)
-          font: photoGallery.t.tipFont
-          color: Theme.secondaryTextColor
-        }
-      }
-
-      Text {
-        Layout.fillWidth: true
-        text: modelTabeli.komunikat !== "" ? modelTabeli.komunikat
-            : (zakladkaTabele.plik !== "" ? zakladkaTabele.plik
-               : qsTr("Wybierz plik GPKG lub CSV — np. dane.gpkg projektu albo tabele z szablony/wskazniki"))
-        font: photoGallery.t.tinyFont
-        color: Theme.secondaryTextColor
-        elide: Text.ElideMiddle
-      }
-
-      // naglowek: klik sortuje (drugi klik odwraca), przewija sie razem z tabela
-      Flickable {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 32
-        contentX: widokTabeli.contentX
-        interactive: false
-        clip: true
-
-        Row {
-          Repeater {
-            model: modelTabeli.liczbaKolumn
-
-            delegate: Rectangle {
-              required property int index
-              // zależność od liczbaWszystkich wymusza przeliczenie po wczytaniu
-              width: (modelTabeli.liczbaWszystkich, zakladkaTabele.szer(index))
-              height: 32
-              color: Theme.mainColor
-              border.color: Qt.darker(Theme.mainColor, 1.15)
-
-              Text {
-                anchors.fill: parent
-                anchors.leftMargin: 6
-                anchors.rightMargin: 6
-                verticalAlignment: Text.AlignVCenter
-                text: modelTabeli.nazwaKolumny(parent.index)
-                      + (modelTabeli.kolumnaSortowania === parent.index
-                         ? (modelTabeli.sortMalejaco ? " ▾" : " ▴") : "")
-                color: "white"
-                font: photoGallery.t.strongTipFont
-                elide: Text.ElideRight
-              }
-              TapHandler {
-                onTapped: modelTabeli.sortuj(parent.index)
-              }
-            }
-          }
-        }
-      }
-
-      TableView {
-        id: widokTabeli
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        clip: true
-        model: modelTabeli
-        columnSpacing: 0
-        rowSpacing: 0
-        Connections {
-          target: modelTabeli
-          function onZmieniona() {
-            widokTabeli.forceLayout();
-          }
-        }
-        columnWidthProvider: function (k) {
-          return zakladkaTabele.szer(k);
-        }
-        rowHeightProvider: function (r) {
-          return 30;
-        }
-        ScrollBar.vertical: ScrollBar {
-        }
-        ScrollBar.horizontal: ScrollBar {
-        }
-
-        delegate: Rectangle {
-          required property int row
-          required property int column
-          required property var display
-
-          implicitHeight: 30
-          color: row === zakladkaTabele.aktywnyWiersz ? Qt.alpha(Theme.mainColor, 0.25)
-               : (row % 2 === 1 ? Qt.alpha(Theme.mainColor, 0.05) : "transparent")
-
-          Text {
-            anchors.fill: parent
-            anchors.leftMargin: 6
-            anchors.rightMargin: 6
-            verticalAlignment: Text.AlignVCenter
-            text: parent.display !== undefined && parent.display !== null ? parent.display : ""
-            font: photoGallery.t.tipFont
-            color: Theme.mainTextColor
-            elide: Text.ElideRight
-          }
-          TapHandler {
-            onTapped: zakladkaTabele.aktywnyWiersz = parent.row
-            onDoubleTapped: {
-              const wartosc = modelTabeli.komorka(parent.row, parent.column);
-              platformUtilities.copyTextToClipboard(wartosc);
-              displayToast(qsTr("Skopiowano: %1").arg(wartosc));
-              zakladkaTabele.aktywnyWiersz = parent.row;
-            }
-          }
-        }
-      }
-    }
   }
 
   // ── pelnoekranowy podglad z zoomem ───────────────────────
