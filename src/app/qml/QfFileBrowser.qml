@@ -92,7 +92,7 @@ QfWindowFrame {
    * [WF-FILE-BROWSER] 25.10.2026 (Piotr 00:06) — every window starts WHERE THE
    * PROJECTS ARE: the folder holding the open project; without a project, the
    * projects folder on the chosen storage (phone or SD card — the same choice
-   * as for new projects); on a computer the store's "wydania".
+   * as for new projects); on a computer the WorkField folder.
    */
   function projectsHome() {
     if (projectDir !== "")
@@ -108,7 +108,8 @@ QfWindowFrame {
         return k;
       return stripUrl(iface.dataRoot()) + "/Imported Projects";
     }
-    const w = stripUrl(storeSettings.korzenProjektow) + "/wydania";
+    // computer: the WorkField folder itself (Piotr 25.10, 00:13)
+    const w = stripUrl(storeSettings.korzenProjektow);
     return FileUtils.fileExists(w) ? w : stripUrl(iface.dataRoot());
   }
 
@@ -262,8 +263,8 @@ QfWindowFrame {
    * the app folder on the SD card, the exchange space and Downloads.
    * Phone: exchange and Downloads hold other apps' files, which the app cannot
    * list (no all-files permission) — they open the system window (↗).
-   * Computer: the app folder, "Projekty" (the projects root, formerly "Magazyn"),
- * exchange, Downloads.
+   * Computer: the app folder, "WorkField" (the working folder, formerly
+ * "Magazyn"), exchange, Downloads.
    * `start` = where the window goes when the place is tapped.
    */
   function buildPlaces() {
@@ -293,8 +294,8 @@ QfWindowFrame {
     } else {
       const store = stripUrl(storeSettings.korzenProjektow);
       list.push({ "key": "aplikacja", "name": qsTr("Katalog aplikacji"), "path": dataRoot, "kind": "folder" });
-      // Piotr 25.10: "Magazyn" is out of date — the place is simply "Projekty"
-      list.push({ "key": "magazyn", "name": qsTr("Projekty"), "path": store, "start": FileUtils.fileExists(store + "/wydania") ? store + "/wydania" : store, "kind": "folder" });
+      // Piotr 25.10: "Magazyn" is out of date; the place shows the WorkField folder itself
+      list.push({ "key": "magazyn", "name": qsTr("WorkField"), "path": store, "kind": "folder" });
       list.push({ "key": "wymiana", "name": qsTr("Przestrzeń wymiany"), "path": store + "/wymiana", "kind": "folder" });
       list.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": desktopDownloads(), "kind": "folder" });
     }
