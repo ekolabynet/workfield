@@ -47,27 +47,22 @@ ApplicationWindow {
   visible: true
 
   // WorkField: warstwa akcji — jedno źródło czasowników dla obu platform
-  // WorkField: systemowa przeglądarka plików do otwierania projektów
-  // na komputerze; start w magazynie ~/WorkField
-  SystemoweOkna.FileDialog {
-    id: wfOknoOtwierania
-
-    title: qsTr("Otwórz projekt lub dane")
-    currentFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/WorkField"
-    nameFilters: [qsTr("Projekty i dane (*.qgs *.qgz *.gpkg)"), qsTr("Wszystkie pliki (*)")]
-    onAccepted: iface.loadFile(selectedFile.toString().replace("file://", ""), "")
-  }
-
   QfAkcje {
     id: wfAkcje
 
+    // [WF-FILE-BROWSER] 24.10.2026 — one way on both platforms: the "Files"
+    // window picking a project (was: the system window on a computer, the
+    // QField "local files" screen on a phone)
     otworzProjekt: function () {
-      if (Qt.platform.os !== "android" && Qt.platform.os !== "ios") {
-        wfOknoOtwierania.open();
-      } else {
-        qfieldLocalDataPickerScreen.projectFolderView = false;
-        qfieldLocalDataPickerScreen.visible = true;
-      }
+      fileBrowser.pickFile({
+                             "title": qsTr("Otwórz projekt"),
+                             "pattern": /\.(qgs|qgz|gpkg)$/i,
+                             "place": "projekty",
+                             "confirmText": qsTr("Otwórz"),
+                             "done": function (sciezka) {
+                               iface.loadFile(sciezka, FileUtils.fileName(sciezka, false));
+                             }
+                           });
     }
     // [WF-NOWY-PROJEKT-JEDYNY] 19.10.2026: jedno okno zakładania projektu
     noweZadanie: function () { dashBoard.nowyProjekt(); }
@@ -8804,10 +8799,18 @@ ApplicationWindow {
       projectInfo.activeLayer = layer;
     }
 
+    // [WF-FILE-BROWSER] 24.10.2026 — "Dodaj z pliku": the "Files" window;
+    // the chosen file goes the old way (datasetPicked: raster or sublayers)
     onAddExistingRequested: {
-      qfieldLocalDataPickerScreen.projectFolderView = false;
-      qfieldLocalDataPickerScreen.pickerMode = true;
-      qfieldLocalDataPickerScreen.visible = true;
+      fileBrowser.pickFile({
+                             "title": qsTr("Dodaj dane z pliku"),
+                             "pattern": /\.(gpkg|shp|geojson|json|kml|kmz|gpx|csv|fgb|sqlite|mbtiles|dxf|tif|tiff|asc|vrt|jp2|img|webp)$/i,
+                             "place": "projekt",
+                             "confirmText": qsTr("Dodaj"),
+                             "done": function (sciezka) {
+                               qfieldLocalDataPickerScreen.datasetPicked(sciezka);
+                             }
+                           });
     }
 
   }

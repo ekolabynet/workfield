@@ -298,18 +298,6 @@ QfWindowFrame {
 
   onOpened: odswiez()
 
-  SystemoweOkna.FileDialog {
-    id: wybieraczRysunku
-
-    title: qsTr("Wskaż rysunek DXF")
-    // Start w Pobranych — tam ląduje rysunek przysłany albo wgrany kablem.
-    // Bez filtra rozszerzeń: systemowe okno Androida filtruje po typie MIME,
-    // a DXF nie ma zarejestrowanego typu, więc „*.dxf" chowało wszystko.
-    currentFolder: "file:///storage/emulated/0/Download"
-    nameFilters: [qsTr("Wszystkie pliki (*)")]
-    onAccepted: oknoImportuCAD.dodajRysunek(String(selectedFile).replace(/^file:\/\//, ""))
-  }
-
   TabBar {
     id: zakladki
 
@@ -378,7 +366,16 @@ QfWindowFrame {
         t: oknoImportuCAD.t
         text: qsTr("Dodaj kolejny rysunek DXF…")
         ikona: "wfg_import"
-        onClicked: wybieraczRysunku.open()
+        // [WF-FILE-BROWSER] 24.10.2026 — the "Files" window (start: Pobrane;
+        // on a phone it points at "Pobrane ↗", the system window)
+        onClicked: fileBrowser.pickFile({
+                                          "title": qsTr("Wskaż rysunek DXF"),
+                                          "pattern": /\.dxf$/i,
+                                          "place": "pobrane",
+                                          "done": function (sciezka) {
+                                            oknoImportuCAD.dodajRysunek(sciezka);
+                                          }
+                                        })
       }
     }
 

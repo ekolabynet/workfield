@@ -2459,7 +2459,10 @@ Drawer {
           // komputera. Na komputerze: systemowe okno wyboru pliku; obok
           // „Otwórz projekty” — przeglądarka katalogu projektów. CORE
           // (decyzja Piotra, 7.10).
-          text: qsTr("Otwórz z dysku…")
+          // [WF-FILE-BROWSER] 24.10.2026 — „Otwórz z dysku…” i „Otwórz projekty”
+          // połączone w jedno (decyzja Piotra 22:17): okno „Pliki” w trybie
+          // wyboru, start w Projektach; „Inne miejsce…” = okno systemowe.
+          text: qsTr("Otwórz projekt…")
           ikona: "wfg_otworz"
           onClicked: {
             dashBoard.close();
@@ -2561,19 +2564,6 @@ Drawer {
             };
             dashBoard.closed.connect(wykonaj);
             dashBoard.close();
-          }
-        }
-        QfPozycjaMenu {
-          text: qsTr("Otwórz projekty") // WF-OTWORZ-PROJEKTY: otwiera katalog projektów
-          ikona: "wfg_otworz"
-          onClicked: {
-            dashBoard.close();
-            // przepływ (docs/MAGAZYN.md): żywe projekty biurka mieszkają
-            // w wydaniach magazynu; na telefonie — w domu danych aplikacji.
-            // [WF-FILE-BROWSER] 24.10.2026 — the "Files" window on "Projekty"
-            // on both platforms; the SD card is one of its places, so the
-            // "where from?" chooser (wyborMiejscaOtwierania) is no longer needed.
-            fileBrowser.openPlace("projekty");
           }
         }
         QfPozycjaMenu {
@@ -3268,20 +3258,21 @@ Drawer {
             polka: "zaawansowana" // [WF-POLKA-ZAAWANSOWANE]
             ikona: "wfg_otworz"
             enabled: dashBoard.activeLayer !== null
-            onClicked: dialogStylu.open()
+            // [WF-FILE-BROWSER] 24.10.2026 — the "Files" window (start: this project)
+            onClicked: fileBrowser.pickFile({
+                                              "title": qsTr("Wczytaj styl warstwy"),
+                                              "pattern": /\.qml$/i,
+                                              "place": "projekt",
+                                              "confirmText": qsTr("Wczytaj"),
+                                              "done": function (sciezka) {
+                                                const wynik = procesyStylu.wczytajStyl(dashBoard.activeLayer, sciezka);
+                                                displayToast(wynik === "" ? qsTr("Styl wczytany") : wynik);
+                                              }
+                                            })
           }
         }
         ProcesyStudio {
           id: procesyStylu
-        }
-        FileDialog {
-          id: dialogStylu
-          title: qsTr("Wczytaj styl warstwy")
-          nameFilters: [qsTr("Styl QGIS (*.qml)"), qsTr("Wszystkie pliki (*)")]
-          onAccepted: {
-            const wynik = procesyStylu.wczytajStyl(dashBoard.activeLayer, String(selectedFile).replace(/^file:\/\//, ""));
-            displayToast(wynik === "" ? qsTr("Styl wczytany") : wynik);
-          }
         }
 
         QfLegend {

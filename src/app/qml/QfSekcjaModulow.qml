@@ -643,16 +643,6 @@ Item {
       oknoZakresu.zakonczone(f(qgisProject, wybrane, oknoZakresu.bufor()), qsTr("działek: %1").arg(wybrane.length));
     }
 
-    SystemoweOkna.FileDialog {
-      id: wybieraczZakresu
-      title: qsTr("Wskaż plik z zakresem prac")
-      // jak w kreatorze "Projekt z DXF": start w Pobranych, bez filtra typów
-      // (Android filtruje po MIME, a GPKG/DXF go nie mają)
-      currentFolder: "file:///storage/emulated/0/Download"
-      nameFilters: [qsTr("Wszystkie pliki (*)")]
-      onAccepted: oknoZakresu.zPliku(String(selectedFile).replace(/^file:\/\//, ""))
-    }
-
     RowLayout {
       Layout.fillWidth: true
       spacing: 8
@@ -681,7 +671,15 @@ Item {
       text: qsTr("Z pliku (GPKG, KML, GeoJSON, DXF, SHP)…")
       ikona: "wfg_przeglad"
       enabled: !oknoZakresu.zajety
-      onClicked: wybieraczZakresu.open()
+      // [WF-FILE-BROWSER] 24.10.2026 — the "Files" window (start: Pobrane)
+      onClicked: fileBrowser.pickFile({
+                                        "title": qsTr("Wskaż plik z zakresem prac"),
+                                        "pattern": /\.(gpkg|kml|kmz|geojson|json|dxf|shp|zip)$/i,
+                                        "place": "pobrane",
+                                        "done": function (sciezka) {
+                                          oknoZakresu.zPliku(sciezka);
+                                        }
+                                      })
     }
 
     Text {

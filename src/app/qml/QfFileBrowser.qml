@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtCore
+import QtQuick.Dialogs as SystemoweOkna
 import Qt.labs.folderlistmodel
 import org.qfield
 import org.qfield.gui
@@ -22,7 +23,11 @@ import Theme
  *
  * Layout: places (a column on a wide screen, chips on a phone), a breadcrumb
  * path with human names, a list with type icons and a ⋮ menu per row.
- * Step 1 = browsing. The file and folder pick modes come in step 2–3.
+ * Step 1 = browsing. Step 2 (24.10, 22:50) = picking a file: the same
+ * window, files of another kind greyed (not hidden — one sees they are
+ * there), ✕ / ✓ in the title bar; on a phone "Pobrane ↗" and "Wymiana ↗" and
+ * "Inne miejsce…" open the system window (the app cannot list other apps'
+ * files there).
  *
  * File operations are the ones proven in the gallery's "Pliki" tab (09.09):
  * the bin lives IN the project, renaming / moving only inside the project,
@@ -33,8 +38,11 @@ import Theme
 QfWindowFrame {
   id: browser
 
-  title: qsTr("Pliki")
-  exitMode: "close"
+  title: mode === "browse" ? qsTr("Pliki") : pickTitle
+  exitMode: mode === "browse" ? "close" : "decision"
+  confirmText: pickConfirmText
+  confirmEnabled: selectedPath !== ""
+  onConfirmed: finishPick(selectedPath)
   scrollable: false
   preferredWidth: 900
   preferredHeight: 640
@@ -54,6 +62,18 @@ QfWindowFrame {
   property string clipboardMode: ""   // "kopiuj" | "przenies"
   property bool sortByName: false
 
+  //! [WF-FILE-BROWSER] step 2: "browse" | "pickFile"
+  property string mode: "browse"
+  property string pickTitle: ""
+  property string pickConfirmText: qsTr("Wybierz")
+  property var pickPattern: null
+  property var pickDone: null
+  property string selectedPath: ""
+  //! a system place to point at (phone): the file is probably there
+  property string hintPlace: ""
+  readonly property string phoneDownloads: "/storage/emulated/0/Download"
+  readonly property string phoneExchange: "/storage/emulated/0/Documents/WorkField"
+
   readonly property var projectPattern: /\.(qgs|qgz)$/i
   readonly property var dataPattern: /\.(gpkg|shp|geojson|json|kml|kmz|gpx|csv|tif|tiff|jp2|vrt|mbtiles|sqlite|dxf)$/i
   readonly property var imagePattern: /\.(jpg|jpeg|png)$/i
@@ -67,6 +87,7 @@ QfWindowFrame {
 
   //! Opens the window on a place: "projekt", "projekty", "karta", "szablony", "magazyn", …
   function openPlace(key) {
+    mode = "browse";
     buildPlaces();
     let target = null;
     for (let i = 0; i < places.length; i++) {
@@ -84,10 +105,98 @@ QfWindowFrame {
 
   //! Opens the window on any folder (it must lie under one of the places).
   function openAt(path) {
+    mode = "browse";
     buildPlaces();
     currentPath = String(path).replace(/\/+$/, "");
     message = "";
     open();
+  }
+
+  /**
+   * [WF-FILE-BROWSER] step 2 — the same window as a file picker.
+   *   fileBrowser.pickFile({ "title": qsTr("Wskaż rysunek DXF"), "pattern": /\.dxf$/i,
+   *                          "place": "pobrane", "confirmText": qsTr("Wybierz"),
+   *                          "done": function (path) { … } })
+   * "done" runs after the window has closed.
+   */
+  function pickFile(opts) {
+    mode = "pickFile";
+    pickTitle = opts.title || qsTr("Wskaż plik");
+    pickConfirmText = opts.confirmText || qsTr("Wybierz");
+    pickPattern = opts.pattern || null;
+    pickDone = opts.done || null;
+    selectedPath = "";
+    hintPlace = "";
+    buildPlaces();
+    const wanted = opts.place || "projekt";
+    let target = null;
+    for (let i = 0; i < places.length; i++) {
+      if (places[i].key === wanted)
+        target = places[i];
+    }
+    if (target !== null && target.system === true) {
+      hintPlace = target.key;
+      target = null;
+    }
+    if (target === null) {
+      for (let i = 0; i < places.length && target === null; i++) {
+        if (places[i].system !== true)
+          target = places[i];
+      }
+    }
+    currentPath = target ? target.path : "";
+    message = "";
+    messageIsError = false;
+    if (hintPlace !== "")
+      say(qsTr("Plik w Pobranych albo gdzie indziej w telefonie? Dotknij „%1 ↗” — otworzy się okno systemowe.").arg(placeName(hintPlace)));
+    open();
+  }
+
+  function placeName(key) {
+    for (let i = 0; i < places.length; i++) {
+      if (places[i].key === key)
+        return places[i].name;
+    }
+    return key;
+  }
+
+  //! In the pick mode: does this file fit what we are looking for?
+  function matches(name, isDir) {
+    return mode !== "pickFile" || isDir || pickPattern === null || pickPattern.test(name);
+  }
+
+  function finishPick(path) {
+    if (path === "")
+      return;
+    const done = pickDone;
+    pickDone = null;
+    close();
+    if (done)
+      done(path);
+  }
+
+  //! Places the app cannot list itself (other apps' files on a phone):
+  //! the system window, opened in that folder.
+  function openSystemPicker(folder) {
+    systemPicker.currentFolder = "file://" + folder;
+    systemPicker.open();
+  }
+
+  function goToPlace(place) {
+    if (place.system === true) {
+      openSystemPicker(place.path);
+      return;
+    }
+    currentPath = place.path;
+    selectedPath = "";
+    message = "";
+  }
+
+  onClosed: {
+    mode = "browse";
+    pickDone = null;
+    selectedPath = "";
+    hintPlace = "";
   }
 
   function stripUrl(u) {
@@ -122,7 +231,13 @@ QfWindowFrame {
       list.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": stripUrl(StandardPaths.writableLocation(StandardPaths.DownloadLocation)), "kind": "folder" });
       list.push({ "key": "wymiana", "name": qsTr("Wymiana"), "path": stripUrl(storeSettings.korzenProjektow) + "/wymiana", "kind": "folder" });
     }
-    places = list.filter(p => p.path !== "" && FileUtils.fileExists(p.path));
+    const shown = list.filter(p => p.path !== "" && FileUtils.fileExists(p.path));
+    // phone, pick mode: other apps' files are visible only in the system window
+    if (onPhone && mode === "pickFile") {
+      shown.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": phoneDownloads, "kind": "folder", "system": true });
+      shown.push({ "key": "wymiana", "name": qsTr("Wymiana"), "path": phoneExchange, "kind": "folder", "system": true });
+    }
+    places = shown;
   }
 
   //! The place the current folder belongs to (the longest matching root).
@@ -280,6 +395,20 @@ QfWindowFrame {
   function activate(name, path, isDir) {
     if (isDir) {
       currentPath = String(path);
+      selectedPath = "";
+      message = "";
+      return;
+    }
+    if (mode === "pickFile") {
+      if (!matches(name, false)) {
+        say(qsTr("Ten plik się nie nadaje. %1.").arg(pickTitle), true);
+        return;
+      }
+      // first tap selects (✓ in the title bar), a second tap on it confirms
+      if (selectedPath === String(path))
+        finishPick(String(path));
+      else
+        selectedPath = String(path);
       message = "";
       return;
     }
@@ -384,7 +513,7 @@ QfWindowFrame {
 
       Text {
         Layout.fillWidth: true
-        text: placeButton.place ? placeButton.place.name : ""
+        text: placeButton.place ? placeButton.place.name + (placeButton.place.system === true ? " ↗" : "") : ""
         color: placeButton.active ? "#4DB6AC" : Theme.mainTextColor
         font.pointSize: Theme.tipFont.pointSize
         font.bold: placeButton.active
@@ -395,10 +524,36 @@ QfWindowFrame {
     MouseArea {
       id: placeMouse
       anchors.fill: parent
-      onClicked: {
-        browser.currentPath = placeButton.place.path;
-        browser.message = "";
-      }
+      onClicked: browser.goToPlace(placeButton.place)
+    }
+  }
+
+  //! an outlined button in the window's own colours (the platform style
+  //! painted it light on the dark window)
+  component OutlineButton: Rectangle {
+    id: outline
+    property string text: ""
+    signal clicked
+    implicitHeight: 40
+    radius: 6
+    color: outlineMouse.pressed ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+    border.width: 1
+    border.color: Theme.controlBorderColor
+
+    Text {
+      anchors.centerIn: parent
+      width: parent.width - 12
+      horizontalAlignment: Text.AlignHCenter
+      text: outline.text
+      color: Theme.mainTextColor
+      font.pointSize: Theme.tipFont.pointSize
+      elide: Text.ElideRight
+    }
+
+    MouseArea {
+      id: outlineMouse
+      anchors.fill: parent
+      onClicked: outline.clicked()
     }
   }
 
@@ -410,23 +565,20 @@ QfWindowFrame {
     implicitWidth: chipText.implicitWidth + 28
     radius: 17
     color: active ? Qt.rgba(0.30, 0.71, 0.67, 0.25) : "transparent"
-    border.width: 1
-    border.color: active ? "#4DB6AC" : Theme.controlBorderColor
+    border.width: chip.place !== null && browser.hintPlace === chip.place.key ? 2 : 1
+    border.color: active ? "#4DB6AC" : (chip.place !== null && browser.hintPlace === chip.place.key ? "#fb8c00" : Theme.controlBorderColor)
 
     Text {
       id: chipText
       anchors.centerIn: parent
-      text: chip.place ? chip.place.name : ""
+      text: chip.place ? chip.place.name + (chip.place.system === true ? " ↗" : "") : ""
       color: chip.active ? "#4DB6AC" : Theme.mainTextColor
       font.pointSize: Theme.tipFont.pointSize
     }
 
     MouseArea {
       anchors.fill: parent
-      onClicked: {
-        browser.currentPath = chip.place.path;
-        browser.message = "";
-      }
+      onClicked: browser.goToPlace(chip.place)
     }
   }
 
@@ -462,6 +614,13 @@ QfWindowFrame {
 
       Item {
         Layout.fillHeight: true
+      }
+
+      OutlineButton {
+        visible: browser.mode === "pickFile"
+        Layout.fillWidth: true
+        text: qsTr("Inne miejsce…")
+        onClicked: browser.openSystemPicker(browser.currentPath)
       }
     }
 
@@ -657,9 +816,13 @@ QfWindowFrame {
           required property var fileModified
           required property var fileSize
 
+          readonly property bool fits: browser.matches(fileName, fileIsDir)
+          readonly property bool chosen: browser.selectedPath !== "" && browser.selectedPath === String(filePath)
+
           width: fileList.width
           height: 56
-          color: rowMouse.pressed ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+          color: chosen ? Qt.rgba(0.30, 0.71, 0.67, 0.30) : (rowMouse.pressed ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
+          opacity: fits ? 1.0 : 0.4
 
           RowLayout {
             anchors.fill: parent
@@ -732,6 +895,14 @@ QfWindowFrame {
           color: Theme.secondaryTextColor
           font.pointSize: Theme.tipFont.pointSize
         }
+      }
+
+      // phone, pick mode: the way out to the system window
+      OutlineButton {
+        visible: browser.mode === "pickFile" && browser.narrowScreen
+        Layout.fillWidth: true
+        text: browser.onPhone ? qsTr("Inne miejsce… (okno systemowe Androida)") : qsTr("Inne miejsce…")
+        onClicked: browser.openSystemPicker(browser.onPhone ? browser.phoneDownloads : browser.currentPath)
       }
     }
   }
@@ -814,6 +985,23 @@ QfWindowFrame {
       height: visible ? implicitHeight : 0
       enabled: fileMenu.inProject && fileMenu.lock === ""
       onTriggered: browser.toBin(fileMenu.name, fileMenu.path)
+    }
+  }
+
+  // [WF-FILE-BROWSER] step 2 — the system window, only as "Inne miejsce…".
+  // No extension filter: Android filters by MIME type and DXF has none, so
+  // "*.dxf" hid everything (18.09). The kind is checked AFTER the choice.
+  SystemoweOkna.FileDialog {
+    id: systemPicker
+    title: browser.pickTitle
+    nameFilters: [qsTr("Wszystkie pliki (*)")]
+    onAccepted: {
+      const path = String(selectedFile).replace(/^file:\/\//, "");
+      if (!browser.matches(FileUtils.fileName(path), false)) {
+        browser.say(qsTr("Ten plik się nie nadaje: %1").arg(FileUtils.fileName(path)), true);
+        return;
+      }
+      browser.finishPick(path);
     }
   }
 

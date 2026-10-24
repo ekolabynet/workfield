@@ -297,17 +297,6 @@ QfWindowFrame {
     }
   }
 
-  SystemoweOkna.FileDialog {
-    id: wybieraczObrazu
-
-    title: qsTr("Wskaż obraz do dopasowania")
-    // Start w Pobranych — tam ląduje plik przysłany albo wgrany kablem.
-    // Ta sama droga co w kreatorze „Projekt z DXF" (18.09).
-    currentFolder: "file:///storage/emulated/0/Download"
-    nameFilters: [qsTr("Wszystkie pliki (*)")]
-    onAccepted: oknoGeoreferencji.zacznij(String(selectedFile).replace(/^file:\/\//, ""))
-  }
-
   // ── skąd obraz ───────────────────────────────────────────────
   ColumnLayout {
     Layout.fillWidth: true
@@ -336,7 +325,15 @@ QfWindowFrame {
       t: oknoGeoreferencji.t
       text: oknoGeoreferencji.obraz === "" ? qsTr("Wskaż plik obrazu…") : qsTr("Inny plik obrazu…")
       ikona: "wfg_otworz"
-      onClicked: wybieraczObrazu.open()
+      // [WF-FILE-BROWSER] 24.10.2026 — the "Files" window (start: Pobrane)
+      onClicked: fileBrowser.pickFile({
+                                        "title": qsTr("Wskaż obraz do dopasowania"),
+                                        "pattern": /\.(jpg|jpeg|png|tif|tiff|webp)$/i,
+                                        "place": "pobrane",
+                                        "done": function (sciezka) {
+                                          oknoGeoreferencji.zacznij(sciezka);
+                                        }
+                                      })
     }
   }
 

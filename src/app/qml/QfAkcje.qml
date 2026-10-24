@@ -81,7 +81,7 @@ QtObject {
     { id: "odbierz", nazwa: qsTr("Przyjmij zwrot"), ikona: "wfg_odbierz",
       grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.odbierzZwrot(); } },
-    { id: "otworz", nazwa: qsTr("Otwórz z dysku…"), ikona: "wfg_otworz",
+    { id: "otworz", nazwa: qsTr("Otwórz projekt…"), ikona: "wfg_otworz", // [WF-FILE-BROWSER]
       grupa: "magazyn", desktop: true, telefon: true, wymagaProjektu: false,
       wykonaj: function () { akcje.otworzProjekt(); } },
 

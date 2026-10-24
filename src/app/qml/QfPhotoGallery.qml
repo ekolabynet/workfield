@@ -986,20 +986,21 @@ QfWindowFrame {
         photoGallery.close();
       }
 
-      FileDialog {
-        id: dialogTabel
-        title: qsTr("Wybierz plik z tabelami")
-        nameFilters: [qsTr("Tabele danych (*.gpkg *.csv)"), qsTr("Wszystkie pliki (*)")]
-        onAccepted: zakladkaTabele.ustawPlik(String(selectedFile).replace(/^file:\/\//, ""))
-      }
-
       RowLayout {
         Layout.fillWidth: true
         spacing: 6
 
         Button {
           text: qsTr("Plik…")
-          onClicked: dialogTabel.open()
+          // [WF-FILE-BROWSER] 24.10.2026 — the "Files" window (start: this project)
+          onClicked: fileBrowser.pickFile({
+                                            "title": qsTr("Wybierz plik z tabelami"),
+                                            "pattern": /\.(gpkg|csv|sqlite)$/i,
+                                            "place": "projekt",
+                                            "done": function (sciezka) {
+                                              zakladkaTabele.ustawPlik(sciezka);
+                                            }
+                                          })
         }
         ComboBox {
           id: wyborTabeli

@@ -52,39 +52,23 @@ QfWindowFrame {
     miejsceProjektu.upewnijSie(); // WorkFieldGIS 22.10.2026 — „gdzie zakładać” (raz, gdy jest karta)
   }
 
-  //! Systemowe okno wyboru pliku — `ACTION_OPEN_DOCUMENT` Androida.
-  //! Uzytkownik wskazuje plik sam i tylko do niego aplikacja dostaje
-  //! dostep. Wlasne przeszukiwanie katalogow (pierwsza proba, 18.09)
-  //! nie widzialo `Download` i bylo obce czlowiekowi, ktory zna swoj
-  //! telefon lepiej niz nasza liste.
-  SystemoweOkna.FileDialog {
-    id: wybieraczPliku
-
-    title: qsTr("Wskaż rysunek DXF")
-    // Start w Pobranych: tam ląduje rysunek przysłany przez LocalSend,
-    // WhatsAppa albo wgrany kablem. Bez tego Qt otwiera okno w przestrzeni
-    // aplikacji, gdzie projektant swojego pliku nie znajdzie.
-    currentFolder: "file:///storage/emulated/0/Download"
-    // BEZ filtra rozszerzen. Systemowe okno Androida filtruje po typie
-    // MIME, nie po nazwie — a DXF nie ma zarejestrowanego typu, wiec
-    // `*.dxf` chowalo wszystko poza obrazkami. Sprawdzamy rozszerzenie
-    // PO wybraniu, wtedy widac tez, dlaczego plik sie nie nadaje.
-    nameFilters: [qsTr("Wszystkie pliki (*)")]
-    onAccepted: {
-      const sciezka = String(selectedFile).replace(/^file:\/\//, "");
-      if (FileUtils.fileSuffix(sciezka).toLowerCase() !== "dxf") {
-        komunikat.text = qsTr("To nie jest rysunek DXF: %1")
-                          .arg(FileUtils.fileName(sciezka));
-        return;
-      }
-      komunikat.text = "";
-      kreatorCAD.plikCAD = sciezka;
-      if (poleNazwy.text === "")
-        poleNazwy.text = FileUtils.fileName(sciezka, false)
-                          .replace(/[.]/g, "_")
-                          .replace(/[^A-Za-z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ _-]/g, "")
-                          .substring(0, 48).trim();
+  //! [WF-FILE-BROWSER] 24.10.2026 — the drawing is chosen in the "Files"
+  //! window (start: Pobrane; on a phone "Pobrane ↗" opens the system window,
+  //! the same ACTION_OPEN_DOCUMENT as before). The kind is checked here too:
+  //! "Inne miejsce…" lets any file through the system window.
+  function plikWybrany(sciezka) {
+    if (FileUtils.fileSuffix(sciezka).toLowerCase() !== "dxf") {
+      komunikat.text = qsTr("To nie jest rysunek DXF: %1")
+                        .arg(FileUtils.fileName(sciezka));
+      return;
     }
+    komunikat.text = "";
+    kreatorCAD.plikCAD = sciezka;
+    if (poleNazwy.text === "")
+      poleNazwy.text = FileUtils.fileName(sciezka, false)
+                        .replace(/[.]/g, "_")
+                        .replace(/[^A-Za-z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ _-]/g, "")
+                        .substring(0, 48).trim();
   }
 
   function utworz() {
@@ -167,7 +151,14 @@ QfWindowFrame {
 
     Button {
       text: qsTr("Wybierz…")
-      onClicked: wybieraczPliku.open()
+      onClicked: fileBrowser.pickFile({
+                                        "title": qsTr("Wskaż rysunek DXF"),
+                                        "pattern": /\.dxf$/i,
+                                        "place": "pobrane",
+                                        "done": function (sciezka) {
+                                          kreatorCAD.plikWybrany(sciezka);
+                                        }
+                                      })
     }
   }
 
