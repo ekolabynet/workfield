@@ -13,6 +13,11 @@ Nic nie zapisuje. Czyta obie bazy tylko do odczytu.
     python3 przyrost.py RANO.gpkg WIECZOR.gpkg --dcim A/DCIM B/DCIM
     python3 przyrost.py RANO.gpkg WIECZOR.gpkg --json > przyrost.json
 
+Od 24.10.2026 [WF-IDENTITY-SCRIPTS] — gdy warstwy mają `uuid` — także
+porównanie PO TOŻSAMOŚCI (`tozsamosc.py`): które obiekty są nowe, usunięte,
+zmienione i przenumerowane. Liczniki mówią „+3 i -3”; `uuid` mówi, czy to
+zero zmian, czy trzy obiekty wymienione na trzy inne.
+
 Najważniejszy wiersz wyniku to ZAL_* — rośnie tylko wtedy, gdy zdjęcia
 trafiają do tabeli załączników, a nie do pola tekstowego. Brak wzrostu ZAL_
 przy rosnącym DCIM znaczy, że coś się rozjechało.
@@ -179,6 +184,19 @@ def main():
     print("-" * 60)
 
     niebo_raport(a.wieczor)
+
+    # [WF-IDENTITY-SCRIPTS] po uuid — tożsamość, nie numer wiersza
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import tozsamosc
+        porownanie = tozsamosc.porownaj(a.rano, a.wieczor)
+        if any(x["uuid"] for x in porownanie):
+            print()
+            print("Po uuid (tożsamość obiektu, nie numer wiersza):")
+            tozsamosc.drukuj_porownanie(porownanie)
+    except ImportError:
+        print()
+        print("(porównanie po uuid pominięte: brak tozsamosc.py obok skryptu)")
 
     zal = [(t, d) for t, x, y, d in wiersze if t.startswith("ZAL_")]
     dcim = [d for t, x, y, d in wiersze if t == "DCIM"]

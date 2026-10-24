@@ -13,6 +13,9 @@ Skrypt sprawdza pięć rzeczy:
   C. ten sam plik u dwóch rodziców
   D. ścieżki bez pliku na dysku          <- ta łapie stratę, ZANIM plik zniknie
   E. pliki bez wiersza (wymaga --dcim)   <- 20.08: z 268 zdjęć tylko 21 miało rekord
+  F. tożsamość (24.10.2026, tozsamosc.py): puste i powtórzone uuid, a w tabelach
+     zdjęć zgodność dwóch kluczy — ID_RODZICA (fid) i PARENT_UUID muszą
+     wskazywać ten sam obiekt; rozjazd = przenumerowanie albo ręczna zmiana
 
 NIC NIE KASUJE i nic nie zapisuje. Wypisuje raport, a przy sierotach — gotowe
 polecenie do obejrzenia.
@@ -295,6 +298,20 @@ def main():
         print()
 
     con.close()
+
+    # F. [WF-IDENTITY-SCRIPTS] tożsamość: uuid i dwa klucze tabel zdjęć
+    print("=" * 62)
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import tozsamosc
+        raport, problemy = tozsamosc.sprawdz(a.gpkg, a.limit)
+        print("F. tożsamość (uuid, PARENT_UUID ↔ ID_RODZICA):")
+        for linia in raport:
+            print("   " + linia)
+        znalezione += problemy
+    except ImportError:
+        print("F. NIE SPRAWDZONE: brak tozsamosc.py obok skryptu")
+    print()
 
     print("=" * 62)
     if znalezione:
