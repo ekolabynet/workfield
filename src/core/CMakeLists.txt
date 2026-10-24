@@ -137,6 +137,7 @@ set(QFIELD_CORE_SRCS
     utils/kopiezapasowe.cpp
     utils/nieboutils.cpp
     utils/zalacznikiutils.cpp
+    utils/splitheirutils.cpp
     procesystudio.cpp
     phototagstore.cpp
     tabelamodel.cpp
@@ -279,6 +280,7 @@ set(QFIELD_CORE_HDRS
     utils/kopiezapasowe.h
     utils/nieboutils.h
     utils/zalacznikiutils.h
+    utils/splitheirutils.h
     procesystudio.h
     phototagstore.h
     tabelamodel.h

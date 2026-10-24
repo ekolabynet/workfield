@@ -111,6 +111,7 @@
 #include "utils/niebodziennik.h"
 #include "utils/nieboutils.h"
 #include "utils/zalacznikiutils.h"
+#include "utils/splitheirutils.h" // [WF-SPLIT-HEIR]
 
 #include <QAbstractSocket>
 #include <QtQml>
@@ -364,6 +365,7 @@ namespace QfCore
       return NieboDziennik::instancja();
     } );
     REGISTER_SINGLETON( "org.qfield.core", ZalacznikiUtils, "ZalacznikiUtils" );
+    REGISTER_SINGLETON( "org.qfield.core", SplitHeirUtils, "SplitHeirUtils" ); // [WF-SPLIT-HEIR]
     qmlRegisterUncreatableType<QfAbstractGnssReceiver>( "org.qfield.core", 1, 0, "AbstractGnssReceiver", "" );
     qmlRegisterUncreatableType<QfAppInterface>( "org.qfield.core", 1, 0, "AppInterface", "AppInterface is only provided by the environment and cannot be created ad-hoc" );
     qmlRegisterUncreatableType<QfBookmarkModel>( "org.qfield.core", 1, 0, "BookmarkModel", "The BookmarkModel is available as context property `bookmarkModel`" );

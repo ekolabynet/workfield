@@ -92,7 +92,7 @@ class QfMultiFeatureListModelBase : public QAbstractItemModel
     bool canProcessSelection() const;
 
     //! \copydoc QfMultiFeatureListModel::mergeSelection
-    bool mergeSelection();
+    bool mergeSelection( int keepIndex = 0 );
 
     /**
      * Deletes a feature from a vector layer

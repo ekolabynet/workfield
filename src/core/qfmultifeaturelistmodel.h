@@ -136,6 +136,13 @@ class QfMultiFeatureListModel : public QSortFilterProxyModel
     Q_INVOKABLE bool mergeSelection();
 
     /**
+     * WorkField 24.10.2026 [WF-MERGE-HEIR] — merges the selection into the
+     * object at \a keepIndex of selectedFeatures (it keeps its fid, uuid,
+     * number and attributes; the photos of the others move onto it).
+     */
+    Q_INVOKABLE bool mergeSelectionKeeping( int keepIndex );
+
+    /**
      * Deletes a feature from a vector layer
      *
      * \param layer The layer from which a feature will be removed

@@ -145,6 +145,11 @@ bool QfMultiFeatureListModel::mergeSelection()
   return mSourceModel->mergeSelection();
 }
 
+bool QfMultiFeatureListModel::mergeSelectionKeeping( int keepIndex )
+{
+  return mSourceModel->mergeSelection( keepIndex );
+}
+
 bool QfMultiFeatureListModel::deleteFeature( QgsVectorLayer *layer, QgsFeatureId fid )
 {
   return mSourceModel->deleteFeature( layer, fid );

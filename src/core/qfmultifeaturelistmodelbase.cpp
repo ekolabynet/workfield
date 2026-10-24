@@ -703,13 +703,17 @@ bool QfMultiFeatureListModelBase::canProcessSelection() const
   return true;
 }
 
-bool QfMultiFeatureListModelBase::mergeSelection()
+bool QfMultiFeatureListModelBase::mergeSelection( int keepIndex )
 {
   if ( !canMergeSelection() )
     return false;
 
   QgsVectorLayer *vlayer = selectedLayer();
   QList<QPair<QgsMapLayer *, QgsFeature>> selectedFeatures = mSelectedFeatures;
+  // [WF-MERGE-HEIR] 24.10.2026: the user chooses the object that stays;
+  // below, the first of the list is the one kept.
+  if ( keepIndex > 0 && keepIndex < selectedFeatures.size() )
+    selectedFeatures.move( keepIndex, 0 );
   bool isSuccess = true;
   QgsGeometry combinedGeometry;
   for ( const auto &pair : selectedFeatures )

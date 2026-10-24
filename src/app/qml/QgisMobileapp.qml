@@ -2656,6 +2656,46 @@ ApplicationWindow {
       objectName: "geometryHighlighter"
     }
 
+    // [WF-SPLIT-HEIR] 24.10.2026: numbers of the parts on the map while the
+    // split dialog is open — the part is chosen by its number there
+    Repeater {
+      model: splitHeirDialog.visible ? splitHeirDialog.parts : []
+
+      delegate: Item {
+        id: partNumber
+        required property var modelData
+        required property int index
+        readonly property bool chosen: modelData.fid === splitHeirDialog.heirFid
+        x: partNumberPosition.screenPoint.x - width / 2
+        y: partNumberPosition.screenPoint.y - height / 2
+        width: 34
+        height: 34
+        z: 1000
+
+        QfMapToScreen {
+          id: partNumberPosition
+          mapSettings: mapCanvas.mapSettings
+          mapPoint: partNumber.modelData.labelPoint
+        }
+
+        Rectangle {
+          anchors.fill: parent
+          radius: width / 2
+          color: partNumber.chosen ? "#43a047" : "#37474f"
+          border.color: "white"
+          border.width: 2
+        }
+
+        Text {
+          anchors.centerIn: parent
+          text: String(partNumber.index + 1)
+          color: "white"
+          font.pixelSize: 18
+          font.bold: true
+        }
+      }
+    }
+
     QfMapToScreen {
       id: mapToScreenTranslateX
       mapSettings: mapCanvas.mapSettings
@@ -9449,6 +9489,22 @@ ApplicationWindow {
   // Edytor wierzcholkow obsluguje wylacznie obiekty jednoczesciowe
   // (VertexModel::editingAllowed == !mIsMulti), wiec zamiast komunikatu
   // bez wyjscia dajemy dwa czasowniki, ktore ten stan zdejmuja.
+  // [WF-SPLIT-HEIR] 24.10.2026: after a split — which part is the old object
+  // and where its photos go. Both split tools announce through SplitHeirUtils.
+  QfSplitHeirDialog {
+    id: splitHeirDialog
+    highlighter: geometryHighlighter.geometryWrapper
+    mapSettings: mapCanvas.mapSettings
+  }
+
+  Connections {
+    target: SplitHeirUtils
+
+    function onChoiceRequested(layer, originalFid, newUuids) {
+      splitHeirDialog.openFor(layer, originalFid, newUuids);
+    }
+  }
+
   QfDialog {
     id: multipartGeometryDialog
     parent: mainWindow.contentItem
@@ -9498,7 +9554,7 @@ ApplicationWindow {
         wrapMode: Text.WordWrap
         font: Theme.tipFont
         color: Theme.secondaryTextColor
-        text: qsTr("Scalanie działa, gdy części się stykają. Rozdzielenie kopiuje atrybuty; załączniki zostają przy pierwszym obiekcie.")
+        text: qsTr("Scalanie działa, gdy części się stykają. Rozdzielenie kopiuje atrybuty; potem wybierzesz, który kawałek jest dawnym obiektem i do którego idą zdjęcia.")
       }
     }
 

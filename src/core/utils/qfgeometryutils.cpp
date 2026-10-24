@@ -17,6 +17,7 @@
 #include "featureidentity.h" // [WF-SPLIT-IDENTITY]
 #include "qfgeometryutils.h"
 #include "qfrubberbandmodel.h"
+#include "splitheirutils.h" // [WF-SPLIT-HEIR]
 
 #include <qgscoordinatetransform.h>
 #include <qgsdistancearea.h>
@@ -343,12 +344,18 @@ QfGeometryUtils::GeometryOperationResult QfGeometryUtils::splitFeatureFromRubber
     }
     // [WF-SPLIT-IDENTITY] 24.10.2026: the part left on the original object
     // keeps its uuid (and its attachments); every new part is a new object.
-    // Choosing the heir and the photos in a dialog — next step.
+    // [WF-SPLIT-HEIR] the new uuids find the parts again after the commit
+    // (their ids change), so the user can pick the heir and the photos.
+    QStringList newUuids;
+    const int uuidIndex = FeatureIdentity::uuidFieldIndex( layer->fields() );
     for ( const QgsFeatureId &createdFeatureId : std::as_const( createdFeatureIds ) )
     {
       FeatureIdentity::assignNewUuid( layer, createdFeatureId );
+      if ( uuidIndex >= 0 )
+        newUuids << layer->getFeature( createdFeatureId ).attribute( uuidIndex ).toString();
     }
-    layer->commitChanges( !wasEditing );
+    if ( layer->commitChanges( !wasEditing ) )
+      SplitHeirUtils::announceSplit( layer, fid, newUuids );
   }
 
   layer->removeSelection();

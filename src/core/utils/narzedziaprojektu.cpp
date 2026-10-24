@@ -8,6 +8,7 @@
 
 #include "narzedziaprojektu.h"
 #include "featureidentity.h" // [WF-SPLIT-IDENTITY]
+#include "splitheirutils.h"  // [WF-SPLIT-HEIR]
 #include <QSet>                    // [WF-IDENTITY]
 #include <qgsfeaturerequest.h>     // [WF-IDENTITY]
 #include <qgsproviderregistry.h>   // [WF-IDENTITY]
@@ -1674,6 +1675,8 @@ QVariantMap NarzedziaProjektu::splitParts( QgsVectorLayer *layer, QgsFeatureId f
   // Pozostale czesci — nowe obiekty z kopia atrybutow.
   const QgsAttributeList keys = layer->primaryKeyAttributes();
   QVariantList created;
+  QStringList newUuids; // [WF-SPLIT-HEIR]
+  const int uuidIndex = FeatureIdentity::uuidFieldIndex( layer->fields() );
 
   for ( int i = 1; i < parts.size(); ++i )
   {
@@ -1689,7 +1692,11 @@ QVariantMap NarzedziaProjektu::splitParts( QgsVectorLayer *layer, QgsFeatureId f
     FeatureIdentity::assignNewUuid( copy ); // [WF-SPLIT-IDENTITY] a new part is a new object
 
     if ( layer->addFeature( copy ) )
+    {
       created << QVariant::fromValue( static_cast<qlonglong>( copy.id() ) );
+      if ( uuidIndex >= 0 )
+        newUuids << copy.attribute( uuidIndex ).toString();
+    }
   }
 
   if ( !wasEditing && !layer->commitChanges() )
@@ -1706,8 +1713,11 @@ QVariantMap NarzedziaProjektu::splitParts( QgsVectorLayer *layer, QgsFeatureId f
 
   result.insert( QStringLiteral( "ok" ), done );
   result.insert( QStringLiteral( "created" ), created );
+  // [WF-SPLIT-HEIR] the user picks the heir and the photos in a dialog
+  if ( done )
+    SplitHeirUtils::announceSplit( layer, fid, newUuids );
   result.insert( QStringLiteral( "message" ), done
-                                                ? tr( "Rozdzielono na %1 obiektów. Załączniki zostały przy pierwszym." ).arg( parts.size() )
+                                                ? tr( "Rozdzielono na %1 obiektów." ).arg( parts.size() )
                                                 : tr( "Rozdzielenie częściowe: powstało %1 z %2 obiektów." ).arg( created.size() + 1 ).arg( parts.size() ) );
   return result;
 }

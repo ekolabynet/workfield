@@ -811,25 +811,70 @@ QfPaneDrawer {
     parent: mainWindow.contentItem
 
     property int selectedCount: 0
-    property string featureDisplayName: ''
     property bool isMerged: false
+    // [WF-MERGE-HEIR] 24.10.2026: the user picks the object that stays — it
+    // keeps its number (fid), uuid and attributes; the photos of the others
+    // move onto it. Polish text instead of the translation of QField's one.
+    property var candidates: []
+    property int keepIndex: 0
 
-    title: qsTr("Merge feature(s)")
-    Label {
-      width: parent.width
-      wrapMode: Text.WordWrap
-      text: qsTr("Should the %n feature(s) selected really be merge?\n\nThe features geometries will be combined into feature '%1', which will keep its attributes.", "0", mergeDialog.selectedCount).arg(mergeDialog.featureDisplayName)
+    title: qsTr("Połącz obiekty")
+
+    Column {
+      width: Math.min(mainWindow.width - 60, 420)
+      spacing: 6
+
+      Label {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        text: qsTr("Zaznaczone obiekty: %1. Geometrie zostaną połączone w jeden obiekt.").arg(mergeDialog.selectedCount)
+      }
+
+      Label {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        font.bold: true
+        text: qsTr("Który obiekt zostaje?")
+      }
+
+      Label {
+        width: parent.width
+        wrapMode: Text.WordWrap
+        font: QfTheme.tipFont
+        color: QfTheme.secondaryTextColor
+        text: qsTr("Zostaje z numerem, identyfikatorem i atrybutami. Pozostałe znikają, a ich zdjęcia przechodzą na niego.")
+      }
+
+      ButtonGroup {
+        id: keepGroup
+      }
+
+      Repeater {
+        model: mergeDialog.candidates
+
+        delegate: RadioButton {
+          required property var modelData
+          required property int index
+          width: parent.width
+          ButtonGroup.group: keepGroup
+          checked: index === mergeDialog.keepIndex
+          text: modelData.text
+          font: QfTheme.tipFont
+          onClicked: mergeDialog.keepIndex = index
+        }
+      }
     }
 
     onAccepted: {
       if (isMerged) {
         return;
       }
-      isMerged = featureFormList.model.mergeSelection();
+      isMerged = featureFormList.model.mergeSelectionKeeping(keepIndex);
+      console.log("WorkField [WF-MERGE-HEIR]: kept candidate " + keepIndex + ", merged: " + isMerged);
       if (isMerged) {
-        displayToast(qsTr("Successfully merged %n feature(s)", "", selectedCount));
+        displayToast(qsTr("Połączono zaznaczone obiekty (%1)").arg(selectedCount));
       } else {
-        displayToast(qsTr("Failed to merge %n feature(s)", "", selectedCount), 'warning');
+        displayToast(qsTr("Nie udało się połączyć obiektów (%1)").arg(selectedCount), 'warning');
       }
       visible = false;
       featureFormList.focus = true;
@@ -842,7 +887,29 @@ QfPaneDrawer {
     function show() {
       this.isMerged = false;
       this.selectedCount = featureFormList.model.selectedCount;
-      this.featureDisplayName = QfFeatureUtils.displayName(featureFormList.selection.focusedLayer, featureFormList.model.selectedFeatures[0]);
+      const layer = featureFormList.selection.focusedLayer;
+      const features = featureFormList.model.selectedFeatures;
+      const list = [];
+      for (let i = 0; i < features.length; i++) {
+        const feature = features[i];
+        let photos = 0;
+        try {
+          photos = SplitHeirUtils.childCount(layer, feature);
+        } catch (e) {
+          photos = 0;
+        }
+        let text = qsTr("Nr %1").arg(feature.id);
+        const name = QfFeatureUtils.displayName(layer, feature);
+        if (name !== "" && name !== String(feature.id))
+          text += " — " + name;
+        if (photos > 0)
+          text += " " + qsTr("(zdjęcia: %1)").arg(photos);
+        list.push({
+            "text": text
+          });
+      }
+      this.candidates = list;
+      this.keepIndex = 0;
       this.open();
     }
   }
