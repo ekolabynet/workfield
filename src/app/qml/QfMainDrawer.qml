@@ -1397,6 +1397,49 @@ Drawer {
         }
       }
 
+      // [WF-EXIT-BUTTONS] 24.10.2026 — two separate exits, small, in the title bar next
+      // to the app name (Piotr): ⏏ close the project → start screen; ⏻ leave the
+      // application (asks first). Until now only "back twice" closed both at once.
+      QfToolButton {
+        width: 36
+        height: 36
+        padding: 0
+        round: false
+        visible: qgisProject && qgisProject.fileName !== ""
+        bgcolor: "#fb8c00"
+        contentItem: Text {
+          text: "⏏"
+          color: "white"
+          font.pointSize: Theme.defaultFont.pointSize
+          font.bold: true
+          horizontalAlignment: Text.AlignHCenter
+          verticalAlignment: Text.AlignVCenter
+        }
+        ToolTip.text: qsTr("Zamknij projekt")
+        ToolTip.delay: 400
+        ToolTip.visible: hovered
+        onClicked: dashBoard.zamknijProjekt()
+      }
+      QfToolButton {
+        width: 36
+        height: 36
+        padding: 0
+        round: false
+        bgcolor: "#e53935"
+        contentItem: Text {
+          text: "⏻"
+          color: "white"
+          font.pointSize: Theme.defaultFont.pointSize
+          font.bold: true
+          horizontalAlignment: Text.AlignHCenter
+          verticalAlignment: Text.AlignVCenter
+        }
+        ToolTip.text: qsTr("Wyjdź z aplikacji")
+        ToolTip.delay: 400
+        ToolTip.visible: hovered
+        onClicked: potwierdzenieWyjscia.open()
+      }
+
       // WFG-JAK-ZACZAC-PRZYCISK — WorkField 22.09.2026.
       // Ekran „Jak zacząć?” pokazywał się raz, przy pierwszym uruchomieniu,
       // i po pierwszym kliknięciu nie było do niego powrotu (uwaga
@@ -1443,41 +1486,6 @@ Drawer {
       color: Theme.controlBorderColor
     }
 
-    // [WF-EXIT-BUTTONS] 24.10.2026 — two separate exits (Piotr): close the project
-    // and go back to the start screen, or leave the application. Until now the
-    // only way out was "back twice", which closes both at once.
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.leftMargin: 6
-      Layout.rightMargin: 6
-      Layout.topMargin: 4
-      Layout.bottomMargin: 4
-      spacing: 6
-
-      QfDecisionButton {
-        role: "cancel"
-        Layout.fillWidth: true
-        Layout.preferredHeight: 44
-        visible: qgisProject && qgisProject.fileName !== ""
-        text: "⏏  " + qsTr("Zamknij projekt")
-        font.pointSize: Theme.tipFont.pointSize
-        onClicked: dashBoard.zamknijProjekt()
-      }
-      QfDecisionButton {
-        role: "danger"
-        Layout.fillWidth: true
-        Layout.preferredHeight: 44
-        text: "⏻  " + qsTr("Wyjdź z aplikacji")
-        font.pointSize: Theme.tipFont.pointSize
-        onClicked: potwierdzenieWyjscia.open()
-      }
-    }
-
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: 1
-      color: Theme.controlBorderColor
-    }
 
     // PRZELACZNIK UKLADU W NAGLOWKU (25.09.2026).
     //
