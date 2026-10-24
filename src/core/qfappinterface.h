@@ -404,8 +404,20 @@ class QfAppInterface : public QObject
     //! Returns "robocza", "wektor", "raster" or "podklad" for the given layer.
     Q_INVOKABLE QString layerKind( QgsMapLayer *layer ) const;
 
-    //! Removes any layer from the project.
+    /**
+     * Removes any layer from the project.
+     * [WF-REMOVE-LAYER-ATTACHMENTS] 24.10.2026: together with its attachment
+     * tables (attachmentTablesOf) — before, the ZAL_ table stayed in the
+     * project as an orphan layer. The data stay in the file.
+     */
     Q_INVOKABLE bool removeLayer( QgsMapLayer *layer );
+
+    /**
+     * [WF-REMOVE-LAYER-ATTACHMENTS] Names of the attachment tables that go
+     * with \a layer when it is removed: children of its composition relations
+     * that belong to no other layer.
+     */
+    Q_INVOKABLE QStringList attachmentTablesOf( QgsMapLayer *layer ) const;
 
     //! Async download of \a url into \a destinationPath; emits downloadFinished/downloadFailed.
     Q_INVOKABLE void downloadFile( const QString &url, const QString &destinationPath );

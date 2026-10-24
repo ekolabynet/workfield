@@ -2067,11 +2067,62 @@ QString QfAppInterface::layerKind( QgsMapLayer *layer ) const
   return QStringLiteral( "wektor" );
 }
 
+#include <qgsrelationmanager.h> // [WF-REMOVE-LAYER-ATTACHMENTS]
+
+namespace
+{
+  //! [WF-REMOVE-LAYER-ATTACHMENTS] Children of composition relations of
+  //! \a layer that no other layer is a parent of.
+  QList<QgsMapLayer *> attachmentTablesOnlyOf( QgsMapLayer *layer )
+  {
+    QList<QgsMapLayer *> result;
+    QgsVectorLayer *vectorLayer = qobject_cast<QgsVectorLayer *>( layer );
+    if ( !vectorLayer )
+      return result;
+    QgsRelationManager *manager = QgsProject::instance()->relationManager();
+    const QList<QgsRelation> relations = manager->referencedRelations( vectorLayer );
+    for ( const QgsRelation &relation : relations )
+    {
+      QgsVectorLayer *child = relation.referencingLayer();
+      if ( !child || child == vectorLayer || relation.strength() != Qgis::RelationshipStrength::Composition || result.contains( child ) )
+        continue;
+      bool onlyThis = true;
+      const QList<QgsRelation> childRelations = manager->referencingRelations( child );
+      for ( const QgsRelation &other : childRelations )
+      {
+        if ( other.referencedLayer() && other.referencedLayer() != vectorLayer )
+          onlyThis = false;
+      }
+      if ( onlyThis )
+        result << child;
+    }
+    return result;
+  }
+} // namespace
+
+QStringList QfAppInterface::attachmentTablesOf( QgsMapLayer *layer ) const
+{
+  QStringList names;
+  for ( QgsMapLayer *table : attachmentTablesOnlyOf( layer ) )
+    names << table->name();
+  return names;
+}
+
 bool QfAppInterface::removeLayer( QgsMapLayer *layer )
 {
   if ( !layer )
     return false;
+  // collect before removing: the relations go away with the layer
+  const QList<QgsMapLayer *> tables = attachmentTablesOnlyOf( layer );
+  QStringList ids;
+  for ( QgsMapLayer *table : tables )
+    ids << table->id();
   QgsProject::instance()->removeMapLayer( layer->id() );
+  if ( !ids.isEmpty() )
+  {
+    QgsProject::instance()->removeMapLayers( ids );
+    QgsMessageLog::logMessage( QStringLiteral( "WorkField [WF-REMOVE-LAYER-ATTACHMENTS]: removed %1 attachment table(s) with the layer" ).arg( ids.size() ), QStringLiteral( "WorkField" ), Qgis::Info );
+  }
   QgsProject::instance()->setDirty( true );
   return true;
 }

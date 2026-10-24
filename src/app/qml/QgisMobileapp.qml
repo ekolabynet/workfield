@@ -7515,6 +7515,12 @@ ApplicationWindow {
           } catch (e) {
             console.log("WorkField [WF-JOURNAL]: install failed: " + e);
           }
+          // [WF-ATTACHMENT-TRASH] photos of deleted objects to the trash of the project
+          try {
+            console.log("WorkField [WF-ATTACHMENT-TRASH]: watching " + AttachmentTrash.watchProject(qgisProject) + " attachment tables");
+          } catch (e) {
+            console.log("WorkField [WF-ATTACHMENT-TRASH]: watch failed: " + e);
+          }
         });
       }
 
@@ -9548,6 +9554,19 @@ ApplicationWindow {
     id: viewConeDialog
     renderer: viewConeRenderer.geometryWrapper
     mapSettings: mapCanvas.mapSettings
+  }
+
+  // [WF-ATTACHMENT-TRASH] 24.10.2026: say where the photos of a deleted object went
+  Connections {
+    target: AttachmentTrash
+
+    function onFilesTrashed(count) {
+      displayToast(qsTr("Zdjęcia usuniętego obiektu (%1) przeniesiono do kosza projektu").arg(count));
+    }
+
+    function onFilesRestored(count) {
+      displayToast(qsTr("Przywrócono zdjęcia z kosza (%1)").arg(count));
+    }
   }
 
   Connections {

@@ -141,6 +141,7 @@ set(QFIELD_CORE_SRCS
     utils/splitheirutils.cpp
     utils/viewconeutils.cpp
     utils/journalutils.cpp
+    utils/attachmenttrash.cpp
     procesystudio.cpp
     phototagstore.cpp
     tabelamodel.cpp
@@ -287,6 +288,7 @@ set(QFIELD_CORE_HDRS
     utils/splitheirutils.h
     utils/viewconeutils.h
     utils/journalutils.h
+    utils/attachmenttrash.h
     procesystudio.h
     phototagstore.h
     tabelamodel.h

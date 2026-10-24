@@ -115,6 +115,7 @@
 #include "utils/splitheirutils.h" // [WF-SPLIT-HEIR]
 #include "utils/viewconeutils.h"  // [WF-VIEW-CONE]
 #include "utils/journalutils.h"   // [WF-JOURNAL]
+#include "utils/attachmenttrash.h" // [WF-ATTACHMENT-TRASH]
 
 #include <QAbstractSocket>
 #include <QtQml>
@@ -371,6 +372,7 @@ namespace QfCore
     REGISTER_SINGLETON( "org.qfield.core", SplitHeirUtils, "SplitHeirUtils" ); // [WF-SPLIT-HEIR]
     REGISTER_SINGLETON( "org.qfield.core", ViewConeUtils, "ViewConeUtils" );   // [WF-VIEW-CONE]
     REGISTER_SINGLETON( "org.qfield.core", JournalUtils, "JournalUtils" );     // [WF-JOURNAL]
+    REGISTER_SINGLETON( "org.qfield.core", AttachmentTrash, "AttachmentTrash" ); // [WF-ATTACHMENT-TRASH]
     // WorkFieldGIS 24.10.2026 [WF-DATA-TIDY] — moduł-narzędzie „Porządkowanie danych”
     // (claude/MODUL_porzadkowanie_plan.md). Łatka 1: tylko odczyt i raport.
     REGISTER_SINGLETON( "org.qfield.core", TidyEngine, "TidyEngine" );

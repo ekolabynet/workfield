@@ -4495,9 +4495,24 @@ Drawer {
         elide: Text.ElideMiddle
       }
 
+      // [WF-REMOVE-LAYER-ATTACHMENTS] 24.10.2026: its photo table goes too
       Text {
         Layout.fillWidth: true
-        text: qsTr("Plik z danymi pozostanie na dysku.")
+        visible: text !== ""
+        text: {
+          if (!removeLayerConfirm.targetLayer)
+            return "";
+          const tables = iface.attachmentTablesOf(removeLayerConfirm.targetLayer);
+          return tables.length > 0 ? qsTr("Razem z nią z projektu zniknie jej tabela zdjęć: %1.").arg(tables.join(", ")) : "";
+        }
+        font: t.tipFont
+        color: t.mainTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Plik z danymi i zdjęcia pozostaną na dysku.")
         font: t.tinyFont
         color: t.secondaryTextColor
         wrapMode: Text.WordWrap
