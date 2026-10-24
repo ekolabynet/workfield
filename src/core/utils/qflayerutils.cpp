@@ -70,6 +70,7 @@
 #include <qgspallabeling.h>
 #include <qgsprintlayout.h>
 #include <qgsproject.h>
+#include <qgsrelationmanager.h> // [WF-CASCADE-COMMIT]
 #include <qgsprojectstylesettings.h>
 #include <qgsrasterlayer.h>
 #include <qgsrasterlayerelevationproperties.h>
@@ -393,6 +394,50 @@ bool QfLayerUtils::addFeature( QgsVectorLayer *layer, QgsFeature feature )
   return false;
 }
 
+namespace
+{
+  // [WF-CASCADE-COMMIT] 24.10.2026
+  // QgsVectorLayer::DeleteContext::handledLayers() lists only the layers that
+  // are themselves parents in some relation. A photo table (ZAL_) is a leaf:
+  // QGIS deletes its rows into the layer's edit buffer but never reports the
+  // layer, so that deletion was never committed and the photos stayed in the
+  // table (orphans) until the project was closed and the buffer thrown away.
+  // These helpers find every layer reached through composition relations.
+  void collectCompositionChildren( QgsProject *project, QgsVectorLayer *layer, QList<QgsVectorLayer *> &result )
+  {
+    const QList<QgsRelation> relations = project->relationManager()->referencedRelations( layer );
+    for ( const QgsRelation &relation : relations )
+    {
+      if ( relation.strength() != Qgis::RelationshipStrength::Composition )
+        continue;
+      QgsVectorLayer *child = relation.referencingLayer();
+      if ( !child || child == layer || result.contains( child ) )
+        continue;
+      result << child;
+      collectCompositionChildren( project, child, result );
+    }
+  }
+
+  //! Layers touched by a cascading delete of a feature of \a layer, without
+  //! \a layer itself: what QGIS reports plus composition children that now
+  //! have pending changes in their edit buffer.
+  QList<QgsVectorLayer *> cascadeLayers( QgsProject *project, QgsVectorLayer *layer, QgsVectorLayer::DeleteContext &context )
+  {
+    QList<QgsVectorLayer *> result;
+    const QList<QgsVectorLayer *> handled = context.handledLayers();
+    for ( QgsVectorLayer *vl : handled )
+      if ( vl && vl != layer && !result.contains( vl ) )
+        result << vl;
+
+    QList<QgsVectorLayer *> children;
+    collectCompositionChildren( project, layer, children );
+    for ( QgsVectorLayer *child : std::as_const( children ) )
+      if ( child->isEditable() && child->isModified() && !result.contains( child ) )
+        result << child;
+    return result;
+  }
+} // namespace
+
 bool QfLayerUtils::deleteFeature( QgsProject *project, QgsVectorLayer *layer, const QgsFeatureId fid, bool flushBuffer )
 {
   if ( !project )
@@ -434,7 +479,10 @@ bool QfLayerUtils::deleteFeature( QgsProject *project, QgsVectorLayer *layer, co
     if ( isSuccess )
     {
       // loop and commit referenced layers in reverse
-      QList<QgsVectorLayer *> constHandledLayers = deleteContext.handledLayers();
+      // [WF-CASCADE-COMMIT] also the photo tables QGIS does not report
+      QList<QgsVectorLayer *> constHandledLayers = cascadeLayers( project, layer, deleteContext );
+      if ( !constHandledLayers.isEmpty() )
+        QgsMessageLog::logMessage( QStringLiteral( "[WF-CASCADE-COMMIT] %1: committing %2 child layer(s)" ).arg( layer->name() ).arg( constHandledLayers.size() ), QStringLiteral( "WorkField" ), Qgis::Info );
 
       for ( QList<QgsVectorLayer *>::reverse_iterator it = constHandledLayers.rbegin(); it != constHandledLayers.rend(); ++it )
       {
@@ -463,7 +511,7 @@ bool QfLayerUtils::deleteFeature( QgsProject *project, QgsVectorLayer *layer, co
 
   if ( !flushBuffer && !isSuccess )
   {
-    const QList<QgsVectorLayer *> constHandledLayers = deleteContext.handledLayers();
+    const QList<QgsVectorLayer *> constHandledLayers = cascadeLayers( project, layer, deleteContext ); // [WF-CASCADE-COMMIT]
     for ( QgsVectorLayer *vl : constHandledLayers )
       if ( vl != layer )
       {
