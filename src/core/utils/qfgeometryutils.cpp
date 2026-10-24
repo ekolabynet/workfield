@@ -18,6 +18,7 @@
 #include "qfgeometryutils.h"
 #include "qfrubberbandmodel.h"
 #include "splitheirutils.h" // [WF-SPLIT-HEIR]
+#include "journalutils.h"   // [WF-JOURNAL]
 
 #include <qgscoordinatetransform.h>
 #include <qgsdistancearea.h>
@@ -321,6 +322,10 @@ QfGeometryUtils::GeometryOperationResult QfGeometryUtils::splitFeatureFromRubber
   {
     layer->commitChanges( false );
   }
+
+  // [WF-JOURNAL] the new parts are written with "split" and the uuid of the object
+  const int splitUuidIndex = FeatureIdentity::uuidFieldIndex( layer->fields() );
+  JournalUtils::OperationScope journalScope( layer, QStringLiteral( "split" ), splitUuidIndex >= 0 ? layer->getFeature( fid ).attribute( splitUuidIndex ).toString() : QString() );
 
   QgsPointSequence line = rubberBandModel->pointSequence( layer->crs(), Qgis::WkbType::Point, false );
   QfGeometryUtils::GeometryOperationResult result = static_cast<QfGeometryUtils::GeometryOperationResult>( layer->splitFeatures( line, true ) );

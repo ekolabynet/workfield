@@ -9,6 +9,7 @@
 #include "narzedziaprojektu.h"
 #include "featureidentity.h" // [WF-SPLIT-IDENTITY]
 #include "splitheirutils.h"  // [WF-SPLIT-HEIR]
+#include "journalutils.h"    // [WF-JOURNAL]
 #include <QSet>                    // [WF-IDENTITY]
 #include <qgsfeaturerequest.h>     // [WF-IDENTITY]
 #include <qgsproviderregistry.h>   // [WF-IDENTITY]
@@ -1658,6 +1659,10 @@ QVariantMap NarzedziaProjektu::splitParts( QgsVectorLayer *layer, QgsFeatureId f
     result.insert( QStringLiteral( "message" ), tr( "Nie udało się otworzyć warstwy do edycji." ) );
     return result;
   }
+
+  // [WF-JOURNAL] the new parts are written with "split" and the uuid of the object
+  const int sourceUuidIndex = FeatureIdentity::uuidFieldIndex( layer->fields() );
+  JournalUtils::OperationScope journalScope( layer, QStringLiteral( "split" ), sourceUuidIndex >= 0 ? source.attribute( sourceUuidIndex ).toString() : QString() );
 
   // Pierwsza czesc zostaje na istniejacym obiekcie.
   const QVector<QgsGeometry> firstFitted = parts.at( 0 ).coerceToType( layer->wkbType() );

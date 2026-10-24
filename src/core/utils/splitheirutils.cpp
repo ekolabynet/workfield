@@ -8,6 +8,7 @@
 #include "splitheirutils.h"
 
 #include "featureidentity.h"
+#include "journalutils.h" // [WF-JOURNAL]
 
 #include <QDir>
 #include <QLocale>
@@ -254,6 +255,10 @@ QVariantMap SplitHeirUtils::applyChoice( QgsVectorLayer *layer, qlonglong origin
   result.insert( QStringLiteral( "ok" ), false );
   if ( !layer )
     return result;
+
+  // [WF-JOURNAL] the swap and the moved photos are one decision of the user
+  const int originUuidIndex = FeatureIdentity::uuidFieldIndex( layer->fields() );
+  JournalUtils::OperationScope journalScope( layer, QStringLiteral( "split_heir" ), originUuidIndex >= 0 ? layer->getFeature( originalFid ).attribute( originUuidIndex ).toString() : QString() );
 
   // 1. The old record takes the chosen part: swap geometry and attributes,
   //    except what makes the record itself (primary key, uuid).

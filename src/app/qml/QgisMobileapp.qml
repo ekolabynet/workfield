@@ -7506,6 +7506,15 @@ ApplicationWindow {
           const written = NarzedziaProjektu.fillMissingIdentity(qgisProject);
           if (written > 0)
             console.log("WorkField [WF-IDENTITY]: filled " + written + " identity values");
+          // [WF-JOURNAL] 24.10.2026: the change journal in every GeoPackage of
+          // the project — installed, or refreshed when a table got new fields
+          // (also after work in QGIS with skrypty/dziennik.py --zdejmij)
+          try {
+            const journal = JournalUtils.installForProject(qgisProject);
+            console.log("WorkField [WF-JOURNAL]: files " + journal.files + ", tables " + journal.tables + ", refreshed " + journal.refreshed + (journal.errors.length > 0 ? ", ERRORS: " + journal.errors.join("; ") : ""));
+          } catch (e) {
+            console.log("WorkField [WF-JOURNAL]: install failed: " + e);
+          }
         });
       }
 

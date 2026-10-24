@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include "featureidentity.h" // [WF-DUPLICATE-IDENTITY]
+#include "journalutils.h"    // [WF-JOURNAL]
 #include "qflayerutils.h"
 
 #include <cpl_conv.h>
@@ -525,6 +526,9 @@ QgsFeature QfLayerUtils::duplicateFeature( QgsVectorLayer *layer, QgsFeature fea
   // the original). QgsVectorLayerUtils::duplicateFeature copies composition
   // children at every depth and cannot be told not to, so the copy is made
   // here; duplicateFeatureContext stays empty and the code below skips it.
+  // [WF-JOURNAL] the journal entry of the copy says where it came from
+  const int sourceUuidIndex = FeatureIdentity::uuidFieldIndex( feature.fields() );
+  JournalUtils::OperationScope journalScope( layer, QStringLiteral( "duplicate" ), sourceUuidIndex >= 0 ? feature.attribute( sourceUuidIndex ).toString() : QString() );
   {
     FeatureIdentity::assignNewUuid( feature );
     const QgsAttributeList primaryKeys = layer->primaryKeyAttributes();
@@ -2425,7 +2429,18 @@ QString QfLayerUtils::removeLayerField( QgsVectorLayer *layer, const QString &fi
   if ( !canEditFields( layer ) )
     return QObject::tr( "This layer does not support removing fields" );
 
-  if ( !layer->dataProvider()->deleteAttributes( QgsAttributeIds() << index ) )
+  // [WF-JOURNAL] 24.10.2026: the journal triggers name the columns and SQLite
+  // refuses to drop one they use — they step aside for the removal and come
+  // back right after, with the new list of columns
+  const QString journalGpkg = JournalUtils::gpkgPath( layer );
+  const QVariantMap sourceParts = QgsProviderRegistry::instance()->decodeUri( layer->providerType(), layer->source() );
+  const QString table = sourceParts.value( QStringLiteral( "layerName" ) ).toString();
+  if ( !journalGpkg.isEmpty() && !table.isEmpty() )
+    JournalUtils::dropTriggers( journalGpkg, table );
+  const bool removed = layer->dataProvider()->deleteAttributes( QgsAttributeIds() << index );
+  if ( !journalGpkg.isEmpty() && !table.isEmpty() )
+    JournalUtils::install( journalGpkg, table );
+  if ( !removed )
     return QObject::tr( "Could not remove the field" );
 
   layer->updateFields();

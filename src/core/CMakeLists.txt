@@ -129,6 +129,7 @@ set(QFIELD_CORE_SRCS
     wfcad/src/xrecord.cpp
     moduly/inwentaryzacjadrzew.cpp
     moduly/zalaczniki.cpp
+    moduly/tidyengine.cpp
     moduly/kafle.cpp
     moduly/warstwarobocza.cpp
     moduly/ksztalty.cpp
@@ -138,6 +139,8 @@ set(QFIELD_CORE_SRCS
     utils/nieboutils.cpp
     utils/zalacznikiutils.cpp
     utils/splitheirutils.cpp
+    utils/viewconeutils.cpp
+    utils/journalutils.cpp
     procesystudio.cpp
     phototagstore.cpp
     tabelamodel.cpp
@@ -269,6 +272,7 @@ set(QFIELD_CORE_HDRS
     moduly/dxfinwentaryzacja.h
     moduly/inwentaryzacjadrzew.h
     moduly/zalaczniki.h
+    moduly/tidyengine.h
     moduly/kafle.h
     moduly/warstwarobocza.h
     moduly/ksztalty.h
@@ -281,6 +285,8 @@ set(QFIELD_CORE_HDRS
     utils/nieboutils.h
     utils/zalacznikiutils.h
     utils/splitheirutils.h
+    utils/viewconeutils.h
+    utils/journalutils.h
     procesystudio.h
     phototagstore.h
     tabelamodel.h

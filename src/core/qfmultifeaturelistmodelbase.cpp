@@ -15,6 +15,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "journalutils.h" // [WF-JOURNAL]
 #include "featureidentity.h" // [WF-MERGE-KEEP-ATTACHMENTS]
 #include "qffeatureutils.h"
 #include "qflayerutils.h"
@@ -766,6 +767,14 @@ bool QfMultiFeatureListModelBase::mergeSelection( int keepIndex )
       QgsMessageLog::logMessage( tr( "Cannot start editing" ), "QField", Qgis::Warning );
       return false;
     }
+
+    // [WF-JOURNAL] entries of the merge carry "merge" and the uuids of the
+    // objects merged away (they are deleted below, with their old state)
+    QStringList mergedUuids;
+    const int mergeUuidIndex = FeatureIdentity::uuidFieldIndex( vlayer->fields() );
+    for ( int i = 1; mergeUuidIndex >= 0 && i < selectedFeatures.size(); ++i )
+      mergedUuids << selectedFeatures.at( i ).second.attribute( mergeUuidIndex ).toString();
+    JournalUtils::OperationScope journalScope( vlayer, QStringLiteral( "merge" ), mergedUuids.join( QLatin1Char( ',' ) ) );
 
     QgsFeature mergedFeature = selectedFeatures[0].second;
     mergedFeature.setGeometry( combinedGeometry );
