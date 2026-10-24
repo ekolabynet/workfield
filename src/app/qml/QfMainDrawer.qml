@@ -210,8 +210,16 @@ Drawer {
   }
 
   //! Pytanie „Cały projekt / Tylko dane” (Piotr 8.10.2026: przy obu eksportach).
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: pytanieEksportu
+
+    title: pytanieEksportu.rodzaj === "paczka" ? qsTr("Eksportuj paczkę") : qsTr("Eksportuj na dysk")
+    // two equal-rank choices in the body ("Cały projekt" / "Tylko dane"), ← = Anuluj
+    exitMode: "close"
+    busy: pracuje
+    preferredWidth: 420
+    bodySpacing: 10
 
     property string rodzaj: "dysk"
     property string katalog: ""
@@ -239,21 +247,6 @@ Drawer {
       opoznienie.restart();
     }
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 420)
-    modal: true
-    closePolicy: pracuje ? Popup.NoAutoClose : Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    padding: 16
-
-    background: Rectangle {
-      color: t.mainBackgroundColor
-      radius: 10
-      border.width: 1
-      border.color: t.controlBorderColor
-    }
-
     Timer {
       id: opoznienie
       interval: 150
@@ -270,143 +263,111 @@ Drawer {
       }
     }
 
-    ColumnLayout {
-      anchors.fill: parent
+    RowLayout {
+      Layout.fillWidth: true
+      visible: pytanieEksportu.pracuje
       spacing: 10
-
+      BusyIndicator {
+        running: pytanieEksportu.pracuje
+        Layout.preferredWidth: 40
+        Layout.preferredHeight: 40
+      }
       Text {
         Layout.fillWidth: true
-        text: pytanieEksportu.rodzaj === "paczka" ? qsTr("Eksportuj paczkę") : qsTr("Eksportuj na dysk")
-        font: t.strongFont
+        text: pytanieEksportu.opisPracy
+        font: t.tipFont
         color: t.mainTextColor
+        wrapMode: Text.WordWrap
       }
+    }
 
-      RowLayout {
-        Layout.fillWidth: true
-        visible: pytanieEksportu.pracuje
-        spacing: 10
-        BusyIndicator {
-          running: pytanieEksportu.pracuje
-          Layout.preferredWidth: 40
-          Layout.preferredHeight: 40
+    Text {
+      Layout.fillWidth: true
+      visible: !pytanieEksportu.pracuje
+      text: qsTr("Co wyeksportować?")
+      font: t.defaultFont
+      color: t.mainTextColor
+    }
+
+    Button {
+      id: przyciskCaly
+      Layout.fillWidth: true
+      padding: 12
+      background: Rectangle {
+        radius: 8
+        color: parent.down ? Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.30) : Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.12)
+        border.width: 1
+        border.color: t.mainColor
+        opacity: parent.enabled ? 1 : 0.4
+      }
+      visible: !pytanieEksportu.pracuje
+      contentItem: ColumnLayout {
+        spacing: 2
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("Cały projekt")
+          font: t.strongFont
+          color: t.mainTextColor
         }
         Text {
           Layout.fillWidth: true
-          text: pytanieEksportu.opisPracy
-          font: t.tipFont
-          color: t.mainTextColor
+          text: pytanieEksportu.rozmiary
+                ? qsTr("Wszystko z katalogu projektu, razem z ortofotomapą — %1").arg(dashBoard.rozmiarCzytelny(pytanieEksportu.rozmiary.calosc))
+                : qsTr("Wszystko z katalogu projektu, razem z ortofotomapą")
+          font: t.tinyFont
+          color: t.secondaryTextColor
           wrapMode: Text.WordWrap
         }
       }
-
-      Text {
-        Layout.fillWidth: true
-        visible: !pytanieEksportu.pracuje
-        text: qsTr("Co wyeksportować?")
-        font: t.defaultFont
-        color: t.mainTextColor
+      onClicked: {
+        const r = pytanieEksportu.rodzaj;
+        const k = pytanieEksportu.katalog;
+        pytanieEksportu.close();
+        dashBoard.eksportujCaly(r, k);
       }
+    }
 
-      Button {
-        id: przyciskCaly
-        Layout.fillWidth: true
-        padding: 12
-        background: Rectangle {
-          radius: 8
-          color: parent.down ? Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.30) : Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.12)
-          border.width: 1
-          border.color: t.mainColor
-          opacity: parent.enabled ? 1 : 0.4
-        }
-        visible: !pytanieEksportu.pracuje
-        contentItem: ColumnLayout {
-          spacing: 2
-          Text {
-            Layout.fillWidth: true
-            text: qsTr("Cały projekt")
-            font: t.strongFont
-            color: t.mainTextColor
-          }
-          Text {
-            Layout.fillWidth: true
-            text: pytanieEksportu.rozmiary
-                  ? qsTr("Wszystko z katalogu projektu, razem z ortofotomapą — %1").arg(dashBoard.rozmiarCzytelny(pytanieEksportu.rozmiary.calosc))
-                  : qsTr("Wszystko z katalogu projektu, razem z ortofotomapą")
-            font: t.tinyFont
-            color: t.secondaryTextColor
-            wrapMode: Text.WordWrap
-          }
-        }
-        onClicked: {
-          const r = pytanieEksportu.rodzaj;
-          const k = pytanieEksportu.katalog;
-          pytanieEksportu.close();
-          dashBoard.eksportujCaly(r, k);
-        }
+    Button {
+      id: przyciskDane
+      Layout.fillWidth: true
+      padding: 12
+      background: Rectangle {
+        radius: 8
+        color: parent.down ? Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.30) : Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.12)
+        border.width: 1
+        border.color: t.mainColor
+        opacity: parent.enabled ? 1 : 0.4
       }
-
-      Button {
-        id: przyciskDane
-        Layout.fillWidth: true
-        padding: 12
-        background: Rectangle {
-          radius: 8
-          color: parent.down ? Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.30) : Qt.rgba(t.mainColor.r, t.mainColor.g, t.mainColor.b, 0.12)
-          border.width: 1
-          border.color: t.mainColor
-          opacity: parent.enabled ? 1 : 0.4
-        }
-        visible: !pytanieEksportu.pracuje
-        enabled: pytanieEksportu.rozmiary !== null
-        contentItem: ColumnLayout {
-          spacing: 2
-          Text {
-            Layout.fillWidth: true
-            text: qsTr("Tylko dane")
-            font: t.strongFont
-            color: t.mainTextColor
-          }
-          Text {
-            Layout.fillWidth: true
-            text: pytanieEksportu.rozmiary
-                  ? qsTr("Bazy z obiektami, zdjęcia, projekt, ODGIK, domiary, style — %1. Bez ortofotomap i kopii.").arg(dashBoard.rozmiarCzytelny(pytanieEksportu.rozmiary.bajty))
-                  : qsTr("Niedostępne")
-            font: t.tinyFont
-            color: t.secondaryTextColor
-            wrapMode: Text.WordWrap
-          }
-        }
-        onClicked: {
-          const r = pytanieEksportu.rodzaj;
-          const k = pytanieEksportu.katalog;
-          if (dashBoard.systemoweOkno(r)) {
-            pytanieEksportu.pracujPotem(function () {
-              dashBoard.eksportujDane(r, k);
-            });
-          } else {
-            pytanieEksportu.close();
-            dashBoard.eksportujDane(r, k);
-          }
-        }
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        visible: !pytanieEksportu.pracuje
-        Item {
+      visible: !pytanieEksportu.pracuje
+      enabled: pytanieEksportu.rozmiary !== null
+      contentItem: ColumnLayout {
+        spacing: 2
+        Text {
           Layout.fillWidth: true
+          text: qsTr("Tylko dane")
+          font: t.strongFont
+          color: t.mainTextColor
         }
-        QfDecisionButton {
-          role: "cancel" // [WF-BUTTONS]
-          font.pointSize: t.tinyFont.pointSize
-          contentItem: Text {
-            text: qsTr("Anuluj")
-            font: parent.font
-            color: t.mainTextColor
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-          }
-          onClicked: pytanieEksportu.close()
+        Text {
+          Layout.fillWidth: true
+          text: pytanieEksportu.rozmiary
+                ? qsTr("Bazy z obiektami, zdjęcia, projekt, ODGIK, domiary, style — %1. Bez ortofotomap i kopii.").arg(dashBoard.rozmiarCzytelny(pytanieEksportu.rozmiary.bajty))
+                : qsTr("Niedostępne")
+          font: t.tinyFont
+          color: t.secondaryTextColor
+          wrapMode: Text.WordWrap
+        }
+      }
+      onClicked: {
+        const r = pytanieEksportu.rodzaj;
+        const k = pytanieEksportu.katalog;
+        if (dashBoard.systemoweOkno(r)) {
+          pytanieEksportu.pracujPotem(function () {
+            dashBoard.eksportujDane(r, k);
+          });
+        } else {
+          pytanieEksportu.close();
+          dashBoard.eksportujDane(r, k);
         }
       }
     }
@@ -3061,8 +3022,19 @@ Drawer {
   // WorkFieldGIS 22.10.2026 [WF-PRZENIES-PROJEKT] — przeniesienie bieżącego projektu
   // między pamięcią a kartą SD. Kolejność: zapis → zamknięcie projektu (baza musi się
   // domknąć) → kopia w tle → md5 każdego pliku → DOPIERO WTEDY pytanie o oryginał.
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: przeniesienieProjektu
+
+    title: qsTr("Przenieś projekt")
+    // after the copy (or a failure) there is nothing to confirm: only ←
+    exitMode: przeniesienieProjektu.wynik === null ? "decision" : "close"
+    confirmText: qsTr("Przenieś")
+    confirmEnabled: przeniesienieProjektu.plan.ok === true
+    busy: pracuje
+    preferredWidth: 420
+    bodySpacing: 10
+    onConfirmed: przeniesienieProjektu.start()
 
     property var plan: ({})
     property string plikProjektu: ""
@@ -3135,123 +3107,86 @@ Drawer {
       }
     }
 
-    parent: mainWindow.contentItem
-    width: Math.min(mainWindow.width - 40, 420)
-    x: (mainWindow.width - width) / 2
-    y: Math.max(8, (mainWindow.height - height) / 2)
-    modal: true
-    padding: 16
-    closePolicy: pracuje ? Popup.NoAutoClose : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
+    // przed startem: plan albo powód odmowy
+    Text {
+      Layout.fillWidth: true
+      visible: !przeniesienieProjektu.pracuje && przeniesienieProjektu.wynik === null
+      text: przeniesienieProjektu.plan.ok
+            ? qsTr("„%1”: %2 → %3.\nRozmiar %4 MB (%5 plików), wolne po drugiej stronie %6 MB.\n\nNa czas kopiowania projekt zostanie zamknięty. Oryginał zostaje, dopóki nie zobaczysz, że kopia jest dobra.")
+              .arg(przeniesienieProjektu.tytul).arg(przeniesienieProjektu.plan.skad).arg(przeniesienieProjektu.plan.dokad)
+              .arg(Math.round(przeniesienieProjektu.plan.rozmiarMb)).arg(przeniesienieProjektu.plan.plikow).arg(Math.round(przeniesienieProjektu.plan.wolneMb))
+            : (przeniesienieProjektu.plan.blad || "")
+      font: t.tipFont
+      color: przeniesienieProjektu.plan.ok ? t.mainTextColor : "#e53935"
+      wrapMode: Text.WordWrap
+    }
 
-    ColumnLayout {
-      width: parent.width
-      spacing: 10
+    // w trakcie
+    ProgressBar {
+      Layout.fillWidth: true
+      visible: przeniesienieProjektu.pracuje
+      from: 0
+      to: 1
+      value: przeniesienieProjektu.ile
+    }
+    Text {
+      Layout.fillWidth: true
+      visible: przeniesienieProjektu.pracuje
+      text: przeniesienieProjektu.etap + "\n" + qsTr("Nie zamykaj aplikacji.")
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Przenieś projekt")
-        font: t.strongFont
-        color: t.mainTextColor
+    // po udanej kopii: co z oryginałem
+    Text {
+      Layout.fillWidth: true
+      visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
+      text: przeniesienieProjektu.wynik && przeniesienieProjektu.wynik.ok
+            ? qsTr("Kopia gotowa i sprawdzona: %1 plików, sumy kontrolne zgodne.\n\nCo z oryginałem (%2)?").arg(przeniesienieProjektu.wynik.plikow).arg(przeniesienieProjektu.plan.skad)
+            : ""
+      font: t.tipFont
+      color: t.mainTextColor
+      wrapMode: Text.WordWrap
+    }
+    Button {
+      Layout.fillWidth: true
+      visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
+      text: qsTr("Usuń oryginał i otwórz kopię")
+      font: t.defaultFont
+      onClicked: {
+        const w = przeniesienieProjektu.wynik;
+        const ok = iface.usunOryginalPoPrzeniesieniu(w.zrodlo, w.cel);
+        displayToast(ok ? qsTr("Projekt przeniesiony: %1").arg(przeniesienieProjektu.plan.dokad)
+                        : qsTr("Oryginału NIE usunięto — kopia różni się od niego. Oba są na miejscu."), ok ? "info" : "error");
+        przeniesienieProjektu.close();
+        przeniesienieProjektu.otworz(w.cel);
       }
-
-      // przed startem: plan albo powód odmowy
-      Text {
-        Layout.fillWidth: true
-        visible: !przeniesienieProjektu.pracuje && przeniesienieProjektu.wynik === null
-        text: przeniesienieProjektu.plan.ok
-              ? qsTr("„%1”: %2 → %3.\nRozmiar %4 MB (%5 plików), wolne po drugiej stronie %6 MB.\n\nNa czas kopiowania projekt zostanie zamknięty. Oryginał zostaje, dopóki nie zobaczysz, że kopia jest dobra.")
-                .arg(przeniesienieProjektu.tytul).arg(przeniesienieProjektu.plan.skad).arg(przeniesienieProjektu.plan.dokad)
-                .arg(Math.round(przeniesienieProjektu.plan.rozmiarMb)).arg(przeniesienieProjektu.plan.plikow).arg(Math.round(przeniesienieProjektu.plan.wolneMb))
-              : (przeniesienieProjektu.plan.blad || "")
-        font: t.tipFont
-        color: przeniesienieProjektu.plan.ok ? t.mainTextColor : "#e53935"
-        wrapMode: Text.WordWrap
-      }
-
-      // w trakcie
-      ProgressBar {
-        Layout.fillWidth: true
-        visible: przeniesienieProjektu.pracuje
-        from: 0
-        to: 1
-        value: przeniesienieProjektu.ile
-      }
-      Text {
-        Layout.fillWidth: true
-        visible: przeniesienieProjektu.pracuje
-        text: przeniesienieProjektu.etap + "\n" + qsTr("Nie zamykaj aplikacji.")
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      // po udanej kopii: co z oryginałem
-      Text {
-        Layout.fillWidth: true
-        visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
-        text: przeniesienieProjektu.wynik && przeniesienieProjektu.wynik.ok
-              ? qsTr("Kopia gotowa i sprawdzona: %1 plików, sumy kontrolne zgodne.\n\nCo z oryginałem (%2)?").arg(przeniesienieProjektu.wynik.plikow).arg(przeniesienieProjektu.plan.skad)
-              : ""
-        font: t.tipFont
-        color: t.mainTextColor
-        wrapMode: Text.WordWrap
-      }
-      Button {
-        Layout.fillWidth: true
-        visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
-        text: qsTr("Usuń oryginał i otwórz kopię")
-        font: t.defaultFont
-        onClicked: {
-          const w = przeniesienieProjektu.wynik;
-          const ok = iface.usunOryginalPoPrzeniesieniu(w.zrodlo, w.cel);
-          displayToast(ok ? qsTr("Projekt przeniesiony: %1").arg(przeniesienieProjektu.plan.dokad)
-                          : qsTr("Oryginału NIE usunięto — kopia różni się od niego. Oba są na miejscu."), ok ? "info" : "error");
-          przeniesienieProjektu.close();
-          przeniesienieProjektu.otworz(w.cel);
-        }
-      }
-      Button {
-        Layout.fillWidth: true
-        visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
-        text: qsTr("Zostaw oryginał i otwórz kopię")
-        font: t.defaultFont
-        onClicked: {
-          const w = przeniesienieProjektu.wynik;
-          displayToast(qsTr("Projekt jest teraz w obu miejscach — pracujesz na kopii (%1)").arg(przeniesienieProjektu.plan.dokad));
-          przeniesienieProjektu.close();
-          przeniesienieProjektu.otworz(w.cel);
-        }
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        visible: !przeniesienieProjektu.pracuje && (przeniesienieProjektu.wynik === null || przeniesienieProjektu.wynik.ok !== true)
-
-        Item {
-          Layout.fillWidth: true
-        }
-        DecisionButton {
-          role: "neutral"
-          text: przeniesienieProjektu.wynik === null ? qsTr("Anuluj") : qsTr("Zamknij")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: przeniesienieProjektu.close()
-        }
-        DecisionButton {
-          role: "confirm"
-          visible: przeniesienieProjektu.wynik === null
-          enabled: przeniesienieProjektu.plan.ok === true
-          text: qsTr("Przenieś")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: przeniesienieProjektu.start()
-        }
+    }
+    Button {
+      Layout.fillWidth: true
+      visible: przeniesienieProjektu.wynik !== null && przeniesienieProjektu.wynik.ok === true
+      text: qsTr("Zostaw oryginał i otwórz kopię")
+      font: t.defaultFont
+      onClicked: {
+        const w = przeniesienieProjektu.wynik;
+        displayToast(qsTr("Projekt jest teraz w obu miejscach — pracujesz na kopii (%1)").arg(przeniesienieProjektu.plan.dokad));
+        przeniesienieProjektu.close();
+        przeniesienieProjektu.otworz(w.cel);
       }
     }
   }
 
   // WorkFieldGIS 22.10.2026 — „Otwórz projekty”, gdy na karcie SD są projekty:
   // dwa duże przyciski z liczbą projektów. Bez karty okno się nie pokazuje.
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: wyborMiejscaOtwierania
+
+    title: qsTr("Otwórz projekty")
+    // one button per place in the body: nothing to confirm
+    exitMode: "close"
+    preferredWidth: 400
 
     property var miejsca: []
 
@@ -3260,37 +3195,18 @@ Drawer {
       open();
     }
 
-    parent: mainWindow.contentItem
-    width: Math.min(mainWindow.width - 40, 400)
-    x: (mainWindow.width - width) / 2
-    y: Math.max(8, (mainWindow.height - height) / 2)
-    modal: true
-    padding: 16
+    Repeater {
+      model: wyborMiejscaOtwierania.miejsca
 
-    ColumnLayout {
-      width: parent.width
-      spacing: 8
-
-      Text {
+      delegate: Button {
+        required property var modelData
         Layout.fillWidth: true
-        text: qsTr("Otwórz projekty")
-        font: t.strongFont
-        color: t.mainTextColor
-      }
-
-      Repeater {
-        model: wyborMiejscaOtwierania.miejsca
-
-        delegate: Button {
-          required property var modelData
-          Layout.fillWidth: true
-          Layout.preferredHeight: 56
-          font: t.defaultFont
-          text: (modelData.rodzaj === "karta" ? "SD · " : "") + modelData.nazwa + " — " + qsTr("projektów: %1").arg(modelData.projektow)
-          onClicked: {
-            wyborMiejscaOtwierania.close();
-            photoGallery.openFiles(modelData.katalog);
-          }
+        Layout.preferredHeight: 56
+        font: t.defaultFont
+        text: (modelData.rodzaj === "karta" ? "SD · " : "") + modelData.nazwa + " — " + qsTr("projektów: %1").arg(modelData.projektow)
+        onClicked: {
+          wyborMiejscaOtwierania.close();
+          photoGallery.openFiles(modelData.katalog);
         }
       }
     }
@@ -3880,8 +3796,17 @@ Drawer {
   // import:  new app — the user imports that folder with the standard
   //          "Import project (folder)", then dokonczPrzeniesienie() puts the
   //          pieces in place. The original always stays.
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: oknoPrzenosin
+
+    title: oknoPrzenosin.tryb === "eksport" ? qsTr("Przenieś do nowej aplikacji") : qsTr("Dane ze starej wersji")
+    // with a result on screen there is nothing to confirm: only ← (was „Zamknij”)
+    exitMode: oknoPrzenosin.wynik === "" ? "decision" : "close"
+    confirmText: oknoPrzenosin.tryb === "eksport" ? qsTr("Kopiuj") : oknoPrzenosin.stan.jest ? qsTr("Dokończ") : qsTr("Wskaż folder")
+    confirmEnabled: !oknoPrzenosin.pracuje && (oknoPrzenosin.tryb !== "eksport" || (oknoPrzenosin.stan.wolne || 0) < 0 || (oknoPrzenosin.stan.wolne || 0) >= oknoPrzenosin.potrzeba * 1.1)
+    busy: pracuje
+    onConfirmed: confirm()
 
     property string tryb: "eksport"
     property var stan: ({})
@@ -3905,12 +3830,29 @@ Drawer {
       open();
     }
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 440)
-    modal: true
-    closePolicy: pracuje ? Popup.NoAutoClose : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Kopiuj / Dokończ / Wskaż folder” button below)
+    function confirm() {
+      if (oknoPrzenosin.tryb === "eksport") {
+        if (iface.przeniesDoNowejAplikacji(oknoPrzenosin.pominRastry)) {
+          oknoPrzenosin.pracuje = true;
+          oknoPrzenosin.wynik = qsTr("Kopiuję…");
+        }
+        return;
+      }
+      if (oknoPrzenosin.stan.jest) {
+        const w = iface.dokonczPrzeniesienie();
+        oknoPrzenosin.wynik = w.ok
+          ? qsTr("Przeniesiono %1 projektów i %2 ustawień.").arg(w.projektow).arg(w.ustawien)
+            + ((w.zmienioneNazwy || []).length > 0 ? "\n" + qsTr("Pod nową nazwą: %1").arg(w.zmienioneNazwy.join(", ")) : "")
+            + (w.zostalo > 0 ? "\n" + qsTr("%1 plików już było na miejscu i zostało w folderze przenosin.").arg(w.zostalo) : "")
+            + "\n" + qsTr("Uruchom aplikację ponownie, żeby wczytać ustawienia i wtyczki.")
+          : qsTr("Nie udało się: %1").arg(w.blad || "?");
+        return;
+      }
+      oknoPrzenosin.czekamNaImport = true;
+      oknoPrzenosin.close();
+      platformUtilities.importProjectFolder();
+    }
 
     Connections {
       target: iface
@@ -3977,177 +3919,94 @@ Drawer {
       }
     }
 
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
-
-      Text {
-        Layout.fillWidth: true
-        text: oknoPrzenosin.tryb === "eksport" ? qsTr("Przenieś do nowej aplikacji") : qsTr("Dane ze starej wersji")
-        font: t.strongFont
-        color: t.mainTextColor
-        wrapMode: Text.WordWrap
-      }
-      Text {
-        Layout.fillWidth: true
-        visible: oknoPrzenosin.wynik === ""
-        wrapMode: Text.WordWrap
-        font: t.tipFont
-        color: t.mainTextColor
-        text: oknoPrzenosin.tryb === "eksport"
-              ? qsTr("WorkFieldGIS przechodzi na nową nazwę (com.workfieldgis.app). Telefon traktuje ją jak nową aplikację, więc dane trzeba przenieść.\n\nSkopiuję wszystkie projekty (%1), wtyczki i ustawienia do folderu Dokumenty/WorkField. Razem około %2 MB (bez dzienników), wolne miejsce: %3 MB.\n\nNic tu nie zostanie usunięte ani zmienione. To okno będzie się pokazywać przy każdym uruchomieniu, dopóki kopia się nie uda.").arg(oknoPrzenosin.stan.projektow || 0).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiar)).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.wolne))
-              : oknoPrzenosin.stan.jest
-                ? qsTr("Znalazłem dane ze starej wersji (%1): %2 projektów. Rozłożyć je na miejsca? Projekt o istniejącej już nazwie dostanie dopisek „(przeniesiony)” — nic nie zostanie nadpisane.").arg(String(oknoPrzenosin.stan.czas || "").replace("T", " ")).arg(oknoPrzenosin.stan.projektow || 0)
-                : qsTr("Jeśli używałeś wcześniejszej wersji WorkFieldGIS:\n1. Zaktualizuj starą aplikację do wersji 0.12.66 lub nowszej (link niżej) — dopiero ona umie przenieść dane.\n2. W starej aplikacji wybierz Menu → „Przenieś do nowej aplikacji”.\n3. Tutaj naciśnij „Wskaż folder” i wybierz Dokumenty → WorkField → WorkFieldGIS_przeniesienie_…\n\nMożesz to zrobić także później: Menu → „Przyjmij dane ze starej wersji”.")
-      }
-      CheckBox {
-        Layout.fillWidth: true
-        visible: oknoPrzenosin.tryb === "eksport" && oknoPrzenosin.wynik === "" && (oknoPrzenosin.stan.rozmiarRastrow || 0) > 0
-        checked: oknoPrzenosin.pominRastry
-        onToggled: oknoPrzenosin.pominRastry = checked
-        text: qsTr("Pomiń podkłady rastrowe (%1 MB) — ortofotomapy i NMT można pobrać ponownie").arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiarRastrow))
-        font: t.tipFont
-      }
-      Text {
-        // [WF-PRZENOSINY-PRZYPOMNIENIE] where to get the last version of the old app
-        Layout.fillWidth: true
-        visible: oknoPrzenosin.tryb === "import" && !oknoPrzenosin.stan.jest && oknoPrzenosin.wynik === ""
-        textFormat: Text.StyledText
-        text: "<a href=\"https://github.com/ekolabynet/workfield/releases\">%1</a>".arg(qsTr("Pobierz najnowszą wersję 0.12 starej aplikacji"))
-        linkColor: t.mainColor
-        font: t.tipFont
-        wrapMode: Text.WordWrap
-        onLinkActivated: link => Qt.openUrlExternally(link)
-      }
-      Text {
-        Layout.fillWidth: true
-        visible: oknoPrzenosin.wynik !== ""
-        text: oknoPrzenosin.wynik
-        wrapMode: Text.WordWrap
-        font: t.tipFont
-        color: t.mainTextColor
-      }
-      Text {
-        Layout.fillWidth: true
-        visible: oknoPrzenosin.tryb === "eksport" && oknoPrzenosin.wynik === "" && (oknoPrzenosin.stan.wolne || 0) >= 0 && (oknoPrzenosin.stan.wolne || 0) < oknoPrzenosin.potrzeba * 1.1
-        text: qsTr("Za mało wolnego miejsca na kopię.")
-        color: t.errorColor
-        font: t.tipFont
-        wrapMode: Text.WordWrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        Item {
-          Layout.fillWidth: true
-        }
-        DecisionButton {
-          role: "neutral"
-          text: oknoPrzenosin.wynik !== "" ? qsTr("Zamknij") : qsTr("Później")
-          enabled: !oknoPrzenosin.pracuje
-          onClicked: oknoPrzenosin.close()
-        }
-        DecisionButton {
-          role: "confirm"
-          visible: oknoPrzenosin.wynik === ""
-          enabled: !oknoPrzenosin.pracuje && (oknoPrzenosin.tryb !== "eksport" || (oknoPrzenosin.stan.wolne || 0) < 0 || (oknoPrzenosin.stan.wolne || 0) >= oknoPrzenosin.potrzeba * 1.1)
-          text: oknoPrzenosin.tryb === "eksport" ? qsTr("Kopiuj") : oknoPrzenosin.stan.jest ? qsTr("Dokończ") : qsTr("Wskaż folder")
-          onClicked: {
-            if (oknoPrzenosin.tryb === "eksport") {
-              if (iface.przeniesDoNowejAplikacji(oknoPrzenosin.pominRastry)) {
-                oknoPrzenosin.pracuje = true;
-                oknoPrzenosin.wynik = qsTr("Kopiuję…");
-              }
-              return;
-            }
-            if (oknoPrzenosin.stan.jest) {
-              const w = iface.dokonczPrzeniesienie();
-              oknoPrzenosin.wynik = w.ok
-                ? qsTr("Przeniesiono %1 projektów i %2 ustawień.").arg(w.projektow).arg(w.ustawien)
-                  + ((w.zmienioneNazwy || []).length > 0 ? "\n" + qsTr("Pod nową nazwą: %1").arg(w.zmienioneNazwy.join(", ")) : "")
-                  + (w.zostalo > 0 ? "\n" + qsTr("%1 plików już było na miejscu i zostało w folderze przenosin.").arg(w.zostalo) : "")
-                  + "\n" + qsTr("Uruchom aplikację ponownie, żeby wczytać ustawienia i wtyczki.")
-                : qsTr("Nie udało się: %1").arg(w.blad || "?");
-              return;
-            }
-            oknoPrzenosin.czekamNaImport = true;
-            oknoPrzenosin.close();
-            platformUtilities.importProjectFolder();
-          }
-        }
-      }
+    Text {
+      Layout.fillWidth: true
+      visible: oknoPrzenosin.wynik === ""
+      wrapMode: Text.WordWrap
+      font: t.tipFont
+      color: t.mainTextColor
+      text: oknoPrzenosin.tryb === "eksport"
+            ? qsTr("WorkFieldGIS przechodzi na nową nazwę (com.workfieldgis.app). Telefon traktuje ją jak nową aplikację, więc dane trzeba przenieść.\n\nSkopiuję wszystkie projekty (%1), wtyczki i ustawienia do folderu Dokumenty/WorkField. Razem około %2 MB (bez dzienników), wolne miejsce: %3 MB.\n\nNic tu nie zostanie usunięte ani zmienione. To okno będzie się pokazywać przy każdym uruchomieniu, dopóki kopia się nie uda.").arg(oknoPrzenosin.stan.projektow || 0).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiar)).arg(oknoPrzenosin.mb(oknoPrzenosin.stan.wolne))
+            : oknoPrzenosin.stan.jest
+              ? qsTr("Znalazłem dane ze starej wersji (%1): %2 projektów. Rozłożyć je na miejsca? Projekt o istniejącej już nazwie dostanie dopisek „(przeniesiony)” — nic nie zostanie nadpisane.").arg(String(oknoPrzenosin.stan.czas || "").replace("T", " ")).arg(oknoPrzenosin.stan.projektow || 0)
+              : qsTr("Jeśli używałeś wcześniejszej wersji WorkFieldGIS:\n1. Zaktualizuj starą aplikację do wersji 0.12.66 lub nowszej (link niżej) — dopiero ona umie przenieść dane.\n2. W starej aplikacji wybierz Menu → „Przenieś do nowej aplikacji”.\n3. Tutaj naciśnij „Wskaż folder” i wybierz Dokumenty → WorkField → WorkFieldGIS_przeniesienie_…\n\nMożesz to zrobić także później: Menu → „Przyjmij dane ze starej wersji”.")
+    }
+    CheckBox {
+      Layout.fillWidth: true
+      visible: oknoPrzenosin.tryb === "eksport" && oknoPrzenosin.wynik === "" && (oknoPrzenosin.stan.rozmiarRastrow || 0) > 0
+      checked: oknoPrzenosin.pominRastry
+      onToggled: oknoPrzenosin.pominRastry = checked
+      text: qsTr("Pomiń podkłady rastrowe (%1 MB) — ortofotomapy i NMT można pobrać ponownie").arg(oknoPrzenosin.mb(oknoPrzenosin.stan.rozmiarRastrow))
+      font: t.tipFont
+    }
+    Text {
+      // [WF-PRZENOSINY-PRZYPOMNIENIE] where to get the last version of the old app
+      Layout.fillWidth: true
+      visible: oknoPrzenosin.tryb === "import" && !oknoPrzenosin.stan.jest && oknoPrzenosin.wynik === ""
+      textFormat: Text.StyledText
+      text: "<a href=\"https://github.com/ekolabynet/workfield/releases\">%1</a>".arg(qsTr("Pobierz najnowszą wersję 0.12 starej aplikacji"))
+      linkColor: t.mainColor
+      font: t.tipFont
+      wrapMode: Text.WordWrap
+      onLinkActivated: link => Qt.openUrlExternally(link)
+    }
+    Text {
+      Layout.fillWidth: true
+      visible: oknoPrzenosin.wynik !== ""
+      text: oknoPrzenosin.wynik
+      wrapMode: Text.WordWrap
+      font: t.tipFont
+      color: t.mainTextColor
+    }
+    Text {
+      Layout.fillWidth: true
+      visible: oknoPrzenosin.tryb === "eksport" && oknoPrzenosin.wynik === "" && (oknoPrzenosin.stan.wolne || 0) >= 0 && (oknoPrzenosin.stan.wolne || 0) < oknoPrzenosin.potrzeba * 1.1
+      text: qsTr("Za mało wolnego miejsca na kopię.")
+      color: t.errorColor
+      font: t.tipFont
+      wrapMode: Text.WordWrap
     }
   }
 
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: deleteProjectConfirm
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 400)
-    modal: true
+    title: qsTr("Usunąć projekt wraz z danymi?")
+    confirmText: qsTr("Usuń")
+    confirmRole: "danger"
+    preferredWidth: 400
+    onConfirmed: confirm()
 
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Usunąć projekt wraz z danymi?")
-        font: t.strongFont
-        color: t.mainTextColor
-        wrapMode: Text.WordWrap
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Usuń” button below)
+    function confirm() {
+      const dir = FileUtils.absolutePath(projectSection.filePath);
+      deleteProjectConfirm.close();
+      dataDrawer.close();
+      if (iface.removeProjectFolder(dir)) {
+        displayToast(qsTr("Projekt usunięty"));
+        welcomeScreen.visible = true;
+      } else {
+        displayToast(qsTr("Nie udało się usunąć projektu"));
       }
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Usunięty zostanie cały folder projektu, łącznie z warstwami i zdjęciami. Tej operacji nie można cofnąć.")
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-
-        Item {
-          Layout.fillWidth: true
-        }
-        DecisionButton {
-          role: "neutral"
-          text: qsTr("Anuluj")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: deleteProjectConfirm.close()
-        }
-        DecisionButton {
-          role: "danger"
-          text: qsTr("Usuń")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: {
-            const dir = FileUtils.absolutePath(projectSection.filePath);
-            deleteProjectConfirm.close();
-            dataDrawer.close();
-            if (iface.removeProjectFolder(dir)) {
-              displayToast(qsTr("Projekt usunięty"));
-              welcomeScreen.visible = true;
-            } else {
-              displayToast(qsTr("Nie udało się usunąć projektu"));
-            }
-          }
-        }
-      }
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Usunięty zostanie cały folder projektu, łącznie z warstwami i zdjęciami. Tej operacji nie można cofnąć.")
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
     }
   }
 
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: projectPropertiesPopup
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 440)
-    modal: true
+    title: qsTr("Właściwości projektu")
+    confirmText: qsTr("Zastosuj i zapisz")
+    onConfirmed: confirm()
 
     onOpened: {
       projectTitleField.text = iface.projectTitle();
@@ -4168,435 +4027,341 @@ Drawer {
         customCrsField.text = biezacy.replace(/^EPSG:/i, "");
     }
 
-    ColumnLayout {
-      anchors.fill: parent
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Zastosuj i zapisz” button below)
+    function confirm() {
+      iface.setProjectTitle(projectTitleField.text);
+      mainWindow.refreshProjectTitle();
+      let requestedCrs = customCrsField.text.trim() !== "" ? "EPSG:" + customCrsField.text.trim() : crsCombo.currentValue;
+      if (requestedCrs && requestedCrs !== "" && requestedCrs !== iface.projectCrsAuthid()) {
+        if (!iface.setProjectCrs(requestedCrs)) {
+          displayToast(qsTr("Nieprawidłowy układ: %1").arg(requestedCrs));
+          return;
+        }
+      }
+      // Zapis pliku potrafi zawiesc: brak miejsca, plik tylko do
+      // odczytu, nosnik odlaczony. Do 18.09.2026 wynik szedl w
+      // proznie, a toast mowil "Zapisano" bezwarunkowo.
+      const zapisano = ProjectUtils.saveProject(qgisProject);
+      crsCurrentLabel.refresh();
+      projectSection.refresh();
+      if (zapisano) {
+        displayToast(qsTr("Zapisano właściwości projektu"));
+        projectPropertiesPopup.close();
+      } else {
+        displayToast(qsTr("NIE zapisano właściwości — projekt został bez zmian"), "error");
+      }
+    }
+
+    Text {
+      text: qsTr("Tytuł projektu:")
+      font: t.tipFont
+      color: t.secondaryTextColor
+    }
+
+    TextField {
+      id: projectTitleField
+      Layout.fillWidth: true
+      font: t.defaultFont
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      text: qsTr("Obiekt (dostępne w wyrażeniach jako @obiekt_nazwa, @obiekt_skrot, @obiekt_kategoria)")
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      TextField {
+        id: objectNameField
+        Layout.fillWidth: true
+        font: t.defaultFont
+        placeholderText: qsTr("Nazwa obiektu")
+        onEditingFinished: iface.setProjectVariable("obiekt_nazwa", text.trim())
+      }
+
+      TextField {
+        id: objectShortField
+        Layout.preferredWidth: 90
+        font: t.defaultFont
+        placeholderText: qsTr("Skrót")
+        onEditingFinished: iface.setProjectVariable("obiekt_skrot", text.trim().toUpperCase())
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
       spacing: 8
 
       Text {
-        Layout.fillWidth: true
-        text: qsTr("Właściwości projektu")
-        font: t.strongFont
-        color: t.mainTextColor
-      }
-
-      Text {
-        text: qsTr("Tytuł projektu:")
+        text: qsTr("Kategoria:")
         font: t.tipFont
         color: t.secondaryTextColor
       }
 
       TextField {
-        id: projectTitleField
+        id: objectCategoryField
         Layout.fillWidth: true
         font: t.defaultFont
-      }
-
-      Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 6
-        text: qsTr("Obiekt (dostępne w wyrażeniach jako @obiekt_nazwa, @obiekt_skrot, @obiekt_kategoria)")
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        TextField {
-          id: objectNameField
-          Layout.fillWidth: true
-          font: t.defaultFont
-          placeholderText: qsTr("Nazwa obiektu")
-          onEditingFinished: iface.setProjectVariable("obiekt_nazwa", text.trim())
-        }
-
-        TextField {
-          id: objectShortField
-          Layout.preferredWidth: 90
-          font: t.defaultFont
-          placeholderText: qsTr("Skrót")
-          onEditingFinished: iface.setProjectVariable("obiekt_skrot", text.trim().toUpperCase())
-        }
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Text {
-          text: qsTr("Kategoria:")
-          font: t.tipFont
-          color: t.secondaryTextColor
-        }
-
-        TextField {
-          id: objectCategoryField
-          Layout.fillWidth: true
-          font: t.defaultFont
-          placeholderText: qsTr("APPL / SCI / …")
-          onEditingFinished: iface.setProjectVariable("obiekt_kategoria", text.trim().toUpperCase())
-        }
-      }
-
-      Text {
-        id: crsCurrentLabel
-
-        function refresh() {
-          text = qsTr("Układ współrzędnych: %1 (%2)").arg(iface.projectCrsAuthid()).arg(iface.projectCrsDescription());
-        }
-
-        Layout.fillWidth: true
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      ComboBox {
-        id: crsCombo
-        Layout.fillWidth: true
-        font: t.tinyFont
-        textRole: "label"
-        valueRole: "authid"
-        model: [
-          { "label": qsTr("— wybierz układ —"), "authid": "" },
-          { "label": "PL-1992 (EPSG:2180)", "authid": "EPSG:2180" },
-          { "label": "PL-2000 strefa 5 (EPSG:2176)", "authid": "EPSG:2176" },
-          { "label": "PL-2000 strefa 6 (EPSG:2177)", "authid": "EPSG:2177" },
-          { "label": "PL-2000 strefa 7 (EPSG:2178)", "authid": "EPSG:2178" },
-          { "label": "PL-2000 strefa 8 (EPSG:2179)", "authid": "EPSG:2179" },
-          { "label": "WGS 84 (EPSG:4326)", "authid": "EPSG:4326" },
-          { "label": "Web Mercator (EPSG:3857)", "authid": "EPSG:3857" }
-        ]
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Text {
-          text: qsTr("Inny EPSG:")
-          font: t.tipFont
-          color: t.secondaryTextColor
-        }
-
-        TextField {
-          id: customCrsField
-          Layout.fillWidth: true
-          font: t.tinyFont
-          placeholderText: qsTr("np. 25832")
-          inputMethodHints: Qt.ImhDigitsOnly
-        }
-      }
-
-      /**
-       * WorkField 23.08.2026 — sciezka projektu do skopiowania.
-       *
-       * Byla tu zwykla etykieta z ElideMiddle: sciezka, ktorej nie da sie ani
-       * zaznaczyc, ani nawet przeczytac w calosci. A jest to dokladnie ten
-       * napis, ktory czlowiek chce wkleic do terminala albo do wiadomosci.
-       * Zaznaczanie myszka dziala na komputerze, przyciski dzialaja wszedzie.
-       */
-      Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 6
-        text: qsTr("Plik projektu:")
-        font: t.tipFont
-        color: t.secondaryTextColor
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 4
-
-        TextEdit {
-          Layout.fillWidth: true
-          text: projectSection.filePath
-          readOnly: true
-          selectByMouse: true
-          wrapMode: TextEdit.WrapAnywhere
-          font: t.tinyFont
-          color: t.mainTextColor
-        }
-
-        QfToolButton {
-          Layout.alignment: Qt.AlignTop
-          round: true
-          bgcolor: "transparent"
-          iconSource: t.getThemeVectorIcon("ic_copy_black_24dp")
-          iconColor: t.mainTextColor
-          onClicked: {
-            platformUtilities.copyTextToClipboard(projectSection.filePath);
-            displayToast(qsTr("Skopiowano ścieżkę projektu"));
-          }
-        }
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 4
-
-        Text {
-          Layout.fillWidth: true
-          text: qsTr("Folder: %1").arg(FileUtils.absolutePath(projectSection.filePath))
-          font: t.tinyFont
-          color: t.secondaryTextColor
-          elide: Text.ElideMiddle
-        }
-
-        QfToolButton {
-          round: true
-          bgcolor: "transparent"
-          iconSource: t.getThemeVectorIcon("ic_copy_black_24dp")
-          iconColor: t.secondaryTextColor
-          onClicked: {
-            platformUtilities.copyTextToClipboard(FileUtils.absolutePath(projectSection.filePath));
-            displayToast(qsTr("Skopiowano ścieżkę folderu"));
-          }
-        }
-      }
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Pliki danych w folderze:")
-        font: t.tipFont
-        color: t.secondaryTextColor
-      }
-
-      ListView {
-        id: projectFilesList
-        Layout.fillWidth: true
-        Layout.preferredHeight: Math.min(contentHeight, 110)
-        clip: true
-
-        model: FolderListModel {
-          id: projectFilesModel
-          folder: projectPropertiesPopup.opened ? "file://" + FileUtils.absolutePath(projectSection.filePath) : ""
-          nameFilters: ["*.gpkg", "*.qgs", "*.qgz"]
-          showDirs: false
-        }
-
-        delegate: Text {
-          width: projectFilesList.width
-          text: "• " + fileName + "  (" + FileUtils.representFileSize(fileSize) + ")"
-          font: t.tinyFont
-          color: t.mainTextColor
-          elide: Text.ElideMiddle
-        }
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-
-        Item {
-          Layout.fillWidth: true
-        }
-        DecisionButton {
-          role: "neutral"
-          text: qsTr("Zamknij")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: projectPropertiesPopup.close()
-        }
-        DecisionButton {
-          role: "confirm"
-          text: qsTr("Zastosuj i zapisz")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: {
-            iface.setProjectTitle(projectTitleField.text);
-            mainWindow.refreshProjectTitle();
-            let requestedCrs = customCrsField.text.trim() !== "" ? "EPSG:" + customCrsField.text.trim() : crsCombo.currentValue;
-            if (requestedCrs && requestedCrs !== "" && requestedCrs !== iface.projectCrsAuthid()) {
-              if (!iface.setProjectCrs(requestedCrs)) {
-                displayToast(qsTr("Nieprawidłowy układ: %1").arg(requestedCrs));
-                return;
-              }
-            }
-            // Zapis pliku potrafi zawiesc: brak miejsca, plik tylko do
-            // odczytu, nosnik odlaczony. Do 18.09.2026 wynik szedl w
-            // proznie, a toast mowil "Zapisano" bezwarunkowo.
-            const zapisano = ProjectUtils.saveProject(qgisProject);
-            crsCurrentLabel.refresh();
-            projectSection.refresh();
-            if (zapisano) {
-              displayToast(qsTr("Zapisano właściwości projektu"));
-              projectPropertiesPopup.close();
-            } else {
-              displayToast(qsTr("NIE zapisano właściwości — projekt został bez zmian"), "error");
-            }
-          }
-        }
+        placeholderText: qsTr("APPL / SCI / …")
+        onEditingFinished: iface.setProjectVariable("obiekt_kategoria", text.trim().toUpperCase())
       }
     }
-  }
 
-  Popup {
-    id: removeLayerConfirm
+    Text {
+      id: crsCurrentLabel
 
-    property var targetLayer: null
-    property string targetName: ""
+      function refresh() {
+        text = qsTr("Układ współrzędnych: %1 (%2)").arg(iface.projectCrsAuthid()).arg(iface.projectCrsDescription());
+      }
 
-    parent: mainWindow.contentItem
-    width: Math.min(380, mainWindow.width - 32)
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    modal: true
-    closePolicy: Popup.CloseOnEscape
+      Layout.fillWidth: true
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
 
-    ColumnLayout {
-      anchors.fill: parent
+    ComboBox {
+      id: crsCombo
+      Layout.fillWidth: true
+      font: t.tinyFont
+      textRole: "label"
+      valueRole: "authid"
+      model: [
+        { "label": qsTr("— wybierz układ —"), "authid": "" },
+        { "label": "PL-1992 (EPSG:2180)", "authid": "EPSG:2180" },
+        { "label": "PL-2000 strefa 5 (EPSG:2176)", "authid": "EPSG:2176" },
+        { "label": "PL-2000 strefa 6 (EPSG:2177)", "authid": "EPSG:2177" },
+        { "label": "PL-2000 strefa 7 (EPSG:2178)", "authid": "EPSG:2178" },
+        { "label": "PL-2000 strefa 8 (EPSG:2179)", "authid": "EPSG:2179" },
+        { "label": "WGS 84 (EPSG:4326)", "authid": "EPSG:4326" },
+        { "label": "Web Mercator (EPSG:3857)", "authid": "EPSG:3857" }
+      ]
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
       spacing: 8
 
       Text {
-        Layout.fillWidth: true
-        text: qsTr("Usunąć warstwę z projektu?")
-        font: t.strongFont
-        color: t.mainTextColor
-        wrapMode: Text.WordWrap
+        text: qsTr("Inny EPSG:")
+        font: t.tipFont
+        color: t.secondaryTextColor
       }
+
+      TextField {
+        id: customCrsField
+        Layout.fillWidth: true
+        font: t.tinyFont
+        placeholderText: qsTr("np. 25832")
+        inputMethodHints: Qt.ImhDigitsOnly
+      }
+    }
+
+    /**
+     * WorkField 23.08.2026 — sciezka projektu do skopiowania.
+     *
+     * Byla tu zwykla etykieta z ElideMiddle: sciezka, ktorej nie da sie ani
+     * zaznaczyc, ani nawet przeczytac w calosci. A jest to dokladnie ten
+     * napis, ktory czlowiek chce wkleic do terminala albo do wiadomosci.
+     * Zaznaczanie myszka dziala na komputerze, przyciski dzialaja wszedzie.
+     */
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      text: qsTr("Plik projektu:")
+      font: t.tipFont
+      color: t.secondaryTextColor
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 4
+
+      TextEdit {
+        Layout.fillWidth: true
+        text: projectSection.filePath
+        readOnly: true
+        selectByMouse: true
+        wrapMode: TextEdit.WrapAnywhere
+        font: t.tinyFont
+        color: t.mainTextColor
+      }
+
+      QfToolButton {
+        Layout.alignment: Qt.AlignTop
+        round: true
+        bgcolor: "transparent"
+        iconSource: t.getThemeVectorIcon("ic_copy_black_24dp")
+        iconColor: t.mainTextColor
+        onClicked: {
+          platformUtilities.copyTextToClipboard(projectSection.filePath);
+          displayToast(qsTr("Skopiowano ścieżkę projektu"));
+        }
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 4
 
       Text {
         Layout.fillWidth: true
-        text: removeLayerConfirm.targetName
-        font: t.tipFont
+        text: qsTr("Folder: %1").arg(FileUtils.absolutePath(projectSection.filePath))
+        font: t.tinyFont
         color: t.secondaryTextColor
         elide: Text.ElideMiddle
       }
 
-      // [WF-REMOVE-LAYER-ATTACHMENTS] 24.10.2026: its photo table goes too
-      Text {
-        Layout.fillWidth: true
-        visible: text !== ""
-        text: {
-          if (!removeLayerConfirm.targetLayer)
-            return "";
-          const tables = iface.attachmentTablesOf(removeLayerConfirm.targetLayer);
-          return tables.length > 0 ? qsTr("Razem z nią z projektu zniknie jej tabela zdjęć: %1.").arg(tables.join(", ")) : "";
+      QfToolButton {
+        round: true
+        bgcolor: "transparent"
+        iconSource: t.getThemeVectorIcon("ic_copy_black_24dp")
+        iconColor: t.secondaryTextColor
+        onClicked: {
+          platformUtilities.copyTextToClipboard(FileUtils.absolutePath(projectSection.filePath));
+          displayToast(qsTr("Skopiowano ścieżkę folderu"));
         }
-        font: t.tipFont
-        color: t.mainTextColor
-        wrapMode: Text.WordWrap
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Pliki danych w folderze:")
+      font: t.tipFont
+      color: t.secondaryTextColor
+    }
+
+    ListView {
+      id: projectFilesList
+      Layout.fillWidth: true
+      Layout.preferredHeight: Math.min(contentHeight, 110)
+      clip: true
+
+      model: FolderListModel {
+        id: projectFilesModel
+        folder: projectPropertiesPopup.opened ? "file://" + FileUtils.absolutePath(projectSection.filePath) : ""
+        nameFilters: ["*.gpkg", "*.qgs", "*.qgz"]
+        showDirs: false
       }
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Plik z danymi i zdjęcia pozostaną na dysku.")
+      delegate: Text {
+        width: projectFilesList.width
+        text: "• " + fileName + "  (" + FileUtils.representFileSize(fileSize) + ")"
         font: t.tinyFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
+        color: t.mainTextColor
+        elide: Text.ElideMiddle
       }
+    }
+  }
 
-      RowLayout {
-        Layout.fillWidth: true
-        Layout.topMargin: 8
-        spacing: 8
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
+    id: removeLayerConfirm
 
-        DecisionButton {
-          role: "neutral"
-          Layout.fillWidth: true
-          text: qsTr("Anuluj")
-          onClicked: removeLayerConfirm.close()
-        }
+    title: qsTr("Usunąć warstwę z projektu?")
+    confirmText: qsTr("Usuń")
+    confirmRole: "danger"
+    preferredWidth: 380
+    onConfirmed: confirm()
 
-        DecisionButton {
-          role: "danger"
-          Layout.fillWidth: true
-          text: qsTr("Usuń")
-          highlighted: true
+    property var targetLayer: null
+    property string targetName: ""
 
-          onClicked: {
-            if (removeLayerConfirm.targetLayer) {
-              iface.removeLayer(removeLayerConfirm.targetLayer);
-              displayToast(qsTr("Usunięto warstwę %1").arg(removeLayerConfirm.targetName));
-            }
-            removeLayerConfirm.close();
-          }
-        }
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Usuń” button below)
+    function confirm() {
+      if (removeLayerConfirm.targetLayer) {
+        iface.removeLayer(removeLayerConfirm.targetLayer);
+        displayToast(qsTr("Usunięto warstwę %1").arg(removeLayerConfirm.targetName));
       }
+      removeLayerConfirm.close();
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: removeLayerConfirm.targetName
+      font: t.tipFont
+      color: t.secondaryTextColor
+      elide: Text.ElideMiddle
+    }
+
+    // [WF-REMOVE-LAYER-ATTACHMENTS] 24.10.2026: its photo table goes too
+    Text {
+      Layout.fillWidth: true
+      visible: text !== ""
+      text: {
+        if (!removeLayerConfirm.targetLayer)
+          return "";
+        const tables = iface.attachmentTablesOf(removeLayerConfirm.targetLayer);
+        return tables.length > 0 ? qsTr("Razem z nią z projektu zniknie jej tabela zdjęć: %1.").arg(tables.join(", ")) : "";
+      }
+      font: t.tipFont
+      color: t.mainTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Plik z danymi i zdjęcia pozostaną na dysku.")
+      font: t.tinyFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
     }
   }
 
   // WorkField 23.10.2026 [WF-NEW-LAYER] — move a layer from a separate file into
   // the project database, straight from the working-layer list.
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: moveLayerConfirm
+
+    title: qsTr("Przenieść warstwę do bazy projektu?")
+    confirmText: qsTr("Przenieś")
+    preferredWidth: 380
+    onConfirmed: confirm()
 
     property var targetLayer: null
     property string targetName: ""
     property string sourceFile: ""
 
-    parent: mainWindow.contentItem
-    width: Math.min(380, mainWindow.width - 32)
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    modal: true
-    closePolicy: Popup.CloseOnEscape
-
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Przenieść warstwę do bazy projektu?")
-        font: t.strongFont
-        color: t.mainTextColor
-        wrapMode: Text.WordWrap
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Przenieś” button below)
+    function confirm() {
+      const layer = moveLayerConfirm.targetLayer;
+      const layerName = moveLayerConfirm.targetName;
+      moveLayerConfirm.close();
+      if (!layer)
+        return;
+      const result = NarzedziaProjektu.moveLayerToProjectDatabase(qgisProject, layer, NarzedziaProjektu.tableNameFor(layer.name));
+      if (!result.ok) {
+        displayToast(result.error || qsTr("Nie udało się przenieść warstwy"), "error");
+        return;
       }
+      const saved = typeof ProjectUtils !== "undefined" && ProjectUtils.saveProject(qgisProject);
+      if (saved)
+        displayToast(qsTr("Warstwa %1 jest w bazie projektu (obiektów: %2). Projekt zapisany.").arg(layerName).arg(result.features));
+      else
+        displayToast(qsTr("Warstwa %1 przeniesiona, ale projektu NIE zapisano.").arg(layerName), "error");
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: moveLayerConfirm.targetName
-        font: t.tipFont
-        color: t.secondaryTextColor
-        elide: Text.ElideMiddle
-      }
+    Text {
+      Layout.fillWidth: true
+      text: moveLayerConfirm.targetName
+      font: t.tipFont
+      color: t.secondaryTextColor
+      elide: Text.ElideMiddle
+    }
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Teraz leży w osobnym pliku:\n%1\n\nTabela zostanie skopiowana do bazy projektu (dane.gpkg), a warstwa przepięta na kopię. Styl, formularz i obiekty zostają; dostanie też zdjęcia. Stary plik zostaje nietknięty.").arg(moveLayerConfirm.sourceFile)
-        font: t.tinyFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WrapAnywhere
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        Layout.topMargin: 8
-        spacing: 8
-
-        DecisionButton {
-          role: "neutral"
-          Layout.fillWidth: true
-          text: qsTr("Anuluj")
-          onClicked: moveLayerConfirm.close()
-        }
-
-        DecisionButton {
-          role: "confirm"
-          Layout.fillWidth: true
-          text: qsTr("Przenieś")
-          highlighted: true
-
-          onClicked: {
-            const layer = moveLayerConfirm.targetLayer;
-            const layerName = moveLayerConfirm.targetName;
-            moveLayerConfirm.close();
-            if (!layer)
-              return;
-            const result = NarzedziaProjektu.moveLayerToProjectDatabase(qgisProject, layer, NarzedziaProjektu.tableNameFor(layer.name));
-            if (!result.ok) {
-              displayToast(result.error || qsTr("Nie udało się przenieść warstwy"), "error");
-              return;
-            }
-            const saved = typeof ProjectUtils !== "undefined" && ProjectUtils.saveProject(qgisProject);
-            if (saved)
-              displayToast(qsTr("Warstwa %1 jest w bazie projektu (obiektów: %2). Projekt zapisany.").arg(layerName).arg(result.features));
-            else
-              displayToast(qsTr("Warstwa %1 przeniesiona, ale projektu NIE zapisano.").arg(layerName), "error");
-          }
-        }
-      }
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Teraz leży w osobnym pliku:\n%1\n\nTabela zostanie skopiowana do bazy projektu (dane.gpkg), a warstwa przepięta na kopię. Styl, formularz i obiekty zostają; dostanie też zdjęcia. Stary plik zostaje nietknięty.").arg(moveLayerConfirm.sourceFile)
+      font: t.tinyFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WrapAnywhere
     }
   }
 }

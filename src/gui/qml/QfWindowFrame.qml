@@ -43,6 +43,8 @@ Popup {
   //! Named exitMode, not mode: windows often have their own `mode`.
   property string exitMode: "decision"
   property string confirmText: qsTr("Zatwierdź")
+  //! "confirm" (green ✓) or "danger" (red ✓ — deleting, what cannot be undone)
+  property string confirmRole: "confirm"
   property bool confirmEnabled: true
   property bool busy: false
   property real preferredWidth: 440
@@ -62,6 +64,9 @@ Popup {
   //! Optional function returning false to keep the window open on ✕ / ←
   //! (e.g. "unsaved changes — tap ✕ again to discard").
   property var cancelGuard: null
+  //! false: no ✕ / ← at all — the user must choose in the body (e.g. "where
+  //! to create projects"); set closePolicy: Popup.NoAutoClose with it.
+  property bool leaveVisible: true
 
   default property alias content: body.data
   property alias bodySpacing: body.spacing
@@ -163,6 +168,7 @@ Popup {
             verticalAlignment: Text.AlignVCenter
           }
           enabled: !frame.busy
+          visible: frame.leaveVisible
           // own background: the colour must not depend on the platform style
           background: Rectangle {
             radius: 6
@@ -178,6 +184,9 @@ Popup {
           text: frame.title
           font: QfTheme.strongFont
           color: frame.titleTextColor
+          // long questions ("Usunąć projekt wraz z danymi?") wrap to a second line
+          wrapMode: Text.WordWrap
+          maximumLineCount: 2
           elide: Text.ElideRight
           horizontalAlignment: frame.exitMode === "close" ? Text.AlignLeft : Text.AlignHCenter
           verticalAlignment: Text.AlignVCenter
@@ -185,7 +194,7 @@ Popup {
 
         QfDecisionButton {
           id: confirmButton
-          role: "confirm"
+          role: frame.confirmRole === "danger" ? "danger" : "confirm"
           visible: frame.exitMode === "decision"
           text: "✓  " + frame.confirmText
           font.pointSize: QfTheme.tipFont.pointSize

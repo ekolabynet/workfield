@@ -1924,65 +1924,31 @@ Page {
     }
   }
 
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: gotoPathPopup
 
-    parent: mainWindow.contentItem
-    width: Math.min(460, mainWindow.width - 32)
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    modal: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    title: qsTr("Przejdź do katalogu")
+    confirmText: qsTr("Przejdź")
+    onConfirmed: applyPath()
 
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
+    TextField {
+      id: gotoPathField
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Przejdź do katalogu")
-        font: Theme.strongFont
-        color: Theme.mainTextColor
-      }
+      Layout.fillWidth: true
+      font: Theme.defaultFont
+      placeholderText: "/DATA/GIS"
+      selectByMouse: true
 
-      TextField {
-        id: gotoPathField
+      onAccepted: gotoPathPopup.applyPath()
+    }
 
-        Layout.fillWidth: true
-        font: Theme.defaultFont
-        placeholderText: "/DATA/GIS"
-        selectByMouse: true
-
-        onAccepted: gotoPathPopup.applyPath()
-      }
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Po wejściu możesz dodać katalog do ulubionych przez menu obok jego nazwy.")
-        font: Theme.tipFont
-        color: Theme.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        Layout.topMargin: 8
-        spacing: 8
-
-        QfDecisionButton {
-          role: "cancel" // [WF-BUTTONS]
-          Layout.fillWidth: true
-          text: qsTr("Anuluj")
-          onClicked: gotoPathPopup.close()
-        }
-
-        QfDecisionButton {
-          role: "confirm" // [WF-BUTTONS]
-          Layout.fillWidth: true
-          text: qsTr("Przejdź")
-          onClicked: gotoPathPopup.applyPath()
-        }
-      }
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Po wejściu możesz dodać katalog do ulubionych przez menu obok jego nazwy.")
+      font: Theme.tipFont
+      color: Theme.secondaryTextColor
+      wrapMode: Text.WordWrap
     }
 
     function applyPath() {

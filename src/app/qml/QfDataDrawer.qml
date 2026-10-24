@@ -5,6 +5,7 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import org.qfield
+import org.qfield.gui // [WF-WINDOW-FRAME] QfWindowFrame
 import Theme
 
 Drawer {
@@ -1062,19 +1063,18 @@ Drawer {
     }
   }
 
-  Dialog {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: layerPickerDialog
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 420)
-    height: Math.min(mainWindow.height - 120, 520)
-    modal: true
     title: qsTr("Wybierz warstwę roboczą")
+    exitMode: "close"
+    scrollable: false
 
     ListView {
-      anchors.fill: parent
+      Layout.fillWidth: true
+      Layout.fillHeight: true
+      Layout.preferredHeight: Math.min(mainWindow.height - 200, 440)
       clip: true
       model: dataDrawer.layerTree
 
@@ -1093,14 +1093,12 @@ Drawer {
     }
   }
 
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: gnssDiagPopup
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 400)
-    modal: true
+    title: qsTr("Diagnostyka GNSS / NTRIP")
+    exitMode: "close"
 
     property double nowMs: Date.now()
 
@@ -1127,161 +1125,143 @@ Drawer {
       onTriggered: gnssDiagPopup.nowMs = Date.now()
     }
 
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
+    GridLayout {
+      Layout.fillWidth: true
+      columns: 2
+      columnSpacing: 12
+      rowSpacing: 4
 
+      Text { text: qsTr("Odbiornik"); font: t.tipFont; color: t.secondaryTextColor }
       Text {
         Layout.fillWidth: true
-        text: qsTr("Diagnostyka GNSS / NTRIP")
-        font: t.strongFont
-        color: t.mainTextColor
+        text: positionSource.deviceId === "" ? qsTr("wewnętrzny (telefon)") : positionSource.deviceId
+        font: t.tipFont; color: t.mainTextColor; elide: Text.ElideMiddle
       }
 
-      GridLayout {
+      Text { text: qsTr("Połączenie"); font: t.tipFont; color: t.secondaryTextColor }
+      Text {
         Layout.fillWidth: true
-        columns: 2
-        columnSpacing: 12
-        rowSpacing: 4
+        text: positionSource.deviceSocketStateString + (positionSource.deviceLastError !== "" ? " — " + positionSource.deviceLastError : "")
+        font: t.tipFont
+        color: positionSource.deviceLastError !== "" ? "#EF5350" : t.mainTextColor
+        wrapMode: Text.WordWrap
+      }
 
-        Text { text: qsTr("Odbiornik"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          Layout.fillWidth: true
-          text: positionSource.deviceId === "" ? qsTr("wewnętrzny (telefon)") : positionSource.deviceId
-          font: t.tipFont; color: t.mainTextColor; elide: Text.ElideMiddle
-        }
+      Text { text: qsTr("Fix"); font: t.tipFont; color: t.secondaryTextColor }
+      Text {
+        Layout.fillWidth: true
+        text: gnssDiagPopup.posInfo ? gnssDiagPopup.posInfo.fixStatusDescription : "—"
+        font: t.tipFont; color: t.mainTextColor
+      }
 
-        Text { text: qsTr("Połączenie"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          Layout.fillWidth: true
-          text: positionSource.deviceSocketStateString + (positionSource.deviceLastError !== "" ? " — " + positionSource.deviceLastError : "")
-          font: t.tipFont
-          color: positionSource.deviceLastError !== "" ? "#EF5350" : t.mainTextColor
-          wrapMode: Text.WordWrap
-        }
+      Text { text: qsTr("Satelity w użyciu"); font: t.tipFont; color: t.secondaryTextColor }
+      Text {
+        text: gnssDiagPopup.posInfo ? gnssDiagPopup.posInfo.satellitesUsed : "—"
+        font: t.tipFont; color: t.mainTextColor
+      }
 
-        Text { text: qsTr("Fix"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          Layout.fillWidth: true
-          text: gnssDiagPopup.posInfo ? gnssDiagPopup.posInfo.fixStatusDescription : "—"
-          font: t.tipFont; color: t.mainTextColor
-        }
+      Text { text: qsTr("DOP (P/H/V)"); font: t.tipFont; color: t.secondaryTextColor }
+      Text {
+        text: gnssDiagPopup.posInfo ? gnssDiagPopup.posInfo.pdop.toFixed(1) + " / " + gnssDiagPopup.posInfo.hdop.toFixed(1) + " / " + gnssDiagPopup.posInfo.vdop.toFixed(1) : "—"
+        font: t.tipFont; color: t.mainTextColor
+      }
 
-        Text { text: qsTr("Satelity w użyciu"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          text: gnssDiagPopup.posInfo ? gnssDiagPopup.posInfo.satellitesUsed : "—"
-          font: t.tipFont; color: t.mainTextColor
-        }
+      Text { text: qsTr("Dokładność pozioma"); font: t.tipFont; color: t.secondaryTextColor }
+      Text {
+        text: gnssDiagPopup.posInfo && gnssDiagPopup.posInfo.haccValid ? (gnssDiagPopup.posInfo.hacc < 1 ? "±" + (gnssDiagPopup.posInfo.hacc * 100).toFixed(0) + " cm" : "±" + gnssDiagPopup.posInfo.hacc.toFixed(1) + " m") : "—"
+        font: t.tipFont; color: t.mainTextColor
+      }
 
-        Text { text: qsTr("DOP (P/H/V)"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          text: gnssDiagPopup.posInfo ? gnssDiagPopup.posInfo.pdop.toFixed(1) + " / " + gnssDiagPopup.posInfo.hdop.toFixed(1) + " / " + gnssDiagPopup.posInfo.vdop.toFixed(1) : "—"
-          font: t.tipFont; color: t.mainTextColor
-        }
+      Text { text: qsTr("NTRIP"); font: t.tipFont; color: t.secondaryTextColor }
+      Text {
+        text: !positionSource.enableNtrip ? qsTr("wyłączony") : gnssDiagPopup.rtcmAge < 0 ? qsTr("łączenie…") : qsTr("aktywny")
+        font: t.tipFont; color: t.mainTextColor
+      }
 
-        Text { text: qsTr("Dokładność pozioma"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          text: gnssDiagPopup.posInfo && gnssDiagPopup.posInfo.haccValid ? (gnssDiagPopup.posInfo.hacc < 1 ? "±" + (gnssDiagPopup.posInfo.hacc * 100).toFixed(0) + " cm" : "±" + gnssDiagPopup.posInfo.hacc.toFixed(1) + " m") : "—"
-          font: t.tipFont; color: t.mainTextColor
-        }
+      Text { text: qsTr("Wiek poprawek"); font: t.tipFont; color: t.secondaryTextColor }
+      Text {
+        text: !positionSource.enableNtrip ? "—" : gnssDiagPopup.rtcmAge < 0 ? "—" : Math.round(gnssDiagPopup.rtcmAge) + " s"
+        font.family: t.tipFont.family
+        font.pointSize: t.tipFont.pointSize
+        font.bold: true
+        color: gnssDiagPopup.rtcmAge < 0 ? t.mainTextColor : gnssDiagPopup.rtcmAge <= 5 ? "#00C853" : gnssDiagPopup.rtcmAge <= 15 ? "#F9A825" : "#EF5350"
+      }
 
-        Text { text: qsTr("NTRIP"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          text: !positionSource.enableNtrip ? qsTr("wyłączony") : gnssDiagPopup.rtcmAge < 0 ? qsTr("łączenie…") : qsTr("aktywny")
-          font: t.tipFont; color: t.mainTextColor
-        }
+      Text { text: qsTr("Dane NTRIP"); font: t.tipFont; color: t.secondaryTextColor }
+      Text {
+        text: "\u2193 " + gnssDiagPopup.fmtBytes(positionSource.ntripBytesReceived) + "    \u2191 " + gnssDiagPopup.fmtBytes(positionSource.ntripBytesSent)
+        font: t.tipFont; color: t.mainTextColor
+      }
 
-        Text { text: qsTr("Wiek poprawek"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          text: !positionSource.enableNtrip ? "—" : gnssDiagPopup.rtcmAge < 0 ? "—" : Math.round(gnssDiagPopup.rtcmAge) + " s"
-          font.family: t.tipFont.family
-          font.pointSize: t.tipFont.pointSize
-          font.bold: true
-          color: gnssDiagPopup.rtcmAge < 0 ? t.mainTextColor : gnssDiagPopup.rtcmAge <= 5 ? "#00C853" : gnssDiagPopup.rtcmAge <= 15 ? "#F9A825" : "#EF5350"
-        }
+      Text { text: qsTr("Maska elewacji"); font: t.tipFont; color: t.secondaryTextColor }
+      RowLayout {
+        spacing: 6
 
-        Text { text: qsTr("Dane NTRIP"); font: t.tipFont; color: t.secondaryTextColor }
-        Text {
-          text: "\u2193 " + gnssDiagPopup.fmtBytes(positionSource.ntripBytesReceived) + "    \u2191 " + gnssDiagPopup.fmtBytes(positionSource.ntripBytesSent)
-          font: t.tipFont; color: t.mainTextColor
-        }
+        // WorkField 23.08.2026 — bylo [10, 15, 20]: maskę dało się zalozyc
+        // i NIE DALO SIE ZDJAC. Zero wraca, tak jak w panelu Niebo, i tak
+        // samo jak tam pierscien jest NASZ (zawsze da sie przestawic),
+        // a komende wysylamy tylko wtedy, gdy jest komu.
+        Repeater {
+          model: [0, 10, 15, 20]
 
-        Text { text: qsTr("Maska elewacji"); font: t.tipFont; color: t.secondaryTextColor }
-        RowLayout {
-          spacing: 6
-
-          // WorkField 23.08.2026 — bylo [10, 15, 20]: maskę dało się zalozyc
-          // i NIE DALO SIE ZDJAC. Zero wraca, tak jak w panelu Niebo, i tak
-          // samo jak tam pierscien jest NASZ (zawsze da sie przestawic),
-          // a komende wysylamy tylko wtedy, gdy jest komu.
-          Repeater {
-            model: [0, 10, 15, 20]
-
-            Button {
-              text: modelData === 0 ? qsTr("brak") : modelData + "\u00b0"
-              font.pointSize: t.tinyFont.pointSize
-              highlighted: dataDrawer.maskaElewacji === modelData
-              onClicked: {
-                dataDrawer.maskaElewacji = modelData;
-                settings.setValue('WorkField/maskaElewacji', modelData);
-                if (modelData > 0 && positionSource.active && positionSource.deviceId !== "") {
-                  positionSource.setGnssMinimumElevation(modelData);
-                  displayToast(qsTr("Maska elewacji %1° wysłana (obowiązuje do restartu odbiornika)").arg(modelData));
-                } else if (modelData === 0) {
-                  displayToast(qsTr("Maska zdjęta po naszej stronie; w odbiorniku zostaje do restartu"));
-                }
+          Button {
+            text: modelData === 0 ? qsTr("brak") : modelData + "\u00b0"
+            font.pointSize: t.tinyFont.pointSize
+            highlighted: dataDrawer.maskaElewacji === modelData
+            onClicked: {
+              dataDrawer.maskaElewacji = modelData;
+              settings.setValue('WorkField/maskaElewacji', modelData);
+              if (modelData > 0 && positionSource.active && positionSource.deviceId !== "") {
+                positionSource.setGnssMinimumElevation(modelData);
+                displayToast(qsTr("Maska elewacji %1° wysłana (obowiązuje do restartu odbiornika)").arg(modelData));
+              } else if (modelData === 0) {
+                displayToast(qsTr("Maska zdjęta po naszej stronie; w odbiorniku zostaje do restartu"));
               }
             }
           }
         }
       }
+    }
 
-      RowLayout {
+    RowLayout {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      spacing: 8
+
+      Button {
+        text: qsTr("Połącz NTRIP ponownie")
+        font.pointSize: t.tinyFont.pointSize
+        enabled: positionSource.enableNtrip
+        onClicked: {
+          positionSource.enableNtrip = false;
+          positionSource.enableNtrip = true;
+          displayToast(qsTr("Restartuję połączenie NTRIP…"));
+        }
+      }
+
+      Item {
         Layout.fillWidth: true
-        Layout.topMargin: 4
-        spacing: 8
+      }
 
-        Button {
-          text: qsTr("Połącz NTRIP ponownie")
-          font.pointSize: t.tinyFont.pointSize
-          enabled: positionSource.enableNtrip
-          onClicked: {
-            positionSource.enableNtrip = false;
-            positionSource.enableNtrip = true;
-            displayToast(qsTr("Restartuję połączenie NTRIP…"));
-          }
+      Button {
+        text: qsTr("Ustawienia")
+        font.pointSize: t.tinyFont.pointSize
+        onClicked: {
+          gnssDiagPopup.close();
+          dataDrawer.close();
+          qfieldSettings.currentPanel = "positioning";
+          qfieldSettings.visible = true;
         }
+      }
 
-        Item {
-          Layout.fillWidth: true
-        }
-
-        Button {
-          text: qsTr("Ustawienia")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: {
-            gnssDiagPopup.close();
-            dataDrawer.close();
-            qfieldSettings.currentPanel = "positioning";
-            qfieldSettings.visible = true;
-          }
-        }
-
-        Button {
-          // WorkField 22.08: Niebo przed Zamknij — wazniejsze, wiec blizej kciuka
-          text: qsTr("Niebo")
-          font.pointSize: t.tinyFont.pointSize
-          highlighted: true
-          onClicked: {
-            gnssDiagPopup.close();
-            nieboPanel.open();
-          }
-        }
-
-        Button {
-          text: qsTr("Zamknij")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: gnssDiagPopup.close()
+      Button {
+        // WorkField 22.08: Niebo przed Zamknij — wazniejsze, wiec blizej kciuka
+        text: qsTr("Niebo")
+        font.pointSize: t.tinyFont.pointSize
+        highlighted: true
+        onClicked: {
+          gnssDiagPopup.close();
+          nieboPanel.open();
         }
       }
     }

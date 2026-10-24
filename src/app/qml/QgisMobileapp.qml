@@ -7189,7 +7189,8 @@ ApplicationWindow {
     Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
   }
 
-  Dialog {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: templateGuardDialog
 
     property string templatePath: ""
@@ -7197,37 +7198,42 @@ ApplicationWindow {
     // WorkFieldGIS 22.10.2026 — kopia robocza to nowy projekt: najpierw „gdzie zakładać”.
     onOpened: miejsceProjektu.upewnijSie()
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 420)
-    modal: true
+    preferredWidth: 420
     title: qsTr("Otwarto wzorzec szablonu")
+    // ✓ = the former AcceptRole button; „Pracuj na wzorcu” stays a visible
+    // choice in the body (✕ does the same, but the words must be seen)
+    confirmText: qsTr("Utwórz kopię")
+    onConfirmed: confirm()
 
-    ColumnLayout {
-      anchors.fill: parent
+    Label {
+      Layout.fillWidth: true
+      text: qsTr("Ten projekt jest wzorcem w katalogu szablonów. Dane dodane tutaj zmienią szablon dla wszystkich przyszłych projektów.")
+      font: Theme.defaultFont
+      color: Theme.mainTextColor
+      wrapMode: Text.WordWrap
+    }
 
-      Label {
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      QfDecisionButton {
+        role: "cancel"
         Layout.fillWidth: true
-        text: qsTr("Ten projekt jest wzorcem w katalogu szablonów. Dane dodane tutaj zmienią szablon dla wszystkich przyszłych projektów.")
-        font: Theme.defaultFont
-        color: Theme.mainTextColor
-        wrapMode: Text.WordWrap
-      }
-    }
-
-    footer: DialogButtonBox {
-      Button {
-        text: qsTr("Utwórz kopię roboczą")
-        DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-      }
-      Button {
         text: qsTr("Pracuj na wzorcu")
-        DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+        onClicked: templateGuardDialog.close()
+      }
+      QfDecisionButton {
+        role: "confirm"
+        Layout.fillWidth: true
+        text: qsTr("Utwórz kopię roboczą")
+        onClicked: templateGuardDialog.confirm()
       }
     }
 
-    onAccepted: {
+    // [WF-WINDOW-FRAME] was onAccepted; the Dialog closed itself before it ran
+    function confirm() {
+      close();
       const dir = FileUtils.absolutePath(templatePath);
       const parts = dir.split("/").filter(part => part.length > 0);
       const templateName = parts.length > 0 ? parts[parts.length - 1] : qsTr("Szablon");
@@ -8783,8 +8789,16 @@ ApplicationWindow {
   // pierwszym nowym projekcie, i tylko gdy telefon ma kartę SD. Okna
   // zakładania projektu wołają `miejsceProjektu.upewnijSie()` przy otwarciu,
   // a katalog biorą z `iface.katalogNowychProjektow()` dopiero przy „Utwórz”.
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: miejsceProjektu
+
+    title: qsTr("Gdzie zakładać projekty?")
+    // each place button chooses and closes at once — nothing to confirm;
+    // as before (NoAutoClose) a place must be chosen: no ← here
+    exitMode: "close"
+    leaveVisible: false
+    closePolicy: Popup.NoAutoClose
 
     property var miejsca: []
 
@@ -8805,55 +8819,37 @@ ApplicationWindow {
       displayToast(rodzaj === "karta" ? qsTr("Nowe projekty: na karcie SD") : qsTr("Nowe projekty: w pamięci telefonu"));
     }
 
-    parent: mainWindow.contentItem
-    width: Math.min(mainWindow.width - 32, 440)
-    x: (mainWindow.width - width) / 2
-    y: Math.max(16, (mainWindow.height - height) / 2)
+    // opened over other windows (templateGuardDialog.onOpened, project creation)
     z: 10000
-    modal: true
-    closePolicy: Popup.NoAutoClose
-    padding: 20
+    bodySpacing: 10
 
-    ColumnLayout {
-      width: parent.width
-      spacing: 10
+    Label {
+      Layout.fillWidth: true
+      text: qsTr("Telefon ma kartę SD. Na karcie jest zwykle więcej miejsca, ale bywa wolniejsza, a po jej wyjęciu projekty są niedostępne. Odinstalowanie aplikacji kasuje projekty w obu miejscach.")
+      font: Theme.tipFont
+      color: Theme.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
 
-      Label {
+    Repeater {
+      model: miejsceProjektu.miejsca
+
+      delegate: Button {
+        required property var modelData
         Layout.fillWidth: true
-        text: qsTr("Gdzie zakładać projekty?")
-        font: Theme.strongFont
-        color: Theme.mainTextColor
-        wrapMode: Text.WordWrap
+        Layout.preferredHeight: 56
+        text: modelData.nazwa + " — " + Number(modelData.wolneGb).toFixed(1) + qsTr(" GB wolne")
+        font: Theme.defaultFont
+        onClicked: miejsceProjektu.wybierz(modelData.rodzaj)
       }
+    }
 
-      Label {
-        Layout.fillWidth: true
-        text: qsTr("Telefon ma kartę SD. Na karcie jest zwykle więcej miejsca, ale bywa wolniejsza, a po jej wyjęciu projekty są niedostępne. Odinstalowanie aplikacji kasuje projekty w obu miejscach.")
-        font: Theme.tipFont
-        color: Theme.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      Repeater {
-        model: miejsceProjektu.miejsca
-
-        delegate: Button {
-          required property var modelData
-          Layout.fillWidth: true
-          Layout.preferredHeight: 56
-          text: modelData.nazwa + " — " + Number(modelData.wolneGb).toFixed(1) + qsTr(" GB wolne")
-          font: Theme.defaultFont
-          onClicked: miejsceProjektu.wybierz(modelData.rodzaj)
-        }
-      }
-
-      CheckBox {
-        id: zapamietajMiejsce
-        Layout.fillWidth: true
-        text: qsTr("Zapamiętaj jako domyślne (zmienisz w Ustawieniach → Zaawansowane)")
-        font: Theme.tipFont
-        checked: true
-      }
+    CheckBox {
+      id: zapamietajMiejsce
+      Layout.fillWidth: true
+      text: qsTr("Zapamiętaj jako domyślne (zmienisz w Ustawieniach → Zaawansowane)")
+      font: Theme.tipFont
+      checked: true
     }
   }
 
@@ -9166,7 +9162,8 @@ ApplicationWindow {
    * przy nazwie jest po to, zeby dalo sie ja porownac z tym, co bylo — zanim
    * skasuje.
    */
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: wynikImportu
 
     property var wiersze: []
@@ -9174,65 +9171,39 @@ ApplicationWindow {
     property int bledow: 0
     property string gpkg: ""
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(460, mainWindow.width - 32)
-    modal: true
+    // information only: ← closes (was the „Zamknij” button)
+    exitMode: "close"
+    title: wynikImportu.bledow === 0
+           ? qsTr("Zaimportowano do %1").arg(wynikImportu.gpkg)
+           : wynikImportu.udanych === 0
+             ? qsTr("Import się nie udał")
+             : qsTr("Zaimportowano częściowo do %1").arg(wynikImportu.gpkg)
+    titleTextColor: wynikImportu.bledow === 0 ? QfTheme.mainTextColor : QfTheme.warningColor
 
-    ColumnLayout {
-      width: parent.width
-      spacing: 8
-
-      Text {
-        Layout.fillWidth: true
-        text: wynikImportu.bledow === 0
-              ? qsTr("Zaimportowano do %1").arg(wynikImportu.gpkg)
-              : wynikImportu.udanych === 0
-                ? qsTr("Import się nie udał")
-                : qsTr("Zaimportowano częściowo do %1").arg(wynikImportu.gpkg)
-        font: QfTheme.strongTipFont
-        color: wynikImportu.bledow === 0 ? QfTheme.mainTextColor : QfTheme.warningColor
-        wrapMode: Text.WordWrap
-      }
-
-      Repeater {
-        model: wynikImportu.wiersze
-
-        Text {
-          Layout.fillWidth: true
-          text: modelData
-          font: QfTheme.tipFont
-          color: QfTheme.mainTextColor
-          wrapMode: Text.WordWrap
-        }
-      }
+    Repeater {
+      model: wynikImportu.wiersze
 
       Text {
         Layout.fillWidth: true
-        visible: wynikImportu.udanych > 0
-        text: qsTr("Porównaj liczby z oryginałem, zanim go skasujesz.")
-        font: QfTheme.tinyFont
-        color: QfTheme.secondaryTextColor
+        text: modelData
+        font: QfTheme.tipFont
+        color: QfTheme.mainTextColor
         wrapMode: Text.WordWrap
       }
+    }
 
-      RowLayout {
-        Layout.fillWidth: true
-
-        Item {
-          Layout.fillWidth: true
-        }
-        Button {
-          flat: true
-          text: qsTr("Zamknij")
-          onClicked: wynikImportu.close()
-        }
-      }
+    Text {
+      Layout.fillWidth: true
+      visible: wynikImportu.udanych > 0
+      text: qsTr("Porównaj liczby z oryginałem, zanim go skasujesz.")
+      font: QfTheme.tinyFont
+      color: QfTheme.secondaryTextColor
+      wrapMode: Text.WordWrap
     }
   }
 
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: dialogImportuWarstw
 
     property var uris: []
@@ -9259,67 +9230,47 @@ ApplicationWindow {
       bazaProjektu = NarzedziaProjektu.plikDanych(qgisProject);
     }
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(460, mainWindow.width - 32)
-    modal: true
+    title: qsTr("Dodać %1 warstw(y) do projektu").arg(dialogImportuWarstw.uris.length)
+    // two equal-rank choices (attach / import) stay in the body; ← = the former „Anuluj”
+    exitMode: "close"
+    bodySpacing: 10
 
-    ColumnLayout {
-      width: parent.width
-      spacing: 10
+    Text {
+      Layout.fillWidth: true
+      text: dialogImportuWarstw.bazaProjektu !== ""
+            ? qsTr("Import kopiuje dane do %1 — warstwa jedzie razem z projektem i wraca ze zwrotem. Podpięcie zostawia plik tam, gdzie leży: zniknie po wyjęciu karty albo po skopiowaniu samego katalogu.").arg(FileUtils.fileName(dialogImportuWarstw.bazaProjektu))
+            : qsTr("Projekt nie ma pliku z danymi, więc zostaje samo podpięcie.")
+      font: QfTheme.tipFont
+      color: QfTheme.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
 
-      Text {
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Item {
         Layout.fillWidth: true
-        text: qsTr("Dodać %1 warstw(y) do projektu").arg(dialogImportuWarstw.uris.length)
-        font: QfTheme.strongTipFont
-        color: QfTheme.mainTextColor
-        wrapMode: Text.WordWrap
       }
 
-      Text {
-        Layout.fillWidth: true
-        text: dialogImportuWarstw.bazaProjektu !== ""
-              ? qsTr("Import kopiuje dane do %1 — warstwa jedzie razem z projektem i wraca ze zwrotem. Podpięcie zostawia plik tam, gdzie leży: zniknie po wyjęciu karty albo po skopiowaniu samego katalogu.").arg(FileUtils.fileName(dialogImportuWarstw.bazaProjektu))
-              : qsTr("Projekt nie ma pliku z danymi, więc zostaje samo podpięcie.")
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
+        text: qsTr("Tylko podepnij")
         font: QfTheme.tipFont
-        color: QfTheme.secondaryTextColor
-        wrapMode: Text.WordWrap
+        onClicked: {
+          dialogImportuWarstw.close();
+          mainWindow.podepnijWarstwyWMiejscu(dialogImportuWarstw.uris);
+        }
       }
 
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 6
-
-        QfDecisionButton {
-          role: "cancel" // [WF-BUTTONS]
-          text: qsTr("Anuluj")
-          onClicked: dialogImportuWarstw.close()
-        }
-
-        Item {
-          Layout.fillWidth: true
-        }
-
-        QfDecisionButton {
-          role: "confirm" // [WF-BUTTONS]
-          text: qsTr("Tylko podepnij")
-          font: QfTheme.tipFont
-          onClicked: {
-            dialogImportuWarstw.close();
-            mainWindow.podepnijWarstwyWMiejscu(dialogImportuWarstw.uris);
-          }
-        }
-
-        QfDecisionButton {
-          role: "confirm" // [WF-BUTTONS]
-          text: qsTr("Importuj do bazy")
-          font: QfTheme.tipFont
-          enabled: dialogImportuWarstw.bazaProjektu !== ""
-          onClicked: {
-            dialogImportuWarstw.close();
-            mainWindow.importujWarstwyDoBazy(dialogImportuWarstw.uris);
-          }
+      QfDecisionButton {
+        role: "confirm" // [WF-BUTTONS]
+        text: qsTr("Importuj do bazy")
+        font: QfTheme.tipFont
+        enabled: dialogImportuWarstw.bazaProjektu !== ""
+        onClicked: {
+          dialogImportuWarstw.close();
+          mainWindow.importujWarstwyDoBazy(dialogImportuWarstw.uris);
         }
       }
     }
@@ -9923,17 +9874,13 @@ ApplicationWindow {
   // palcem za małe. Lista FILTROWANA przez warstwyRobocze() — w projekcie
   // ZZW jest 19 warstw, roboczych dziesięć; reszta to podkłady, słownik
   // i tabele ZAL_.
-  Dialog {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
+  QfWindowFrame {
     id: wybierakWarstwMobilny
 
-    parent: mainWindow.contentItem
-    modal: true
-    standardButtons: Dialog.Cancel
+    // a tap on a row applies at once; ← = the former Cancel standard button
+    exitMode: "close"
     title: qsTr("Warstwa robocza")
-
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 420)
 
     function otworz() {
       listaWarstwMob.clear();
@@ -9951,7 +9898,9 @@ ApplicationWindow {
       id: listaWarstwMob
     }
 
-    contentItem: ListView {
+    // bounded height: scrolls by itself, the frame body does not overflow
+    ListView {
+      Layout.fillWidth: true
       implicitHeight: Math.min(contentHeight, mainWindow.height * 0.6)
       clip: true
       model: listaWarstwMob
