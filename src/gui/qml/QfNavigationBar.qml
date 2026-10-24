@@ -224,6 +224,10 @@ Rectangle {
 
     iconSource: toolBar.state === "Navigation" ? Theme.getThemeVectorIcon("ic_chevron_left_white_24dp") : Theme.getThemeVectorIcon("ic_arrow_left_white_24dp")
     iconColor: Theme.mainOverlayColor
+    // [WF-WINDOW-FRAME] leaving the list is the orange ← of every window;
+    // ‹ (previous feature while browsing) stays a plain navigation sign
+    bgcolor: toolBar.state === "Navigation" ? "transparent" : "#fb8c00"
+    round: true
 
     enabled: toolBar.state !== "Edit" && !toolBar.multiSelection
 
