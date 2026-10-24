@@ -405,6 +405,12 @@ Drawer {
     }
   }
 
+  //! [WF-EQUIPMENT-REFRESH] 24.10.2026 — read the equipment state again (after
+  //! the equipment or settings window closes, after a snapping change)
+  function odswiezWyposazenie() {
+    stanWyposazenia.odswiez();
+  }
+
   onOpenedChanged: {
     if (opened) {
       projectSection.refresh();
@@ -1964,6 +1970,16 @@ Drawer {
 
         property bool rozwiniety: false
 
+        //! [WF-EQUIPMENT-OK] "1 uwaga", "2 uwagi", "5 uwag"
+        function liczbaUwag(n) {
+          const d = n % 10, s = n % 100;
+          if (n === 1)
+            return qsTr("1 uwaga");
+          if (d >= 2 && d <= 4 && (s < 12 || s > 14))
+            return qsTr("%1 uwagi").arg(n);
+          return qsTr("%1 uwag").arg(n);
+        }
+
         Layout.fillWidth: true
         Layout.topMargin: 6
         Layout.preferredHeight: wierszPaska.implicitHeight + 10
@@ -1974,13 +1990,23 @@ Drawer {
         // Błędy w danych mają własny wiersz niżej i własną czerwień —
         // do 23.09.2026 zapalały tę ramkę na czerwono, przez co brak
         // modułu i zlepiony wierzchołek wyglądały tak samo.
-        border.color: stanWyposazenia.ostrzezen > 0
-                      ? t.warningColor
-                      : (stanWyposazenia.zgodnych < stanWyposazenia.wszystkich
-                         ? t.warningColor : t.controlBorderColor)
+        // [WF-EQUIPMENT-OK] 24.10.2026 — everything in place and no remarks:
+        // green (Piotr: „Wyposażenie kiedy jest OK też powinno być zielone”).
+        readonly property bool wszystkoDobrze: stanWyposazenia.wszystkich > 0
+                                              && stanWyposazenia.ostrzezen === 0
+                                              && stanWyposazenia.zgodnych === stanWyposazenia.wszystkich
+        border.color: wszystkoDobrze
+                      ? "#43a047"
+                      : (stanWyposazenia.ostrzezen > 0
+                         ? t.warningColor
+                         : (stanWyposazenia.zgodnych < stanWyposazenia.wszystkich
+                            ? t.warningColor : t.controlBorderColor))
 
         RowLayout {
           id: wierszPaska
+          // [WF-EQUIPMENT-REFRESH] above the bar's MouseArea, so the ⟳ button gets
+          // its taps; the texts take no taps, so the rest still expands the bar
+          z: 1
 
           anchors.left: parent.left
           anchors.right: parent.right
@@ -1993,16 +2019,47 @@ Drawer {
             text: stanWyposazenia.wszystkich === 0
                   ? qsTr("Wyposażenie · brak danych")
                   : (stanWyposazenia.ostrzezen > 0
-                     ? qsTr("Wyposażenie · %1 z %2 · %3 uwag")
+                     ? qsTr("Wyposażenie · %1 z %2 · %3")
                          .arg(stanWyposazenia.zgodnych)
                          .arg(stanWyposazenia.wszystkich)
-                         .arg(stanWyposazenia.ostrzezen)
-                     : qsTr("Wyposażenie · %1 z %2")
+                         .arg(paskaWyposazenia.liczbaUwag(stanWyposazenia.ostrzezen))
+                     : (paskaWyposazenia.wszystkoDobrze ? "\u2713 " : "")
+                       + qsTr("Wyposażenie · %1 z %2")
                          .arg(stanWyposazenia.zgodnych)
                          .arg(stanWyposazenia.wszystkich))
             font: t.tinyFont
-            color: stanWyposazenia.ostrzezen > 0 ? t.warningColor : t.secondaryTextColor
+            color: stanWyposazenia.ostrzezen > 0 ? t.warningColor : (paskaWyposazenia.wszystkoDobrze ? "#66bb6a" : t.secondaryTextColor)
             elide: Text.ElideRight
+          }
+
+          // [WF-EQUIPMENT-REFRESH] Piotr 18:32: after changing a setting the bar
+          // stayed orange — it was read only when expanded. Refresh on demand.
+          Rectangle {
+            id: przyciskOdswiezWyposazenie
+            Layout.preferredWidth: 30
+            Layout.preferredHeight: 24
+            radius: 4
+            color: odswiezMysz.pressed ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.07)
+            border.width: 1
+            border.color: t.controlBorderColor
+
+            Text {
+              anchors.centerIn: parent
+              text: "\u27f3"
+              font.pointSize: t.tinyFont.pointSize + 3
+              font.bold: true
+              color: t.mainTextColor
+            }
+
+            MouseArea {
+              id: odswiezMysz
+              anchors.fill: parent
+              anchors.margins: -6
+              onClicked: {
+                stanWyposazenia.odswiez();
+                displayToast(paskaWyposazenia.wszystkoDobrze ? qsTr("Wyposażenie: wszystko w porządku") : qsTr("Wyposażenie odświeżone"));
+              }
+            }
           }
 
           Text {
@@ -2700,6 +2757,7 @@ Drawer {
           // przelacznik wyglada, jakby dzialal, i nie dziala.
           NarzedziaProjektu.zapiszProjekt(qgisProject);
           odswiez();
+          stanWyposazenia.odswiez(); // [WF-EQUIPMENT-REFRESH] the snapping remark may be gone
         }
 
         // `Component.onCompleted` odpala sie przy budowie szuflady, a

@@ -236,16 +236,48 @@ QfWindowFrame {
     // topologiczna, warstwy. Jedyny ekran, który na to odpowiada;
     // od 23.09.2026 dymek startowy już tam nie prowadzi, więc wejście
     // musi być stąd.
-    ToolButton {
+    Button {
+      id: przyciskUstawienia
       text: qsTr("Ustawienia")
-      font: Theme.tinyFont
+      font: Theme.tipFont
+      // [WF-EQUIPMENT-REFRESH] own look: the flat ToolButton was barely visible (Piotr 18:32)
+      background: Rectangle {
+        implicitHeight: 36
+        radius: 6
+        color: przyciskUstawienia.pressed ? Qt.rgba(1, 1, 1, 0.20) : Qt.rgba(1, 1, 1, 0.08)
+        border.width: 1
+        border.color: "#78909C"
+      }
+      contentItem: Label {
+        text: przyciskUstawienia.text
+        font: przyciskUstawienia.font
+        color: "white"
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+      }
       visible: ekranWyposazenia.ekranUstawien !== null
       onClicked: ekranWyposazenia.ekranUstawien.open()
     }
 
-    ToolButton {
+    Button {
+      id: przyciskOdswiez
       text: qsTr("Odśwież")
-      font: Theme.tinyFont
+      font: Theme.tipFont
+      // [WF-EQUIPMENT-REFRESH] own look: the flat ToolButton was barely visible (Piotr 18:32)
+      background: Rectangle {
+        implicitHeight: 36
+        radius: 6
+        color: przyciskOdswiez.pressed ? Qt.rgba(1, 1, 1, 0.20) : Qt.rgba(1, 1, 1, 0.08)
+        border.width: 1
+        border.color: "#78909C"
+      }
+      contentItem: Label {
+        text: przyciskOdswiez.text
+        font: przyciskOdswiez.font
+        color: "white"
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+      }
       onClicked: ekranWyposazenia.odswiez()
     }
   }

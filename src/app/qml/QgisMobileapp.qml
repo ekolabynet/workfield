@@ -7444,6 +7444,7 @@ ApplicationWindow {
   QfNaprawaProjektu {
     id: naprawaProjektu
     kontrola: kontrolaProjektu
+    onClosed: dashBoard.odswiezWyposazenie() // [WF-EQUIPMENT-REFRESH]
   }
 
   QfPrzepis {
@@ -9183,6 +9184,7 @@ ApplicationWindow {
   QfWyposazenie {
     id: ekranWyposazenia
     ekranUstawien: naprawaProjektu
+    onClosed: dashBoard.odswiezWyposazenie() // [WF-EQUIPMENT-REFRESH]
   }
 
   QfSubLayerPicker {
