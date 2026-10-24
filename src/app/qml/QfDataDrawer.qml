@@ -106,7 +106,8 @@ Drawer {
       return;
     case "pliki":
       // WorkField 09.09.2026 — bez dataDrawer.close(), patrz "spis" nizej.
-      photoGallery.openFiles(iface.dataRoot());
+      // [WF-FILE-BROWSER] 24.10.2026 — the "Files" window, on "Projekty"
+      fileBrowser.openPlace("projekty");
       return;
     case "wyposazenie":
       ekranWyposazenia.otworz();
@@ -179,8 +180,8 @@ Drawer {
       dashBoard.otworzPrzenosiny("import");
       return;
     case "folderAplikacji":
-      dataDrawer.close();
-      photoGallery.openFiles(iface.dataRoot());
+      // [WF-FILE-BROWSER] the entry is gone from the list; kept for old shortcuts
+      fileBrowser.openPlace("projekty");
       return;
     case "dziennik":
       dashBoard.showMessageLog();
@@ -241,7 +242,6 @@ Drawer {
     { "label": qsTr("Zgłoś uwagę"), "action": "zglos", "ikona": "wfg_pomoc" },
     { "label": qsTr("Przenieś do nowej aplikacji"), "action": "przenies", "ikona": "wfg_paczka", "warunek": "staryPakiet" },
     { "label": qsTr("Przyjmij dane ze starej wersji"), "action": "przyjmij", "ikona": "wfg_import", "warunek": "nowyPakietAndroid" },
-    { "label": qsTr("Folder aplikacji"), "action": "folderAplikacji", "ikona": "wfg_magazyn", "polka": "zaawansowana" },
     { "label": qsTr("Dziennik komunikatów"), "action": "dziennik", "ikona": "wfg_przeglad", "polka": "zaawansowana" },
     { "label": qsTr("Udostępnij dziennik (debug)"), "action": "udostepnijDziennik", "ikona": "wfg_wyslij", "polka": "zaawansowana" },
     { "naglowek": qsTr("Na mapie") },
@@ -260,7 +260,7 @@ Drawer {
     { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
     { "label": qsTr("Klawisze szybkiego zapisu"), "action": "klawisze", "ikona": "wfg_zapisz", "polka": "zaawansowana" },
     { "label": qsTr("Wyposażenie projektu"), "action": "wyposazenie", "ikona": "wfg_wlasciwosci", "polka": "zaawansowana" },
-    { "label": qsTr("Pliki aplikacji"), "action": "pliki", "ikona": "wfg_przeglad" },
+    { "label": qsTr("Pliki"), "action": "pliki", "ikona": "wfg_przeglad" }, // [WF-FILE-BROWSER] was "Pliki aplikacji" (+ "Folder aplikacji")
     { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad", "polka": "zaawansowana" },
     { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka", "polka": "zaawansowana" }
   ].filter(w => dataDrawer.spelnionyWarunek(w.warunek))

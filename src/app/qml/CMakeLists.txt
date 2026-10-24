@@ -78,6 +78,7 @@ set(QFIELD_APP_QML_FILES
     QfSettingsTeren.qml
     QfSettingsObjects.qml
     QfReceiverTerminal.qml
+    QfFileBrowser.qml
     QfSplitHeirDialog.qml
     QfViewConeDialog.qml
     QfStudioSection.qml

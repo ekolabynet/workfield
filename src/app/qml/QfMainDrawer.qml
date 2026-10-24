@@ -2569,25 +2569,11 @@ Drawer {
           onClicked: {
             dashBoard.close();
             // przepływ (docs/MAGAZYN.md): żywe projekty biurka mieszkają
-            // w wydaniach magazynu; na telefonie — w domu danych aplikacji
-            if (Qt.platform.os === "android" || Qt.platform.os === "ios") {
-              // WorkFieldGIS 22.10.2026 — gdy na karcie SD są projekty: skąd otworzyć
-              const miejsca = iface.miejscaProjektow();
-              const naKarcie = miejsca.filter(function (m) {
-                return m.rodzaj === "karta" && m.projektow > 0;
-              });
-              if (naKarcie.length > 0)
-                wyborMiejscaOtwierania.pokaz(miejsca);
-              else
-                photoGallery.openFiles(iface.dataRoot() + "Imported Projects");
-            } else
-              // WorkField 23.08.2026 — bylo `ustawieniaStanu.korzenProjektow`.
-              // Obiekt `ustawieniaStanu` zniknal z tego pliku dawno temu
-              // (istnial jeszcze w f50ae148b), a DWA wywolania zostaly.
-              // Kazde konczylo sie ReferenceError i przerywalo caly handler,
-              // wiec "Otworz projekt" na komputerze nie robilo NIC.
-              // Korzen magazynu wystawia QfStudioSection jako `korzen`.
-              photoGallery.openFiles(drzewoZlecen.korzen + "/wydania");
+            // w wydaniach magazynu; na telefonie — w domu danych aplikacji.
+            // [WF-FILE-BROWSER] 24.10.2026 — the "Files" window on "Projekty"
+            // on both platforms; the SD card is one of its places, so the
+            // "where from?" chooser (wyborMiejscaOtwierania) is no longer needed.
+            fileBrowser.openPlace("projekty");
           }
         }
         QfPozycjaMenu {
@@ -2660,8 +2646,9 @@ Drawer {
           onClicked: {
             // nasza galeria, zakladka Pliki - jedno narzedzie do ogladania
             // zawartosci zamiast przegladarki QFielda
+            // [WF-FILE-BROWSER] 24.10.2026 — now the "Files" window, "Ten projekt"
             dashBoard.close();
-            photoGallery.openFiles(qgisProject ? qgisProject.homePath : "");
+            fileBrowser.openPlace("projekt");
           }
         }
         // WorkField 8.10.2026 [WF-EKSPORT-PROJEKTU] — dwie pozycje CORE, wyjęte

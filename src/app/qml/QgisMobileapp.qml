@@ -9187,6 +9187,12 @@ ApplicationWindow {
     onClosed: dashBoard.odswiezWyposazenie() // [WF-EQUIPMENT-REFRESH]
   }
 
+  // WorkFieldGIS 24.10.2026 [WF-FILE-BROWSER] — one "Files" window instead of
+  // the gallery tab, the QField screen and the "where from?" chooser (step 1)
+  QfFileBrowser {
+    id: fileBrowser
+  }
+
   QfSubLayerPicker {
     id: subLayerPicker
     t: Theme
