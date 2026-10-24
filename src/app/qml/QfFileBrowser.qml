@@ -50,6 +50,8 @@ QfWindowFrame {
   resizable: true
   sizeKey: "WorkField/oknoPlikow"
   forceFullScreen: narrowScreen
+  // the system back / Esc go up a folder (back()), not close the window
+  closePolicy: Popup.NoAutoClose
 
   readonly property bool onPhone: Qt.platform.os === "android" || Qt.platform.os === "ios"
   readonly property string projectDir: qgisProject && qgisProject.homePath ? String(qgisProject.homePath) : ""
@@ -86,29 +88,71 @@ QfWindowFrame {
     property string korzenProjektow: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "") + "/WorkField"
   }
 
-  //! Opens the window on a place: "projekt", "projekty", "karta", "szablony", "magazyn", …
+  /**
+   * [WF-FILE-BROWSER] 25.10.2026 (Piotr 00:06) — every window starts WHERE THE
+   * PROJECTS ARE: the folder holding the open project; without a project, the
+   * projects folder on the chosen storage (phone or SD card — the same choice
+   * as for new projects); on a computer the store's "wydania".
+   */
+  function projectsHome() {
+    if (projectDir !== "")
+      return projectDir.substring(0, projectDir.lastIndexOf("/"));
+    if (onPhone) {
+      let k = "";
+      try {
+        k = stripUrl(iface.katalogNowychProjektow());
+      } catch (e) {
+        k = "";
+      }
+      if (k !== "" && FileUtils.fileExists(k))
+        return k;
+      return stripUrl(iface.dataRoot()) + "/Imported Projects";
+    }
+    const w = stripUrl(storeSettings.korzenProjektow) + "/wydania";
+    return FileUtils.fileExists(w) ? w : stripUrl(iface.dataRoot());
+  }
+
+  function desktopDownloads() {
+    return stripUrl(StandardPaths.writableLocation(StandardPaths.DownloadLocation));
+  }
+
+  //! Start folder for a key: "projekt" (this project's folder), "szablony",
+  //! "magazyn", "pobrane", "wymiana" (computer); anything else — the projects.
+  function startFor(key) {
+    const dataRoot = stripUrl(iface.dataRoot());
+    if (key === "projekt" && projectDir !== "")
+      return projectDir;
+    if (key === "szablony" && FileUtils.fileExists(dataRoot + "/Szablony"))
+      return dataRoot + "/Szablony";
+    if (!onPhone) {
+      if (key === "magazyn")
+        return stripUrl(storeSettings.korzenProjektow);
+      if (key === "pobrane" && FileUtils.fileExists(desktopDownloads()))
+        return desktopDownloads();
+      if (key === "wymiana" && FileUtils.fileExists(stripUrl(storeSettings.korzenProjektow) + "/wymiana"))
+        return stripUrl(storeSettings.korzenProjektow) + "/wymiana";
+    }
+    return projectsHome();
+  }
+
+  //! Opens the window: "projekt", "projekty", "szablony", "magazyn", …
   function openPlace(key) {
     mode = "browse";
+    hintPlace = "";
     buildPlaces();
-    let target = null;
-    for (let i = 0; i < places.length; i++) {
-      if (places[i].key === key) {
-        target = places[i];
-        break;
-      }
-    }
-    if (target === null && places.length > 0)
-      target = places[0];
-    currentPath = target ? target.path : "";
+    currentPath = startFor(key);
+    selectedPath = "";
     message = "";
     open();
   }
 
-  //! Opens the window on any folder (it must lie under one of the places).
+  //! Opens the window on any folder.
   function openAt(path) {
     mode = "browse";
+    hintPlace = "";
     buildPlaces();
     currentPath = String(path).replace(/\/+$/, "");
+    selectedPath = "";
     message = "";
     open();
   }
@@ -143,22 +187,11 @@ QfWindowFrame {
     hintPlace = "";
     buildPlaces();
     const wanted = opts.place || "projekt";
-    let target = null;
-    for (let i = 0; i < places.length; i++) {
-      if (places[i].key === wanted)
-        target = places[i];
-    }
-    if (target !== null && target.system === true) {
-      hintPlace = target.key;
-      target = null;
-    }
-    if (target === null) {
-      for (let i = 0; i < places.length && target === null; i++) {
-        if (places[i].system !== true)
-          target = places[i];
-      }
-    }
-    currentPath = target ? target.path : "";
+    // phone: Pobrane / Wymiana only through the system window — start where
+    // the projects are and point at that place
+    if (onPhone && (wanted === "pobrane" || wanted === "wymiana"))
+      hintPlace = wanted;
+    currentPath = startFor(wanted);
     message = "";
     messageIsError = false;
     if (hintPlace !== "")
@@ -208,7 +241,7 @@ QfWindowFrame {
       openSystemPicker(place.path);
       return;
     }
-    currentPath = place.path;
+    currentPath = place.start !== undefined ? place.start : place.path;
     selectedPath = "";
     message = "";
   }
@@ -224,11 +257,18 @@ QfWindowFrame {
     return String(u).replace(/^file:\/\//, "").replace(/\/+$/, "");
   }
 
+  /**
+   * Places (Piotr 25.10, 00:06): only the app folder on the internal storage,
+   * the app folder on the SD card, the exchange space and Downloads.
+   * Phone: exchange and Downloads hold other apps' files, which the app cannot
+   * list (no all-files permission) — they open the system window (↗).
+   * Computer: the app folder, "Projekty" (the projects root, formerly "Magazyn"),
+ * exchange, Downloads.
+   * `start` = where the window goes when the place is tapped.
+   */
   function buildPlaces() {
     const list = [];
-    if (projectDir !== "")
-      list.push({ "key": "projekt", "name": qsTr("Ten projekt"), "path": projectDir, "kind": "qgz" });
-    const dataRoot = String(iface.dataRoot()).replace(/\/+$/, "");
+    const dataRoot = stripUrl(iface.dataRoot());
     if (onPhone) {
       let places0 = [];
       try {
@@ -238,27 +278,27 @@ QfWindowFrame {
       }
       for (let i = 0; i < places0.length; i++) {
         const card = places0[i].rodzaj === "karta";
-        list.push({ "key": card ? "karta" : "projekty", "name": card ? qsTr("Karta SD") : qsTr("Projekty"), "path": stripUrl(places0[i].katalog), "kind": "folder" });
+        list.push({
+                    "key": card ? "karta" : "telefon",
+                    "name": card ? qsTr("Aplikacja — karta SD") : qsTr("Aplikacja — telefon"),
+                    "path": stripUrl(places0[i].korzen),
+                    "start": stripUrl(places0[i].katalog),
+                    "kind": "folder"
+                  });
       }
       if (places0.length === 0)
-        list.push({ "key": "projekty", "name": qsTr("Projekty"), "path": dataRoot + "/Imported Projects", "kind": "folder" });
+        list.push({ "key": "telefon", "name": qsTr("Aplikacja — telefon"), "path": dataRoot, "start": dataRoot + "/Imported Projects", "kind": "folder" });
+      list.push({ "key": "wymiana", "name": qsTr("Przestrzeń wymiany"), "path": phoneExchange, "kind": "folder", "system": true });
+      list.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": phoneDownloads, "kind": "folder", "system": true });
     } else {
       const store = stripUrl(storeSettings.korzenProjektow);
-      list.push({ "key": "projekty", "name": qsTr("Projekty"), "path": store + "/wydania", "kind": "folder" });
-      list.push({ "key": "magazyn", "name": qsTr("Magazyn"), "path": store, "kind": "folder" });
+      list.push({ "key": "aplikacja", "name": qsTr("Katalog aplikacji"), "path": dataRoot, "kind": "folder" });
+      // Piotr 25.10: "Magazyn" is out of date — the place is simply "Projekty"
+      list.push({ "key": "magazyn", "name": qsTr("Projekty"), "path": store, "start": FileUtils.fileExists(store + "/wydania") ? store + "/wydania" : store, "kind": "folder" });
+      list.push({ "key": "wymiana", "name": qsTr("Przestrzeń wymiany"), "path": store + "/wymiana", "kind": "folder" });
+      list.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": desktopDownloads(), "kind": "folder" });
     }
-    list.push({ "key": "szablony", "name": qsTr("Szablony"), "path": dataRoot + "/Szablony", "kind": "folder" });
-    if (!onPhone) {
-      list.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": stripUrl(StandardPaths.writableLocation(StandardPaths.DownloadLocation)), "kind": "folder" });
-      list.push({ "key": "wymiana", "name": qsTr("Wymiana"), "path": stripUrl(storeSettings.korzenProjektow) + "/wymiana", "kind": "folder" });
-    }
-    const shown = list.filter(p => p.path !== "" && FileUtils.fileExists(p.path));
-    // phone, pick mode: other apps' files are visible only in the system window
-    if (onPhone && mode !== "browse") {
-      shown.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": phoneDownloads, "kind": "folder", "system": true });
-      shown.push({ "key": "wymiana", "name": qsTr("Wymiana"), "path": phoneExchange, "kind": "folder", "system": true });
-    }
-    places = shown;
+    places = list.filter(p => p.system === true || (p.path !== "" && FileUtils.fileExists(p.path)));
   }
 
   //! The place the current folder belongs to (the longest matching root).
@@ -274,22 +314,67 @@ QfWindowFrame {
 
   //! Breadcrumbs: place name, then the folders below it.
   readonly property var crumbs: {
-    if (currentPlace === null)
-      return currentPath === "" ? [] : [{ "name": currentPath, "path": currentPath }];
+    if (currentPath === "")
+      return [];
+    if (currentPlace === null) {
+      // outside the places (a project kept elsewhere on a computer): the
+      // last folders of the path, each one tappable
+      const parts = currentPath.split("/").filter(s => s !== "");
+      const all = [];
+      let q = "";
+      for (let i = 0; i < parts.length; i++) {
+        q += "/" + parts[i];
+        all.push({ "name": niceName(parts[i]), "path": q });
+      }
+      return all.slice(Math.max(0, all.length - 4));
+    }
     const out = [{ "name": currentPlace.name, "path": currentPlace.path }];
     const rest = currentPath.substring(currentPlace.path.length).split("/").filter(s => s !== "");
     let p = currentPlace.path;
     for (let i = 0; i < rest.length; i++) {
       p += "/" + rest[i];
-      out.push({ "name": rest[i], "path": p });
+      out.push({ "name": niceName(rest[i]), "path": p });
     }
     return out;
   }
 
+  //! Human names for the app's own folders (they are English on disk)
+  function niceName(segment) {
+    const names = {
+      "Imported Projects": qsTr("Projekty"),
+      "Imported Datasets": qsTr("Dane"),
+      "Created Projects": qsTr("Projekty QField")
+    };
+    return names[segment] !== undefined ? names[segment] : segment;
+  }
+
+  //! [WF-FILE-BROWSER] 25.10 — "back did not work": the ← was off at the top
+  //! of a place, and the system back closed the whole window. Now: up a folder
+  //! (also outside the places), close only at the top.
+  function canGoUp() {
+    if (currentPath === "" || currentPath === "/")
+      return false;
+    if (currentPlace !== null)
+      return currentPath !== currentPlace.path;
+    return true;
+  }
+
   function goUp() {
-    if (currentPlace === null || currentPath === currentPlace.path)
+    if (!canGoUp())
       return;
-    currentPath = currentPath.substring(0, currentPath.lastIndexOf("/"));
+    const up = currentPath.substring(0, currentPath.lastIndexOf("/"));
+    currentPath = up === "" ? "/" : up;
+    selectedPath = "";
+    message = "";
+  }
+
+  function back() {
+    if (canGoUp())
+      goUp();
+    else if (mode === "browse")
+      close();
+    else
+      cancel();
   }
 
   function say(text, isError) {
@@ -455,6 +540,7 @@ QfWindowFrame {
   onOpened: {
     if (places.length === 0)
       buildPlaces();
+    bodyRow.forceActiveFocus();
   }
 
   // ── small parts ──────────────────────────────────────────────────────────
@@ -609,9 +695,22 @@ QfWindowFrame {
 
   // ── window body ──────────────────────────────────────────────────────────
   RowLayout {
+    id: bodyRow
     Layout.fillWidth: true
     Layout.fillHeight: true
     spacing: 10
+    focus: true
+
+    Keys.onPressed: event => {
+      if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape)
+        event.accepted = true;
+    }
+    Keys.onReleased: event => {
+      if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+        event.accepted = true;
+        browser.back();
+      }
+    }
 
     // wide screen: places in a column on the left, like Explorer / Dolphin
     ColumnLayout {
@@ -685,7 +784,7 @@ QfWindowFrame {
         QfToolButton {
           Layout.preferredWidth: 36
           Layout.preferredHeight: 36
-          enabled: browser.currentPlace !== null && browser.currentPath !== browser.currentPlace.path
+          enabled: browser.canGoUp()
           opacity: enabled ? 1 : 0.35
           iconSource: Theme.getThemeVectorIcon("ic_arrow_left_white_24dp")
           iconColor: Theme.mainTextColor
@@ -1064,6 +1163,11 @@ QfWindowFrame {
     nameFilters: [qsTr("Wszystkie pliki (*)")]
     onAccepted: {
       const path = String(selectedFile).replace(/^file:\/\//, "");
+      if (browser.mode === "browse") {
+        // browsing a place the app cannot list (phone): act on the chosen file
+        browser.activate(FileUtils.fileName(path), path, false);
+        return;
+      }
       if (!browser.matches(FileUtils.fileName(path), false)) {
         browser.say(qsTr("Ten plik się nie nadaje: %1").arg(FileUtils.fileName(path)), true);
         return;
