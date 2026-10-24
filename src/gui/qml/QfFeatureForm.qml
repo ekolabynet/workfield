@@ -322,13 +322,39 @@ Page {
     // in an inventory, so it stands at the very top of the form, read only,
     // whatever the layout of the form made in QGIS. Not shown for a new object
     // (the number is given on saving) nor when several objects are edited at
-    // once. Source: field NR when the layer has it filled (a number that
-    // survives merging returns), otherwise fid. The choice per layer moves to
-    // Settings in the next step.
+    // once. Source chosen in Settings → „Obiekty i zdjęcia” (per layer or the
+    // application default: field NR when filled, otherwise fid); an empty
+    // chosen field falls back to fid.
     Rectangle {
       id: objectNumberBar
 
+      // Changed in Settings while the same object stays open — the header
+      // did not follow (Piotr 10:00). The setting and the layer property
+      // announce changes; the counter makes the binding read them again.
+      property int revision: 0
+
+      Connections {
+        target: typeof settings !== "undefined" ? settings : null
+        ignoreUnknownSignals: true
+
+        function onSettingChanged(key) {
+          if (key === "WorkField/objectNumberDefault")
+            objectNumberBar.revision++;
+        }
+      }
+
+      Connections {
+        target: form.model && form.model.featureModel ? form.model.featureModel.currentLayer : null
+        ignoreUnknownSignals: true
+
+        function onCustomPropertyChanged(key) {
+          if (key === "workfield/objectNumberField")
+            objectNumberBar.revision++;
+        }
+      }
+
       readonly property var objectNumber: {
+        objectNumberBar.revision; // re-read after a change in Settings
         const featureModel = form.model ? form.model.featureModel : null;
         if (!featureModel || form.state === 'Add' || featureModel.modelMode === QfFeatureModel.MultiFeatureModel)
           return null;
@@ -336,18 +362,28 @@ Page {
         const layer = featureModel.currentLayer;
         if (!layer || !feature || !(feature.id >= 0))
           return null;
-        const fields = LayerUtils.layerFields(layer);
-        for (let i = 0; i < fields.length; i++) {
-          const name = String(fields[i].name);
-          if (name.toUpperCase() === "NR") {
-            const value = feature.attribute(name);
-            if (value !== undefined && value !== null && String(value) !== "")
-              return {
-                "source": "NR",
-                "value": String(value)
-              };
+        // [WF-OBJECT-NUMBER-SETTING] Settings → „Obiekty i zdjęcia”: per layer
+        // (saved with the project), else the application default.
+        const perLayer = String(layer.customProperty("workfield/objectNumberField", "") || "");
+        const choice = perLayer !== "" ? perLayer : String(typeof settings !== "undefined" ? settings.value("WorkField/objectNumberDefault", "auto") : "auto");
+        if (choice !== "fid") {
+          const wanted = (choice === "auto" ? "NR" : choice).toUpperCase();
+          const fields = LayerUtils.layerFields(layer);
+          for (let i = 0; i < fields.length; i++) {
+            const name = String(fields[i].name);
+            if (name.toUpperCase() === wanted) {
+              const value = feature.attribute(name);
+              if (value !== undefined && value !== null && String(value) !== "") {
+                console.log("WorkField [WF-OBJECT-NUMBER-SETTING]: header " + layer.name + " choice \"" + choice + "\" → " + name);
+                return {
+                  "source": name,
+                  "value": String(value)
+                };
+              }
+            }
           }
         }
+        console.log("WorkField [WF-OBJECT-NUMBER-SETTING]: header " + layer.name + " choice \"" + choice + "\" → fid");
         return {
           "source": "fid",
           "value": String(feature.id)

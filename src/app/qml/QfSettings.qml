@@ -612,6 +612,12 @@ Page {
             settingsPage: page
             settingsRegistry: registry
           }
+          // [WF-OBJECT-NUMBER-SETTING] 24.10.2026 — number of an object; photos next.
+          QfSettingsObjects {
+            visible: page.kategoria === "objects"
+            Layout.fillWidth: true
+            settingsPage: page
+          }
           QfSettingsAdvanced {
             visible: page.kategoria === "advanced"
             Layout.fillWidth: true
@@ -1938,6 +1944,12 @@ Page {
       "id": "teren",
       "nazwa": qsTr("Teren"),
       "ikona": "wfg_teren"
+    },
+    {
+      // [WF-OBJECT-NUMBER-SETTING] 24.10.2026
+      "id": "objects",
+      "nazwa": qsTr("Obiekty i zdjęcia"),
+      "ikona": "wfg_zdjecia"
     },
     {
       "id": "advanced",
