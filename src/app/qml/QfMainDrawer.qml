@@ -1466,14 +1466,16 @@ Drawer {
       // and with gloves). Round, brand colour, white arrow.
       // [WF-WINDOW-FRAME] 24.10.2026 — orange and as big as the ← / ✕ of the windows
       // (Piotr: „większe strzałki zamykania szuflad, pomarańczowe”)
+      // [WF-DRAWER-ARROW] 24.10.2026 18:22 — light green, dark arrow: too much
+      // orange on the screen (Piotr). Dark green on light green stays readable in the sun.
       QfToolButton {
         width: 56
         height: 44
         padding: 6
         round: false
-        bgcolor: "#fb8c00"
+        bgcolor: "#9ccc65"
         iconSource: Theme.getThemeVectorIcon("ic_arrow_left_black_24dp")
-        iconColor: "white"
+        iconColor: "#1b5e20"
         icon.width: 30
         icon.height: 30
         onClicked: dashBoard.close()

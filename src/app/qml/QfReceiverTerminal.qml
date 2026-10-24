@@ -189,6 +189,21 @@ QfWindowFrame {
     }
   }
 
+  //! [WF-RECEIVER-BATTERY] one place for a battery reading: the window, the
+  //! settings (kept after a restart) and the indicator next to FIX on the map
+  function zapiszBaterie(proc) {
+    const teraz = new Date();
+    terminal.bateria = proc + "%";
+    terminal.bateriaCzas = teraz.toLocaleTimeString(Qt.locale(), "HH:mm");
+    settings.setValue("WorkField/odbiornikBateria", terminal.bateria + " " + terminal.bateriaCzas);
+    settings.setValue("WorkField/odbiornikBateriaProc", proc);
+    settings.setValue("WorkField/odbiornikBateriaMs", teraz.getTime());
+    if (typeof mainWindow !== "undefined" && mainWindow.bateriaOdbiornika !== undefined) {
+      mainWindow.bateriaOdbiornika = proc;
+      mainWindow.bateriaOdbiornikaMs = teraz.getTime();
+    }
+  }
+
   Connections {
     target: positionSource
 
@@ -199,11 +214,8 @@ QfWindowFrame {
       if (raport) {
         const pola = raport[1].split(",");
         const proc = parseInt(pola[pola.length - 1]);
-        if (!isNaN(proc) && proc >= 0 && proc <= 100) {
-          terminal.bateria = proc + "%";
-          terminal.bateriaCzas = new Date().toLocaleTimeString(Qt.locale(), "HH:mm");
-          settings.setValue("WorkField/odbiornikBateria", terminal.bateria + " " + terminal.bateriaCzas);
-        }
+        if (!isNaN(proc) && proc >= 0 && proc <= 100)
+          terminal.zapiszBaterie(proc);
         terminal.dopisz(qsTr("raport stanu: dokładność %1 m, satelitów %2, bateria %3%").arg(pola[2] || "?").arg(pola[3] || "?").arg(pola[pola.length - 1]), "info");
       }
       if (!nmea)
@@ -216,11 +228,8 @@ QfWindowFrame {
         terminal.menuOpcje = [];
       }
       const b = /Batt[^0-9]*\(?\s*(\d{1,3})\s*%/i.exec(line);
-      if (b) {
-        terminal.bateria = b[1] + "%";
-        terminal.bateriaCzas = new Date().toLocaleTimeString(Qt.locale(), "HH:mm");
-        settings.setValue("WorkField/odbiornikBateria", terminal.bateria + " " + terminal.bateriaCzas);
-      }
+      if (b && parseInt(b[1]) <= 100)
+        terminal.zapiszBaterie(parseInt(b[1]));
       if (nmea && !terminal.pokazNmea)
         return;
       terminal.dopisz(line, nmea ? "nmea" : "odb");

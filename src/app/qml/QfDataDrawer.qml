@@ -254,7 +254,7 @@ Drawer {
     { "label": qsTr("Niebo \u2014 satelity"), "action": "niebo", "ikona": "wfg_niebo" },
     { "label": qsTr("Diagnostyka GNSS / NTRIP"), "action": "gnssDiag", "ikona": "wfg_sprzet", "polka": "zaawansowana" },
     // [WF-RECEIVER-TERMINAL] straight from Tools (Piotr 18:10), not only from the diagnostics
-    { "label": qsTr("Terminal odbiornika (Bluetooth)"), "action": "terminalOdbiornika", "ikona": "wfg_sprzet" },
+    { "label": qsTr("Terminal odbiornika (Bluetooth)"), "action": "terminalOdbiornika", "ikona": "wfg_sprzet", "polka": "zaawansowana" }, // [WF-RECEIVER-BATTERY] blue, like the diagnostics (Piotr 18:13)
     { "label": qsTr("Ustawienia pozycjonowania"), "action": "gnssSettings", "ikona": "wfg_ustawienia" },
     { "naglowek": qsTr("Teren i pliki") },
     { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
@@ -589,14 +589,16 @@ Drawer {
       // and with gloves). Round, brand colour, white arrow.
       // [WF-WINDOW-FRAME] 24.10.2026 — orange and as big as the ← / ✕ of the windows
       // (Piotr: „większe strzałki zamykania szuflad, pomarańczowe”)
+      // [WF-DRAWER-ARROW] 24.10.2026 18:22 — light green, dark arrow: too much
+      // orange on the screen (Piotr). Dark green on light green stays readable in the sun.
       QfToolButton {
         width: 56
         height: 44
         padding: 6
         round: false
-        bgcolor: "#fb8c00"
+        bgcolor: "#9ccc65"
         iconSource: t.getThemeVectorIcon("ic_arrow_right_black_24dp")
-        iconColor: "white"
+        iconColor: "#1b5e20"
         icon.width: 30
         icon.height: 30
         onClicked: dataDrawer.close()

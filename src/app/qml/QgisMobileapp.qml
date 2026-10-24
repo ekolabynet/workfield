@@ -419,6 +419,110 @@ ApplicationWindow {
             }
           }
         }
+
+        // WorkFieldGIS 24.10.2026 [WF-RECEIVER-BATTERY] — battery of the external
+        // receiver next to FIX (Piotr 18:11). A Bluetooth LE receiver reports it
+        // all the time (positionSource.deviceBatteryLevel, 0..1). The Facet over
+        // classic Bluetooth does not: then the last reading from the receiver
+        // terminal is shown with its time. Advanced shelf, light blue like the
+        // advanced menu items (Piotr 18:13). Tap: the receiver terminal.
+        Rectangle {
+          id: bateriaOdbiornikaWskaznik
+
+          readonly property bool naZywo: !isNaN(positionSource.deviceBatteryLevel) && positionSource.deviceBatteryLevel >= 0
+          readonly property int proc: naZywo ? Math.round(positionSource.deviceBatteryLevel * 100) : mainWindow.bateriaOdbiornika
+          property double teraz: Date.now()
+          //! a reading older than 2 h is shown faded: it says little about now
+          readonly property bool stary: !naZywo && (proc < 0 || teraz - mainWindow.bateriaOdbiornikaMs > 2 * 3600 * 1000)
+          readonly property string czas: {
+            if (naZywo || proc < 0 || mainWindow.bateriaOdbiornikaMs <= 0)
+              return "";
+            const d = new Date(mainWindow.bateriaOdbiornikaMs);
+            const dzis = new Date(teraz);
+            return d.toDateString() === dzis.toDateString() ? d.toLocaleTimeString(Qt.locale(), "HH:mm") : d.toLocaleDateString(Qt.locale(), "dd.MM");
+          }
+          readonly property color kolor: proc < 0 ? Theme.mainOverlayColor : proc > 20 ? "#00E676" : proc > 5 ? "#FFA726" : "#EF5350"
+
+          visible: mainWindow.pokazujZaawansowane && positionSource.deviceId !== ""
+          Layout.alignment: Qt.AlignVCenter
+          implicitWidth: bateriaWiersz.implicitWidth + 10
+          implicitHeight: bateriaWiersz.implicitHeight + 4
+          radius: 4
+          color: Qt.rgba(0.118, 0.533, 0.898, 0.22) // #1e88e5, the advanced shelf
+          border.width: 1
+          border.color: "#1e88e5"
+
+          Timer {
+            running: bateriaOdbiornikaWskaznik.visible
+            interval: 60000
+            repeat: true
+            onTriggered: bateriaOdbiornikaWskaznik.teraz = Date.now()
+          }
+
+          Row {
+            id: bateriaWiersz
+            anchors.centerIn: parent
+            spacing: 4
+            opacity: bateriaOdbiornikaWskaznik.stary ? 0.55 : 1.0
+
+            Item {
+              anchors.verticalCenter: parent.verticalCenter
+              width: 18
+              height: 10
+
+              Rectangle {
+                id: obudowa
+                width: 16
+                height: 10
+                color: "transparent"
+                border.width: 1.5
+                border.color: Theme.mainOverlayColor
+                radius: 2
+
+                Rectangle {
+                  x: 2.5
+                  y: 2.5
+                  height: parent.height - 5
+                  width: Math.max(0, (parent.width - 5) * Math.min(100, Math.max(0, bateriaOdbiornikaWskaznik.proc)) / 100)
+                  color: bateriaOdbiornikaWskaznik.kolor
+                }
+              }
+              Rectangle {
+                x: 16
+                y: 3
+                width: 2
+                height: 4
+                color: Theme.mainOverlayColor
+              }
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              font.pointSize: Theme.tinyFont.pointSize
+              font.bold: true
+              color: bateriaOdbiornikaWskaznik.kolor
+              text: bateriaOdbiornikaWskaznik.proc < 0 ? "?" : bateriaOdbiornikaWskaznik.proc + "%"
+            }
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              visible: text !== ""
+              font.pointSize: Theme.tinyFont.pointSize
+              color: Theme.mainOverlayColor
+              opacity: 0.75
+              text: bateriaOdbiornikaWskaznik.czas
+            }
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -8
+            onClicked: {
+              if (typeof dataDrawer !== "undefined")
+                dataDrawer.wykonajNarzedzie("terminalOdbiornika");
+            }
+          }
+        }
       }
       }
     }
@@ -469,6 +573,12 @@ ApplicationWindow {
   property string menuZaawansowane: settings.value("WorkField/menuZaawansowane", "ukryj")
   onMenuZaawansowaneChanged: settings.setValue("WorkField/menuZaawansowane", menuZaawansowane)
   readonly property bool pokazujZaawansowane: menuZaawansowane !== "ukryj"
+
+  // WorkFieldGIS 24.10.2026 [WF-RECEIVER-BATTERY] — last battery reading of the
+  // external receiver from the receiver terminal (percent, -1 = none; time in ms).
+  // The terminal sets both; the indicator next to FIX shows them.
+  property int bateriaOdbiornika: settings.valueInt("WorkField/odbiornikBateriaProc", -1)
+  property double bateriaOdbiornikaMs: Number(settings.value("WorkField/odbiornikBateriaMs", 0)) || 0
 
   // WorkFieldGIS 19.10.2026 — znaczniki półek (kropki) w nagłówkach szuflad:
   // "pokazuj" / "ukryj", domyślnie pokazane. Wzór jak wyżej: napis, nie bool.
