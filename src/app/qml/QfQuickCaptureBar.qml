@@ -893,38 +893,31 @@ Column {
   // a seriesLayer bywa nieaktualny; to pole jest zawsze prawda
   property var nazwaLayer: null
 
-  // WorkField: tor z paska omija widget zalacznika, ktory normalnie nadaje
-  // zdjeciu nazwe wg konwencji projektu (QFieldSync/attachment_naming) —
-  // liczymy wiec te sama nazwe sami, jedno zrodlo prawdy z formularzem.
-  ExpressionEvaluator {
-    id: nazwaFotoEvaluator
-    project: qgisProject
-    appExpressionContextScopesGenerator: appScopesGenerator
+  // [WF-PHOTO-NAMING] 24.10.2026: one naming convention for the bar and the
+  // gallery in the form, chosen in Settings → „Obiekty i zdjęcia”
+  // (ZalacznikiUtils.photoPath). Before, the bar evaluated the QFieldSync
+  // expression of the layer only for the built-in camera, without the object
+  // when the photo came from the camera icon in the form header, and the
+  // native camera always got a flat name: DCIM/Zraszacze_20261024_103130_207.
+  // The object the photo is for: the one from the form header, else the new one.
+  function photoFeature() {
+    return zalacznikDoObiektu ? zalacznikDoObiektu.feature : pendingFeature;
   }
 
-  function wyrazenieNazewnicze(layer) {
-    if (!layer) {
-      return "";
-    }
-    let surowe = layer.customProperty("QFieldSync/attachment_naming");
-    if (surowe === undefined) {
-      surowe = layer.customProperty("QFieldSync/photo_naming");
-    }
-    if (surowe === undefined || surowe === "") {
-      return "";
-    }
+  //! Path relative to the project, e.g. DCIM/Zraszacze_104/Zraszacze_104_<time>.jpg
+  function photoRelativePath(layer) {
+    let path = "";
     try {
-      const mapa = JSON.parse(surowe);
-      for (const k in mapa) {
-        if (String(k).toLowerCase() === "foto") {
-          return mapa[k];
-        }
-      }
-      const klucze = Object.keys(mapa);
-      return klucze.length === 1 ? mapa[klucze[0]] : "";
+      path = String(ZalacznikiUtils.photoPath(qgisProject, layer, photoFeature() || null) || "");
     } catch (e) {
-      return "";
+      console.log("WorkField [WF-PHOTO-NAMING]: photoPath failed: " + e);
     }
+    if (path === "") {
+      path = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss_zzz") + ".{extension}";
+    }
+    path = path.replace("{extension}", "jpg");
+    console.log("WorkField [WF-PHOTO-NAMING]: " + path);
+    return path;
   }
 
   function nadajNazweZdjecia(sciezkaBezwzgledna) {
@@ -933,24 +926,8 @@ Column {
     if (home === "" || !layer || !sciezkaBezwzgledna || sciezkaBezwzgledna === "") {
       return sciezkaBezwzgledna;
     }
-    let wzgledna = "";
-    const wyrazenie = wyrazenieNazewnicze(layer);
-    if (wyrazenie !== "") {
-      nazwaFotoEvaluator.layer = layer;
-      nazwaFotoEvaluator.feature = pendingFeature;
-      nazwaFotoEvaluator.expressionText = wyrazenie;
-      wzgledna = String(nazwaFotoEvaluator.evaluate() || "");
-      if (wzgledna === "NULL") {
-        wzgledna = "";
-      }
-      // znaczniki widgetu: {filename} nie ma tu sensu, {extension} = jpg
-      wzgledna = wzgledna.replace("{filename}", "").replace("{extension}", "jpg");
-      wzgledna = FileUtils.sanitizeFilePath(wzgledna);
-    }
-    if (wzgledna === "") {
-      // fallback: konwencji w projekcie brak — nazwa warstwowa z ms
-      wzgledna = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss_zzz") + ".jpg";
-    }
+    // [WF-PHOTO-NAMING] the convention from Settings, for the right object
+    let wzgledna = FileUtils.sanitizeFilePath(photoRelativePath(layer));
     while (wzgledna.startsWith("/")) {
       wzgledna = wzgledna.substring(1);
     }
@@ -1239,7 +1216,12 @@ Column {
 
   function openCameraFor(layer) {
     nazwaLayer = layer;
-    const fileName = "DCIM/" + layer.name.replace(/[^\w]/g, "_") + "_" + Qt.formatDateTime(new Date(), "yyyyMMdd_hhmmss_zzz") + ".jpg";
+    // [WF-PHOTO-NAMING] the native camera saves straight under this name, so
+    // it follows the convention too; its folder must exist beforehand
+    const fileName = FileUtils.sanitizeFilePath(photoRelativePath(layer));
+    if (fileName.lastIndexOf("/") > 0) {
+      platformUtilities.createDir(qgisProject.homePath, fileName.substring(0, fileName.lastIndexOf("/")));
+    }
     if (!(platformUtilities.capabilities & PlatformUtilities.NativeCamera) || !settings.valueBool("nativeCamera2", true)) {
       // wbudowany aparat: ujecia, seria ciagla, blysk i wibracja
       platformUtilities.createDir(qgisProject.homePath, "DCIM");

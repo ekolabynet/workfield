@@ -294,12 +294,32 @@ QfRelationEditorBase {
       })
   }
 
+  // [WF-PHOTO-NAMING] 24.10.2026: the same naming convention as the quick
+  // capture bar, chosen in Settings → „Obiekty i zdjęcia”. The name is computed
+  // once, when the capture starts, and handed to the evaluator as a string
+  // literal — the rest of the editor keeps working on it unchanged. Without
+  // a parent layer (should not happen) the QFieldSync expression is used.
+  function photoNamingExpression() {
+    const relation = referencingFeatureListModel.relation;
+    let path = "";
+    try {
+      if (relation && relation.referencedLayer)
+        path = String(ZalacznikiUtils.photoPath(qgisProject, relation.referencedLayer, referencingFeatureListModel.feature) || "");
+    } catch (e) {
+      console.log("WorkField [WF-PHOTO-NAMING]: photoPath failed: " + e);
+    }
+    if (path === "")
+      return ExternalResourceUtils.getAttachmentNaming(relation ? relation.referencingLayer : null, referencingFeatureListModel.attachmentFieldName);
+    console.log("WorkField [WF-PHOTO-NAMING] gallery: " + path);
+    return "'" + path.replace(/'/g, "''") + "'";
+  }
+
   function capturePhoto() {
     stopAllMedia();
     Qt.inputMethod.hide();
     prepareFeature();
     platformUtilities.createDir(qgisProject.homePath, 'DCIM');
-    attachmentNamingEvaluator.expressionText = ExternalResourceUtils.getAttachmentNaming(referencingFeatureListModel.relation ? referencingFeatureListModel.relation.referencingLayer : null, referencingFeatureListModel.attachmentFieldName);
+    attachmentNamingEvaluator.expressionText = photoNamingExpression();
     if (platformUtilities.capabilities & QfPlatformUtilities.NativeCamera && settings.valueBool("nativeCamera2", true)) {
       let filepath = ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), QfEditorWidgetExternalResource.DocumentImage, QfFileUtils);
       filepath = filepath.replace('{extension}', 'JPG');
@@ -315,7 +335,7 @@ QfRelationEditorBase {
     Qt.inputMethod.hide();
     prepareFeature();
     platformUtilities.createDir(qgisProject.homePath, 'DCIM');
-    attachmentNamingEvaluator.expressionText = ExternalResourceUtils.getAttachmentNaming(referencingFeatureListModel.relation ? referencingFeatureListModel.relation.referencingLayer : null, referencingFeatureListModel.attachmentFieldName);
+    attachmentNamingEvaluator.expressionText = photoNamingExpression();
     if (platformUtilities.capabilities & QfPlatformUtilities.NativeCamera && settings.valueBool("nativeCamera2", true)) {
       let filepath = ExternalResourceUtils.getAttachmentFilePath(attachmentNamingEvaluator.evaluate(), QfEditorWidgetExternalResource.DocumentVideo, QfFileUtils);
       filepath = filepath.replace('{extension}', 'MP4');
@@ -330,7 +350,7 @@ QfRelationEditorBase {
     stopAllMedia();
     Qt.inputMethod.hide();
     prepareFeature();
-    attachmentNamingEvaluator.expressionText = ExternalResourceUtils.getAttachmentNaming(referencingFeatureListModel.relation ? referencingFeatureListModel.relation.referencingLayer : null, referencingFeatureListModel.attachmentFieldName);
+    attachmentNamingEvaluator.expressionText = photoNamingExpression();
     relationAudioRecorderLoader.active = true;
   }
 

@@ -22,8 +22,13 @@ import Theme
  * fid is the row number in one file — it changes when returns are merged —
  * and the page says so where the choice is made.
  *
- * The photo naming convention, thumbnails and the view cone come to this
- * page in the next steps.
+ * [WF-PHOTO-NAMING] 24.10.2026 — the photo naming convention, the same
+ * two levels: QSettings WorkField/photoNaming (application) and the project
+ * variable workfield_photo_naming (this project only), both JSON — see
+ * ZalacznikiUtils::photoNaming. The quick capture bar and the gallery in the
+ * form use the same rule (ZalacznikiUtils::photoPath).
+ *
+ * Thumbnails and the view cone come to this page in the next steps.
  */
 ColumnLayout {
   id: objectsSection
@@ -33,11 +38,60 @@ ColumnLayout {
   //! Application default; a property, because reading settings is not reactive.
   property string defaultChoice: settings.value("WorkField/objectNumberDefault", "auto")
 
+  //! [WF-PHOTO-NAMING] The convention in force and the one being edited.
+  property var photoNaming: ({})
+  property var photoDraft: ({})
+
+  function refreshPhotoNaming() {
+    try {
+      const naming = ZalacznikiUtils.photoNaming(qgisProject);
+      photoNaming = naming;
+      photoDraft = {
+        "layer": naming.layer === true,
+        "number": naming.number === true,
+        "note": naming.note === true,
+        "folder": String(naming.folder || "object"),
+        "ascii": naming.ascii !== false
+      };
+    } catch (e) {
+      console.log("WorkField [WF-PHOTO-NAMING]: refresh failed: " + e);
+    }
+  }
+
+  function setPhotoDraft(key, value) {
+    const draft = Object.assign({}, photoDraft);
+    draft[key] = value;
+    photoDraft = draft;
+  }
+
+  function savePhotoNaming(forProject) {
+    const json = JSON.stringify(photoDraft);
+    if (forProject) {
+      iface.setProjectVariable("workfield_photo_naming", json);
+      if (!ProjectUtils.saveProject(qgisProject))
+        mainWindow.displayToast(qsTr("Ustawienie zapamiętane, ale projektu NIE zapisano."), "warning");
+    } else {
+      settings.setValue("WorkField/photoNaming", json);
+    }
+    console.log("WorkField [WF-PHOTO-NAMING]: saved " + (forProject ? "for the project" : "as the app default") + ": " + json);
+    refreshPhotoNaming();
+    mainWindow.displayToast(forProject ? qsTr("Nazwy zdjęć: zapisano dla tego projektu") : qsTr("Nazwy zdjęć: zapisano jako domyślne aplikacji"));
+  }
+
+  function clearProjectPhotoNaming() {
+    iface.setProjectVariable("workfield_photo_naming", "");
+    if (!ProjectUtils.saveProject(qgisProject))
+      mainWindow.displayToast(qsTr("Ustawienie zdjęte, ale projektu NIE zapisano."), "warning");
+    console.log("WorkField [WF-PHOTO-NAMING]: project setting removed");
+    refreshPhotoNaming();
+  }
+
   //! Layers people number objects in: vector, editable, not photo tables
   //! and not technical tables.
   property var numberedLayers: []
 
   function refresh() {
+    refreshPhotoNaming();
     try {
       refreshLayers();
     } catch (e) {
@@ -263,6 +317,204 @@ ColumnLayout {
           }
         }
       }
+    }
+    // ---------------------------------------------------------------------
+    // [WF-PHOTO-NAMING] Zdjęcia — the naming convention
+    // ---------------------------------------------------------------------
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 16
+      text: qsTr("Nazwy zdjęć")
+      color: Theme.secondaryTextColor
+      font: Theme.strongTipFont
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Ta sama nazwa dla zdjęć z paska i z formularza. Zdjęcie jest powiązane z obiektem w tabeli zdjęć — nazwa pliku jest dla ludzi, więc można ją zmienić w każdej chwili.")
+      color: Theme.mainTextColor
+      font: Theme.tipFont
+      wrapMode: Text.WordWrap
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Nazwa składa się z:")
+      color: Theme.mainTextColor
+      font: Theme.tipFont
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Repeater {
+        model: [
+          {
+            "key": "layer",
+            "text": qsTr("Nazwa warstwy")
+          },
+          {
+            "key": "number",
+            "text": qsTr("Nr obiektu")
+          },
+          {
+            "key": "note",
+            "text": qsTr("Fragment uwag / opisu")
+          }
+        ]
+
+        delegate: Button {
+          id: partChip
+          required property var modelData
+          text: modelData.text
+          font: Theme.tipFont
+          checkable: true
+          highlighted: checked
+          checked: objectsSection.photoDraft[modelData.key] === true
+          onClicked: {
+            objectsSection.setPhotoDraft(modelData.key, objectsSection.photoDraft[modelData.key] !== true);
+            partChip.checked = Qt.binding(() => objectsSection.photoDraft[partChip.modelData.key] === true);
+          }
+        }
+      }
+
+      Button {
+        text: qsTr("Data i czas (zawsze)")
+        font: Theme.tipFont
+        checkable: true
+        checked: true
+        highlighted: true
+        enabled: false
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Katalog w DCIM:")
+      color: Theme.mainTextColor
+      font: Theme.tipFont
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Repeater {
+        model: [
+          {
+            "key": "object",
+            "text": qsTr("Osobny na obiekt")
+          },
+          {
+            "key": "layer",
+            "text": qsTr("Osobny na warstwę")
+          },
+          {
+            "key": "day",
+            "text": qsTr("Osobny na dzień")
+          },
+          {
+            "key": "flat",
+            "text": qsTr("Wszystkie razem")
+          }
+        ]
+
+        delegate: Button {
+          id: folderChip
+          required property var modelData
+          text: modelData.text
+          font: Theme.tipFont
+          checkable: true
+          highlighted: checked
+          checked: objectsSection.photoDraft.folder === modelData.key
+          onClicked: {
+            objectsSection.setPhotoDraft("folder", modelData.key);
+            folderChip.checked = Qt.binding(() => objectsSection.photoDraft.folder === folderChip.modelData.key);
+          }
+        }
+      }
+    }
+
+    CheckBox {
+      id: asciiBox
+      Layout.fillWidth: true
+      text: qsTr("Bez polskich liter i spacji (bezpieczne dla Windows, ZIP i CAD)")
+      font: Theme.tipFont
+      checked: objectsSection.photoDraft.ascii !== false
+      onClicked: {
+        objectsSection.setPhotoDraft("ascii", asciiBox.checked);
+        asciiBox.checked = Qt.binding(() => objectsSection.photoDraft.ascii !== false);
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Przykład:")
+      color: Theme.mainTextColor
+      font: Theme.tipFont
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: {
+        try {
+          return ZalacznikiUtils.photoPathExample(objectsSection.photoDraft);
+        } catch (e) {
+          return "";
+        }
+      }
+      color: Theme.mainColor
+      font: Theme.tipFont
+      wrapMode: Text.WrapAnywhere
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: {
+        const source = objectsSection.photoNaming.source;
+        if (source === "project")
+          return qsTr("Teraz obowiązuje: ustawienie tego projektu.");
+        if (source === "app")
+          return qsTr("Teraz obowiązuje: domyślne aplikacji.");
+        return qsTr("Teraz obowiązuje: ustawienie wbudowane (katalog na obiekt, warstwa, nr, data i czas).");
+      }
+      color: Theme.secondaryTextColor
+      font: Theme.tinyFont
+      wrapMode: Text.WordWrap
+    }
+
+    Flow {
+      Layout.fillWidth: true
+      spacing: 6
+
+      Button {
+        text: qsTr("Zapisz jako domyślne aplikacji")
+        font: Theme.tipFont
+        onClicked: objectsSection.savePhotoNaming(false)
+      }
+
+      Button {
+        text: qsTr("Tylko dla tego projektu")
+        font: Theme.tipFont
+        visible: qgisProject && qgisProject.fileName !== ""
+        onClicked: objectsSection.savePhotoNaming(true)
+      }
+
+      Button {
+        text: qsTr("Zdejmij ustawienie projektu")
+        font: Theme.tipFont
+        visible: objectsSection.photoNaming.source === "project"
+        onClicked: objectsSection.clearProjectPhotoNaming()
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Zdjęcia już zrobione zostają pod swoimi nazwami. Nr obiektu bierze się z ustawienia „Numer obiektu” powyżej; obiekt jeszcze niezapisany dostaje w nazwie początek swojego identyfikatora.")
+      color: Theme.secondaryTextColor
+      font: Theme.tinyFont
+      wrapMode: Text.WordWrap
     }
   }
 }

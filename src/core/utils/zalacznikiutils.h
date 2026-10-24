@@ -90,6 +90,29 @@ class ZalacznikiUtils : public QObject
      */
     Q_INVOKABLE QVariantMap photoIndex( QgsProject *project ) const;
 
+    /**
+     * WorkField 24.10.2026 [WF-PHOTO-NAMING] — the photo naming convention in
+     * force for \a project: the project override (project variable
+     * workfield_photo_naming), else the application default (QSettings
+     * WorkField/photoNaming), else the built-in default. Keys: layer, number,
+     * note (bool), folder ("object" | "layer" | "day" | "flat"), ascii (bool)
+     * and source ("project" | "app" | "default").
+     */
+    Q_INVOKABLE QVariantMap photoNaming( QgsProject *project ) const;
+
+    /**
+     * WorkField 24.10.2026 [WF-PHOTO-NAMING] — the path, relative to the
+     * project, for a new photo of \a feature from \a layer, e.g.
+     * "DCIM/Zraszacze_104/Zraszacze_104_20261024_103130_207.{extension}".
+     * The caller replaces {extension} and keeps the name unique on disk.
+     * Used by the quick capture bar and the gallery in the form — one rule.
+     * \a feature is a QgsFeature, or null when there is no object yet.
+     */
+    Q_INVOKABLE QString photoPath( QgsProject *project, QgsVectorLayer *layer, const QVariant &feature ) const;
+
+    //! [WF-PHOTO-NAMING] An example file name for \a naming, for the settings page.
+    Q_INVOKABLE QString photoPathExample( const QVariantMap &naming ) const;
+
   signals:
     //! Ktos poprosil o zdjecie-zalacznik dla istniejacego obiektu
     void zazadanoZdjecia( QgsVectorLayer *warstwa, const QgsFeature &obiekt );
