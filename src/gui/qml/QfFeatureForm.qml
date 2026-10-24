@@ -1442,12 +1442,38 @@ Page {
       anchors.rightMargin: form.rightMargin
 
       QfToolButton {
+        id: closeButton
+
+        Layout.alignment: Qt.AlignTop | Qt.AlignLeft
+        width: QfTheme.toolButtonSize
+        height: QfTheme.toolButtonSize
+        clip: true
+
+        // [WF-WINDOW-FRAME] ✕ orange on the LEFT = leave without saving (a new
+        // object is discarded — the same meaning the bin icon had)
+        iconSource: QfTheme.getThemeVectorIcon('ic_close_white_24dp')
+        iconColor: "white"
+        bgcolor: "#fb8c00"
+        round: true
+
+        onClicked: {
+          Qt.inputMethod.hide();
+          if ((form.state === 'Add' || form.state === 'Edit')) {
+            form.requestCancel();
+          } else {
+            cancel();
+          }
+        }
+      }
+
+      QfToolButton {
         id: saveButton
 
         property bool isVisible: !form.model.isWizard && (form.state === 'Add' || form.state === 'Edit')
 
         Layout.alignment: Qt.AlignTop | Qt.AlignLeft
-        visible: isVisible
+        // [WF-WINDOW-FRAME] one ✓ only, on the RIGHT (saveButtonRight)
+        visible: false
         width: QfTheme.toolButtonSize
         height: QfTheme.toolButtonSize
         clip: true
@@ -1525,7 +1551,11 @@ Page {
 
         Layout.fillWidth: true
         Layout.preferredHeight: parent.height
-        Layout.leftMargin: (!saveButton.isVisible ? QfTheme.toolButtonSize : 0) + (!setupOnly && form.model.hasRemembrance ? QfTheme.toolButtonSize : 0)
+        // [WF-WINDOW-FRAME] centred: pad the shorter side
+        readonly property real leftSide: closeButton.width + (przyciskPodniesienia.visible ? przyciskPodniesienia.width : 0)
+        readonly property real rightSide: (saveButtonRight.visible ? saveButtonRight.width + 8 : 0) + (featureFormMenuButton.visible ? featureFormMenuButton.width : 0)
+        Layout.leftMargin: Math.max(0, rightSide - leftSide)
+        Layout.rightMargin: Math.max(0, leftSide - rightSide)
         objectName: "titleLabel"
 
         font: QfTheme.strongFont
@@ -1582,27 +1612,6 @@ Page {
         }
       }
 
-      QfToolButton {
-        id: closeButton
-
-        Layout.alignment: Qt.AlignTop | Qt.AlignRight
-        width: QfTheme.toolButtonSize
-        height: QfTheme.toolButtonSize
-        clip: true
-
-        iconSource: !setupOnly && form.state === 'Add' ? QfTheme.getThemeVectorIcon('ic_delete_forever_white_24dp') : QfTheme.getThemeVectorIcon('ic_close_white_24dp')
-        iconColor: QfTheme.mainTextColor
-
-        onClicked: {
-          Qt.inputMethod.hide();
-          if ((form.state === 'Add' || form.state === 'Edit')) {
-            form.requestCancel();
-          } else {
-            cancel();
-          }
-        }
-      }
-
       Item {
         Layout.preferredWidth: 8
         Layout.preferredHeight: 1
@@ -1617,8 +1626,8 @@ Page {
         height: Theme.toolButtonSize
         clip: true
         iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
-        iconColor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? Theme.mainOverlayColor : Theme.mainTextColor
-        bgcolor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? Theme.errorColor : !model.constraintsSoftValid ? Theme.warningColor : model.hasConstraints ? Theme.goodColor : Theme.mainColor
+        iconColor: "white"
+        bgcolor: (form.state === 'Add' && model.featureModel.featureAdditionLocked) || !model.constraintsHardValid ? Theme.errorColor : !model.constraintsSoftValid ? Theme.warningColor : "#43a047" // [WF-WINDOW-FRAME] green ✓
         borderColor: Theme.mainBackgroundColor
         roundborder: true
         round: true

@@ -8,19 +8,18 @@ import org.qfield.gui
 /**
  * \ingroup qml
  */
-QfPopup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar; the list scrolls by itself
+QfWindowFrame {
   id: popup
 
   property alias model: deltaListModel
 
-  parent: mainWindow.contentItem
-  x: (parent.width - width) / 2
-  y: (parent.height - height) / 2
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+  title: qsTr("Upload History")
+  exitMode: "close"
+  // the list pages on overshoot, so it keeps its own scrolling; the window
+  // grows with the list and goes full screen when it no longer fits
+  scrollable: false
   focus: visible
-
-  width: Math.min(400, mainWindow.width - QfTheme.popupScreenEdgeHorizontalMargin * 2)
-  height: page.height + padding * 2
 
   onAboutToShow: {
     if (model.cloudProjectId != "") {
@@ -28,161 +27,87 @@ QfPopup {
     }
   }
 
-  Page {
-    // WorkField 23.08.2026 — jak w pozostalych panelach: tlo rysuje QfPopup,
-    // ktore czyta motyw. Page dokladal nad nim swoje, ze stylu Material.
-    background: null
-    id: page
+  Item {
+    id: loadingIndicator
+    Layout.fillWidth: true
+    Layout.preferredHeight: loadingContent.height + 30
+    visible: popup.model.isRefreshing
 
-    Keys.onReleased: event => {
-      if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
-        event.accepted = true;
-        popup.close();
-      }
-    }
-
-    width: parent.width
-    height: {
-      const headerHeight = toolBar.childrenRect.height + 20;
-      const maximumHeight = mainWindow.height - Math.max(QfTheme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4);
-      let contentHeight = 0;
-      if (popup.model.isRefreshing && deltaList.count === 0) {
-        contentHeight = loadingIndicator.height;
-      } else {
-        contentHeight = deltaList.contentHeight;
-      }
-
-      return Math.min(headerHeight + contentHeight, maximumHeight);
-    }
-    padding: 5
-    header: ToolBar {
-      id: toolBar
-      height: QfTheme.toolButtonSize
-
-      topPadding: 0
-      leftPadding: 0
-      rightPadding: 0
-      bottomPadding: 0
-
-      background: Rectangle {
-        color: "transparent"
-      }
-
-      Label {
-        anchors.centerIn: parent
-        leftPadding: QfTheme.toolButtonSize
-        rightPadding: QfTheme.toolButtonSize
-        width: parent.width - 20
-        text: qsTr("Upload History")
-        font: QfTheme.strongFont
-        color: QfTheme.mainTextColor
-        horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.WordWrap
-      }
-
-      QfToolButton {
-        id: closeButton
-        anchors {
-          top: parent.top
-          right: parent.right
-        }
-        iconSource: QfTheme.getThemeVectorIcon('ic_close_white_24dp')
-        iconColor: QfTheme.mainTextColor
-        bgcolor: QfTheme.mainBackgroundColor
-
-        onClicked: {
-          popup.close();
-        }
-      }
-    }
-
-    ColumnLayout {
+    Column {
+      id: loadingContent
+      anchors.centerIn: parent
       width: parent.width
-      height: parent.height
-      spacing: 4
+      spacing: 10
 
-      Item {
-        id: loadingIndicator
-        Layout.fillWidth: true
-        Layout.preferredHeight: loadingContent.height + 30
-        visible: popup.model.isRefreshing
-
-        Column {
-          id: loadingContent
-          anchors.centerIn: parent
-          width: parent.width
-          spacing: 10
-
-          BusyIndicator {
-            id: busyIndicator
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 48
-            height: 48
-          }
-
-          Label {
-            width: parent.width
-            font: QfTheme.tipFont
-            color: QfTheme.secondaryTextColor
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
-            text: qsTr("Fetching upload history…")
-          }
-        }
+      BusyIndicator {
+        id: busyIndicator
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: 48
+        height: 48
       }
 
       Label {
-        id: emptyLabel
-        Layout.fillWidth: true
-        leftPadding: 48
-        rightPadding: 48
-        visible: !popup.model.isRefreshing && deltaList.count === 0
-
+        width: parent.width
         font: QfTheme.tipFont
-        color: QfTheme.mainTextDisabledColor
+        color: QfTheme.secondaryTextColor
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
-        text: qsTr("No changes have been uploaded yet!")
+        text: qsTr("Fetching upload history…")
       }
+    }
+  }
 
-      ListView {
-        id: deltaList
+  Label {
+    id: emptyLabel
+    Layout.fillWidth: true
+    leftPadding: 48
+    rightPadding: 48
+    visible: !popup.model.isRefreshing && deltaList.count === 0
 
-        property bool overshootFetchNextPage: false
+    font: QfTheme.tipFont
+    color: QfTheme.mainTextDisabledColor
+    horizontalAlignment: Text.AlignHCenter
+    wrapMode: Text.WordWrap
+    text: qsTr("No changes have been uploaded yet!")
+  }
 
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        visible: count !== 0
-        clip: true
-        spacing: 5
-        ScrollBar.vertical: QfScrollBar {}
+  ListView {
+    id: deltaList
 
-        model: QfDeltaListModel {
-          id: deltaListModel
-        }
+    property bool overshootFetchNextPage: false
 
-        delegate: QfCollapsibleMessage {
-          width: parent ? parent.width : undefined
-          color: popup.deltaStatusColor(Status)
-          detailsColor: QfTheme.secondaryTextColor
-          font: QfTheme.tipFont
-          iconSource: popup.deltaStatusIcon(Status)
-          titleText: Summary + "\n" + qsTr("Uploaded by %1 on %2").arg(CreatedBy).arg(CreatedAt.toLocaleString(Qt.locale(), Locale.ShortFormat))
-          detailsText: Output
-        }
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    Layout.preferredHeight: contentHeight
+    visible: count !== 0
+    clip: true
+    spacing: 5
+    ScrollBar.vertical: QfScrollBar {}
 
-        onMovingChanged: {
-          if (!moving && overshootFetchNextPage && deltaListModel.hasNextPage) {
-            deltaListModel.fetchNextPage();
-          }
-          overshootFetchNextPage = false;
-        }
+    model: QfDeltaListModel {
+      id: deltaListModel
+    }
 
-        onVerticalOvershootChanged: {
-          if (verticalOvershoot > 10) {
-            overshootFetchNextPage = true;
-          }
-        }
+    delegate: QfCollapsibleMessage {
+      width: parent ? parent.width : undefined
+      color: popup.deltaStatusColor(Status)
+      detailsColor: QfTheme.secondaryTextColor
+      font: QfTheme.tipFont
+      iconSource: popup.deltaStatusIcon(Status)
+      titleText: Summary + "\n" + qsTr("Uploaded by %1 on %2").arg(CreatedBy).arg(CreatedAt.toLocaleString(Qt.locale(), Locale.ShortFormat))
+      detailsText: Output
+    }
+
+    onMovingChanged: {
+      if (!moving && overshootFetchNextPage && deltaListModel.hasNextPage) {
+        deltaListModel.fetchNextPage();
+      }
+      overshootFetchNextPage = false;
+    }
+
+    onVerticalOvershootChanged: {
+      if (verticalOvershoot > 10) {
+        overshootFetchNextPage = true;
       }
     }
   }

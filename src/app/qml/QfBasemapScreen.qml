@@ -4,10 +4,17 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 import org.qfield
 import org.qfield.core
+import org.qfield.gui
 import Theme
 
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: basemapScreen
+
+  title: qsTr("Dodaj podkład")
+  confirmText: qsTr("Dodaj")
+  confirmEnabled: basemapScreen.customUrl.trim() !== ""
+  onConfirmed: confirm()
 
   property var t
 
@@ -160,266 +167,221 @@ Popup {
     }
   }
 
-  parent: mainWindow.contentItem
-  width: Math.min(460, mainWindow.width - 24)
-  height: Math.min(implicitHeight, mainWindow.height - 48)
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  modal: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-  background: Rectangle {
-    color: t.mainBackgroundColor
-    radius: 8
-    border.width: 1
-    border.color: t.controlBorderColor
+  // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Dodaj” button below)
+  function confirm() {
+    const name = basemapScreen.customName.trim() !== "" ? basemapScreen.customName.trim() : qsTr("Podkład");
+    basemapScreen.addPreset({
+      "name": name,
+      "kind": basemapScreen.customKind,
+      "url": basemapScreen.customUrl.trim(),
+      "layers": basemapScreen.customLayers.trim(),
+      "layer": basemapScreen.customLayers.trim(),
+      "tileMatrixSet": basemapScreen.customCrs.replace(":", ""),
+      "typeName": basemapScreen.customLayers.trim(),
+      "crs": basemapScreen.customCrs.trim(),
+      "zmax": 19
+    });
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    spacing: 6
+  ListView {
+    Layout.fillWidth: true
+    Layout.preferredHeight: Math.min(contentHeight, 340)
+    clip: true
+    model: basemapScreen.presets
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Dodaj podkład")
-      font: t.strongFont
-      color: t.mainTextColor
-    }
+    delegate: Column {
+      required property var modelData
 
-    ListView {
-      Layout.fillWidth: true
-      Layout.preferredHeight: Math.min(contentHeight, 340)
-      clip: true
-      model: basemapScreen.presets
+      width: ListView.view.width
 
-      delegate: Column {
-        required property var modelData
-
-        width: ListView.view.width
-
-        // WorkField 21.09.2026 - dzial nad grupa. Dziewiec grup stalo w jednym
-        // rzedzie, choc obraz terenu, dane urzedowe, jedno miasto i skorowidze
-        // to cztery rozne rzeczy.
-        Rectangle {
-          visible: modelData.kreska === true
-          width: parent.width
-          height: 1
-          color: t.controlBorderColor
-        }
-
-        Text {
-          visible: modelData.dzial !== undefined
-          width: parent.width
-          topPadding: 10
-          text: modelData.dzial !== undefined ? modelData.dzial : ""
-          font: t.strongFont
-          color: t.mainTextColor
-        }
-
-        Text {
-          visible: modelData.opis !== undefined
-          width: parent.width
-          bottomPadding: 2
-          text: modelData.opis !== undefined ? modelData.opis : ""
-          font: t.tinyFont
-          color: t.secondaryTextColor
-          wrapMode: Text.WordWrap
-        }
-
-        Text {
-          width: parent.width
-          topPadding: 8
-          bottomPadding: 4
-          text: modelData.group
-          font: t.tipFont
-          color: t.secondaryTextColor
-        }
-
-        Repeater {
-          model: modelData.items
-
-          delegate: ItemDelegate {
-            required property var modelData
-
-            width: parent.width
-            height: 44
-
-            contentItem: RowLayout {
-              spacing: 8
-
-              Text {
-                Layout.fillWidth: true
-                Layout.leftMargin: 8
-                text: modelData.name
-                font: t.defaultFont
-                color: t.mainTextColor
-                elide: Text.ElideRight
-              }
-
-              Text {
-                Layout.rightMargin: 8
-                text: modelData.kind.toUpperCase()
-                font: t.tinyFont
-                color: t.secondaryTextColor
-              }
-            }
-
-            onClicked: basemapScreen.addPreset(modelData)
-          }
-        }
+      // WorkField 21.09.2026 - dzial nad grupa. Dziewiec grup stalo w jednym
+      // rzedzie, choc obraz terenu, dane urzedowe, jedno miasto i skorowidze
+      // to cztery rozne rzeczy.
+      Rectangle {
+        visible: modelData.kreska === true
+        width: parent.width
+        height: 1
+        color: t.controlBorderColor
       }
-    }
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.topMargin: 6
-      Layout.preferredHeight: 1
-      color: t.controlBorderColor
-    }
+      Text {
+        visible: modelData.dzial !== undefined
+        width: parent.width
+        topPadding: 10
+        text: modelData.dzial !== undefined ? modelData.dzial : ""
+        font: t.strongFont
+        color: t.mainTextColor
+      }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Własny adres")
-      font: t.strongTipFont
-      color: t.mainTextColor
-    }
+      Text {
+        visible: modelData.opis !== undefined
+        width: parent.width
+        bottomPadding: 2
+        text: modelData.opis !== undefined ? modelData.opis : ""
+        font: t.tinyFont
+        color: t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
 
-    Flow {
-      Layout.fillWidth: true
-      spacing: 6
+      Text {
+        width: parent.width
+        topPadding: 8
+        bottomPadding: 4
+        text: modelData.group
+        font: t.tipFont
+        color: t.secondaryTextColor
+      }
 
       Repeater {
-        model: [
-          { k: "xyz", n: "XYZ" },
-          { k: "wms", n: "WMS" },
-          { k: "wmts", n: "WMTS" },
-          { k: "wfs", n: "WFS" }
-        ]
+        model: modelData.items
 
-        delegate: Button {
+        delegate: ItemDelegate {
           required property var modelData
 
-          text: modelData.n
-          font.pointSize: t.tinyFont.pointSize
-          checkable: true
-          checked: basemapScreen.customKind === modelData.k
-          onClicked: basemapScreen.customKind = modelData.k
+          width: parent.width
+          height: 44
+
+          contentItem: RowLayout {
+            spacing: 8
+
+            Text {
+              Layout.fillWidth: true
+              Layout.leftMargin: 8
+              text: modelData.name
+              font: t.defaultFont
+              color: t.mainTextColor
+              elide: Text.ElideRight
+            }
+
+            Text {
+              Layout.rightMargin: 8
+              text: modelData.kind.toUpperCase()
+              font: t.tinyFont
+              color: t.secondaryTextColor
+            }
+          }
+
+          onClicked: basemapScreen.addPreset(modelData)
         }
       }
     }
+  }
+
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.topMargin: 6
+    Layout.preferredHeight: 1
+    color: t.controlBorderColor
+  }
+
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Własny adres")
+    font: t.strongTipFont
+    color: t.mainTextColor
+  }
+
+  Flow {
+    Layout.fillWidth: true
+    spacing: 6
+
+    Repeater {
+      model: [
+        { k: "xyz", n: "XYZ" },
+        { k: "wms", n: "WMS" },
+        { k: "wmts", n: "WMTS" },
+        { k: "wfs", n: "WFS" }
+      ]
+
+      delegate: Button {
+        required property var modelData
+
+        text: modelData.n
+        font.pointSize: t.tinyFont.pointSize
+        checkable: true
+        checked: basemapScreen.customKind === modelData.k
+        onClicked: basemapScreen.customKind = modelData.k
+      }
+    }
+  }
+
+  TextField {
+    Layout.fillWidth: true
+    font: t.defaultFont
+    placeholderText: basemapScreen.customKind === "xyz" ? "https://…/{z}/{x}/{y}.png" : "https://…/wms"
+    text: basemapScreen.customUrl
+    onTextChanged: basemapScreen.customUrl = text
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+    visible: basemapScreen.customKind !== "xyz"
 
     TextField {
       Layout.fillWidth: true
       font: t.defaultFont
-      placeholderText: basemapScreen.customKind === "xyz" ? "https://…/{z}/{x}/{y}.png" : "https://…/wms"
-      text: basemapScreen.customUrl
-      onTextChanged: basemapScreen.customUrl = text
+      placeholderText: basemapScreen.customKind === "wfs" ? qsTr("nazwa typu, np. wfs:dzialki") : qsTr("nazwa warstwy w usłudze")
+      text: basemapScreen.customLayers
+      onTextChanged: basemapScreen.customLayers = text
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-      visible: basemapScreen.customKind !== "xyz"
+    Button {
+      text: qsTr("Wykaz")
+      font.pointSize: t.tinyFont.pointSize
+      enabled: basemapScreen.customUrl.trim() !== ""
 
-      TextField {
-        Layout.fillWidth: true
-        font: t.defaultFont
-        placeholderText: basemapScreen.customKind === "wfs" ? qsTr("nazwa typu, np. wfs:dzialki") : qsTr("nazwa warstwy w usłudze")
-        text: basemapScreen.customLayers
-        onTextChanged: basemapScreen.customLayers = text
-      }
-
-      Button {
-        text: qsTr("Wykaz")
-        font.pointSize: t.tinyFont.pointSize
-        enabled: basemapScreen.customUrl.trim() !== ""
-
-        onClicked: {
-          serviceLayersMenu.entries = LayerUtils.wmsLayerNames(basemapScreen.customUrl.trim());
-          if (serviceLayersMenu.entries.length === 0) {
-            displayToast(qsTr("Nie udało się pobrać listy warstw"));
-            return;
-          }
-          serviceLayersMenu.popup();
+      onClicked: {
+        serviceLayersMenu.entries = LayerUtils.wmsLayerNames(basemapScreen.customUrl.trim());
+        if (serviceLayersMenu.entries.length === 0) {
+          displayToast(qsTr("Nie udało się pobrać listy warstw"));
+          return;
         }
+        serviceLayersMenu.popup();
       }
     }
+  }
 
-    Menu {
-      id: serviceLayersMenu
+  Menu {
+    id: serviceLayersMenu
 
-      property var entries: []
+    property var entries: []
 
-      width: 320
+    width: 320
+    font: t.defaultFont
+
+    Repeater {
+      model: serviceLayersMenu.entries
+
+      delegate: MenuItem {
+        required property var modelData
+
+        text: modelData.title
+        font: t.defaultFont
+        onTriggered: basemapScreen.customLayers = modelData.name
+      }
+    }
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+
+    TextField {
+      Layout.fillWidth: true
       font: t.defaultFont
-
-      Repeater {
-        model: serviceLayersMenu.entries
-
-        delegate: MenuItem {
-          required property var modelData
-
-          text: modelData.title
-          font: t.defaultFont
-          onTriggered: basemapScreen.customLayers = modelData.name
-        }
-      }
+      placeholderText: qsTr("nazwa podkładu")
+      text: basemapScreen.customName
+      onTextChanged: basemapScreen.customName = text
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-
-      TextField {
-        Layout.fillWidth: true
-        font: t.defaultFont
-        placeholderText: qsTr("nazwa podkładu")
-        text: basemapScreen.customName
-        onTextChanged: basemapScreen.customName = text
-      }
-
-      TextField {
-        Layout.preferredWidth: 120
-        font: t.defaultFont
-        placeholderText: "EPSG:2180"
-        visible: basemapScreen.customKind !== "xyz"
-        text: basemapScreen.customCrs
-        onTextChanged: basemapScreen.customCrs = text
-      }
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.topMargin: 8
-      spacing: 8
-
-      Button {
-        Layout.fillWidth: true
-        text: qsTr("Zamknij")
-        onClicked: basemapScreen.close()
-      }
-
-      Button {
-        Layout.fillWidth: true
-        text: qsTr("Dodaj")
-        highlighted: true
-        enabled: basemapScreen.customUrl.trim() !== ""
-
-        onClicked: {
-          const name = basemapScreen.customName.trim() !== "" ? basemapScreen.customName.trim() : qsTr("Podkład");
-          basemapScreen.addPreset({
-            "name": name,
-            "kind": basemapScreen.customKind,
-            "url": basemapScreen.customUrl.trim(),
-            "layers": basemapScreen.customLayers.trim(),
-            "layer": basemapScreen.customLayers.trim(),
-            "tileMatrixSet": basemapScreen.customCrs.replace(":", ""),
-            "typeName": basemapScreen.customLayers.trim(),
-            "crs": basemapScreen.customCrs.trim(),
-            "zmax": 19
-          });
-        }
-      }
+    TextField {
+      Layout.preferredWidth: 120
+      font: t.defaultFont
+      placeholderText: "EPSG:2180"
+      visible: basemapScreen.customKind !== "xyz"
+      text: basemapScreen.customCrs
+      onTextChanged: basemapScreen.customCrs = text
     }
   }
 }

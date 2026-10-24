@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs as SystemoweOkna
 import org.qfield
+import org.qfield.gui
 import Theme
 
 /**
@@ -36,8 +37,19 @@ import Theme
  * a tekstura o takim boku przekracza GL_MAX_TEXTURE_SIZE wielu Androidów
  * i nie rysuje się wtedy nic. Piksel liczy się więc z `szerokoscPliku`.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar; the image
+// preview pans under the crosshair, so the window itself does not scroll
+QfWindowFrame {
   id: oknoGeoreferencji
+
+  title: qsTr("Dopasuj obraz do mapy")
+  confirmText: qsTr("Dopasuj")
+  confirmEnabled: !oknoGeoreferencji.zajety && oknoGeoreferencji.dosc
+  busy: oknoGeoreferencji.zajety
+  onConfirmed: oknoGeoreferencji.dopasuj()
+  preferredWidth: 520
+  scrollable: false
+  forceFullScreen: true
 
   property var t: Theme
 
@@ -270,22 +282,6 @@ Popup {
     displayToast(qsTr("Podkład „%1” dopasowany").arg(nazwa));
   }
 
-  parent: mainWindow.contentItem
-  width: Math.min(520, mainWindow.width - 24)
-  height: Math.min(680, mainWindow.height - 60)
-  x: (mainWindow.width - width) / 2
-  y: Math.max(12, (mainWindow.height - height) / 3)
-  modal: true
-  focus: true
-  closePolicy: Popup.CloseOnEscape
-
-  background: Rectangle {
-    color: oknoGeoreferencji.t.mainBackgroundColor
-    radius: 8
-    border.width: 1
-    border.color: oknoGeoreferencji.t.controlBorderColor
-  }
-
   Connections {
     target: oknoGeoreferencji.zrodloAparatu
     ignoreUnknownSignals: true
@@ -312,403 +308,370 @@ Popup {
     onAccepted: oknoGeoreferencji.zacznij(String(selectedFile).replace(/^file:\/\//, ""))
   }
 
-  contentItem: ColumnLayout {
+  // ── skąd obraz ───────────────────────────────────────────────
+  ColumnLayout {
+    Layout.fillWidth: true
+    spacing: 4
+    visible: oknoGeoreferencji.punkty.length === 0
+
+    Text {
+      Layout.fillWidth: true
+      visible: oknoGeoreferencji.obraz === ""
+      text: qsTr("Zrób zdjęcie mapy albo planu, albo wskaż plik obrazu. Wynik będzie podkładem do orientacji w terenie — nie materiałem pomiarowym.")
+      font: oknoGeoreferencji.t.tinyFont
+      color: oknoGeoreferencji.t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    QfPozycjaMenu {
+      Layout.fillWidth: true
+      t: oknoGeoreferencji.t
+      text: qsTr("Zrób zdjęcie mapy…")
+      ikona: "wfg_zdjecia"
+      onClicked: oknoGeoreferencji.zrobZdjecie()
+    }
+
+    QfPozycjaMenu {
+      Layout.fillWidth: true
+      t: oknoGeoreferencji.t
+      text: oknoGeoreferencji.obraz === "" ? qsTr("Wskaż plik obrazu…") : qsTr("Inny plik obrazu…")
+      ikona: "wfg_otworz"
+      onClicked: wybieraczObrazu.open()
+    }
+  }
+
+  // ── obraz pod celownikiem ────────────────────────────────────
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.preferredHeight: Math.min(240, oknoGeoreferencji.height * 0.36)
+    visible: oknoGeoreferencji.obraz !== ""
+    color: oknoGeoreferencji.t.controlBackgroundColor
+    border.width: 1
+    border.color: oknoGeoreferencji.t.controlBorderColor
+    clip: true
+
+    Flickable {
+      id: przewijacz
+
+      anchors.fill: parent
+      contentWidth: plansza.width
+      contentHeight: plansza.height
+      clip: true
+
+      Item {
+        id: plansza
+
+        // Margines szerokości całej ramki z każdej strony: bez niego
+        // krzyżyk dosięgnąłby tylko środka obrazu, bo przy dopasowaniu
+        // do ramki nie ma czego przesuwać.
+        width: podglad.width * podglad.skala + przewijacz.width
+        height: podglad.height * podglad.skala + przewijacz.height
+
+        Image {
+          id: podglad
+
+          //! Powiększenie szczypaniem: na zdjęciu mapy trzeba trafić
+          //! w konkretny narożnik działki, a nie „gdzieś tam".
+          property real skala: 1.0
+
+          x: przewijacz.width / 2
+          y: przewijacz.height / 2
+          // QfUrlUtils, a nie "file://" + ścieżka: zdjęcie z Pobranych
+          // bywa nazwane ze spacją albo z polską literą, a tego surowy
+          // sklejony adres nie koduje i obraz się nie wczytuje.
+          source: oknoGeoreferencji.obraz !== "" ? QfUrlUtils.fromString(oknoGeoreferencji.obraz) : ""
+          // Najwyżej 2048 px boku — pełne 12 Mpx nie mieści się w teksturze
+          // na wielu Androidach i nie rysuje się WTEDY NIC. 0 = bez ścięcia.
+          sourceSize.width: oknoGeoreferencji.szerokoscPliku > 2048 ? 2048 : 0
+          asynchronous: true
+          fillMode: Image.PreserveAspectFit
+          // Po wczytaniu celownik staje na ŚRODKU obrazu. Bez tego
+          // Flickable zaczyna od contentX = 0, czyli od marginesu obok
+          // obrazu - a wygląda to jak obraz zepchnięty w róg ramki.
+          onStatusChanged: if (status === Image.Ready)
+            oknoGeoreferencji.ustawCelownikNa(oknoGeoreferencji.szerokoscPliku / 2, oknoGeoreferencji.wysokoscPliku / 2)
+          width: przewijacz.width
+          height: przewijacz.height
+          transform: Scale {
+            origin.x: 0
+            origin.y: 0
+            xScale: podglad.skala
+            yScale: podglad.skala
+          }
+
+          PinchHandler {
+            id: szczypanie
+
+            target: null
+            minimumPointCount: 2
+
+            property real bazowa: 1.0
+            //! Piksel pod celownikiem zapamiętany na czas szczypania —
+            //! powiększenie ma przybliżać TO, co się celuje, a nie
+            //! uciekać na bok razem z zawartością.
+            property var trzymany: null
+
+            onActiveChanged: {
+              if (active) {
+                bazowa = podglad.skala;
+                trzymany = oknoGeoreferencji.pikselPodCelownikiem();
+              } else {
+                trzymany = null;
+              }
+            }
+            onActiveScaleChanged: {
+              podglad.skala = Math.max(1.0, Math.min(8.0, bazowa * activeScale));
+              if (trzymany)
+                oknoGeoreferencji.ustawCelownikNa(trzymany.px, trzymany.py);
+            }
+          }
+
+          Repeater {
+            model: oknoGeoreferencji.punkty
+
+            delegate: Item {
+              required property int index
+              required property var modelData
+
+              readonly property real wsp: podglad.paintedWidth > 0 && oknoGeoreferencji.szerokoscPliku > 0
+                                          ? podglad.paintedWidth / oknoGeoreferencji.szerokoscPliku : 0
+
+              x: (podglad.width - podglad.paintedWidth) / 2 + modelData.px * wsp
+              y: (podglad.height - podglad.paintedHeight) / 2 + modelData.py * wsp
+
+              Rectangle {
+                x: -7
+                y: -7
+                width: 14
+                height: 14
+                radius: 7
+                color: "transparent"
+                border.width: 2
+                border.color: index === oknoGeoreferencji.poprawiany ? "#ffb300" : "#d81b60"
+              }
+
+              Text {
+                x: 8
+                y: -7
+                text: index + 1
+                font.pointSize: 7
+                color: index === oknoGeoreferencji.poprawiany ? "#ffb300" : "#d81b60"
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // celownik — nieruchomy, tak samo jak nad mapą
+    Rectangle {
+      anchors.centerIn: parent
+      width: 2
+      height: 28
+      color: "#00b0ff"
+    }
+
+    Rectangle {
+      anchors.centerIn: parent
+      width: 28
+      height: 2
+      color: "#00b0ff"
+    }
+
+    Rectangle {
+      anchors.centerIn: parent
+      width: 8
+      height: 8
+      radius: 4
+      color: "transparent"
+      border.width: 2
+      border.color: "#00b0ff"
+    }
+  }
+
+  // Bez tego okno z nierysującym się obrazem stoi w ciszy i wygląda
+  // na zawieszone — a to właśnie była usterka z terenu.
+  Text {
+    Layout.fillWidth: true
+    visible: oknoGeoreferencji.obraz !== "" && podglad.status !== Image.Ready
+    text: podglad.status === Image.Error
+          ? qsTr("Nie udało się wczytać obrazu: %1").arg(oknoGeoreferencji.obraz)
+          : qsTr("Wczytuję obraz…")
+    font: oknoGeoreferencji.t.tinyFont
+    color: podglad.status === Image.Error ? oknoGeoreferencji.t.errorColor : oknoGeoreferencji.t.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    visible: oknoGeoreferencji.obraz !== "" && podglad.status === Image.Ready
+    spacing: 8
+
+    Text {
+      Layout.fillWidth: true
+      text: oknoGeoreferencji.poprawiany >= 0
+            ? qsTr("Poprawiasz punkt %1 — przesuń obraz pod krzyżyk.").arg(oknoGeoreferencji.poprawiany + 1)
+            : qsTr("Przesuń obraz tak, żeby krzyżyk stanął na miejscu, które umiesz wskazać w terenie.")
+      font: oknoGeoreferencji.t.tinyFont
+      color: oknoGeoreferencji.poprawiany >= 0 ? "#ffb300" : oknoGeoreferencji.t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    Button {
+      text: qsTr("Wskaż na mapie")
+      font.pointSize: oknoGeoreferencji.t.tinyFont.pointSize
+      highlighted: true
+      onClicked: oknoGeoreferencji.wskazNaMapie()
+    }
+  }
+
+  // ── metoda ───────────────────────────────────────────────────
+  RowLayout {
+    Layout.fillWidth: true
+    visible: oknoGeoreferencji.obraz !== ""
     spacing: 6
 
     Text {
-      Layout.fillWidth: true
-      text: qsTr("Dopasuj obraz do mapy")
-      font: oknoGeoreferencji.t.strongFont
-      color: oknoGeoreferencji.t.mainTextColor
+      text: qsTr("Metoda:")
+      font: oknoGeoreferencji.t.tinyFont
+      color: oknoGeoreferencji.t.secondaryTextColor
     }
 
-    // ── skąd obraz ───────────────────────────────────────────────
-    ColumnLayout {
+    ComboBox {
+      id: wyborMetody
+
       Layout.fillWidth: true
+      font.pointSize: oknoGeoreferencji.t.tinyFont.pointSize
+      model: oknoGeoreferencji.spisMetod
+      textRole: "nazwa"
+      // currentIndex NIE JEST wiązaniem: ComboBox nadpisuje je sam przy
+      // zmianie modelu i wiązanie i tak by przepadło. `metoda` jest
+      // jedynym źródłem prawdy, a rozwijacz ustawia się z niej jawnie —
+      // przez Qt.callLater, bo ComboBox zeruje indeks PO sygnale
+      // `countChanged` i przypisanie wprost przepadłoby (sprawdzone
+      // w piaskownicy: rozwijacz pokazywał pierwszą metodę z listy,
+      // a opis pod nim — właściwą).
+      onCountChanged: Qt.callLater(ustawZMetody)
+      Component.onCompleted: Qt.callLater(ustawZMetody)
+
+      function ustawZMetody() {
+        currentIndex = oknoGeoreferencji.indeksMetody;
+      }
+      onActivated: function (i) {
+        oknoGeoreferencji.metoda = oknoGeoreferencji.spisMetod[i].klucz;
+        oknoGeoreferencji.ocen();
+      }
+    }
+  }
+
+  Text {
+    Layout.fillWidth: true
+    visible: oknoGeoreferencji.obraz !== ""
+    text: {
+      const m = oknoGeoreferencji.spisMetod;
+      const i = oknoGeoreferencji.indeksMetody;
+      if (i < 0 || i >= m.length)
+        return "";
+      return qsTr("%1 Potrzeba co najmniej %2 punktów, jest %3.").arg(m[i].opis).arg(m[i].minimum).arg(oknoGeoreferencji.punkty.length);
+    }
+    font: oknoGeoreferencji.t.tinyFont
+    color: oknoGeoreferencji.dosc ? oknoGeoreferencji.t.secondaryTextColor : oknoGeoreferencji.t.warningColor
+    wrapMode: Text.WordWrap
+  }
+
+  // ── miara jakości ────────────────────────────────────────────
+  Text {
+    Layout.fillWidth: true
+    visible: oknoGeoreferencji.jakosc && oknoGeoreferencji.jakosc.srednie !== undefined
+    text: {
+      const j = oknoGeoreferencji.jakosc;
+      if (!j || j.srednie === undefined)
+        return "";
+      if (j.sprawdzian === undefined)
+        return qsTr("Odchyłka %1 m — przy minimalnej dla tej metody liczbie punktów ta liczba NIC NIE MÓWI o jakości: każda metoda przechodzi wtedy przez punkty dokładnie. Dodaj jeszcze jeden punkt, żeby dostać sprawdzian.").arg(j.srednie.toFixed(2));
+      return qsTr("Odchyłka %1 m · SPRAWDZIAN %2 m, największy %3 m (punkt %4).").arg(j.srednie.toFixed(2)).arg(j.sprawdzian.toFixed(2)).arg(j.sprawdzianNajwiekszy.toFixed(2)).arg(j.sprawdzianNajgorszy + 1);
+    }
+    font: oknoGeoreferencji.t.tinyFont
+    color: {
+      const j = oknoGeoreferencji.jakosc;
+      if (!j || j.sprawdzian === undefined)
+        return oknoGeoreferencji.t.warningColor;
+      return j.sprawdzian > 3 * Math.max(j.srednie, 0.01) + 1 ? oknoGeoreferencji.t.warningColor : oknoGeoreferencji.t.secondaryTextColor;
+    }
+    wrapMode: Text.WordWrap
+  }
+
+  Text {
+    Layout.fillWidth: true
+    visible: oknoGeoreferencji.jakosc && oknoGeoreferencji.jakosc.blad !== undefined && oknoGeoreferencji.punkty.length > 0
+    text: oknoGeoreferencji.jakosc && oknoGeoreferencji.jakosc.blad !== undefined ? oknoGeoreferencji.jakosc.blad : ""
+    font: oknoGeoreferencji.t.tinyFont
+    color: oknoGeoreferencji.t.warningColor
+    wrapMode: Text.WordWrap
+  }
+
+  // ── punkty ───────────────────────────────────────────────────
+  ListView {
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    Layout.minimumHeight: 60
+    visible: oknoGeoreferencji.punkty.length > 0
+    clip: true
+    model: oknoGeoreferencji.punkty
+    ScrollBar.vertical: ScrollBar {}
+
+    delegate: RowLayout {
+      required property int index
+      required property var modelData
+
+      width: ListView.view.width
       spacing: 4
-      visible: oknoGeoreferencji.punkty.length === 0
 
       Text {
         Layout.fillWidth: true
-        visible: oknoGeoreferencji.obraz === ""
-        text: qsTr("Zrób zdjęcie mapy albo planu, albo wskaż plik obrazu. Wynik będzie podkładem do orientacji w terenie — nie materiałem pomiarowym.")
-        font: oknoGeoreferencji.t.tinyFont
-        color: oknoGeoreferencji.t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      QfPozycjaMenu {
-        Layout.fillWidth: true
-        t: oknoGeoreferencji.t
-        text: qsTr("Zrób zdjęcie mapy…")
-        ikona: "wfg_zdjecia"
-        onClicked: oknoGeoreferencji.zrobZdjecie()
-      }
-
-      QfPozycjaMenu {
-        Layout.fillWidth: true
-        t: oknoGeoreferencji.t
-        text: oknoGeoreferencji.obraz === "" ? qsTr("Wskaż plik obrazu…") : qsTr("Inny plik obrazu…")
-        ikona: "wfg_otworz"
-        onClicked: wybieraczObrazu.open()
-      }
-    }
-
-    // ── obraz pod celownikiem ────────────────────────────────────
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.preferredHeight: Math.min(240, oknoGeoreferencji.height * 0.36)
-      visible: oknoGeoreferencji.obraz !== ""
-      color: oknoGeoreferencji.t.controlBackgroundColor
-      border.width: 1
-      border.color: oknoGeoreferencji.t.controlBorderColor
-      clip: true
-
-      Flickable {
-        id: przewijacz
-
-        anchors.fill: parent
-        contentWidth: plansza.width
-        contentHeight: plansza.height
-        clip: true
-
-        Item {
-          id: plansza
-
-          // Margines szerokości całej ramki z każdej strony: bez niego
-          // krzyżyk dosięgnąłby tylko środka obrazu, bo przy dopasowaniu
-          // do ramki nie ma czego przesuwać.
-          width: podglad.width * podglad.skala + przewijacz.width
-          height: podglad.height * podglad.skala + przewijacz.height
-
-          Image {
-            id: podglad
-
-            //! Powiększenie szczypaniem: na zdjęciu mapy trzeba trafić
-            //! w konkretny narożnik działki, a nie „gdzieś tam".
-            property real skala: 1.0
-
-            x: przewijacz.width / 2
-            y: przewijacz.height / 2
-            // QfUrlUtils, a nie "file://" + ścieżka: zdjęcie z Pobranych
-            // bywa nazwane ze spacją albo z polską literą, a tego surowy
-            // sklejony adres nie koduje i obraz się nie wczytuje.
-            source: oknoGeoreferencji.obraz !== "" ? QfUrlUtils.fromString(oknoGeoreferencji.obraz) : ""
-            // Najwyżej 2048 px boku — pełne 12 Mpx nie mieści się w teksturze
-            // na wielu Androidach i nie rysuje się WTEDY NIC. 0 = bez ścięcia.
-            sourceSize.width: oknoGeoreferencji.szerokoscPliku > 2048 ? 2048 : 0
-            asynchronous: true
-            fillMode: Image.PreserveAspectFit
-            // Po wczytaniu celownik staje na ŚRODKU obrazu. Bez tego
-            // Flickable zaczyna od contentX = 0, czyli od marginesu obok
-            // obrazu - a wygląda to jak obraz zepchnięty w róg ramki.
-            onStatusChanged: if (status === Image.Ready)
-              oknoGeoreferencji.ustawCelownikNa(oknoGeoreferencji.szerokoscPliku / 2, oknoGeoreferencji.wysokoscPliku / 2)
-            width: przewijacz.width
-            height: przewijacz.height
-            transform: Scale {
-              origin.x: 0
-              origin.y: 0
-              xScale: podglad.skala
-              yScale: podglad.skala
-            }
-
-            PinchHandler {
-              id: szczypanie
-
-              target: null
-              minimumPointCount: 2
-
-              property real bazowa: 1.0
-              //! Piksel pod celownikiem zapamiętany na czas szczypania —
-              //! powiększenie ma przybliżać TO, co się celuje, a nie
-              //! uciekać na bok razem z zawartością.
-              property var trzymany: null
-
-              onActiveChanged: {
-                if (active) {
-                  bazowa = podglad.skala;
-                  trzymany = oknoGeoreferencji.pikselPodCelownikiem();
-                } else {
-                  trzymany = null;
-                }
-              }
-              onActiveScaleChanged: {
-                podglad.skala = Math.max(1.0, Math.min(8.0, bazowa * activeScale));
-                if (trzymany)
-                  oknoGeoreferencji.ustawCelownikNa(trzymany.px, trzymany.py);
-              }
-            }
-
-            Repeater {
-              model: oknoGeoreferencji.punkty
-
-              delegate: Item {
-                required property int index
-                required property var modelData
-
-                readonly property real wsp: podglad.paintedWidth > 0 && oknoGeoreferencji.szerokoscPliku > 0
-                                            ? podglad.paintedWidth / oknoGeoreferencji.szerokoscPliku : 0
-
-                x: (podglad.width - podglad.paintedWidth) / 2 + modelData.px * wsp
-                y: (podglad.height - podglad.paintedHeight) / 2 + modelData.py * wsp
-
-                Rectangle {
-                  x: -7
-                  y: -7
-                  width: 14
-                  height: 14
-                  radius: 7
-                  color: "transparent"
-                  border.width: 2
-                  border.color: index === oknoGeoreferencji.poprawiany ? "#ffb300" : "#d81b60"
-                }
-
-                Text {
-                  x: 8
-                  y: -7
-                  text: index + 1
-                  font.pointSize: 7
-                  color: index === oknoGeoreferencji.poprawiany ? "#ffb300" : "#d81b60"
-                }
-              }
-            }
-          }
+        text: {
+          const o = oknoGeoreferencji.odchylka(index);
+          const s = oknoGeoreferencji.sprawdzian(index);
+          let opis = qsTr("%1.  %2  %3").arg(index + 1).arg(modelData.x.toFixed(1)).arg(modelData.y.toFixed(1));
+          if (o >= 0)
+            opis += qsTr("  ·  %1 m").arg(o.toFixed(2));
+          if (s >= 0)
+            opis += qsTr("  ·  spr. %1 m").arg(s.toFixed(2));
+          return opis;
         }
-      }
-
-      // celownik — nieruchomy, tak samo jak nad mapą
-      Rectangle {
-        anchors.centerIn: parent
-        width: 2
-        height: 28
-        color: "#00b0ff"
-      }
-
-      Rectangle {
-        anchors.centerIn: parent
-        width: 28
-        height: 2
-        color: "#00b0ff"
-      }
-
-      Rectangle {
-        anchors.centerIn: parent
-        width: 8
-        height: 8
-        radius: 4
-        color: "transparent"
-        border.width: 2
-        border.color: "#00b0ff"
-      }
-    }
-
-    // Bez tego okno z nierysującym się obrazem stoi w ciszy i wygląda
-    // na zawieszone — a to właśnie była usterka z terenu.
-    Text {
-      Layout.fillWidth: true
-      visible: oknoGeoreferencji.obraz !== "" && podglad.status !== Image.Ready
-      text: podglad.status === Image.Error
-            ? qsTr("Nie udało się wczytać obrazu: %1").arg(oknoGeoreferencji.obraz)
-            : qsTr("Wczytuję obraz…")
-      font: oknoGeoreferencji.t.tinyFont
-      color: podglad.status === Image.Error ? oknoGeoreferencji.t.errorColor : oknoGeoreferencji.t.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      visible: oknoGeoreferencji.obraz !== "" && podglad.status === Image.Ready
-      spacing: 8
-
-      Text {
-        Layout.fillWidth: true
-        text: oknoGeoreferencji.poprawiany >= 0
-              ? qsTr("Poprawiasz punkt %1 — przesuń obraz pod krzyżyk.").arg(oknoGeoreferencji.poprawiany + 1)
-              : qsTr("Przesuń obraz tak, żeby krzyżyk stanął na miejscu, które umiesz wskazać w terenie.")
         font: oknoGeoreferencji.t.tinyFont
-        color: oknoGeoreferencji.poprawiany >= 0 ? "#ffb300" : oknoGeoreferencji.t.secondaryTextColor
-        wrapMode: Text.WordWrap
+        color: index === oknoGeoreferencji.jakosc.sprawdzianNajgorszy && oknoGeoreferencji.punkty.length > 2
+               ? oknoGeoreferencji.t.warningColor : oknoGeoreferencji.t.mainTextColor
+        elide: Text.ElideRight
       }
 
       Button {
-        text: qsTr("Wskaż na mapie")
+        text: qsTr("Popraw")
         font.pointSize: oknoGeoreferencji.t.tinyFont.pointSize
-        highlighted: true
-        onClicked: oknoGeoreferencji.wskazNaMapie()
-      }
-    }
-
-    // ── metoda ───────────────────────────────────────────────────
-    RowLayout {
-      Layout.fillWidth: true
-      visible: oknoGeoreferencji.obraz !== ""
-      spacing: 6
-
-      Text {
-        text: qsTr("Metoda:")
-        font: oknoGeoreferencji.t.tinyFont
-        color: oknoGeoreferencji.t.secondaryTextColor
-      }
-
-      ComboBox {
-        id: wyborMetody
-
-        Layout.fillWidth: true
-        font.pointSize: oknoGeoreferencji.t.tinyFont.pointSize
-        model: oknoGeoreferencji.spisMetod
-        textRole: "nazwa"
-        // currentIndex NIE JEST wiązaniem: ComboBox nadpisuje je sam przy
-        // zmianie modelu i wiązanie i tak by przepadło. `metoda` jest
-        // jedynym źródłem prawdy, a rozwijacz ustawia się z niej jawnie —
-        // przez Qt.callLater, bo ComboBox zeruje indeks PO sygnale
-        // `countChanged` i przypisanie wprost przepadłoby (sprawdzone
-        // w piaskownicy: rozwijacz pokazywał pierwszą metodę z listy,
-        // a opis pod nim — właściwą).
-        onCountChanged: Qt.callLater(ustawZMetody)
-        Component.onCompleted: Qt.callLater(ustawZMetody)
-
-        function ustawZMetody() {
-          currentIndex = oknoGeoreferencji.indeksMetody;
-        }
-        onActivated: function (i) {
-          oknoGeoreferencji.metoda = oknoGeoreferencji.spisMetod[i].klucz;
-          oknoGeoreferencji.ocen();
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      visible: oknoGeoreferencji.obraz !== ""
-      text: {
-        const m = oknoGeoreferencji.spisMetod;
-        const i = oknoGeoreferencji.indeksMetody;
-        if (i < 0 || i >= m.length)
-          return "";
-        return qsTr("%1 Potrzeba co najmniej %2 punktów, jest %3.").arg(m[i].opis).arg(m[i].minimum).arg(oknoGeoreferencji.punkty.length);
-      }
-      font: oknoGeoreferencji.t.tinyFont
-      color: oknoGeoreferencji.dosc ? oknoGeoreferencji.t.secondaryTextColor : oknoGeoreferencji.t.warningColor
-      wrapMode: Text.WordWrap
-    }
-
-    // ── miara jakości ────────────────────────────────────────────
-    Text {
-      Layout.fillWidth: true
-      visible: oknoGeoreferencji.jakosc && oknoGeoreferencji.jakosc.srednie !== undefined
-      text: {
-        const j = oknoGeoreferencji.jakosc;
-        if (!j || j.srednie === undefined)
-          return "";
-        if (j.sprawdzian === undefined)
-          return qsTr("Odchyłka %1 m — przy minimalnej dla tej metody liczbie punktów ta liczba NIC NIE MÓWI o jakości: każda metoda przechodzi wtedy przez punkty dokładnie. Dodaj jeszcze jeden punkt, żeby dostać sprawdzian.").arg(j.srednie.toFixed(2));
-        return qsTr("Odchyłka %1 m · SPRAWDZIAN %2 m, największy %3 m (punkt %4).").arg(j.srednie.toFixed(2)).arg(j.sprawdzian.toFixed(2)).arg(j.sprawdzianNajwiekszy.toFixed(2)).arg(j.sprawdzianNajgorszy + 1);
-      }
-      font: oknoGeoreferencji.t.tinyFont
-      color: {
-        const j = oknoGeoreferencji.jakosc;
-        if (!j || j.sprawdzian === undefined)
-          return oknoGeoreferencji.t.warningColor;
-        return j.sprawdzian > 3 * Math.max(j.srednie, 0.01) + 1 ? oknoGeoreferencji.t.warningColor : oknoGeoreferencji.t.secondaryTextColor;
-      }
-      wrapMode: Text.WordWrap
-    }
-
-    Text {
-      Layout.fillWidth: true
-      visible: oknoGeoreferencji.jakosc && oknoGeoreferencji.jakosc.blad !== undefined && oknoGeoreferencji.punkty.length > 0
-      text: oknoGeoreferencji.jakosc && oknoGeoreferencji.jakosc.blad !== undefined ? oknoGeoreferencji.jakosc.blad : ""
-      font: oknoGeoreferencji.t.tinyFont
-      color: oknoGeoreferencji.t.warningColor
-      wrapMode: Text.WordWrap
-    }
-
-    // ── punkty ───────────────────────────────────────────────────
-    ListView {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      Layout.minimumHeight: 60
-      visible: oknoGeoreferencji.punkty.length > 0
-      clip: true
-      model: oknoGeoreferencji.punkty
-      ScrollBar.vertical: ScrollBar {}
-
-      delegate: RowLayout {
-        required property int index
-        required property var modelData
-
-        width: ListView.view.width
-        spacing: 4
-
-        Text {
-          Layout.fillWidth: true
-          text: {
-            const o = oknoGeoreferencji.odchylka(index);
-            const s = oknoGeoreferencji.sprawdzian(index);
-            let opis = qsTr("%1.  %2  %3").arg(index + 1).arg(modelData.x.toFixed(1)).arg(modelData.y.toFixed(1));
-            if (o >= 0)
-              opis += qsTr("  ·  %1 m").arg(o.toFixed(2));
-            if (s >= 0)
-              opis += qsTr("  ·  spr. %1 m").arg(s.toFixed(2));
-            return opis;
-          }
-          font: oknoGeoreferencji.t.tinyFont
-          color: index === oknoGeoreferencji.jakosc.sprawdzianNajgorszy && oknoGeoreferencji.punkty.length > 2
-                 ? oknoGeoreferencji.t.warningColor : oknoGeoreferencji.t.mainTextColor
-          elide: Text.ElideRight
-        }
-
-        Button {
-          text: qsTr("Popraw")
-          font.pointSize: oknoGeoreferencji.t.tinyFont.pointSize
-          onClicked: oknoGeoreferencji.popraw(index)
-        }
-
-        Button {
-          text: qsTr("Usuń")
-          font.pointSize: oknoGeoreferencji.t.tinyFont.pointSize
-          onClicked: oknoGeoreferencji.usun(index)
-        }
-      }
-    }
-
-    Text {
-      Layout.fillWidth: true
-      visible: oknoGeoreferencji.stan !== ""
-      text: oknoGeoreferencji.stan
-      font: oknoGeoreferencji.t.tipFont
-      color: oknoGeoreferencji.t.mainTextColor
-      wrapMode: Text.WordWrap
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-
-      BusyIndicator {
-        implicitWidth: 20
-        implicitHeight: 20
-        running: oknoGeoreferencji.zajety
-        visible: running
-      }
-
-      Item {
-        Layout.fillWidth: true
+        onClicked: oknoGeoreferencji.popraw(index)
       }
 
       Button {
-        text: qsTr("Zamknij")
+        text: qsTr("Usuń")
         font.pointSize: oknoGeoreferencji.t.tinyFont.pointSize
-        onClicked: oknoGeoreferencji.close()
-      }
-
-      Button {
-        text: qsTr("Dopasuj")
-        font.pointSize: oknoGeoreferencji.t.tinyFont.pointSize
-        highlighted: true
-        enabled: !oknoGeoreferencji.zajety && oknoGeoreferencji.dosc
-        onClicked: oknoGeoreferencji.dopasuj()
+        onClicked: oknoGeoreferencji.usun(index)
       }
     }
+  }
+
+  Text {
+    Layout.fillWidth: true
+    visible: oknoGeoreferencji.stan !== ""
+    text: oknoGeoreferencji.stan
+    font: oknoGeoreferencji.t.tipFont
+    color: oknoGeoreferencji.t.mainTextColor
+    wrapMode: Text.WordWrap
+  }
+
+  BusyIndicator {
+    implicitWidth: 20
+    implicitHeight: 20
+    running: oknoGeoreferencji.zajety
+    visible: running
   }
 }

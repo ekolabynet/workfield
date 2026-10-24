@@ -10,8 +10,15 @@ import Theme
 /**
  * \ingroup qml
  */
-QfPopup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar (every change here
+// is applied at once), the panel keeps its own tabs, scrolling and bottom bar
+QfWindowFrame {
   id: popup
+
+  exitMode: "close"
+  scrollable: false
+  preferredWidth: 440
+  bodySpacing: 0
 
   property var layerTree
   property var index
@@ -451,12 +458,6 @@ QfPopup {
       "shape": "square"
     })
 
-  parent: mainWindow.contentItem
-  width: Math.min(childrenRect.width, mainWindow.width - Theme.popupScreenEdgeHorizontalMargin)
-  height: Math.min(popupLayout.childrenRect.height + headerLayout.childrenRect.height + (zakladkiPanelu.visible ? zakladkiPanelu.height + 26 : 0) + stopka.implicitHeight + 30, mainWindow.height - Math.max(Theme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4))
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
   focus: visible
 
   onClosed: {
@@ -495,8 +496,10 @@ QfPopup {
     // wyszukiwania zostawaly jasne, kiedy reszta aplikacji byla ciemna.
     background: null
     id: popupContent
-    width: parent.width
-    height: parent.height
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    // [WF-WINDOW-FRAME] the natural height (was the window height); the frame takes the whole screen when it does not fit
+    Layout.preferredHeight: popupLayout.childrenRect.height + headerLayout.childrenRect.height + (zakladkiPanelu.visible ? zakladkiPanelu.height + 26 : 0) + stopka.implicitHeight + 30
     padding: 0
     header: ColumnLayout {
       spacing: 2
@@ -703,14 +706,6 @@ QfPopup {
           popup.opacity = 1.0;
           popup.dim = true;
         }
-      }
-
-      QfButton {
-        id: doneButton
-        Layout.fillWidth: true
-        text: qsTr("Gotowe")
-        icon.source: Theme.getThemeVectorIcon("ic_check_white_24dp")
-        onClicked: close()
       }
     }
 
@@ -2821,7 +2816,7 @@ QfPopup {
         }
       }
     }
-    titleLabel.text = title !== undefined ? title : "";
+    popup.title = title !== undefined ? title : ""; // [WF-WINDOW-FRAME] the frame title (the header label stays empty, as a spacer)
   }
 
   function updateCredits() {

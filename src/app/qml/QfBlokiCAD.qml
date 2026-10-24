@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
 import org.qfield.core
+import org.qfield.gui
 import Theme
 
 /**
@@ -20,8 +21,18 @@ import Theme
  * encji w rysunku — dzięki czemu powtórzone wczytanie niczego nie dubluje.
  * Warstwa punktów nie ma gdzie takiego klucza trzymać.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar; the list scrolls by itself
+QfWindowFrame {
   id: oknoBlokowCAD
+
+  title: qsTr("Bloki z rysunku")
+  confirmText: oknoBlokowCAD.wybranych > 0 ? qsTr("Wczytaj (%1)").arg(oknoBlokowCAD.wybranych) : qsTr("Wczytaj")
+  confirmEnabled: !oknoBlokowCAD.zajety && oknoBlokowCAD.wybranych > 0
+  busy: oknoBlokowCAD.zajety
+  onConfirmed: oknoBlokowCAD.wczytaj()
+  // the block list is the main content and scrolls by itself
+  scrollable: false
+  forceFullScreen: true
 
   property var t: Theme
 
@@ -127,179 +138,123 @@ Popup {
 
   onOpened: odswiez()
 
-  parent: mainWindow.contentItem
-  width: Math.min(460, mainWindow.width - 24)
-  height: Math.min(600, mainWindow.height - 80)
-  x: (mainWindow.width - width) / 2
-  y: Math.max(12, (mainWindow.height - height) / 3)
-  modal: true
-  focus: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-  background: Rectangle {
-    color: oknoBlokowCAD.t.mainBackgroundColor
-    radius: 8
-    border.width: 1
-    border.color: oknoBlokowCAD.t.controlBorderColor
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Symbole wstawione w rysunku wejdą jako obiekty do warstwy „Symbole z rysunku”. Powtórne wczytanie niczego nie zdubluje.")
+    font: oknoBlokowCAD.t.tinyFont
+    color: oknoBlokowCAD.t.secondaryTextColor
+    wrapMode: Text.WordWrap
   }
 
-  contentItem: ColumnLayout {
-    spacing: 8
+  Text {
+    Layout.fillWidth: true
+    visible: oknoBlokowCAD.bloki.length === 0
+    text: oknoBlokowCAD.blad !== ""
+          ? oknoBlokowCAD.blad
+          : qsTr("Ten rysunek nie ma wstawionych bloków.")
+    font: oknoBlokowCAD.t.tipFont
+    color: oknoBlokowCAD.blad !== "" ? oknoBlokowCAD.t.warningColor : oknoBlokowCAD.t.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Bloki z rysunku")
-      font: oknoBlokowCAD.t.strongFont
-      color: oknoBlokowCAD.t.mainTextColor
+  RowLayout {
+    Layout.fillWidth: true
+    visible: oknoBlokowCAD.bloki.length > 0
+    spacing: 6
+
+    Button {
+      text: oknoBlokowCAD.wybranych < oknoBlokowCAD.bloki.length
+            ? qsTr("Zaznacz wszystkie")
+            : qsTr("Odznacz wszystkie")
+      font.pointSize: oknoBlokowCAD.t.tinyFont.pointSize
+      onClicked: oknoBlokowCAD.zaznaczWszystkie(oknoBlokowCAD.wybranych < oknoBlokowCAD.bloki.length)
     }
 
     Text {
       Layout.fillWidth: true
-      text: qsTr("Symbole wstawione w rysunku wejdą jako obiekty do warstwy „Symbole z rysunku”. Powtórne wczytanie niczego nie zdubluje.")
+      text: qsTr("zaznaczono %1 z %2").arg(oknoBlokowCAD.wybranych).arg(oknoBlokowCAD.bloki.length)
       font: oknoBlokowCAD.t.tinyFont
       color: oknoBlokowCAD.t.secondaryTextColor
-      wrapMode: Text.WordWrap
+      horizontalAlignment: Text.AlignRight
+      elide: Text.ElideRight
     }
+  }
 
-    Text {
-      Layout.fillWidth: true
-      visible: oknoBlokowCAD.bloki.length === 0
-      text: oknoBlokowCAD.blad !== ""
-            ? oknoBlokowCAD.blad
-            : qsTr("Ten rysunek nie ma wstawionych bloków.")
-      font: oknoBlokowCAD.t.tipFont
-      color: oknoBlokowCAD.blad !== "" ? oknoBlokowCAD.t.warningColor : oknoBlokowCAD.t.secondaryTextColor
-      wrapMode: Text.WordWrap
-    }
+  ListView {
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    clip: true
+    model: oknoBlokowCAD.bloki
+    ScrollBar.vertical: ScrollBar {}
 
-    RowLayout {
-      Layout.fillWidth: true
-      visible: oknoBlokowCAD.bloki.length > 0
-      spacing: 6
+    // Wiersz skladamy sami, zamiast dawac CheckBox-owi wlasny
+    // `contentItem`: tamten kotwiczyl sie do WLASNEGO rodzica, wiec
+    // kwadracik ladowal na srodku wiersza, a drugi napis nie mial
+    // ograniczonej szerokosci i wychodzil za okno (piaskownica 21.09).
+    delegate: Item {
+      required property int index
+      required property var modelData
 
-      Button {
-        text: oknoBlokowCAD.wybranych < oknoBlokowCAD.bloki.length
-              ? qsTr("Zaznacz wszystkie")
-              : qsTr("Odznacz wszystkie")
-        font.pointSize: oknoBlokowCAD.t.tinyFont.pointSize
-        onClicked: oknoBlokowCAD.zaznaczWszystkie(oknoBlokowCAD.wybranych < oknoBlokowCAD.bloki.length)
+      width: ListView.view.width
+      implicitHeight: kolumnaWpisu.implicitHeight + 10
+
+      CheckBox {
+        id: znacznik
+
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        checked: !!oknoBlokowCAD.wybrane[modelData.nazwa]
+        onToggled: oknoBlokowCAD.przelacz(modelData.nazwa, checked)
       }
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("zaznaczono %1 z %2").arg(oknoBlokowCAD.wybranych).arg(oknoBlokowCAD.bloki.length)
-        font: oknoBlokowCAD.t.tinyFont
-        color: oknoBlokowCAD.t.secondaryTextColor
-        horizontalAlignment: Text.AlignRight
-        elide: Text.ElideRight
-      }
-    }
+      ColumnLayout {
+        id: kolumnaWpisu
 
-    ListView {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      clip: true
-      model: oknoBlokowCAD.bloki
-      ScrollBar.vertical: ScrollBar {}
+        anchors.left: znacznik.right
+        anchors.leftMargin: 4
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 0
 
-      // Wiersz skladamy sami, zamiast dawac CheckBox-owi wlasny
-      // `contentItem`: tamten kotwiczyl sie do WLASNEGO rodzica, wiec
-      // kwadracik ladowal na srodku wiersza, a drugi napis nie mial
-      // ograniczonej szerokosci i wychodzil za okno (piaskownica 21.09).
-      delegate: Item {
-        required property int index
-        required property var modelData
-
-        width: ListView.view.width
-        implicitHeight: kolumnaWpisu.implicitHeight + 10
-
-        CheckBox {
-          id: znacznik
-
-          anchors.left: parent.left
-          anchors.verticalCenter: parent.verticalCenter
-          checked: !!oknoBlokowCAD.wybrane[modelData.nazwa]
-          onToggled: oknoBlokowCAD.przelacz(modelData.nazwa, checked)
+        Text {
+          Layout.fillWidth: true
+          text: modelData.wczytane > 0
+                ? qsTr("%1  ·  %2  (wczytane: %3)").arg(modelData.nazwa).arg(modelData.obiekty).arg(modelData.wczytane)
+                : qsTr("%1  ·  %2").arg(modelData.nazwa).arg(modelData.obiekty)
+          font: oknoBlokowCAD.t.tipFont
+          color: oknoBlokowCAD.t.mainTextColor
+          elide: Text.ElideRight
         }
 
-        ColumnLayout {
-          id: kolumnaWpisu
-
-          anchors.left: znacznik.right
-          anchors.leftMargin: 4
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          spacing: 0
-
-          Text {
-            Layout.fillWidth: true
-            text: modelData.wczytane > 0
-                  ? qsTr("%1  ·  %2  (wczytane: %3)").arg(modelData.nazwa).arg(modelData.obiekty).arg(modelData.wczytane)
-                  : qsTr("%1  ·  %2").arg(modelData.nazwa).arg(modelData.obiekty)
-            font: oknoBlokowCAD.t.tipFont
-            color: oknoBlokowCAD.t.mainTextColor
-            elide: Text.ElideRight
-          }
-
-          Text {
-            Layout.fillWidth: true
-            visible: modelData.atrybuty !== undefined && modelData.atrybuty !== ""
-            // Blok potrafi niesc wlasne wartosci (numer studzienki, rzedna).
-            // Wejda jako OSOBNE KOLUMNY warstwy, wiec warto wiedziec z gory,
-            // co sie dostanie.
-            text: qsTr("z wartościami: %1").arg(modelData.atrybuty || "")
-            font: oknoBlokowCAD.t.tinyFont
-            color: oknoBlokowCAD.t.mainColor
-            elide: Text.ElideRight
-          }
-
-          Text {
-            Layout.fillWidth: true
-            visible: modelData.warstwy !== ""
-            // Nazwa bloku to kod (PW01, OP021); co to JEST, mowi warstwa
-            // rysunku, na ktorej symbol stoi - "drzewo lisciaste".
-            text: modelData.warstwy
-            font: oknoBlokowCAD.t.tinyFont
-            color: oknoBlokowCAD.t.secondaryTextColor
-            elide: Text.ElideRight
-          }
+        Text {
+          Layout.fillWidth: true
+          visible: modelData.atrybuty !== undefined && modelData.atrybuty !== ""
+          // Blok potrafi niesc wlasne wartosci (numer studzienki, rzedna).
+          // Wejda jako OSOBNE KOLUMNY warstwy, wiec warto wiedziec z gory,
+          // co sie dostanie.
+          text: qsTr("z wartościami: %1").arg(modelData.atrybuty || "")
+          font: oknoBlokowCAD.t.tinyFont
+          color: oknoBlokowCAD.t.mainColor
+          elide: Text.ElideRight
         }
 
-        // Caly wiersz przelacza - na telefonie trafienie w sam kwadracik
-        // jest zadaniem dla cierpliwych.
-        MouseArea {
-          anchors.fill: kolumnaWpisu
-          onClicked: oknoBlokowCAD.przelacz(modelData.nazwa, !oknoBlokowCAD.wybrane[modelData.nazwa])
+        Text {
+          Layout.fillWidth: true
+          visible: modelData.warstwy !== ""
+          // Nazwa bloku to kod (PW01, OP021); co to JEST, mowi warstwa
+          // rysunku, na ktorej symbol stoi - "drzewo lisciaste".
+          text: modelData.warstwy
+          font: oknoBlokowCAD.t.tinyFont
+          color: oknoBlokowCAD.t.secondaryTextColor
+          elide: Text.ElideRight
         }
       }
-    }
 
-    RowLayout {
-      Layout.fillWidth: true
-
-      BusyIndicator {
-        implicitWidth: 20
-        implicitHeight: 20
-        running: oknoBlokowCAD.zajety
-        visible: running
-      }
-
-      Item {
-        Layout.fillWidth: true
-      }
-
-      Button {
-        text: qsTr("Zamknij")
-        font.pointSize: oknoBlokowCAD.t.tinyFont.pointSize
-        onClicked: oknoBlokowCAD.close()
-      }
-
-      Button {
-        text: oknoBlokowCAD.wybranych > 0 ? qsTr("Wczytaj (%1)").arg(oknoBlokowCAD.wybranych) : qsTr("Wczytaj")
-        font.pointSize: oknoBlokowCAD.t.tinyFont.pointSize
-        highlighted: true
-        enabled: !oknoBlokowCAD.zajety && oknoBlokowCAD.wybranych > 0
-        onClicked: oknoBlokowCAD.wczytaj()
+      // Caly wiersz przelacza - na telefonie trafienie w sam kwadracik
+      // jest zadaniem dla cierpliwych.
+      MouseArea {
+        anchors.fill: kolumnaWpisu
+        onClicked: oknoBlokowCAD.przelacz(modelData.nazwa, !oknoBlokowCAD.wybrane[modelData.nazwa])
       }
     }
   }

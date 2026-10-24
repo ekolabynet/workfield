@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs as SystemoweOkna
 import org.qfield
 import org.qfield.core
+import org.qfield.gui
 import Theme
 
 /**
@@ -33,8 +34,19 @@ import Theme
  * ZAKŁADKI, NIE JEDNA DŁUGA KOLUMNA: dwie listy (warstwy rysunku bywa ich
  * sto, bloków trzydzieści) nie zmieszczą się razem na telefonie.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar; the tabs hold
+// lists that scroll by themselves, so the window itself does not scroll
+QfWindowFrame {
   id: oknoImportuCAD
+
+  title: qsTr("Import z rysunku DXF")
+  confirmText: qsTr("Wykonaj")
+  confirmEnabled: !oknoImportuCAD.zajety
+  busy: oknoImportuCAD.zajety
+  onConfirmed: oknoImportuCAD.wykonaj()
+  preferredWidth: 520
+  scrollable: false
+  forceFullScreen: true
 
   property var t: Theme
 
@@ -286,22 +298,6 @@ Popup {
 
   onOpened: odswiez()
 
-  parent: mainWindow.contentItem
-  width: Math.min(520, mainWindow.width - 24)
-  height: Math.min(700, mainWindow.height - 60)
-  x: (mainWindow.width - width) / 2
-  y: Math.max(12, (mainWindow.height - height) / 4)
-  modal: true
-  focus: true
-  closePolicy: Popup.CloseOnEscape
-
-  background: Rectangle {
-    color: oknoImportuCAD.t.mainBackgroundColor
-    radius: 8
-    border.width: 1
-    border.color: oknoImportuCAD.t.controlBorderColor
-  }
-
   SystemoweOkna.FileDialog {
     id: wybieraczRysunku
 
@@ -314,427 +310,394 @@ Popup {
     onAccepted: oknoImportuCAD.dodajRysunek(String(selectedFile).replace(/^file:\/\//, ""))
   }
 
-  contentItem: ColumnLayout {
-    spacing: 6
+  TabBar {
+    id: zakladki
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Import z rysunku DXF")
-      font: oknoImportuCAD.t.strongFont
-      color: oknoImportuCAD.t.mainTextColor
+    Layout.fillWidth: true
+
+    TabButton {
+      text: qsTr("Rysunek")
+      font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
     }
 
-    TabBar {
-      id: zakladki
+    TabButton {
+      text: qsTr("Co widać")
+      font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+    }
 
-      Layout.fillWidth: true
+    TabButton {
+      text: qsTr("Obiekty")
+      font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+    }
 
-      TabButton {
-        text: qsTr("Rysunek")
-        font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+    TabButton {
+      text: qsTr("Wartości")
+      font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+    }
+  }
+
+  StackLayout {
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    currentIndex: zakladki.currentIndex
+
+    // ── 1. RYSUNEK ─────────────────────────────────────────────
+    ColumnLayout {
+      spacing: 6
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Wszystkie czynności biorą się z JEDNEGO rysunku. Gdy w projekcie jest ich kilka, wybierz ten, z którego mają iść bloki i opisy.")
+        font: oknoImportuCAD.t.tinyFont
+        color: oknoImportuCAD.t.secondaryTextColor
+        wrapMode: Text.WordWrap
       }
 
-      TabButton {
-        text: qsTr("Co widać")
-        font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+      ListView {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        model: oknoImportuCAD.rysunki
+        ScrollBar.vertical: ScrollBar {}
+
+        delegate: RadioButton {
+          required property int index
+          required property var modelData
+
+          width: ListView.view.width
+          text: qsTr("%1  ·  %2 warstw").arg(modelData.nazwa).arg(modelData.warstwy)
+          font.pointSize: oknoImportuCAD.t.tipFont.pointSize
+          checked: modelData.wybrany
+          onToggled: if (checked)
+            oknoImportuCAD.wybierzRysunek(modelData.plik)
+        }
       }
 
-      TabButton {
-        text: qsTr("Obiekty")
-        font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
-      }
-
-      TabButton {
-        text: qsTr("Wartości")
-        font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+      QfPozycjaMenu {
+        Layout.fillWidth: true
+        t: oknoImportuCAD.t
+        text: qsTr("Dodaj kolejny rysunek DXF…")
+        ikona: "wfg_import"
+        onClicked: wybieraczRysunku.open()
       }
     }
 
-    StackLayout {
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      currentIndex: zakladki.currentIndex
+    // ── 2. CO WIDAĆ ────────────────────────────────────────────
+    ColumnLayout {
+      spacing: 6
 
-      // ── 1. RYSUNEK ─────────────────────────────────────────────
-      ColumnLayout {
-        spacing: 6
+      CheckBox {
+        id: przelacznikKropek
 
-        Text {
-          Layout.fillWidth: true
-          text: qsTr("Wszystkie czynności biorą się z JEDNEGO rysunku. Gdy w projekcie jest ich kilka, wybierz ten, z którego mają iść bloki i opisy.")
-          font: oknoImportuCAD.t.tinyFont
-          color: oknoImportuCAD.t.secondaryTextColor
-          wrapMode: Text.WordWrap
-        }
-
-        ListView {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          clip: true
-          model: oknoImportuCAD.rysunki
-          ScrollBar.vertical: ScrollBar {}
-
-          delegate: RadioButton {
-            required property int index
-            required property var modelData
-
-            width: ListView.view.width
-            text: qsTr("%1  ·  %2 warstw").arg(modelData.nazwa).arg(modelData.warstwy)
-            font.pointSize: oknoImportuCAD.t.tipFont.pointSize
-            checked: modelData.wybrany
-            onToggled: if (checked)
-              oknoImportuCAD.wybierzRysunek(modelData.plik)
-          }
-        }
-
-        QfPozycjaMenu {
-          Layout.fillWidth: true
-          t: oknoImportuCAD.t
-          text: qsTr("Dodaj kolejny rysunek DXF…")
-          ikona: "wfg_import"
-          onClicked: wybieraczRysunku.open()
-        }
+        Layout.fillWidth: true
+        // Napis w DXF-ie jest encją PUNKTOWĄ, więc QGIS rysuje mu znacznik
+        // w miejscu zakorzenienia tekstu — obok obiektu, którego napis
+        // dotyczy. Przy kilku tysiącach napisów mapa tonie w kropkach.
+        text: qsTr("Kropki pod napisami rysunku")
+        font.pointSize: oknoImportuCAD.t.tipFont.pointSize
+        checked: typeof iface !== "undefined"
+                 ? iface.readProjectNumEntry("wfg_cad", "/kropkiNapisow", 1) !== 0
+                 : true
       }
 
-      // ── 2. CO WIDAĆ ────────────────────────────────────────────
-      ColumnLayout {
+      RowLayout {
+        Layout.fillWidth: true
+        visible: oknoImportuCAD.warstwy.length > 0
         spacing: 6
 
-        CheckBox {
-          id: przelacznikKropek
-
-          Layout.fillWidth: true
-          // Napis w DXF-ie jest encją PUNKTOWĄ, więc QGIS rysuje mu znacznik
-          // w miejscu zakorzenienia tekstu — obok obiektu, którego napis
-          // dotyczy. Przy kilku tysiącach napisów mapa tonie w kropkach.
-          text: qsTr("Kropki pod napisami rysunku")
-          font.pointSize: oknoImportuCAD.t.tipFont.pointSize
-          checked: typeof iface !== "undefined"
-                   ? iface.readProjectNumEntry("wfg_cad", "/kropkiNapisow", 1) !== 0
-                   : true
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          visible: oknoImportuCAD.warstwy.length > 0
-          spacing: 6
-
-          Button {
-            text: oknoImportuCAD.ukrytych > 0 ? qsTr("Pokaż wszystkie") : qsTr("Ukryj wszystkie")
-            font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
-            onClicked: oknoImportuCAD.wszystkieWarstwy(oknoImportuCAD.ukrytych > 0)
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: qsTr("widać %1 z %2").arg(oknoImportuCAD.warstwy.length - oknoImportuCAD.ukrytych).arg(oknoImportuCAD.warstwy.length)
-            font: oknoImportuCAD.t.tinyFont
-            color: oknoImportuCAD.t.secondaryTextColor
-            horizontalAlignment: Text.AlignRight
-            elide: Text.ElideRight
-          }
-        }
-
-        ListView {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          clip: true
-          model: oknoImportuCAD.warstwy
-          ScrollBar.vertical: ScrollBar {}
-
-          delegate: CheckBox {
-            required property int index
-            required property var modelData
-
-            width: ListView.view.width
-            text: modelData.obiekty > 0
-                  ? qsTr("%1  ·  %2").arg(modelData.nazwa).arg(modelData.obiekty)
-                  : modelData.nazwa
-            font.pointSize: oknoImportuCAD.t.tipFont.pointSize
-            checked: modelData.widoczna
-            onToggled: oknoImportuCAD.przelaczWarstwe(index, checked)
-          }
-        }
-      }
-
-      // ── 3. OBIEKTY Z BLOKÓW ────────────────────────────────────
-      ColumnLayout {
-        spacing: 6
-
-        Text {
-          Layout.fillWidth: true
-          text: oknoImportuCAD.blad !== ""
-                ? oknoImportuCAD.blad
-                : oknoImportuCAD.bloki.length === 0
-                  ? qsTr("Ten rysunek nie ma wstawionych bloków.")
-                  : qsTr("Symbole wstawione w rysunku wejdą jako obiekty do warstwy „Symbole z rysunku”. Powtórne wczytanie niczego nie zdubluje.")
-          font: oknoImportuCAD.t.tinyFont
-          color: oknoImportuCAD.blad !== "" ? oknoImportuCAD.t.warningColor : oknoImportuCAD.t.secondaryTextColor
-          wrapMode: Text.WordWrap
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          visible: oknoImportuCAD.bloki.length > 0
-          spacing: 6
-
-          Button {
-            text: oknoImportuCAD.wybranych < oknoImportuCAD.bloki.length
-                  ? qsTr("Zaznacz wszystkie")
-                  : qsTr("Odznacz wszystkie")
-            font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
-            onClicked: oknoImportuCAD.zaznaczWszystkie(oknoImportuCAD.wybranych < oknoImportuCAD.bloki.length)
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: qsTr("zaznaczono %1 z %2").arg(oknoImportuCAD.wybranych).arg(oknoImportuCAD.bloki.length)
-            font: oknoImportuCAD.t.tinyFont
-            color: oknoImportuCAD.t.secondaryTextColor
-            horizontalAlignment: Text.AlignRight
-            elide: Text.ElideRight
-          }
-        }
-
-        ListView {
-          Layout.fillWidth: true
-          Layout.fillHeight: true
-          clip: true
-          model: oknoImportuCAD.bloki
-          ScrollBar.vertical: ScrollBar {}
-
-          delegate: Item {
-            required property int index
-            required property var modelData
-
-            width: ListView.view.width
-            implicitHeight: kolumnaWpisu.implicitHeight + 10
-
-            CheckBox {
-              id: znacznik
-
-              anchors.left: parent.left
-              anchors.verticalCenter: parent.verticalCenter
-              checked: !!oknoImportuCAD.wybrane[modelData.nazwa]
-              onToggled: oknoImportuCAD.przelacz(modelData.nazwa, checked)
-            }
-
-            ColumnLayout {
-              id: kolumnaWpisu
-
-              anchors.left: znacznik.right
-              anchors.leftMargin: 4
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: 0
-
-              Text {
-                Layout.fillWidth: true
-                text: modelData.wczytane > 0
-                      ? qsTr("%1  ·  %2  (wczytane: %3)").arg(modelData.nazwa).arg(modelData.obiekty).arg(modelData.wczytane)
-                      : qsTr("%1  ·  %2").arg(modelData.nazwa).arg(modelData.obiekty)
-                font: oknoImportuCAD.t.tipFont
-                color: oknoImportuCAD.t.mainTextColor
-                elide: Text.ElideRight
-              }
-
-              Text {
-                Layout.fillWidth: true
-                visible: modelData.atrybuty !== undefined && modelData.atrybuty !== ""
-                // Blok potrafi nieść własne wartości (numer studzienki,
-                // rzędna). Wejdą jako OSOBNE KOLUMNY warstwy.
-                text: qsTr("z wartościami: %1").arg(modelData.atrybuty || "")
-                font: oknoImportuCAD.t.tinyFont
-                color: oknoImportuCAD.t.mainColor
-                elide: Text.ElideRight
-              }
-
-              Text {
-                Layout.fillWidth: true
-                visible: modelData.warstwy !== ""
-                // Nazwa bloku to kod (PW01, OP021); co to JEST, mówi
-                // warstwa rysunku, na której symbol stoi.
-                text: modelData.warstwy
-                font: oknoImportuCAD.t.tinyFont
-                color: oknoImportuCAD.t.secondaryTextColor
-                elide: Text.ElideRight
-              }
-            }
-
-            // Cały wiersz przełącza — na telefonie trafienie w sam
-            // kwadracik jest zadaniem dla cierpliwych.
-            MouseArea {
-              anchors.fill: kolumnaWpisu
-              onClicked: oknoImportuCAD.przelacz(modelData.nazwa, !oknoImportuCAD.wybrane[modelData.nazwa])
-            }
-          }
-        }
-      }
-
-      // ── 4. WARTOŚCI: OPISY I WARSTWICE ─────────────────────────
-      ColumnLayout {
-        spacing: 6
-
-        CheckBox {
-          id: przelacznikOpisow
-
-          Layout.fillWidth: true
-          text: qsTr("Dociągnij opisy i rzędne do obiektów")
-          font.pointSize: oknoImportuCAD.t.tipFont.pointSize
-          checked: true
-        }
-
-        Text {
-          Layout.fillWidth: true
-          text: qsTr("Rzędne i opisy stoją w rysunku jako osobne teksty, obok symbolu. Dociąganie wpisuje je do obiektu jako kolumny.")
-          font: oknoImportuCAD.t.tinyFont
-          color: oknoImportuCAD.t.secondaryTextColor
-          wrapMode: Text.WordWrap
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          enabled: przelacznikOpisow.checked
-
-          Text {
-            text: qsTr("Szukaj w promieniu [m]")
-            font: oknoImportuCAD.t.tipFont
-            color: oknoImportuCAD.t.mainTextColor
-          }
-
-          TextField {
-            id: polePromienia
-
-            Layout.preferredWidth: 80
-            text: "3"
-            inputMethodHints: Qt.ImhFormattedNumbersOnly
-            font.pointSize: oknoImportuCAD.t.tipFont.pointSize
-          }
-        }
-
-        Rectangle {
-          Layout.fillWidth: true
-          Layout.preferredHeight: 1
-          color: oknoImportuCAD.t.controlBorderColor
-        }
-
-        CheckBox {
-          id: przelacznikWarstwic
-
-          Layout.fillWidth: true
-          text: qsTr("Dodaj warstwice z rzędnych")
-          font.pointSize: oknoImportuCAD.t.tipFont.pointSize
-          checked: false
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          enabled: przelacznikWarstwic.checked
-
-          Text {
-            text: qsTr("Kolumna")
-            font: oknoImportuCAD.t.tipFont
-            color: oknoImportuCAD.t.mainTextColor
-          }
-
-          ComboBox {
-            id: wyborPola
-
-            Layout.fillWidth: true
-            model: oknoImportuCAD.pola
-            textRole: "pole"
-            font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
-          }
-        }
-
-        RowLayout {
-          Layout.fillWidth: true
-          enabled: przelacznikWarstwic.checked
-
-          Text {
-            text: qsTr("Cięcie [m]")
-            font: oknoImportuCAD.t.tipFont
-            color: oknoImportuCAD.t.mainTextColor
-          }
-
-          TextField {
-            id: poleOdstepu
-
-            Layout.preferredWidth: 80
-            text: "0,5"
-            inputMethodHints: Qt.ImhFormattedNumbersOnly
-            font.pointSize: oknoImportuCAD.t.tipFont.pointSize
-          }
-
-          Item {
-            Layout.fillWidth: true
-          }
-        }
-
-        CheckBox {
-          id: przelacznikMetody
-
-          Layout.fillWidth: true
-          enabled: przelacznikWarstwic.checked
-          // Zmierzone 21.09: surowa triangulacja daje warstwice kanciaste
-          // i z promieniami rozchodzącymi się od punktów. Gładko to
-          // `invdistnn` i to jest właściwy domyślny wybór.
-          text: qsTr("Wiernie przez punkty (zamiast gładko)")
+        Button {
+          text: oknoImportuCAD.ukrytych > 0 ? qsTr("Pokaż wszystkie") : qsTr("Ukryj wszystkie")
           font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
-          checked: false
+          onClicked: oknoImportuCAD.wszystkieWarstwy(oknoImportuCAD.ukrytych > 0)
         }
 
         Text {
           Layout.fillWidth: true
-          visible: oknoImportuCAD.pola.length === 0
-          text: qsTr("Nie ma jeszcze kolumny z wysokością — powstanie przy dociąganiu opisów. Spis odświeża się po wykonaniu.")
+          text: qsTr("widać %1 z %2").arg(oknoImportuCAD.warstwy.length - oknoImportuCAD.ukrytych).arg(oknoImportuCAD.warstwy.length)
           font: oknoImportuCAD.t.tinyFont
           color: oknoImportuCAD.t.secondaryTextColor
-          wrapMode: Text.WordWrap
+          horizontalAlignment: Text.AlignRight
+          elide: Text.ElideRight
+        }
+      }
+
+      ListView {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        model: oknoImportuCAD.warstwy
+        ScrollBar.vertical: ScrollBar {}
+
+        delegate: CheckBox {
+          required property int index
+          required property var modelData
+
+          width: ListView.view.width
+          text: modelData.obiekty > 0
+                ? qsTr("%1  ·  %2").arg(modelData.nazwa).arg(modelData.obiekty)
+                : modelData.nazwa
+          font.pointSize: oknoImportuCAD.t.tipFont.pointSize
+          checked: modelData.widoczna
+          onToggled: oknoImportuCAD.przelaczWarstwe(index, checked)
+        }
+      }
+    }
+
+    // ── 3. OBIEKTY Z BLOKÓW ────────────────────────────────────
+    ColumnLayout {
+      spacing: 6
+
+      Text {
+        Layout.fillWidth: true
+        text: oknoImportuCAD.blad !== ""
+              ? oknoImportuCAD.blad
+              : oknoImportuCAD.bloki.length === 0
+                ? qsTr("Ten rysunek nie ma wstawionych bloków.")
+                : qsTr("Symbole wstawione w rysunku wejdą jako obiekty do warstwy „Symbole z rysunku”. Powtórne wczytanie niczego nie zdubluje.")
+        font: oknoImportuCAD.t.tinyFont
+        color: oknoImportuCAD.blad !== "" ? oknoImportuCAD.t.warningColor : oknoImportuCAD.t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        visible: oknoImportuCAD.bloki.length > 0
+        spacing: 6
+
+        Button {
+          text: oknoImportuCAD.wybranych < oknoImportuCAD.bloki.length
+                ? qsTr("Zaznacz wszystkie")
+                : qsTr("Odznacz wszystkie")
+          font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+          onClicked: oknoImportuCAD.zaznaczWszystkie(oknoImportuCAD.wybranych < oknoImportuCAD.bloki.length)
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("zaznaczono %1 z %2").arg(oknoImportuCAD.wybranych).arg(oknoImportuCAD.bloki.length)
+          font: oknoImportuCAD.t.tinyFont
+          color: oknoImportuCAD.t.secondaryTextColor
+          horizontalAlignment: Text.AlignRight
+          elide: Text.ElideRight
+        }
+      }
+
+      ListView {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        clip: true
+        model: oknoImportuCAD.bloki
+        ScrollBar.vertical: ScrollBar {}
+
+        delegate: Item {
+          required property int index
+          required property var modelData
+
+          width: ListView.view.width
+          implicitHeight: kolumnaWpisu.implicitHeight + 10
+
+          CheckBox {
+            id: znacznik
+
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            checked: !!oknoImportuCAD.wybrane[modelData.nazwa]
+            onToggled: oknoImportuCAD.przelacz(modelData.nazwa, checked)
+          }
+
+          ColumnLayout {
+            id: kolumnaWpisu
+
+            anchors.left: znacznik.right
+            anchors.leftMargin: 4
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 0
+
+            Text {
+              Layout.fillWidth: true
+              text: modelData.wczytane > 0
+                    ? qsTr("%1  ·  %2  (wczytane: %3)").arg(modelData.nazwa).arg(modelData.obiekty).arg(modelData.wczytane)
+                    : qsTr("%1  ·  %2").arg(modelData.nazwa).arg(modelData.obiekty)
+              font: oknoImportuCAD.t.tipFont
+              color: oknoImportuCAD.t.mainTextColor
+              elide: Text.ElideRight
+            }
+
+            Text {
+              Layout.fillWidth: true
+              visible: modelData.atrybuty !== undefined && modelData.atrybuty !== ""
+              // Blok potrafi nieść własne wartości (numer studzienki,
+              // rzędna). Wejdą jako OSOBNE KOLUMNY warstwy.
+              text: qsTr("z wartościami: %1").arg(modelData.atrybuty || "")
+              font: oknoImportuCAD.t.tinyFont
+              color: oknoImportuCAD.t.mainColor
+              elide: Text.ElideRight
+            }
+
+            Text {
+              Layout.fillWidth: true
+              visible: modelData.warstwy !== ""
+              // Nazwa bloku to kod (PW01, OP021); co to JEST, mówi
+              // warstwa rysunku, na której symbol stoi.
+              text: modelData.warstwy
+              font: oknoImportuCAD.t.tinyFont
+              color: oknoImportuCAD.t.secondaryTextColor
+              elide: Text.ElideRight
+            }
+          }
+
+          // Cały wiersz przełącza — na telefonie trafienie w sam
+          // kwadracik jest zadaniem dla cierpliwych.
+          MouseArea {
+            anchors.fill: kolumnaWpisu
+            onClicked: oknoImportuCAD.przelacz(modelData.nazwa, !oknoImportuCAD.wybrane[modelData.nazwa])
+          }
+        }
+      }
+    }
+
+    // ── 4. WARTOŚCI: OPISY I WARSTWICE ─────────────────────────
+    ColumnLayout {
+      spacing: 6
+
+      CheckBox {
+        id: przelacznikOpisow
+
+        Layout.fillWidth: true
+        text: qsTr("Dociągnij opisy i rzędne do obiektów")
+        font.pointSize: oknoImportuCAD.t.tipFont.pointSize
+        checked: true
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Rzędne i opisy stoją w rysunku jako osobne teksty, obok symbolu. Dociąganie wpisuje je do obiektu jako kolumny.")
+        font: oknoImportuCAD.t.tinyFont
+        color: oknoImportuCAD.t.secondaryTextColor
+        wrapMode: Text.WordWrap
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        enabled: przelacznikOpisow.checked
+
+        Text {
+          text: qsTr("Szukaj w promieniu [m]")
+          font: oknoImportuCAD.t.tipFont
+          color: oknoImportuCAD.t.mainTextColor
+        }
+
+        TextField {
+          id: polePromienia
+
+          Layout.preferredWidth: 80
+          text: "3"
+          inputMethodHints: Qt.ImhFormattedNumbersOnly
+          font.pointSize: oknoImportuCAD.t.tipFont.pointSize
+        }
+      }
+
+      Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 1
+        color: oknoImportuCAD.t.controlBorderColor
+      }
+
+      CheckBox {
+        id: przelacznikWarstwic
+
+        Layout.fillWidth: true
+        text: qsTr("Dodaj warstwice z rzędnych")
+        font.pointSize: oknoImportuCAD.t.tipFont.pointSize
+        checked: false
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        enabled: przelacznikWarstwic.checked
+
+        Text {
+          text: qsTr("Kolumna")
+          font: oknoImportuCAD.t.tipFont
+          color: oknoImportuCAD.t.mainTextColor
+        }
+
+        ComboBox {
+          id: wyborPola
+
+          Layout.fillWidth: true
+          model: oknoImportuCAD.pola
+          textRole: "pole"
+          font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        enabled: przelacznikWarstwic.checked
+
+        Text {
+          text: qsTr("Cięcie [m]")
+          font: oknoImportuCAD.t.tipFont
+          color: oknoImportuCAD.t.mainTextColor
+        }
+
+        TextField {
+          id: poleOdstepu
+
+          Layout.preferredWidth: 80
+          text: "0,5"
+          inputMethodHints: Qt.ImhFormattedNumbersOnly
+          font.pointSize: oknoImportuCAD.t.tipFont.pointSize
         }
 
         Item {
-          Layout.fillHeight: true
+          Layout.fillWidth: true
         }
       }
-    }
 
-    Text {
-      Layout.fillWidth: true
-      visible: oknoImportuCAD.stan !== ""
-      text: oknoImportuCAD.stan
-      font: oknoImportuCAD.t.tipFont
-      color: oknoImportuCAD.t.mainTextColor
-      wrapMode: Text.WordWrap
-    }
+      CheckBox {
+        id: przelacznikMetody
 
-    RowLayout {
-      Layout.fillWidth: true
+        Layout.fillWidth: true
+        enabled: przelacznikWarstwic.checked
+        // Zmierzone 21.09: surowa triangulacja daje warstwice kanciaste
+        // i z promieniami rozchodzącymi się od punktów. Gładko to
+        // `invdistnn` i to jest właściwy domyślny wybór.
+        text: qsTr("Wiernie przez punkty (zamiast gładko)")
+        font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
+        checked: false
+      }
 
-      BusyIndicator {
-        implicitWidth: 20
-        implicitHeight: 20
-        running: oknoImportuCAD.zajety
-        visible: running
+      Text {
+        Layout.fillWidth: true
+        visible: oknoImportuCAD.pola.length === 0
+        text: qsTr("Nie ma jeszcze kolumny z wysokością — powstanie przy dociąganiu opisów. Spis odświeża się po wykonaniu.")
+        font: oknoImportuCAD.t.tinyFont
+        color: oknoImportuCAD.t.secondaryTextColor
+        wrapMode: Text.WordWrap
       }
 
       Item {
-        Layout.fillWidth: true
-      }
-
-      Button {
-        text: qsTr("Zamknij")
-        font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
-        onClicked: oknoImportuCAD.close()
-      }
-
-      Button {
-        text: qsTr("Wykonaj")
-        font.pointSize: oknoImportuCAD.t.tinyFont.pointSize
-        highlighted: true
-        enabled: !oknoImportuCAD.zajety
-        onClicked: oknoImportuCAD.wykonaj()
+        Layout.fillHeight: true
       }
     }
+  }
+
+  Text {
+    Layout.fillWidth: true
+    visible: oknoImportuCAD.stan !== ""
+    text: oknoImportuCAD.stan
+    font: oknoImportuCAD.t.tipFont
+    color: oknoImportuCAD.t.mainTextColor
+    wrapMode: Text.WordWrap
+  }
+
+  BusyIndicator {
+    implicitWidth: 20
+    implicitHeight: 20
+    running: oknoImportuCAD.zajety
+    visible: running
   }
 }

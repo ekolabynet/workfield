@@ -110,7 +110,7 @@ Rectangle {
 
     Text {
       // Insure that the text is always visually centered by using the same left and right margin
-      property double balancedMargin: Math.max((saveButton.visible ? saveButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (cancelButton.visible ? cancelButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (digitizeToggle.visible ? digitizeToggle.width : 0) + (zalacznikButton.visible ? zalacznikButton.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
+      property double balancedMargin: Math.max((cancelButton.visible ? cancelButton.width : 0) + (previousButton.visible ? previousButton.width : 0) + (nextButton.visible ? nextButton.width : 0) + (multiClearButton.visible ? multiClearButton.width : 0), (saveButton.visible ? saveButton.width : 0) + (editButton.visible ? editButton.width : 0) + (editGeomButton.visible ? editGeomButton.width : 0) + (digitizeToggle.visible ? digitizeToggle.width : 0) + (zalacznikButton.visible ? zalacznikButton.width : 0) + (multiEditButton.visible ? multiEditButton.width : 0) + (menuButton.visible ? menuButton.width : 0))
       font: Theme.strongFont
       color: Theme.mainOverlayColor
       anchors.left: parent.left
@@ -243,11 +243,13 @@ Rectangle {
     }
   }
 
+  // [WF-WINDOW-FRAME] 24.10.2026 — the same exits as every window: ✓ green on
+  // the RIGHT, ✕ orange on the LEFT (were swapped: ✓ left, ✕ right).
   QfToolButton {
     id: saveButton
 
-    anchors.left: parent.left
-    anchors.leftMargin: toolBar.leftMargin
+    anchors.right: parent.right
+    anchors.rightMargin: toolBar.rightMargin
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
@@ -258,7 +260,7 @@ Rectangle {
 
     iconSource: Theme.getThemeVectorIcon("ic_check_white_24dp")
     iconColor: !featureForm.model.constraintsHardValid ? Theme.mainOverlayColor : Theme.mainOverlayColor
-    bgcolor: !featureForm.model.constraintsHardValid ? Theme.errorColor : !featureForm.model.constraintsSoftValid ? Theme.warningColor : featureForm.model.hasConstraints ? Theme.goodColor : "transparent"
+    bgcolor: !featureForm.model.constraintsHardValid ? Theme.errorColor : !featureForm.model.constraintsSoftValid ? Theme.warningColor : "#43a047"
     borderColor: Theme.mainBackgroundColor
     roundborder: true
     round: true
@@ -284,8 +286,8 @@ Rectangle {
   QfToolButton {
     id: cancelButton
 
-    anchors.right: parent.right
-    anchors.rightMargin: toolBar.rightMargin
+    anchors.left: parent.left
+    anchors.leftMargin: toolBar.leftMargin
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 
@@ -295,7 +297,9 @@ Rectangle {
     clip: true
 
     iconSource: Theme.getThemeVectorIcon("ic_clear_white_24dp")
-    iconColor: Theme.mainOverlayColor
+    iconColor: "white"
+    bgcolor: "#fb8c00" // [WF-WINDOW-FRAME] leave without saving
+    round: true
 
     onClicked: {
       toolBar.cancel();
@@ -486,7 +490,7 @@ Rectangle {
   QfToolButton {
     id: multiClearButton
 
-    anchors.left: saveButton.right
+    anchors.left: cancelButton.right // [WF-WINDOW-FRAME] ✓ moved to the right
     anchors.top: parent.top
     anchors.topMargin: toolBar.topMargin + 5
 

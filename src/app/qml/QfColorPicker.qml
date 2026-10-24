@@ -5,13 +5,16 @@ import QtQuick.Layouts
 import Theme
 import org.qfield.gui // [WF-BUTTONS] QfDecisionButton
 
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: colorPicker
 
   property var t
   property color currentColor: "#000000"
   property bool allowAlpha: true
-  property string title: qsTr("Wybierz kolor")
+  title: qsTr("Wybierz kolor")
+  confirmText: qsTr("Wybierz")
+  onConfirmed: confirm()
 
   signal colorPicked(color chosen)
 
@@ -57,246 +60,208 @@ Popup {
     open();
   }
 
-  parent: mainWindow.contentItem
-  width: Math.min(420, mainWindow.width - 24)
-  height: Math.min(implicitHeight, mainWindow.height - 48)
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  modal: true
-  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+  // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Wybierz” button below)
+  function confirm() {
+    const c = colorPicker.currentColor;
+    const result = colorPicker.allowAlpha ? Qt.rgba(c.r, c.g, c.b, colorPicker.alphaValue) : c;
+    colorPicker.colorPicked(result);
+    colorPicker.close();
+  }
 
-  ColumnLayout {
-    anchors.fill: parent
+  RowLayout {
+    Layout.fillWidth: true
     spacing: 8
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
+    Rectangle {
+      width: 40
+      height: 28
+      radius: 4
+      color: colorPicker.currentColor
+      border.width: 1
+      border.color: t.controlBorderColor
+    }
+  }
 
-      Text {
-        Layout.fillWidth: true
-        text: colorPicker.title
-        font: t.strongFont
-        color: t.mainTextColor
-      }
+  // WorkField 19.08.2026: pelna paleta Materialize CSS (19 barw x maks. 14
+  // wariantow). Kafelek ma STALY rozmiar, a siatka przewija sie w obie
+  // strony — kurczenie kafelkow do szerokosci okna zrobiloby z 19 wierszy
+  // mozaike nie do trafienia palcem w rekawicy.
+  Flickable {
+    id: paletteView
 
-      Rectangle {
-        width: 40
-        height: 28
-        radius: 4
-        color: colorPicker.currentColor
-        border.width: 1
-        border.color: t.controlBorderColor
-      }
+    readonly property int cellSize: 28
+    readonly property int cellSpacing: 3
+    readonly property int maxColumns: {
+      let n = 0;
+      for (let i = 0; i < colorPicker.palette.length; ++i)
+        n = Math.max(n, colorPicker.palette[i].length);
+      return n;
     }
 
-    // WorkField 19.08.2026: pelna paleta Materialize CSS (19 barw x maks. 14
-    // wariantow). Kafelek ma STALY rozmiar, a siatka przewija sie w obie
-    // strony — kurczenie kafelkow do szerokosci okna zrobiloby z 19 wierszy
-    // mozaike nie do trafienia palcem w rekawicy.
-    Flickable {
-      id: paletteView
+    Layout.fillWidth: true
+    Layout.preferredHeight: Math.min(paletteGrid.height, mainWindow.height * 0.45)
 
-      readonly property int cellSize: 28
-      readonly property int cellSpacing: 3
-      readonly property int maxColumns: {
-        let n = 0;
-        for (let i = 0; i < colorPicker.palette.length; ++i)
-          n = Math.max(n, colorPicker.palette[i].length);
-        return n;
-      }
+    contentWidth: paletteGrid.width
+    contentHeight: paletteGrid.height
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+    flickableDirection: Flickable.HorizontalAndVerticalFlick
 
-      Layout.fillWidth: true
-      Layout.preferredHeight: Math.min(paletteGrid.height, mainWindow.height * 0.45)
+    ScrollBar.vertical: ScrollBar {
+      policy: paletteView.contentHeight > paletteView.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+    }
+    ScrollBar.horizontal: ScrollBar {
+      policy: paletteView.contentWidth > paletteView.width ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+    }
 
-      contentWidth: paletteGrid.width
-      contentHeight: paletteGrid.height
-      clip: true
-      boundsBehavior: Flickable.StopAtBounds
-      flickableDirection: Flickable.HorizontalAndVerticalFlick
+    Column {
+      id: paletteGrid
 
-      ScrollBar.vertical: ScrollBar {
-        policy: paletteView.contentHeight > paletteView.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
-      }
-      ScrollBar.horizontal: ScrollBar {
-        policy: paletteView.contentWidth > paletteView.width ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
-      }
+      width: paletteView.maxColumns * (paletteView.cellSize + paletteView.cellSpacing)
+      spacing: paletteView.cellSpacing
 
-      Column {
-        id: paletteGrid
+      Repeater {
+        model: colorPicker.palette
 
-        width: paletteView.maxColumns * (paletteView.cellSize + paletteView.cellSpacing)
-        spacing: paletteView.cellSpacing
+        delegate: Row {
+          required property var modelData
 
-        Repeater {
-          model: colorPicker.palette
+          spacing: paletteView.cellSpacing
 
-          delegate: Row {
-            required property var modelData
+          Repeater {
+            model: parent.modelData
 
-            spacing: paletteView.cellSpacing
+            delegate: Rectangle {
+              required property string modelData
 
-            Repeater {
-              model: parent.modelData
+              width: paletteView.cellSize
+              height: paletteView.cellSize
+              radius: 3
+              color: modelData
+              border.width: Qt.colorEqual(colorPicker.currentColor, modelData) ? 2 : 1
+              border.color: Qt.colorEqual(colorPicker.currentColor, modelData) ? t.mainTextColor : t.controlBorderColor
 
-              delegate: Rectangle {
-                required property string modelData
-
-                width: paletteView.cellSize
-                height: paletteView.cellSize
-                radius: 3
-                color: modelData
-                border.width: Qt.colorEqual(colorPicker.currentColor, modelData) ? 2 : 1
-                border.color: Qt.colorEqual(colorPicker.currentColor, modelData) ? t.mainTextColor : t.controlBorderColor
-
-                MouseArea {
-                  anchors.fill: parent
-                  onClicked: colorPicker.currentColor = parent.modelData
-                }
+              MouseArea {
+                anchors.fill: parent
+                onClicked: colorPicker.currentColor = parent.modelData
               }
             }
           }
         }
       }
     }
+  }
 
-    RowLayout {
+  RowLayout {
+    Layout.fillWidth: true
+    Layout.topMargin: 6
+    spacing: 8
+    visible: colorPicker.allowAlpha
+
+    Text {
+      text: qsTr("Krycie")
+      font: t.defaultFont
+      color: t.mainTextColor
+    }
+
+    Slider {
       Layout.fillWidth: true
-      Layout.topMargin: 6
-      spacing: 8
-      visible: colorPicker.allowAlpha
+      from: 0
+      to: 1
+      value: colorPicker.alphaValue
+      onMoved: colorPicker.alphaValue = value
+    }
 
-      Text {
-        text: qsTr("Krycie")
-        font: t.defaultFont
-        color: t.mainTextColor
-      }
+    Text {
+      text: Math.round(colorPicker.alphaValue * 100) + " %"
+      font: t.tipFont
+      color: t.secondaryTextColor
+    }
+  }
 
-      Slider {
-        Layout.fillWidth: true
-        from: 0
-        to: 1
-        value: colorPicker.alphaValue
-        onMoved: colorPicker.alphaValue = value
-      }
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.topMargin: 6
+    Layout.preferredHeight: 1
+    color: t.controlBorderColor
+    visible: colorPicker.showStrokeOptions
+  }
 
-      Text {
-        text: Math.round(colorPicker.alphaValue * 100) + " %"
-        font: t.tipFont
-        color: t.secondaryTextColor
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+    visible: colorPicker.showStrokeOptions
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Grubość")
+      font: t.defaultFont
+      color: t.mainTextColor
+    }
+
+    Button {
+      text: "−"
+      implicitWidth: 46
+      onClicked: {
+        colorPicker.strokeWidth = Math.max(0, colorPicker.strokeWidth - 0.1);
+        colorPicker.strokeWidthPicked(colorPicker.strokeWidth);
       }
     }
 
-    Rectangle {
-      Layout.fillWidth: true
-      Layout.topMargin: 6
-      Layout.preferredHeight: 1
-      color: t.controlBorderColor
-      visible: colorPicker.showStrokeOptions
+    Text {
+      Layout.preferredWidth: 74
+      horizontalAlignment: Text.AlignHCenter
+      text: colorPicker.strokeWidth.toFixed(1) + " mm"
+      font: t.strongTipFont
+      color: t.mainTextColor
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-      visible: colorPicker.showStrokeOptions
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Grubość")
-        font: t.defaultFont
-        color: t.mainTextColor
+    Button {
+      text: "+"
+      implicitWidth: 46
+      onClicked: {
+        colorPicker.strokeWidth = Math.min(10, colorPicker.strokeWidth + 0.1);
+        colorPicker.strokeWidthPicked(colorPicker.strokeWidth);
       }
+    }
+  }
 
-      Button {
-        text: "−"
-        implicitWidth: 46
-        onClicked: {
-          colorPicker.strokeWidth = Math.max(0, colorPicker.strokeWidth - 0.1);
-          colorPicker.strokeWidthPicked(colorPicker.strokeWidth);
+  Flow {
+    Layout.fillWidth: true
+    spacing: 6
+    visible: colorPicker.showStrokeOptions
+
+    Repeater {
+      model: [
+        {
+          "s": 1,
+          "n": qsTr("Ciągła")
+        },
+        {
+          "s": 2,
+          "n": qsTr("Kreskowana")
+        },
+        {
+          "s": 3,
+          "n": qsTr("Kropkowana")
+        },
+        {
+          "s": 4,
+          "n": qsTr("Kreska-kropka")
         }
-      }
+      ]
 
-      Text {
-        Layout.preferredWidth: 74
-        horizontalAlignment: Text.AlignHCenter
-        text: colorPicker.strokeWidth.toFixed(1) + " mm"
-        font: t.strongTipFont
-        color: t.mainTextColor
-      }
+      delegate: Button {
+        required property var modelData
 
-      Button {
-        text: "+"
-        implicitWidth: 46
-        onClicked: {
-          colorPicker.strokeWidth = Math.min(10, colorPicker.strokeWidth + 0.1);
-          colorPicker.strokeWidthPicked(colorPicker.strokeWidth);
-        }
-      }
-    }
-
-    Flow {
-      Layout.fillWidth: true
-      spacing: 6
-      visible: colorPicker.showStrokeOptions
-
-      Repeater {
-        model: [
-          {
-            "s": 1,
-            "n": qsTr("Ciągła")
-          },
-          {
-            "s": 2,
-            "n": qsTr("Kreskowana")
-          },
-          {
-            "s": 3,
-            "n": qsTr("Kropkowana")
-          },
-          {
-            "s": 4,
-            "n": qsTr("Kreska-kropka")
-          }
-        ]
-
-        delegate: Button {
-          required property var modelData
-
-          text: modelData.n
-          font.pointSize: t.tinyFont.pointSize
-          checkable: true
-          checked: colorPicker.strokeStyle === modelData.s
-
-          onClicked: {
-            colorPicker.strokeStyle = modelData.s;
-            colorPicker.strokeStylePicked(modelData.s);
-          }
-        }
-      }
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      Layout.topMargin: 8
-      spacing: 8
-
-      QfDecisionButton {
-        role: "cancel" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Anuluj")
-        onClicked: colorPicker.close()
-      }
-
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Wybierz")
+        text: modelData.n
+        font.pointSize: t.tinyFont.pointSize
+        checkable: true
+        checked: colorPicker.strokeStyle === modelData.s
 
         onClicked: {
-          const c = colorPicker.currentColor;
-          const result = colorPicker.allowAlpha ? Qt.rgba(c.r, c.g, c.b, colorPicker.alphaValue) : c;
-          colorPicker.colorPicked(result);
-          colorPicker.close();
+          colorPicker.strokeStyle = modelData.s;
+          colorPicker.strokeStylePicked(modelData.s);
         }
       }
     }

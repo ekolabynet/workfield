@@ -175,61 +175,45 @@ ColumnLayout {
     }
   }
 
-  Dialog {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar, scrolling body
+  QfWindowFrame {
     id: storageMigrateDialog
 
     property string targetDir: ""
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    width: Math.min(mainWindow.width - 40, 420)
-    modal: true
     title: qsTr("Zmiana katalogu danych")
+    exitMode: "close"
 
-    ColumnLayout {
-      anchors.fill: parent
-      spacing: 8
+    Label {
+      Layout.fillWidth: true
+      text: qsTr("Co zrobić z obecnymi danymi? Przenoszenie i kopiowanie może potrwać kilka minut przy dużych plikach — nie zamykaj aplikacji w trakcie.")
+      font: Theme.defaultFont
+      color: Theme.mainTextColor
+      wrapMode: Text.WordWrap
+    }
 
-      Label {
-        Layout.fillWidth: true
-        text: qsTr("Co zrobić z obecnymi danymi? Przenoszenie i kopiowanie może potrwać kilka minut przy dużych plikach — nie zamykaj aplikacji w trakcie.")
-        font: Theme.defaultFont
-        color: Theme.mainTextColor
-        wrapMode: Text.WordWrap
-      }
+    QfDecisionButton {
+      role: "confirm" // [WF-BUTTONS]
+      Layout.fillWidth: true
+      text: qsTr("Przenieś dane do nowej lokalizacji")
+      font.pointSize: Theme.tinyFont.pointSize
+      onClicked: storageMigrateDialog.apply(true, true)
+    }
 
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Przenieś dane do nowej lokalizacji")
-        font.pointSize: Theme.tinyFont.pointSize
-        onClicked: storageMigrateDialog.apply(true, true)
-      }
+    QfDecisionButton {
+      role: "confirm" // [WF-BUTTONS]
+      Layout.fillWidth: true
+      text: qsTr("Skopiuj dane (oryginały zostają)")
+      font.pointSize: Theme.tinyFont.pointSize
+      onClicked: storageMigrateDialog.apply(true, false)
+    }
 
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Skopiuj dane (oryginały zostają)")
-        font.pointSize: Theme.tinyFont.pointSize
-        onClicked: storageMigrateDialog.apply(true, false)
-      }
-
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Zacznij z pustym katalogiem")
-        font.pointSize: Theme.tinyFont.pointSize
-        onClicked: storageMigrateDialog.apply(false, false)
-      }
-
-      QfDecisionButton {
-        role: "cancel" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Anuluj")
-        font.pointSize: Theme.tinyFont.pointSize
-        onClicked: storageMigrateDialog.close()
-      }
+    QfDecisionButton {
+      role: "confirm" // [WF-BUTTONS]
+      Layout.fillWidth: true
+      text: qsTr("Zacznij z pustym katalogiem")
+      font.pointSize: Theme.tinyFont.pointSize
+      onClicked: storageMigrateDialog.apply(false, false)
     }
 
     function apply(migrate, removeSource) {

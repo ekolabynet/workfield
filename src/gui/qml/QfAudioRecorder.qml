@@ -10,8 +10,24 @@ import org.qfield.gui
 /**
  * \ingroup qml
  */
-QfPopup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕ / ✓ Zapisz in the title bar
+QfWindowFrame {
   id: audioRecorder
+
+  title: qsTr('Audio Recorder')
+  confirmText: qsTr("Zapisz")
+  confirmEnabled: audioRecorder.hasRecordedClip
+  preferredWidth: 400
+  onConfirmed: confirm()
+  // ✕ = the former close button: users of this window listen to `canceled`
+  onCancelled: audioRecorder.canceled()
+
+  // [WF-WINDOW-FRAME] ✓ in the title bar (was the round ✓ next to the player)
+  function confirm() {
+    const path = recorder.actualLocation.toString();
+    audioRecorder.finished(QfUrlUtils.toLocalFile(path));
+    audioRecorder.close();
+  }
 
   signal finished(string path)
   signal canceled
@@ -20,15 +36,8 @@ QfPopup {
   property bool hasRecordedClip: player.duration > 0
   property int popupWidth: Math.min(400, mainWindow.width <= mainWindow.height ? mainWindow.width - QfTheme.popupScreenEdgeVerticalMargin : mainWindow.height - QfTheme.popupScreenEdgeVerticalMargin)
 
-  width: popupWidth
-  height: Math.min(mainWindow.height - Math.max(QfTheme.popupScreenEdgeVerticalMargin * 2, mainWindow.sceneTopMargin * 2 + 4, mainWindow.sceneBottomMargin * 2 + 4), popupWidth + toolBar.height + recordButton.height)
-  x: (parent.width - width) / 2
-  y: (parent.height - height) / 2
   z: 10000 // 1000s are embedded feature forms, use a higher value to insure feature form popups always show above embedded feature formes
-  parent: mainWindow.contentItem
 
-  closePolicy: Popup.CloseOnEscape
-  dim: true
 
   onAboutToShow: {
     preRecording = true;
@@ -78,81 +87,39 @@ QfPopup {
     }
   }
 
-  Video {
-    id: player
-
-    property bool loaded: false
-
-    anchors.left: parent.left
-    anchors.top: parent.top
-    visible: false
-    width: parent.width
-    height: parent.height - 54
-
-    muted: false
-    volume: 1.0
-
-    onDurationChanged: {
-      if (duration > 0 && !loaded) {
-        playerLoader.stop();
-        loaded = true;
-      }
-      positionSlider.to = duration / 1000;
-      positionSlider.value = 0;
-    }
-
-    onPositionChanged: {
-      positionSlider.value = position / 1000;
-    }
-  }
-
   Page {
-    width: parent.width
-    height: parent.height
+    Layout.fillWidth: true
+    Layout.preferredHeight: audioRecorder.popupWidth // [WF-WINDOW-FRAME] the record / level area
     padding: 10
-    header: ToolBar {
-      id: toolBar
+    background: null // the frame paints the background (Page's own Material one would differ)
 
-      topPadding: 0
-      leftPadding: 0
-      rightPadding: 0
-      bottomPadding: 0
+    Video {
+      id: player
 
-      background: Rectangle {
-        color: "transparent"
-        height: QfTheme.toolButtonSize
+      property bool loaded: false
+
+      anchors.left: parent.left
+      anchors.top: parent.top
+      visible: false
+      width: parent.width
+      height: parent.height - 54
+
+      muted: false
+      volume: 1.0
+
+      onDurationChanged: {
+        if (duration > 0 && !loaded) {
+          playerLoader.stop();
+          loaded = true;
+        }
+        positionSlider.to = duration / 1000;
+        positionSlider.value = 0;
       }
 
-      RowLayout {
-        width: parent.width
-        height: QfTheme.toolButtonSize
-
-        Label {
-          Layout.leftMargin: 58
-          Layout.fillWidth: true
-          Layout.alignment: Qt.AlignVCenter
-          text: qsTr('Audio Recorder')
-          font: QfTheme.strongFont
-          color: QfTheme.mainColor
-          horizontalAlignment: Text.AlignHCenter
-          wrapMode: Text.WordWrap
-        }
-
-        QfToolButton {
-          id: closeButton
-          Layout.rightMargin: 10
-          Layout.alignment: Qt.AlignVCenter
-          iconSource: QfTheme.getThemeVectorIcon('ic_close_white_24dp')
-          iconColor: QfTheme.mainTextColor
-          bgcolor: "transparent"
-
-          onClicked: {
-            audioRecorder.canceled();
-          }
-        }
+      onPositionChanged: {
+        positionSlider.value = position / 1000;
       }
     }
-
     ColumnLayout {
       width: parent.width
       height: parent.height
@@ -307,22 +274,6 @@ QfPopup {
           font: durationLabel.font
         }
 
-        QfToolButton {
-          id: acceptButton
-          enabled: audioRecorder.hasRecordedClip
-          opacity: enabled ? 1 : 0.2
-          Layout.alignment: Qt.AlignVCenter
-          iconSource: QfTheme.getThemeVectorIcon('ic_check_white_24dp')
-          iconColor: enabled ? QfTheme.toolButtonColor : QfTheme.toolButtonBackgroundSemiOpaqueColor
-          bgcolor: enabled ? QfTheme.mainColor : "transparent"
-          round: true
-
-          onClicked: {
-            const path = recorder.actualLocation.toString();
-            audioRecorder.finished(QfUrlUtils.toLocalFile(path));
-            audioRecorder.close();
-          }
-        }
       }
     }
   }

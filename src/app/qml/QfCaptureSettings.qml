@@ -13,8 +13,22 @@ import Theme
  * Definicje mieszkaja w pliku workfield_klawisze.json w katalogu projektu,
  * wiec wedruja razem z nim (takze przez QFieldSync) i sa czytelne w edytorze.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar; the key list
+// scrolls by itself, so the window itself does not scroll
+QfWindowFrame {
   id: captureSettings
+
+  title: qsTr("Klawisze szybkiego zapisu")
+  confirmText: qsTr("Zapisz")
+  onConfirmed: captureSettings.zapisz()
+  preferredWidth: 520
+  scrollable: false
+  forceFullScreen: true
+  // own dark look of this window (was its own background)
+  backgroundColor: "#EE263238"
+  titleBarColor: "#263238"
+  titleTextColor: "#80CBC4"
+  borderColor: "#455A64"
 
   property var t
 
@@ -22,21 +36,6 @@ Popup {
   property string odleglosci: "25, 50, 100, 200"
 
   readonly property var paleta: ["#69F0AE", "#AB47BC", "#FF9800", "#18FFFF", "#C6FF00", "#B0BEC5", "#FFAB91", "#F48FB1"]
-
-  parent: mainWindow.contentItem
-  width: Math.min(520, mainWindow.width - 24)
-  height: Math.min(640, mainWindow.height - 48)
-  x: (mainWindow.width - width) / 2
-  y: (mainWindow.height - height) / 2
-  modal: true
-  closePolicy: Popup.CloseOnEscape
-
-  background: Rectangle {
-    color: "#EE263238"
-    radius: 8
-    border.color: "#455A64"
-    border.width: 1
-  }
 
   function openDialog() {
     const zapisane = quickCaptureBar.loadDefinitions();
@@ -161,199 +160,166 @@ Popup {
     }
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 12
-    spacing: 8
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Ustawienia zapisują się do pliku w katalogu projektu, więc jadą razem z nim do zespołu.")
+    color: "#B0BEC5"
+    font: Theme.tinyFont
+    wrapMode: Text.Wrap
+  }
 
-    Text {
-      Layout.fillWidth: true
-      text: qsTr("Klawisze szybkiego zapisu")
-      color: "#80CBC4"
-      font: Theme.strongFont
-      wrapMode: Text.Wrap
+  ListView {
+    id: lista
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    clip: true
+    spacing: 4
+    model: captureSettings.wpisy
+
+    ScrollBar.vertical: ScrollBar {
     }
 
+    delegate: Rectangle {
+      width: lista.width
+      height: 46
+      radius: 4
+      // Ukryty kafel widac w edytorze, ale przygaszony — inaczej nie
+      // bylo by wiadomo, czym jest wiersz bez zadnego znaku.
+      opacity: modelData.ukryty === true ? 0.45 : 1.0
+      color: "#22FFFFFF"
+
+      RowLayout {
+        anchors.fill: parent
+        anchors.leftMargin: 6
+        anchors.rightMargin: 6
+        spacing: 6
+
+        Rectangle {
+          width: 26
+          height: 26
+          radius: 13
+          color: modelData.kolor
+          border.color: "#003D33"
+          border.width: 1
+
+          MouseArea {
+            anchors.fill: parent
+            onClicked: captureSettings.zmienPole(index, "kolor", captureSettings.nastepnyKolor(modelData.kolor))
+            onPressAndHold: {
+              captureSettings.kolorDlaIndeksu = index;
+              colorPicker.allowAlpha = false;
+              colorPicker.openFor(modelData.kolor);
+            }
+          }
+        }
+
+        TextField {
+          Layout.preferredWidth: 52
+          text: modelData.etykieta
+          color: "white"
+          font: Theme.tipFont
+          maximumLength: 3
+          onEditingFinished: captureSettings.zmienPole(index, "etykieta", text)
+        }
+
+        Text {
+          Layout.fillWidth: true
+          text: modelData.warstwa
+          color: "white"
+          font: Theme.tinyFont
+          elide: Text.ElideMiddle
+        }
+
+        ToolButton {
+          text: modelData.zdjecie ? "📷" : "✏"
+          onClicked: captureSettings.zmienPole(index, "zdjecie", !modelData.zdjecie)
+        }
+
+        // Srednica kafla. Cztery progi zamiast suwaka — w rekawicach
+        // suwak jest nietrafialny, a cztery rozmiary wystarczaja.
+        ToolButton {
+          text: String(modelData.rozmiar !== undefined ? modelData.rozmiar : 56)
+          font.pointSize: Theme.tinyFont.pointSize
+          onClicked: {
+            const progi = [48, 56, 72, 88];
+            const teraz = modelData.rozmiar !== undefined ? modelData.rozmiar : 56;
+            let i = 0;
+            for (let j = 0; j < progi.length; j++)
+              if (Math.abs(progi[j] - teraz) < Math.abs(progi[i] - teraz))
+                i = j;
+            captureSettings.zmienPole(index, "rozmiar", progi[(i + 1) % progi.length]);
+          }
+        }
+
+        // Oko: kafel schowany zamiast usunietego. Warstwa uzywana raz
+        // w tygodniu nie musi byc dodawana od nowa za kazdym razem.
+        ToolButton {
+          text: modelData.ukryty === true ? "\u25cb" : "\u25c9"
+          onClicked: captureSettings.zmienPole(index, "ukryty", modelData.ukryty !== true)
+        }
+
+        ToolButton {
+          text: "▲"
+          onClicked: captureSettings.przesun(index, -1)
+        }
+
+        ToolButton {
+          text: "▼"
+          onClicked: captureSettings.przesun(index, 1)
+        }
+
+        ToolButton {
+          text: "✕"
+          onClicked: captureSettings.usun(index)
+        }
+      }
+    }
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+
     Text {
-      Layout.fillWidth: true
-      text: qsTr("Ustawienia zapisują się do pliku w katalogu projektu, więc jadą razem z nim do zespołu.")
+      text: qsTr("Dodaj warstwę:")
       color: "#B0BEC5"
       font: Theme.tinyFont
-      wrapMode: Text.Wrap
     }
 
-    ListView {
-      id: lista
+    ComboBox {
+      id: wyborWarstwy
       Layout.fillWidth: true
-      Layout.fillHeight: true
-      clip: true
-      spacing: 4
-      model: captureSettings.wpisy
+      textRole: "Name"
+      valueRole: "LayerPointer"
+      font: Theme.tipFont
 
-      ScrollBar.vertical: ScrollBar {
-      }
-
-      delegate: Rectangle {
-        width: lista.width
-        height: 46
-        radius: 4
-        // Ukryty kafel widac w edytorze, ale przygaszony — inaczej nie
-        // bylo by wiadomo, czym jest wiersz bez zadnego znaku.
-        opacity: modelData.ukryty === true ? 0.45 : 1.0
-        color: "#22FFFFFF"
-
-        RowLayout {
-          anchors.fill: parent
-          anchors.leftMargin: 6
-          anchors.rightMargin: 6
-          spacing: 6
-
-          Rectangle {
-            width: 26
-            height: 26
-            radius: 13
-            color: modelData.kolor
-            border.color: "#003D33"
-            border.width: 1
-
-            MouseArea {
-              anchors.fill: parent
-              onClicked: captureSettings.zmienPole(index, "kolor", captureSettings.nastepnyKolor(modelData.kolor))
-              onPressAndHold: {
-                captureSettings.kolorDlaIndeksu = index;
-                colorPicker.allowAlpha = false;
-                colorPicker.openFor(modelData.kolor);
-              }
-            }
-          }
-
-          TextField {
-            Layout.preferredWidth: 52
-            text: modelData.etykieta
-            color: "white"
-            font: Theme.tipFont
-            maximumLength: 3
-            onEditingFinished: captureSettings.zmienPole(index, "etykieta", text)
-          }
-
-          Text {
-            Layout.fillWidth: true
-            text: modelData.warstwa
-            color: "white"
-            font: Theme.tinyFont
-            elide: Text.ElideMiddle
-          }
-
-          ToolButton {
-            text: modelData.zdjecie ? "📷" : "✏"
-            onClicked: captureSettings.zmienPole(index, "zdjecie", !modelData.zdjecie)
-          }
-
-          // Srednica kafla. Cztery progi zamiast suwaka — w rekawicach
-          // suwak jest nietrafialny, a cztery rozmiary wystarczaja.
-          ToolButton {
-            text: String(modelData.rozmiar !== undefined ? modelData.rozmiar : 56)
-            font.pointSize: Theme.tinyFont.pointSize
-            onClicked: {
-              const progi = [48, 56, 72, 88];
-              const teraz = modelData.rozmiar !== undefined ? modelData.rozmiar : 56;
-              let i = 0;
-              for (let j = 0; j < progi.length; j++)
-                if (Math.abs(progi[j] - teraz) < Math.abs(progi[i] - teraz))
-                  i = j;
-              captureSettings.zmienPole(index, "rozmiar", progi[(i + 1) % progi.length]);
-            }
-          }
-
-          // Oko: kafel schowany zamiast usunietego. Warstwa uzywana raz
-          // w tygodniu nie musi byc dodawana od nowa za kazdym razem.
-          ToolButton {
-            text: modelData.ukryty === true ? "\u25cb" : "\u25c9"
-            onClicked: captureSettings.zmienPole(index, "ukryty", modelData.ukryty !== true)
-          }
-
-          ToolButton {
-            text: "▲"
-            onClicked: captureSettings.przesun(index, -1)
-          }
-
-          ToolButton {
-            text: "▼"
-            onClicked: captureSettings.przesun(index, 1)
-          }
-
-          ToolButton {
-            text: "✕"
-            onClicked: captureSettings.usun(index)
-          }
-        }
+      model: MapLayerModel {
+        project: qgisProject
       }
     }
 
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
+    Button {
+      text: qsTr("Dodaj")
+      onClicked: captureSettings.dodaj(wyborWarstwy.currentValue)
+    }
+  }
 
-      Text {
-        text: qsTr("Dodaj warstwę:")
-        color: "#B0BEC5"
-        font: Theme.tinyFont
-      }
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
 
-      ComboBox {
-        id: wyborWarstwy
-        Layout.fillWidth: true
-        textRole: "Name"
-        valueRole: "LayerPointer"
-        font: Theme.tipFont
-
-        model: MapLayerModel {
-          project: qgisProject
-        }
-      }
-
-      Button {
-        text: qsTr("Dodaj")
-        onClicked: captureSettings.dodaj(wyborWarstwy.currentValue)
-      }
+    Text {
+      text: qsTr("Odległości (m):")
+      color: "#B0BEC5"
+      font: Theme.tinyFont
     }
 
-    RowLayout {
+    TextField {
       Layout.fillWidth: true
-      spacing: 6
-
-      Text {
-        text: qsTr("Odległości (m):")
-        color: "#B0BEC5"
-        font: Theme.tinyFont
-      }
-
-      TextField {
-        Layout.fillWidth: true
-        text: captureSettings.odleglosci
-        color: "white"
-        font: Theme.tipFont
-        onEditingFinished: captureSettings.odleglosci = text
-      }
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
-
-      QfDecisionButton {
-        role: "cancel" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Anuluj")
-        onClicked: captureSettings.close()
-      }
-
-      QfDecisionButton {
-        role: "confirm" // [WF-BUTTONS]
-        Layout.fillWidth: true
-        text: qsTr("Zapisz")
-        onClicked: captureSettings.zapisz()
-      }
+      text: captureSettings.odleglosci
+      color: "white"
+      font: Theme.tipFont
+      onEditingFinished: captureSettings.odleglosci = text
     }
   }
 }

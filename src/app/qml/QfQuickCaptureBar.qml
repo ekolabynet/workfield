@@ -4,6 +4,7 @@ import QtQuick.Shapes
 import QtQuick.Layouts
 import org.qgis
 import org.qfield
+import org.qfield.gui // [WF-WINDOW-FRAME] QfWindowFrame
 import Theme
 
 /**
@@ -1851,183 +1852,150 @@ Column {
   }
 
   // WorkField: ile stad do obiektu?
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar (a tap on a choice acts at once)
+  QfWindowFrame {
     id: distancePicker
 
-    parent: mainWindow.contentItem
-    width: Math.min(360, mainWindow.width - 32)
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    modal: true
-    closePolicy: Popup.CloseOnEscape
+    title: qsTr("Jak daleko jest obiekt?")
+    exitMode: "close"
+    preferredWidth: 360
+    // the pickers' own dark look
+    backgroundColor: "#EE263238"
+    titleBarColor: "#263238"
+    titleTextColor: "#80CBC4"
+    borderColor: "#455A64"
 
-    background: Rectangle {
-      color: "#EE263238"
-      radius: 8
-      border.color: "#455A64"
-      border.width: 1
+
+
+    Text {
+      Layout.fillWidth: true
+      text: isNaN(quickCaptureBar.distantAz) ? qsTr("Brak azymutu — kompas nie odpowiada") : qsTr("Azymut %1°").arg(Math.round(quickCaptureBar.distantAz))
+      color: isNaN(quickCaptureBar.distantAz) ? Theme.warningColor : "#B0BEC5"
+      font: Theme.tinyFont
     }
 
-    ColumnLayout {
-      anchors.fill: parent
-      anchors.margins: 12
+    Flow {
+      Layout.fillWidth: true
       spacing: 8
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Jak daleko jest obiekt?")
-        color: "#80CBC4"
-        font: Theme.strongFont
-        wrapMode: Text.Wrap
-      }
+      Repeater {
+        model: quickCaptureBar.distancePresets
 
-      Text {
-        Layout.fillWidth: true
-        text: isNaN(quickCaptureBar.distantAz) ? qsTr("Brak azymutu — kompas nie odpowiada") : qsTr("Azymut %1°").arg(Math.round(quickCaptureBar.distantAz))
-        color: isNaN(quickCaptureBar.distantAz) ? Theme.warningColor : "#B0BEC5"
-        font: Theme.tinyFont
-      }
-
-      Flow {
-        Layout.fillWidth: true
-        spacing: 8
-
-        Repeater {
-          model: quickCaptureBar.distancePresets
-
-          delegate: Button {
-            text: modelData + " m"
-            font.pointSize: Theme.tipFont.pointSize
-            onClicked: {
-              distancePicker.close();
-              quickCaptureBar.finishDistant(modelData);
-            }
-          }
-        }
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 8
-
-        TextField {
-          id: customDistance
-          Layout.fillWidth: true
-          placeholderText: qsTr("inna, w metrach")
-          color: "white"
-          placeholderTextColor: "#90A4AE"
-          font: Theme.tipFont
-          inputMethodHints: Qt.ImhDigitsOnly
-          validator: IntValidator {
-            bottom: 1
-            top: 5000
-          }
-        }
-
-        Button {
-          text: qsTr("Zapisz")
-          enabled: customDistance.text !== ""
+        delegate: Button {
+          text: modelData + " m"
+          font.pointSize: Theme.tipFont.pointSize
           onClicked: {
             distancePicker.close();
-            quickCaptureBar.finishDistant(parseInt(customDistance.text));
-            customDistance.text = "";
+            quickCaptureBar.finishDistant(modelData);
           }
+        }
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      TextField {
+        id: customDistance
+        Layout.fillWidth: true
+        placeholderText: qsTr("inna, w metrach")
+        color: "white"
+        placeholderTextColor: "#90A4AE"
+        font: Theme.tipFont
+        inputMethodHints: Qt.ImhDigitsOnly
+        validator: IntValidator {
+          bottom: 1
+          top: 5000
         }
       }
 
       Button {
-        Layout.fillWidth: true
-        text: quickCaptureBar.bearing1Valid ? qsTr("Nie wiem — to drugi namiar") : qsTr("Nie wiem — zrobię drugi namiar")
+        text: qsTr("Zapisz")
+        enabled: customDistance.text !== ""
         onClicked: {
           distancePicker.close();
-          quickCaptureBar.keepBearing();
+          quickCaptureBar.finishDistant(parseInt(customDistance.text));
+          customDistance.text = "";
         }
+      }
+    }
+
+    Button {
+      Layout.fillWidth: true
+      text: quickCaptureBar.bearing1Valid ? qsTr("Nie wiem — to drugi namiar") : qsTr("Nie wiem — zrobię drugi namiar")
+      onClicked: {
+        distancePicker.close();
+        quickCaptureBar.keepBearing();
       }
     }
   }
 
   // WorkField: wybor warstwy docelowej dla pustego klawisza
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar (a tap on a choice acts at once)
+  QfWindowFrame {
     id: layerPicker
 
-    parent: mainWindow.contentItem
-    width: Math.min(420, mainWindow.width - 32)
-    height: Math.min(520, mainWindow.height - 96)
-    x: (mainWindow.width - width) / 2
-    y: (mainWindow.height - height) / 2
-    modal: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    title: qsTr("Warstwa dla szybkiego zapisu")
+    exitMode: "close"
+    preferredWidth: 420
+    // the pickers' own dark look
+    backgroundColor: "#EE263238"
+    titleBarColor: "#263238"
+    titleTextColor: "#80CBC4"
+    borderColor: "#455A64"
 
-    background: Rectangle {
-      color: "#EE263238"
-      radius: 8
-      border.color: "#455A64"
-      border.width: 1
+
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Ten projekt nie ma warstw szablonu. Wskaż warstwę punktową, do której ma trafiać szybki zapis.")
+      color: "#B0BEC5"
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
     }
 
-    ColumnLayout {
-      anchors.fill: parent
-      anchors.margins: 12
-      spacing: 8
+    ListView {
+      id: pickerList
+      Layout.fillWidth: true
+      Layout.preferredHeight: Math.min(contentHeight, mainWindow.height * 0.5) // [WF-WINDOW-FRAME] the window sizes to its content
+      clip: true
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Warstwa dla szybkiego zapisu")
-        color: "#80CBC4"
-        font: Theme.strongFont
-        wrapMode: Text.Wrap
+      model: MapLayerModel {
+        project: qgisProject
       }
 
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Ten projekt nie ma warstw szablonu. Wskaż warstwę punktową, do której ma trafiać szybki zapis.")
-        color: "#B0BEC5"
-        font: Theme.tinyFont
-        wrapMode: Text.Wrap
+      ScrollBar.vertical: ScrollBar {
       }
 
-      ListView {
-        id: pickerList
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        clip: true
+      delegate: ItemDelegate {
+        // MapLayerModel nie przyjmuje filtrow z QML (Qgis.LayerFilter nie
+        // jest wystawione), wiec odsiewamy warstwy nie-wektorowe tutaj
+        readonly property bool isVector: model.LayerType === Qgis.LayerType.Vector && (model.GeometryType === Qgis.GeometryType.Point || model.GeometryType === Qgis.GeometryType.Line || model.GeometryType === Qgis.GeometryType.Polygon) && quickCaptureBar.layerWritable(model.LayerPointer) && quickCaptureBar.customLayerNames.indexOf(model.Name) < 0
 
-        model: MapLayerModel {
-          project: qgisProject
+        width: pickerList.width
+        height: isVector ? 48 : 0
+        visible: isVector
+
+        contentItem: Text {
+          text: model.Name
+          color: "white"
+          font: Theme.tipFont
+          elide: Text.ElideRight
+          verticalAlignment: Text.AlignVCenter
         }
 
-        ScrollBar.vertical: ScrollBar {
-        }
-
-        delegate: ItemDelegate {
-          // MapLayerModel nie przyjmuje filtrow z QML (Qgis.LayerFilter nie
-          // jest wystawione), wiec odsiewamy warstwy nie-wektorowe tutaj
-          readonly property bool isVector: model.LayerType === Qgis.LayerType.Vector && (model.GeometryType === Qgis.GeometryType.Point || model.GeometryType === Qgis.GeometryType.Line || model.GeometryType === Qgis.GeometryType.Polygon) && quickCaptureBar.layerWritable(model.LayerPointer) && quickCaptureBar.customLayerNames.indexOf(model.Name) < 0
-
-          width: pickerList.width
-          height: isVector ? 48 : 0
-          visible: isVector
-
-          contentItem: Text {
-            text: model.Name
-            color: "white"
-            font: Theme.tipFont
-            elide: Text.ElideRight
-            verticalAlignment: Text.AlignVCenter
-          }
-
-          onClicked: quickCaptureBar.chooseLayer(model.LayerPointer)
-        }
+        onClicked: quickCaptureBar.chooseLayer(model.LayerPointer)
       }
+    }
 
-      Button {
-        Layout.fillWidth: true
-        text: qsTr("Nowa pusta warstwa…")
-        onClicked: {
-          quickCaptureBar.pickAfterCreate = true;
-          layerPicker.close();
-          newLayerDialog.openDialog();
-        }
+    Button {
+      Layout.fillWidth: true
+      text: qsTr("Nowa pusta warstwa…")
+      onClicked: {
+        quickCaptureBar.pickAfterCreate = true;
+        layerPicker.close();
+        newLayerDialog.openDialog();
       }
     }
   }

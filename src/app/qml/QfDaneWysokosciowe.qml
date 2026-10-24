@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.qfield
+import org.qfield.gui // [WF-WINDOW-FRAME] QfWindowFrame
 import Theme
 
 /**
@@ -21,8 +22,36 @@ import Theme
  * CHM dobiera arkusze NMT i NMPT po TEJ SAMEJ nazwie obszaru. Zmiana nazwy
  * między jednym pobraniem a drugim rozrywa parę.
  */
-Popup {
+// [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ in the title bar, scrolling body
+QfWindowFrame {
   id: oknoDaneWysokosciowe
+
+  title: oknoDaneWysokosciowe.rodzaj === "ORTO" ? qsTr("Ortofotomapa GUGiK") : qsTr("Dane wysokościowe")
+  confirmText: oknoDaneWysokosciowe.rodzaj === "ORTO" ? (oknoDaneWysokosciowe.ortoPracuje ? qsTr("Pracuję…") : oknoDaneWysokosciowe.ortoWybrany >= 0 ? qsTr("Pobierz ortofoto (%1)").arg(oknoDaneWysokosciowe.ortoMb(oknoDaneWysokosciowe.ortoNaloty[oknoDaneWysokosciowe.ortoWybrany].mb)) : qsTr("Pobierz ortofoto")) : oknoDaneWysokosciowe.rodzaj === "CHM" ? qsTr("Policz CHM") : oknoDaneWysokosciowe.rodzaj === "WARSTWICE" ? qsTr("Policz warstwice") : qsTr("Pobierz %1").arg(oknoDaneWysokosciowe.rodzaj)
+  confirmEnabled: oknoDaneWysokosciowe.rodzaj !== "ORTO" || (oknoDaneWysokosciowe.ortoWybrany >= 0 && !oknoDaneWysokosciowe.ortoPracuje && !oknoDaneWysokosciowe.ortoSzuka)
+  preferredWidth: 460
+  onConfirmed: confirm()
+
+  // [WF-WINDOW-FRAME] ✓ in the title bar (was the download / compute button below)
+  function confirm() {
+    const rodzaj = oknoDaneWysokosciowe.rodzaj;
+    const nazwa = poleObszaru.text.trim();
+    const najnowsze = oknoDaneWysokosciowe.najnowsze;
+    const odstep = parseFloat(String(poleOdstepu.text).replace(",", "."));
+    if (rodzaj === "ORTO") {
+      // Okno zostaje otwarte: pokazuje postęp. Praca idzie dalej
+      // także po jego zamknięciu.
+      oknoDaneWysokosciowe.ortoPobierz(nazwa);
+      return;
+    }
+    oknoDaneWysokosciowe.close();
+    if (rodzaj === "CHM")
+      dashBoard.computeChmAction();
+    else if (rodzaj === "WARSTWICE")
+      oknoDaneWysokosciowe.policzWarstwice(isNaN(odstep) || odstep <= 0 ? 0.5 : odstep);
+    else
+      dashBoard.pobierzDemZakres(rodzaj, nazwa, najnowsze);
+  }
 
   property var t: Theme
 
@@ -430,264 +459,201 @@ Popup {
     }
   }
 
-  parent: mainWindow.contentItem
-  width: Math.min(460, mainWindow.width - 24)
-  x: (mainWindow.width - width) / 2
-  y: Math.max(12, (mainWindow.height - height) / 4)
-  modal: true
-  focus: true
-  closePolicy: Popup.CloseOnEscape
 
   onOpened: poleObszaru.text = typeof dashBoard !== "undefined" ? dashBoard.nazwaObszaru() : ""
 
-  background: Rectangle {
-    color: oknoDaneWysokosciowe.t.mainBackgroundColor
-    radius: 8
-    border.width: 1
-    border.color: oknoDaneWysokosciowe.t.controlBorderColor
+
+
+  // ── wybór odmiany ────────────────────────────────────────────────
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 4
+
+    Repeater {
+      model: [
+        {
+          "klucz": "NMT",
+          "etykieta": qsTr("NMT")
+        },
+        {
+          "klucz": "NMPT",
+          "etykieta": qsTr("NMPT")
+        },
+        {
+          "klucz": "CHM",
+          "etykieta": qsTr("CHM")
+        },
+        {
+          "klucz": "WARSTWICE",
+          "etykieta": qsTr("Warstwice")
+        },
+        {
+          "klucz": "ORTO",
+          "etykieta": qsTr("Ortofoto")
+        }
+      ]
+
+      delegate: Button {
+        required property var modelData
+
+        Layout.fillWidth: true
+        text: modelData.etykieta
+        font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
+        font.bold: oknoDaneWysokosciowe.rodzaj === modelData.klucz
+        highlighted: oknoDaneWysokosciowe.rodzaj === modelData.klucz
+        onClicked: oknoDaneWysokosciowe.rodzaj = modelData.klucz
+      }
+    }
   }
 
-  contentItem: ColumnLayout {
+  Text {
+    Layout.fillWidth: true
+    text: oknoDaneWysokosciowe.rodzaj === "NMT" ? qsTr("Numeryczny model terenu: grunt bez drzew i budynków. Arkusze GUGiK dla widocznego zakresu mapy.") : oknoDaneWysokosciowe.rodzaj === "NMPT" ? qsTr("Numeryczny model pokrycia terenu: wierzchołki drzew i dachy. Arkusze GUGiK dla widocznego zakresu mapy.") : oknoDaneWysokosciowe.rodzaj === "CHM" ? qsTr("CHM to różnica NMPT − NMT, czyli wysokość samych drzew. Liczy się z arkuszy już pobranych dla tej samej nazwy obszaru.") : oknoDaneWysokosciowe.rodzaj === "ORTO" ? qsTr("Zdjęcia lotnicze GUGiK dla widoku mapy, złożone w jeden podkład z kaflami — działa bez internetu. Najpierw ustaw mapę na obszar (np. gminę), potem „Szukaj nalotów”.") : qsTr("Warstwice z pobranego NMT. Liczą się z arkuszy, które już są w projekcie — najpierw pobierz NMT dla obszaru.")
+    font: oknoDaneWysokosciowe.t.tinyFont
+    color: oknoDaneWysokosciowe.t.secondaryTextColor
+    wrapMode: Text.WordWrap
+  }
+
+  // ── nazwa obszaru: wspólna dla NMT, NMPT i CHM ───────────────────
+  RowLayout {
+    Layout.fillWidth: true
     spacing: 8
 
     Text {
-      Layout.fillWidth: true
-      text: oknoDaneWysokosciowe.rodzaj === "ORTO" ? qsTr("Ortofotomapa GUGiK") : qsTr("Dane wysokościowe")
-      font: oknoDaneWysokosciowe.t.strongFont
+      text: qsTr("Obszar")
+      font: oknoDaneWysokosciowe.t.tipFont
       color: oknoDaneWysokosciowe.t.mainTextColor
     }
 
-    // ── wybór odmiany ────────────────────────────────────────────────
-    RowLayout {
+    TextField {
+      id: poleObszaru
+
       Layout.fillWidth: true
-      spacing: 4
+      font: oknoDaneWysokosciowe.t.tipFont
+      placeholderText: qsTr("np. Bruzdowa")
+      enabled: oknoDaneWysokosciowe.rodzaj === "NMT" || oknoDaneWysokosciowe.rodzaj === "NMPT" || oknoDaneWysokosciowe.rodzaj === "ORTO"
+    }
+  }
 
-      Repeater {
-        model: [
-          {
-            "klucz": "NMT",
-            "etykieta": qsTr("NMT")
-          },
-          {
-            "klucz": "NMPT",
-            "etykieta": qsTr("NMPT")
-          },
-          {
-            "klucz": "CHM",
-            "etykieta": qsTr("CHM")
-          },
-          {
-            "klucz": "WARSTWICE",
-            "etykieta": qsTr("Warstwice")
-          },
-          {
-            "klucz": "ORTO",
-            "etykieta": qsTr("Ortofoto")
+  // ── ortofoto: naloty z skorowidza (WorkFieldGIS 16.10.2026) ──────
+  ColumnLayout {
+    Layout.fillWidth: true
+    spacing: 4
+    visible: oknoDaneWysokosciowe.rodzaj === "ORTO"
+
+    Button {
+      Layout.fillWidth: true
+      text: oknoDaneWysokosciowe.ortoSzuka ? qsTr("Szukam…") : qsTr("Szukaj nalotów dla widoku mapy")
+      enabled: !oknoDaneWysokosciowe.ortoSzuka && !oknoDaneWysokosciowe.ortoPracuje
+      font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
+      onClicked: oknoDaneWysokosciowe.ortoSzukaj()
+    }
+
+    Flickable {
+      id: listaNalotow
+
+      Layout.fillWidth: true
+      Layout.preferredHeight: Math.min(contentHeight, 200)
+      visible: oknoDaneWysokosciowe.ortoNaloty.length > 0
+      contentHeight: kolumnaNalotow.height
+      clip: true
+      boundsBehavior: Flickable.StopAtBounds
+
+      Column {
+        id: kolumnaNalotow
+
+        width: listaNalotow.width
+
+        Repeater {
+          model: oknoDaneWysokosciowe.ortoNaloty
+
+          delegate: RadioButton {
+            required property var modelData
+            required property int index
+
+            width: kolumnaNalotow.width
+            checked: oknoDaneWysokosciowe.ortoWybrany === index
+            enabled: !oknoDaneWysokosciowe.ortoPracuje
+            text: oknoDaneWysokosciowe.ortoOpis(modelData)
+            font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
+            onClicked: oknoDaneWysokosciowe.ortoWybrany = index
           }
-        ]
-
-        delegate: Button {
-          required property var modelData
-
-          Layout.fillWidth: true
-          text: modelData.etykieta
-          font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
-          font.bold: oknoDaneWysokosciowe.rodzaj === modelData.klucz
-          highlighted: oknoDaneWysokosciowe.rodzaj === modelData.klucz
-          onClicked: oknoDaneWysokosciowe.rodzaj = modelData.klucz
         }
       }
     }
 
     Text {
       Layout.fillWidth: true
-      text: oknoDaneWysokosciowe.rodzaj === "NMT" ? qsTr("Numeryczny model terenu: grunt bez drzew i budynków. Arkusze GUGiK dla widocznego zakresu mapy.") : oknoDaneWysokosciowe.rodzaj === "NMPT" ? qsTr("Numeryczny model pokrycia terenu: wierzchołki drzew i dachy. Arkusze GUGiK dla widocznego zakresu mapy.") : oknoDaneWysokosciowe.rodzaj === "CHM" ? qsTr("CHM to różnica NMPT − NMT, czyli wysokość samych drzew. Liczy się z arkuszy już pobranych dla tej samej nazwy obszaru.") : oknoDaneWysokosciowe.rodzaj === "ORTO" ? qsTr("Zdjęcia lotnicze GUGiK dla widoku mapy, złożone w jeden podkład z kaflami — działa bez internetu. Najpierw ustaw mapę na obszar (np. gminę), potem „Szukaj nalotów”.") : qsTr("Warstwice z pobranego NMT. Liczą się z arkuszy, które już są w projekcie — najpierw pobierz NMT dla obszaru.")
+      visible: text !== ""
+      text: oknoDaneWysokosciowe.ortoStan
+      font: oknoDaneWysokosciowe.t.tinyFont
+      color: oknoDaneWysokosciowe.t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+  }
+
+  // ── odstęp warstwic: tylko przy warstwicach ─────────────────────
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: 6
+    visible: oknoDaneWysokosciowe.rodzaj === "WARSTWICE"
+
+    Text {
+      text: qsTr("Co ile metrów")
+      font: oknoDaneWysokosciowe.t.tipFont
+      color: oknoDaneWysokosciowe.t.mainTextColor
+    }
+
+    TextField {
+      id: poleOdstepu
+
+      Layout.preferredWidth: 70
+      text: "0,5"
+      inputMethodHints: Qt.ImhFormattedNumbersOnly
+      font.pointSize: oknoDaneWysokosciowe.t.tipFont.pointSize
+    }
+
+    Item {
+      Layout.fillWidth: true
+    }
+  }
+
+  // ── roczniki: tylko przy pobieraniu arkuszy ──────────────────────
+  ColumnLayout {
+    Layout.fillWidth: true
+    spacing: 4
+    visible: oknoDaneWysokosciowe.rodzaj === "NMT" || oknoDaneWysokosciowe.rodzaj === "NMPT"
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Skorowidze GUGiK dzielą arkusze na roczniki.")
       font: oknoDaneWysokosciowe.t.tinyFont
       color: oknoDaneWysokosciowe.t.secondaryTextColor
       wrapMode: Text.WordWrap
     }
 
-    // ── nazwa obszaru: wspólna dla NMT, NMPT i CHM ───────────────────
     RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
-
-      Text {
-        text: qsTr("Obszar")
-        font: oknoDaneWysokosciowe.t.tipFont
-        color: oknoDaneWysokosciowe.t.mainTextColor
-      }
-
-      TextField {
-        id: poleObszaru
-
-        Layout.fillWidth: true
-        font: oknoDaneWysokosciowe.t.tipFont
-        placeholderText: qsTr("np. Bruzdowa")
-        enabled: oknoDaneWysokosciowe.rodzaj === "NMT" || oknoDaneWysokosciowe.rodzaj === "NMPT" || oknoDaneWysokosciowe.rodzaj === "ORTO"
-      }
-    }
-
-    // ── ortofoto: naloty z skorowidza (WorkFieldGIS 16.10.2026) ──────
-    ColumnLayout {
       Layout.fillWidth: true
       spacing: 4
-      visible: oknoDaneWysokosciowe.rodzaj === "ORTO"
 
       Button {
         Layout.fillWidth: true
-        text: oknoDaneWysokosciowe.ortoSzuka ? qsTr("Szukam…") : qsTr("Szukaj nalotów dla widoku mapy")
-        enabled: !oknoDaneWysokosciowe.ortoSzuka && !oknoDaneWysokosciowe.ortoPracuje
+        text: qsTr("Najnowsze arkusze")
         font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
-        onClicked: oknoDaneWysokosciowe.ortoSzukaj()
-      }
-
-      Flickable {
-        id: listaNalotow
-
-        Layout.fillWidth: true
-        Layout.preferredHeight: Math.min(contentHeight, 200)
-        visible: oknoDaneWysokosciowe.ortoNaloty.length > 0
-        contentHeight: kolumnaNalotow.height
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-
-        Column {
-          id: kolumnaNalotow
-
-          width: listaNalotow.width
-
-          Repeater {
-            model: oknoDaneWysokosciowe.ortoNaloty
-
-            delegate: RadioButton {
-              required property var modelData
-              required property int index
-
-              width: kolumnaNalotow.width
-              checked: oknoDaneWysokosciowe.ortoWybrany === index
-              enabled: !oknoDaneWysokosciowe.ortoPracuje
-              text: oknoDaneWysokosciowe.ortoOpis(modelData)
-              font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
-              onClicked: oknoDaneWysokosciowe.ortoWybrany = index
-            }
-          }
-        }
-      }
-
-      Text {
-        Layout.fillWidth: true
-        visible: text !== ""
-        text: oknoDaneWysokosciowe.ortoStan
-        font: oknoDaneWysokosciowe.t.tinyFont
-        color: oknoDaneWysokosciowe.t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-    }
-
-    // ── odstęp warstwic: tylko przy warstwicach ─────────────────────
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 6
-      visible: oknoDaneWysokosciowe.rodzaj === "WARSTWICE"
-
-      Text {
-        text: qsTr("Co ile metrów")
-        font: oknoDaneWysokosciowe.t.tipFont
-        color: oknoDaneWysokosciowe.t.mainTextColor
-      }
-
-      TextField {
-        id: poleOdstepu
-
-        Layout.preferredWidth: 70
-        text: "0,5"
-        inputMethodHints: Qt.ImhFormattedNumbersOnly
-        font.pointSize: oknoDaneWysokosciowe.t.tipFont.pointSize
-      }
-
-      Item {
-        Layout.fillWidth: true
-      }
-    }
-
-    // ── roczniki: tylko przy pobieraniu arkuszy ──────────────────────
-    ColumnLayout {
-      Layout.fillWidth: true
-      spacing: 4
-      visible: oknoDaneWysokosciowe.rodzaj === "NMT" || oknoDaneWysokosciowe.rodzaj === "NMPT"
-
-      Text {
-        Layout.fillWidth: true
-        text: qsTr("Skorowidze GUGiK dzielą arkusze na roczniki.")
-        font: oknoDaneWysokosciowe.t.tinyFont
-        color: oknoDaneWysokosciowe.t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        spacing: 4
-
-        Button {
-          Layout.fillWidth: true
-          text: qsTr("Najnowsze arkusze")
-          font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
-          font.bold: oknoDaneWysokosciowe.najnowsze
-          highlighted: oknoDaneWysokosciowe.najnowsze
-          onClicked: oknoDaneWysokosciowe.najnowsze = true
-        }
-
-        Button {
-          Layout.fillWidth: true
-          text: qsTr("Wszystkie roczniki")
-          font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
-          font.bold: !oknoDaneWysokosciowe.najnowsze
-          highlighted: !oknoDaneWysokosciowe.najnowsze
-          onClicked: oknoDaneWysokosciowe.najnowsze = false
-        }
-      }
-    }
-
-    RowLayout {
-      Layout.fillWidth: true
-      spacing: 8
-
-      Item {
-        Layout.fillWidth: true
+        font.bold: oknoDaneWysokosciowe.najnowsze
+        highlighted: oknoDaneWysokosciowe.najnowsze
+        onClicked: oknoDaneWysokosciowe.najnowsze = true
       }
 
       Button {
-        text: qsTr("Zamknij")
+        Layout.fillWidth: true
+        text: qsTr("Wszystkie roczniki")
         font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
-        onClicked: oknoDaneWysokosciowe.close()
-      }
-
-      Button {
-        highlighted: true
-        enabled: oknoDaneWysokosciowe.rodzaj !== "ORTO" || (oknoDaneWysokosciowe.ortoWybrany >= 0 && !oknoDaneWysokosciowe.ortoPracuje && !oknoDaneWysokosciowe.ortoSzuka)
-        text: oknoDaneWysokosciowe.rodzaj === "ORTO" ? (oknoDaneWysokosciowe.ortoPracuje ? qsTr("Pracuję…") : oknoDaneWysokosciowe.ortoWybrany >= 0 ? qsTr("Pobierz ortofoto (%1)").arg(oknoDaneWysokosciowe.ortoMb(oknoDaneWysokosciowe.ortoNaloty[oknoDaneWysokosciowe.ortoWybrany].mb)) : qsTr("Pobierz ortofoto")) : oknoDaneWysokosciowe.rodzaj === "CHM" ? qsTr("Policz CHM") : oknoDaneWysokosciowe.rodzaj === "WARSTWICE" ? qsTr("Policz warstwice") : qsTr("Pobierz %1").arg(oknoDaneWysokosciowe.rodzaj)
-        font.pointSize: oknoDaneWysokosciowe.t.tinyFont.pointSize
-        onClicked: {
-          const rodzaj = oknoDaneWysokosciowe.rodzaj;
-          const nazwa = poleObszaru.text.trim();
-          const najnowsze = oknoDaneWysokosciowe.najnowsze;
-          const odstep = parseFloat(String(poleOdstepu.text).replace(",", "."));
-          if (rodzaj === "ORTO") {
-            // Okno zostaje otwarte: pokazuje postęp. Praca idzie dalej
-            // także po jego zamknięciu.
-            oknoDaneWysokosciowe.ortoPobierz(nazwa);
-            return;
-          }
-          oknoDaneWysokosciowe.close();
-          if (rodzaj === "CHM")
-            dashBoard.computeChmAction();
-          else if (rodzaj === "WARSTWICE")
-            oknoDaneWysokosciowe.policzWarstwice(isNaN(odstep) || odstep <= 0 ? 0.5 : odstep);
-          else
-            dashBoard.pobierzDemZakres(rodzaj, nazwa, najnowsze);
-        }
+        font.bold: !oknoDaneWysokosciowe.najnowsze
+        highlighted: !oknoDaneWysokosciowe.najnowsze
+        onClicked: oknoDaneWysokosciowe.najnowsze = false
       }
     }
   }
+
 }
