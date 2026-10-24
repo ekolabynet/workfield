@@ -11,6 +11,17 @@ import "../ExternalResourceUtils.js" as ExternalResourceUtils
 QfRelationEditorBase {
   id: relationEditor
 
+  // [WF-PHOTO-COUNT] 24.10.2026 — "1 zdjęcie, 2 zdjęcia, 5 zdjęć" (was "1 obiekt")
+  countText: {
+    const n = itemCount;
+    if (n === 1)
+      return qsTr("1 zdjęcie");
+    const d = n % 10, t = n % 100;
+    if (d >= 2 && d <= 4 && (t < 12 || t > 14))
+      return qsTr("%1 zdjęcia").arg(n);
+    return qsTr("%1 zdjęć").arg(n);
+  }
+
   relationEditorModel: QfReferencingFeatureListModel {
     id: referencingFeatureListModel
     currentRelationId: relationId

@@ -222,11 +222,13 @@ Rectangle {
     height: QfTheme.toolButtonSize
     clip: true
 
-    iconSource: toolBar.state === "Navigation" ? Theme.getThemeVectorIcon("ic_chevron_left_white_24dp") : Theme.getThemeVectorIcon("ic_arrow_left_white_24dp")
-    iconColor: Theme.mainOverlayColor
-    // [WF-WINDOW-FRAME] leaving the list is the orange ← of every window;
-    // ‹ (previous feature while browsing) stays a plain navigation sign
-    bgcolor: toolBar.state === "Navigation" ? "transparent" : "#fb8c00"
+    // [WF-WINDOW-FRAME] when this button LEAVES (back to the list / the map) it is
+    // the orange ← of every window; when it goes to the previous feature it
+    // stays ‹ without a background (navigation, not an exit)
+    readonly property bool goesBack: toolBar.state !== "Navigation" || !toolBar.model || !selection || selection.focusedItem <= 0
+    iconSource: goesBack ? Theme.getThemeVectorIcon("ic_arrow_left_white_24dp") : Theme.getThemeVectorIcon("ic_chevron_left_white_24dp")
+    iconColor: goesBack ? "white" : Theme.mainOverlayColor
+    bgcolor: goesBack ? "#fb8c00" : "transparent"
     round: true
 
     enabled: toolBar.state !== "Edit" && !toolBar.multiSelection

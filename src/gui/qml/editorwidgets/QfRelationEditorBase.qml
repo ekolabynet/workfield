@@ -8,6 +8,8 @@ QfEditorWidgetBase {
   id: relationEditorBase
 
   property var relationEditorModel: undefined
+  //! [WF-PHOTO-COUNT] text of the count in the header; the gallery says "zdjęcia"
+  property string countText: qsTr("%n feature(s)", "", itemCount)
 
   property alias listView: listView
   property alias footer: footer
@@ -62,7 +64,7 @@ QfEditorWidgetBase {
       bottomRightRadius: itemCount === 0 ? parent.radius : 0
 
       Text {
-        text: qsTr("%n feature(s)", "", itemCount)
+        text: relationEditorBase.countText
         anchors {
           leftMargin: 10
           left: parent.left
