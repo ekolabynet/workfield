@@ -24,6 +24,11 @@ QfNmeaGnssReceiver::QfNmeaGnssReceiver( QObject *parent )
   : QfAbstractGnssReceiver( parent )
   , mImuPosition()
 {
+  // [WF-RECEIVER-CHANNEL] a menu prompt ("Enter choice: ") has no line end:
+  // shown after a short quiet moment
+  mRawFlushTimer.setSingleShot( true );
+  mRawFlushTimer.setInterval( 300 );
+  connect( &mRawFlushTimer, &QTimer::timeout, this, &QfNmeaGnssReceiver::flushRawRemainder );
 }
 
 QfAbstractGnssReceiver::Capabilities QfNmeaGnssReceiver::capabilities() const
@@ -39,6 +44,72 @@ void QfNmeaGnssReceiver::initNmeaConnection( QIODevice *ioDevice )
   ////QgsGpsConnection state changed (received location string)
   connect( mNmeaConnection.get(), &QgsGpsConnection::stateChanged, this, &QfNmeaGnssReceiver::stateChanged );
   connect( mNmeaConnection.get(), &QgsGpsConnection::nmeaSentenceReceived, this, &QfNmeaGnssReceiver::onNmeaSentenceReceived );
+
+  // [WF-RECEIVER-CHANNEL] QgsNmeaConnection reads the device itself and drops
+  // every line that does not start with '$' (a receiver menu, firmware
+  // messages). We read first: a copy of the bytes for the raw tap (peek, the
+  // data stays in the device), then QGIS parses as before. Checked against
+  // QGIS 3.34: the NMEA sentences still reach the parser, menu text reaches us.
+  QObject::disconnect( ioDevice, &QIODevice::readyRead, mNmeaConnection.get(), nullptr );
+  connect( ioDevice, &QIODevice::readyRead, this, &QfNmeaGnssReceiver::onDeviceReadyRead );
+}
+
+void QfNmeaGnssReceiver::onDeviceReadyRead()
+{
+  if ( mRawTap && mIODevice )
+  {
+    const qint64 available = mIODevice->bytesAvailable();
+    if ( available > 0 )
+      collectRawBytes( mIODevice->peek( available ) );
+  }
+  if ( mNmeaConnection )
+  {
+    // parseData() is a protected slot of QgsGpsConnection: called by name
+    QMetaObject::invokeMethod( mNmeaConnection.get(), "parseData", Qt::DirectConnection );
+  }
+}
+
+void QfNmeaGnssReceiver::setRawTap( bool enabled )
+{
+  mRawTap = enabled;
+  if ( !enabled )
+  {
+    mRawBuffer.clear();
+    mRawFlushTimer.stop();
+  }
+}
+
+void QfNmeaGnssReceiver::collectRawBytes( const QByteArray &bytes )
+{
+  mRawBuffer.append( bytes );
+  qsizetype end;
+  while ( ( end = mRawBuffer.indexOf( '\n' ) ) >= 0 )
+  {
+    QByteArray line = mRawBuffer.left( end );
+    mRawBuffer.remove( 0, end + 1 );
+    if ( line.endsWith( '\r' ) )
+      line.chop( 1 );
+    // binary (RTCM / UBX) must not flood the screen: printable ASCII only, short
+    QString text;
+    for ( const char c : std::as_const( line ) )
+      text.append( ( c >= 32 && c < 127 ) || c == '\t' ? QChar::fromLatin1( c ) : QChar( 0x00B7 ) );
+    emit rawLineReceived( text.left( 300 ) );
+  }
+  if ( mRawBuffer.size() > 4096 )
+    mRawBuffer = mRawBuffer.right( 300 ); // a long stream without line ends is binary
+  if ( !mRawBuffer.isEmpty() )
+    mRawFlushTimer.start();
+}
+
+void QfNmeaGnssReceiver::flushRawRemainder()
+{
+  if ( mRawBuffer.isEmpty() )
+    return;
+  QString text;
+  for ( const char c : std::as_const( mRawBuffer ) )
+    text.append( ( c >= 32 && c < 127 ) ? QChar::fromLatin1( c ) : QChar( 0x00B7 ) );
+  mRawBuffer.clear();
+  emit rawLineReceived( text.left( 300 ) );
 }
 
 void QfNmeaGnssReceiver::stateChanged( const QgsGpsInformation &info )

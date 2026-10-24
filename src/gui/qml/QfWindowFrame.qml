@@ -55,6 +55,12 @@ Popup {
   property bool scrollable: true
   //! true: always the whole screen (editors, drawing, long lists).
   property bool forceFullScreen: false
+  //! 0 = the height of the content; > 0 = this height (still capped by the screen)
+  property real preferredHeight: 0
+  //! true: a grip in the lower right corner resizes the window (desktop, tablet)
+  property bool resizable: false
+  //! a QSettings key: the size the user dragged to is remembered there
+  property string sizeKey: ""
   //! Colours for windows with their own look (dark editors, the welcome
   //! window). Defaults follow the theme.
   property color backgroundColor: QfTheme.mainBackgroundColor
@@ -80,7 +86,8 @@ Popup {
   readonly property real _windowHeight: parent ? parent.height : 600
   readonly property bool narrowScreen: _windowWidth < preferredWidth + 2 * _margin
   readonly property real _naturalHeight: titleBar.implicitHeight + body.implicitHeight + 2 * _bodyPadding
-  readonly property bool fullScreen: forceFullScreen || _naturalHeight > _windowHeight - _topInset - _bottomInset - 2 * _margin
+  readonly property real _wantedHeight: preferredHeight > 0 ? preferredHeight : _naturalHeight
+  readonly property bool fullScreen: forceFullScreen || _wantedHeight > _windowHeight - _topInset - _bottomInset - 2 * _margin
 
   signal confirmed
   signal cancelled
@@ -104,7 +111,19 @@ Popup {
 
   // Width never depends on the height decision — no binding loop with wrapped text.
   width: narrowScreen ? _windowWidth : preferredWidth
-  height: fullScreen ? _windowHeight : _naturalHeight
+  height: fullScreen ? _windowHeight : _wantedHeight
+
+  // [WF-WINDOW-FRAME] remembered size (resizable windows)
+  Component.onCompleted: {
+    if (sizeKey === "" || typeof settings === "undefined" || !settings)
+      return;
+    const w = Number(settings.value(sizeKey + "/width", 0));
+    const h = Number(settings.value(sizeKey + "/height", 0));
+    if (w > 200)
+      preferredWidth = w;
+    if (h > 160)
+      preferredHeight = h;
+  }
   x: Math.round((_windowWidth - width) / 2)
   y: fullScreen ? 0 : Math.round(Math.max(_topInset + _margin, (_windowHeight - height) / 2))
 
@@ -254,6 +273,58 @@ Popup {
           width: scroller.width - 2 * frame._bodyPadding - (scroller.overflows ? 18 : 0)
           height: frame.scrollable ? implicitHeight : scroller.height - 2 * frame._bodyPadding
           spacing: 8
+        }
+      }
+
+      // [WF-WINDOW-FRAME] resize grip: drag the corner (desktop / tablet)
+      Rectangle {
+        id: grip
+        visible: frame.resizable && !frame.fullScreen && !frame.narrowScreen
+        z: 10
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: 28
+        height: 28
+        radius: 4
+        color: gripArea.pressed ? Qt.alpha(QfTheme.mainColor, 0.6) : Qt.alpha(QfTheme.controlBorderColor, 0.6)
+
+        Text {
+          anchors.centerIn: parent
+          text: "◢"
+          color: QfTheme.mainTextColor
+          font.pointSize: QfTheme.tipFont.pointSize
+        }
+
+        MouseArea {
+          id: gripArea
+          anchors.fill: parent
+          preventStealing: true
+          cursorShape: Qt.SizeFDiagCursor
+          property real startX: 0
+          property real startY: 0
+          property real startW: 0
+          property real startH: 0
+          onPressed: mouse => {
+            const p = mapToItem(null, mouse.x, mouse.y);
+            startX = p.x;
+            startY = p.y;
+            startW = frame.width;
+            startH = frame.height;
+          }
+          onPositionChanged: mouse => {
+            if (!pressed)
+              return;
+            const p = mapToItem(null, mouse.x, mouse.y);
+            // the window stays centred: both edges move, so double the drag
+            frame.preferredWidth = Math.max(320, Math.min(frame._windowWidth - 2 * frame._margin, startW + 2 * (p.x - startX)));
+            frame.preferredHeight = Math.max(240, Math.min(frame._windowHeight - frame._topInset - frame._bottomInset - 2 * frame._margin - 1, startH + 2 * (p.y - startY)));
+          }
+          onReleased: {
+            if (frame.sizeKey !== "" && typeof settings !== "undefined" && settings) {
+              settings.setValue(frame.sizeKey + "/width", Math.round(frame.preferredWidth));
+              settings.setValue(frame.sizeKey + "/height", Math.round(frame.preferredHeight));
+            }
+          }
         }
       }
 

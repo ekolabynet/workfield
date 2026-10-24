@@ -347,6 +347,9 @@ void QfPositioningSource::setupDevice()
   connect( mReceiver.get(), &QfAbstractGnssReceiver::socketStateChanged, this, &QfPositioningSource::onDeviceSocketStateChanged );
   connect( mReceiver.get(), &QfAbstractGnssReceiver::socketStateStringChanged, this, &QfPositioningSource::deviceSocketStateStringChanged );
   connect( mReceiver.get(), &QfAbstractGnssReceiver::batteryLevelChanged, this, &QfPositioningSource::deviceBatteryLevelChanged );
+  // [WF-RECEIVER-CHANNEL]
+  connect( mReceiver.get(), &QfAbstractGnssReceiver::rawLineReceived, this, &QfPositioningSource::deviceRawLineReceived );
+  mReceiver->setRawTap( mDeviceRawTap );
 
   setValid( mReceiver->valid() );
 
@@ -510,6 +513,11 @@ void QfPositioningSource::startNtripClient()
     return;
   }
 
+  if ( mCorrectionsPaused ) // [WF-RECEIVER-CHANNEL] a receiver menu is open
+  {
+    return;
+  }
+
   if ( !mReceiver || !( mReceiver->capabilities() & QfAbstractGnssReceiver::NtripCorrection ) )
   {
     return;
@@ -615,6 +623,37 @@ void QfPositioningSource::setCompassSmoothingWindowMs( int window )
   mCompassSmoothingWindowMs = window;
   mCompassReadings.clear();
   emit compassSmoothingWindowMsChanged();
+}
+
+// WorkField [WF-RECEIVER-CHANNEL] ───────────────────────────────────────────
+void QfPositioningSource::sendToDevice( const QString &text )
+{
+  if ( !mReceiver )
+    return;
+  mReceiver->writeRawData( text.toUtf8() );
+}
+
+void QfPositioningSource::setDeviceRawTap( bool enabled )
+{
+  mDeviceRawTap = enabled;
+  if ( mReceiver )
+    mReceiver->setRawTap( enabled );
+}
+
+void QfPositioningSource::setCorrectionsPaused( bool paused )
+{
+  if ( mCorrectionsPaused == paused )
+    return;
+  mCorrectionsPaused = paused;
+  if ( paused )
+  {
+    stopNtripClient();
+  }
+  else if ( mEnableNtrip && mReceiver && !mDeviceId.isEmpty() && mReceiver->socketState() == QAbstractSocket::ConnectedState )
+  {
+    startNtripClient();
+  }
+  emit correctionsPausedChanged( paused );
 }
 
 // WorkField: elevation mask via UBX-CFG-VALSET (CFG-NAVSPG-INFIL_MINELEV, RAM layer)

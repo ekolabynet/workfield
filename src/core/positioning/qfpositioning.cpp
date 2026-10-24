@@ -106,6 +106,12 @@ void QfPositioning::setupSource()
   connect( this, SIGNAL( triggerConnectDevice() ), mPositioningSourceReplica.data(), SLOT( triggerConnectDevice() ) );
   connect( this, SIGNAL( triggerDisconnectDevice() ), mPositioningSourceReplica.data(), SLOT( triggerDisconnectDevice() ) );
   connect( this, SIGNAL( setGnssMinimumElevation( int ) ), mPositioningSourceReplica.data(), SLOT( setGnssMinimumElevation( int ) ) );
+  // WorkField [WF-RECEIVER-CHANNEL]
+  connect( this, SIGNAL( sendToDevice( QString ) ), mPositioningSourceReplica.data(), SLOT( sendToDevice( QString ) ) );
+  connect( this, SIGNAL( setDeviceRawTap( bool ) ), mPositioningSourceReplica.data(), SLOT( setDeviceRawTap( bool ) ) );
+  connect( this, SIGNAL( setCorrectionsPaused( bool ) ), mPositioningSourceReplica.data(), SLOT( setCorrectionsPaused( bool ) ) );
+  connect( mPositioningSourceReplica.data(), SIGNAL( deviceRawLineReceived( QString ) ), this, SIGNAL( deviceRawLineReceived( QString ) ) );
+  connect( mPositioningSourceReplica.data(), SIGNAL( correctionsPausedChanged( bool ) ), this, SIGNAL( correctionsPausedChanged( bool ) ) );
 
   // Synchronize properties
   const QList<QString> properties = mProperties.keys();

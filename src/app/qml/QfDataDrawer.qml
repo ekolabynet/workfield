@@ -87,6 +87,10 @@ Drawer {
     case "gnssDiag":
       gnssDiagPopup.open();
       return;
+    case "terminalOdbiornika": // [WF-RECEIVER-TERMINAL]
+      dataDrawer.close();
+      terminalOdbiornika.otworz();
+      return;
     case "gnssSettings":
       dataDrawer.close();
       mainWindow.pokazUstawienia("positioning");
@@ -249,6 +253,8 @@ Drawer {
     { "naglowek": qsTr("Niebo i pozycja") },
     { "label": qsTr("Niebo \u2014 satelity"), "action": "niebo", "ikona": "wfg_niebo" },
     { "label": qsTr("Diagnostyka GNSS / NTRIP"), "action": "gnssDiag", "ikona": "wfg_sprzet", "polka": "zaawansowana" },
+    // [WF-RECEIVER-TERMINAL] straight from Tools (Piotr 18:10), not only from the diagnostics
+    { "label": qsTr("Terminal odbiornika (Bluetooth)"), "action": "terminalOdbiornika", "ikona": "wfg_sprzet" },
     { "label": qsTr("Ustawienia pozycjonowania"), "action": "gnssSettings", "ikona": "wfg_ustawienia" },
     { "naglowek": qsTr("Teren i pliki") },
     { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
@@ -1097,6 +1103,11 @@ Drawer {
     }
   }
 
+  // [WF-RECEIVER-TERMINAL] 24.10.2026
+  QfReceiverTerminal {
+    id: terminalOdbiornika
+  }
+
   // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
   QfWindowFrame {
     id: gnssDiagPopup
@@ -1231,6 +1242,17 @@ Drawer {
       Layout.fillWidth: true
       Layout.topMargin: 4
       spacing: 8
+
+      // [WF-RECEIVER-TERMINAL] the receiver's menu and stream over the app's own link
+      Button {
+        text: qsTr("Terminal odbiornika")
+        font.pointSize: t.tinyFont.pointSize
+        visible: positionSource.deviceId !== ""
+        onClicked: {
+          gnssDiagPopup.close();
+          terminalOdbiornika.otworz();
+        }
+      }
 
       Button {
         text: qsTr("Połącz NTRIP ponownie")

@@ -388,6 +388,13 @@ class QfPositioning : public QObject
     void triggerConnectDevice();
     void triggerDisconnectDevice();
     void setGnssMinimumElevation( int degrees );
+    // WorkField [WF-RECEIVER-CHANNEL] — callable from QML (signals forwarded to the source)
+    void sendToDevice( const QString &text );
+    void setDeviceRawTap( bool enabled );
+    void setCorrectionsPaused( bool paused );
+    // WorkField [WF-RECEIVER-CHANNEL] — from the source
+    void deviceRawLineReceived( const QString &line );
+    void correctionsPausedChanged( bool paused );
 
     // QfPositioning signal
     void coordinateTransformerChanged();

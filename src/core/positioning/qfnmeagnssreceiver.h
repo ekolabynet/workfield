@@ -22,6 +22,7 @@
 #include <QFile>
 #include <QIODevice>
 #include <QObject>
+#include <QTimer>
 
 /**
  * The nmeareceiver connects to a device and feeds the QgsNmeaConnection.
@@ -40,6 +41,8 @@ class QfNmeaGnssReceiver : public QfAbstractGnssReceiver
 
     void initNmeaConnection( QIODevice *ioDevice );
 
+    void setRawTap( bool enabled ) override;
+
   signals:
     void nmeaSentenceReceived( const QString &sentence );
 
@@ -49,6 +52,8 @@ class QfNmeaGnssReceiver : public QfAbstractGnssReceiver
   private slots:
     void stateChanged( const QgsGpsInformation &info );
     void onNmeaSentenceReceived( const QString &substring );
+    void onDeviceReadyRead();
+    void flushRawRemainder();
 
   protected:
     std::unique_ptr<QgsNmeaConnection> mNmeaConnection;
@@ -70,6 +75,12 @@ class QfNmeaGnssReceiver : public QfAbstractGnssReceiver
     QfGnssPositionInformation mCurrentNmeaGnssPositionInformation;
 
     QIODevice *mIODevice = nullptr;
+
+    // [WF-RECEIVER-CHANNEL] raw tap
+    void collectRawBytes( const QByteArray &bytes );
+    bool mRawTap = false;
+    QByteArray mRawBuffer;
+    QTimer mRawFlushTimer;
 
     struct ImuPosition
     {

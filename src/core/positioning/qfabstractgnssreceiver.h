@@ -64,6 +64,19 @@ class QfAbstractGnssReceiver : public QObject
      */
     virtual QfGnssPositionDetails details() const { return {}; }
     virtual QAbstractSocket::SocketState socketState() const { return mSocketState; }
+
+    /**
+     * WorkField [WF-RECEIVER-CHANNEL]: when enabled, every line the device sends
+     * (also non-NMEA text, e.g. a receiver's configuration menu) is emitted as
+     * rawLineReceived(). Off by default — costs nothing when nobody listens.
+     */
+    virtual void setRawTap( bool enabled ) { Q_UNUSED( enabled ) }
+
+    /**
+     * WorkField [WF-RECEIVER-CHANNEL]: writes \a data to the device, the same
+     * way correction data (RTCM) is written. No-op for receivers without a link.
+     */
+    void writeRawData( const QByteArray &data ) { onCorrectionDataReceived( data ); }
     virtual QString socketStateString();
 
   protected:
@@ -76,6 +89,8 @@ class QfAbstractGnssReceiver : public QObject
     void socketStateStringChanged( const QString &socketStateString );
     void lastErrorChanged( const QString &lastError );
     void batteryLevelChanged( const double batteryLevel );
+    //! WorkField [WF-RECEIVER-CHANNEL] one line from the device (raw tap on)
+    void rawLineReceived( const QString &line );
 
   public slots:
     virtual void onCorrectionDataReceived( const QByteArray &data ) {}

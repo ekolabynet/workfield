@@ -328,6 +328,11 @@ class QfPositioningSource : public QObject
     void ntripBytesReceivedChanged();
     void ntripLastBytesReceivedUtcDateTimeChanged();
 
+    //! WorkField [WF-RECEIVER-CHANNEL] one line from the device (raw tap on)
+    void deviceRawLineReceived( const QString &line );
+    //! WorkField [WF-RECEIVER-CHANNEL] NTRIP corrections paused / resumed
+    void correctionsPausedChanged( bool paused );
+
   public slots:
 
     void triggerConnectDevice();
@@ -339,6 +344,22 @@ class QfPositioningSource : public QObject
      * cleared when the receiver is power cycled.
      */
     void setGnssMinimumElevation( int degrees );
+
+    /**
+     * WorkField [WF-RECEIVER-CHANNEL]: sends \a text to the connected device as
+     * it is (add "\r\n" yourself when the device expects a line end).
+     */
+    void sendToDevice( const QString &text );
+
+    //! WorkField [WF-RECEIVER-CHANNEL]: every device line → deviceRawLineReceived()
+    void setDeviceRawTap( bool enabled );
+
+    /**
+     * WorkField [WF-RECEIVER-CHANNEL]: stops sending NTRIP corrections to the
+     * device (a receiver menu needs silence — SparkFun "+++" wants 2 s without
+     * any byte) and starts them again. The NTRIP client is stopped, not just muted.
+     */
+    void setCorrectionsPaused( bool paused );
 
   private slots:
 
@@ -378,6 +399,8 @@ class QfPositioningSource : public QObject
 
     std::unique_ptr<QfAbstractGnssReceiver> mReceiver;
     std::unique_ptr<QfNtripClient> mNtripClient;
+    bool mCorrectionsPaused = false; // [WF-RECEIVER-CHANNEL]
+    bool mDeviceRawTap = false;      // [WF-RECEIVER-CHANNEL]
 
     QCompass mCompass;
     QTimer mCompassTimer;
