@@ -1995,6 +1995,7 @@ Page {
   }
 
   header: QfPageHeader {
+    id: pageHeader
     // `appName` bylo wlasnoscia kontekstu, ktora juz nie istnieje — w dzienniku
     // siedzialo "ReferenceError: appName is not defined" przy kazdym otwarciu.
     // Qfield.name jest singletonem z org.qfield.core i zawsze odpowiada.
@@ -2005,6 +2006,26 @@ Page {
     showCancelButton: false
 
     topMargin: mainWindow.sceneTopMargin
+
+    // [WF-WINDOW-FRAME] 24.10.2026 — settings are saved at once, so the exit is
+    // the orange ← and every change shows "✓ Zapisano" (Piotr / tester remark 2).
+    // Two ways a setting is stored: settings.setValue (signal settingChanged)
+    // and the QtCore Settings objects (registry, positioningSettings).
+    flashEnabled: page.visible
+    Component.onCompleted: {
+      watchSettings(registry);
+      if (typeof positioningSettings !== "undefined")
+        watchSettings(positioningSettings);
+    }
+
+    Connections {
+      target: typeof settings !== "undefined" ? settings : null
+      ignoreUnknownSignals: true
+
+      function onSettingChanged(key) {
+        pageHeader.flashSaved();
+      }
+    }
 
     // Bez stosu ekranow "wstecz" znaczy jedno: zamknij ustawienia.
     onFinished: {
