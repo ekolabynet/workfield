@@ -20,6 +20,7 @@
 #include <QObject>
 #include <QVariantMap>
 #include <qgsfeature.h>
+#include <qgsproject.h>     // [WF-GALLERY-FROM-TABLES]
 #include <qgsvectorlayer.h>
 
 /**
@@ -74,6 +75,20 @@ class ZalacznikiUtils : public QObject
      * strony. Sama nic nie robi — tylko rozglasza zadanie.
      */
     Q_INVOKABLE void zazadajZdjecia( QgsVectorLayer *warstwa, const QgsFeature &obiekt );
+
+    /**
+     * WorkField 24.10.2026 [WF-GALLERY-FROM-TABLES] — which object each photo
+     * belongs to, read from the attachment tables of \a project.
+     *
+     * Key: the path as stored in the table (relative to the project, "/" as
+     * separator, without a leading "./"). Value: { layer: name of the parent
+     * layer, key: value of the foreign key (usually fid), parentUuid: the
+     * PARENT_UUID when the table has it }.
+     *
+     * The file name is for people and may follow any convention; the link is
+     * in the table. The gallery uses the name only for files no table knows.
+     */
+    Q_INVOKABLE QVariantMap photoIndex( QgsProject *project ) const;
 
   signals:
     //! Ktos poprosil o zdjecie-zalacznik dla istniejacego obiektu

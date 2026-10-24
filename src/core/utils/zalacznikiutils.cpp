@@ -8,6 +8,8 @@
 
 #include "zalacznikiutils.h"
 
+#include <qgsfeatureiterator.h>
+#include <qgsfeaturerequest.h>
 #include <qgsproject.h>
 #include <qgsrelation.h>
 #include <qgsrelationmanager.h>
@@ -112,6 +114,64 @@ QVariantMap ZalacznikiUtils::relacjaZalacznikow( QgsVectorLayer *warstwa ) const
     return pozostale.first();
 
   return wynik;
+}
+
+QVariantMap ZalacznikiUtils::photoIndex( QgsProject *project ) const
+{
+  QVariantMap index;
+  if ( !project )
+    return index;
+
+  const QMap<QString, QgsMapLayer *> layers = project->mapLayers();
+  for ( QgsMapLayer *mapLayer : layers )
+  {
+    QgsVectorLayer *parent = qobject_cast<QgsVectorLayer *>( mapLayer );
+    if ( !parent || !parent->isValid() )
+      continue;
+
+    const QVariantMap description = relacjaZalacznikow( parent );
+    if ( !description.value( QStringLiteral( "istnieje" ), false ).toBool() )
+      continue;
+
+    QgsVectorLayer *child = qobject_cast<QgsVectorLayer *>( description.value( QStringLiteral( "warstwa" ) ).value<QObject *>() );
+    if ( !child || !child->isValid() )
+      continue;
+
+    const int pathIndex = child->fields().lookupField( description.value( QStringLiteral( "poleSciezki" ) ).toString() );
+    const int keyIndex = child->fields().lookupField( description.value( QStringLiteral( "poleObce" ) ).toString() );
+    const int parentUuidIndex = child->fields().lookupField( QStringLiteral( "PARENT_UUID" ) );
+    if ( pathIndex < 0 )
+      continue;
+
+    QgsAttributeList wanted { pathIndex };
+    if ( keyIndex >= 0 )
+      wanted << keyIndex;
+    if ( parentUuidIndex >= 0 )
+      wanted << parentUuidIndex;
+
+    QgsFeatureRequest request;
+    request.setFlags( Qgis::FeatureRequestFlag::NoGeometry );
+    request.setSubsetOfAttributes( wanted );
+    QgsFeatureIterator it = child->getFeatures( request );
+    QgsFeature feature;
+    while ( it.nextFeature( feature ) )
+    {
+      QString path = feature.attribute( pathIndex ).toString().trimmed();
+      if ( path.isEmpty() )
+        continue;
+      path.replace( QLatin1Char( '\\' ), QLatin1Char( '/' ) );
+      while ( path.startsWith( QLatin1String( "./" ) ) )
+        path = path.mid( 2 );
+
+      QVariantMap entry;
+      entry.insert( QStringLiteral( "layer" ), parent->name() );
+      entry.insert( QStringLiteral( "key" ), keyIndex >= 0 ? feature.attribute( keyIndex ) : QVariant() );
+      if ( parentUuidIndex >= 0 )
+        entry.insert( QStringLiteral( "parentUuid" ), feature.attribute( parentUuidIndex ) );
+      index.insert( path, entry );
+    }
+  }
+  return index;
 }
 
 void ZalacznikiUtils::zazadajZdjecia( QgsVectorLayer *warstwa, const QgsFeature &obiekt )

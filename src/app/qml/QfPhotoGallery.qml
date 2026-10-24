@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import QtQuick.Dialogs
 import org.qfield
+import org.qfield.core // [WF-GALLERY-FROM-TABLES] ZalacznikiUtils
 import Theme
 
 /**
@@ -460,17 +461,43 @@ Popup {
     return Qt.hsla(h / 360, 0.55, 0.45, 1);
   }
 
+  // [WF-GALLERY-FROM-TABLES] 24.10.2026: which object a photo belongs to is
+  // read from the attachment tables (ZAL_*), not guessed from the file name —
+  // the name follows a convention people may change (Settings → „Obiekty
+  // i zdjęcia”); the link lives in the table. Built once per opening (a scan
+  // of every photo row), not on every change of a folder model.
+  property var attachmentIndex: ({})
+
+  function refreshAttachmentIndex() {
+    try {
+      attachmentIndex = qgisProject ? ZalacznikiUtils.photoIndex(qgisProject) : ({});
+    } catch (e) {
+      console.log("WorkField [WF-GALLERY-FROM-TABLES]: index failed: " + e);
+      attachmentIndex = ({});
+    }
+  }
+
+  //! path relative to the project, as the tables store it
+  function relativePath(path) {
+    const base = projectDir + "/";
+    return path.indexOf(base) === 0 ? path.substring(base.length) : path;
+  }
+
   //! zbiera zdjecia z jednego modelu katalogu do wspolnej listy
   function zbierzZKatalogu(model, katalog, arr, prefixes) {
     for (let i = 0; i < model.count; i++) {
       const name = model.get(i, "fileName");
-      const layer = extractLayer(name, katalog);
+      const path = model.get(i, "filePath");
+      const entry = attachmentIndex[relativePath(path)];
+      const layer = entry ? entry.layer : extractLayer(name, katalog);
       prefixes[layer] = true;
       if (layerFilter === "" || layer === layerFilter) {
         arr.push({
-            "path": model.get(i, "filePath"),
+            "path": path,
             "name": name,
             "layer": layer,
+            "objectKey": entry ? entry.key : null,
+            "inTable": !!entry,
             "mtime": model.get(i, "fileModified")
           });
       }
@@ -512,6 +539,9 @@ Popup {
     target: photoGallery
     function onOpened() {
       if (photoGallery.projectDir !== "") {
+        // [WF-GALLERY-FROM-TABLES] fresh links first, then the list
+        photoGallery.refreshAttachmentIndex();
+        photoGallery.rebuildPhotos();
         tagStore.author = settings.value("workfield/podpisTerenowy", "workfield");
         const ok = tagStore.open(photoGallery.projectDir);
         console.log("PhotoTagStore:", ok ? "otwarty: " + tagStore.storagePath : "BLAD otwarcia");
