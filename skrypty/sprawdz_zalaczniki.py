@@ -72,6 +72,17 @@ def wszystkie_tabele(con):
         "AND name NOT LIKE 'sqlite_%'")]
 
 
+def jak_w_tabeli_zal(nazwa):
+    """Nazwa warstwy tak, jak trafia do nazwy tabeli zdjęć: „Skrzynki
+    elektrozawory ” (ze spacją na końcu) -> SKRZYNKI_ELEKTROZAWORY,
+    „Rurociągi” -> RUROCIAGI. 24.10.2026: bez tego rodzic nie był rozpoznany."""
+    import re
+    import unicodedata
+    s = unicodedata.normalize("NFKD", str(nazwa).replace("ł", "l").replace("Ł", "L"))
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_").upper()
+
+
 def zgadnij_rodzica(tabela_zal, kandydaci):
     """ZAL_PLATY -> FITO_PLATY. Dopasowanie po sufiksie, nigdy po cichu:
     wynik jest zawsze wypisywany, żeby dało się go zakwestionować."""
@@ -81,6 +92,11 @@ def zgadnij_rodzica(tabela_zal, kandydaci):
     dokladne = [t for t in kandydaci if t.upper() == trzon.upper()]
     if dokladne:
         return dokladne[0]
+    # nazwa warstwy ze spacjami albo polskimi literami
+    znormalizowane = [t for t in kandydaci
+                      if not t.upper().startswith("ZAL_") and jak_w_tabeli_zal(t) == jak_w_tabeli_zal(trzon)]
+    if znormalizowane:
+        return znormalizowane[0]
     z_kreska = [t for t in kandydaci
                 if t.upper().endswith("_" + trzon.upper()) and not t.startswith("ZAL_")]
     if len(z_kreska) == 1:

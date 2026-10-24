@@ -210,6 +210,10 @@ def sprawdz(sciezka, limit=10):
             for fid, rodzic, (tab, f) in niezgodne[:limit]:
                 out.append("%-32s           %s=%s: ID_RODZICA=%s, a PARENT_UUID wskazuje %s fid %s"
                            % ("", pk, fid, rodzic, tab, f))
+            # 24.10.2026: nieznane — wypisane, żeby dało się je obejrzeć
+            for fid, puuid in nieznane[:limit]:
+                out.append("%-32s           %s=%s: PARENT_UUID %s nie wskazuje żadnego obiektu (rodzic usunięty?)"
+                           % ("", pk, fid, puuid))
             problemy += len(niezgodne)
         return out, problemy
     finally:
