@@ -14,6 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "featureidentity.h" // [WF-SPLIT-IDENTITY]
 #include "qfgeometryutils.h"
 #include "qfrubberbandmodel.h"
 
@@ -339,6 +340,13 @@ QfGeometryUtils::GeometryOperationResult QfGeometryUtils::splitFeatureFromRubber
           layer->changeAttributeValue( createdFeatureId, sourcePrimaryKeysIndex, QVariant() );
         }
       }
+    }
+    // [WF-SPLIT-IDENTITY] 24.10.2026: the part left on the original object
+    // keeps its uuid (and its attachments); every new part is a new object.
+    // Choosing the heir and the photos in a dialog — next step.
+    for ( const QgsFeatureId &createdFeatureId : std::as_const( createdFeatureIds ) )
+    {
+      FeatureIdentity::assignNewUuid( layer, createdFeatureId );
     }
     layer->commitChanges( !wasEditing );
   }

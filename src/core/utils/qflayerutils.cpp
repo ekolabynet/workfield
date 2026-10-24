@@ -14,6 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "featureidentity.h" // [WF-DUPLICATE-IDENTITY]
 #include "qflayerutils.h"
 
 #include <cpl_conv.h>
@@ -519,7 +520,24 @@ QgsFeature QfLayerUtils::duplicateFeature( QgsVectorLayer *layer, QgsFeature fea
   auto sweaper = qScopeGuard( [layer, connection] { layer->disconnect( connection ); } );
 
   QgsVectorLayerUtils::QgsDuplicateFeatureContext duplicateFeatureContext;
-  duplicatedFeature = QgsVectorLayerUtils::duplicateFeature( layer, feature, QgsProject::instance(), duplicateFeatureContext );
+  // [WF-DUPLICATE-IDENTITY] 24.10.2026 (Piotr): a duplicate is a new object —
+  // it gets a new uuid, and its attachments are NOT copied (a photo documents
+  // the original). QgsVectorLayerUtils::duplicateFeature copies composition
+  // children at every depth and cannot be told not to, so the copy is made
+  // here; duplicateFeatureContext stays empty and the code below skips it.
+  {
+    FeatureIdentity::assignNewUuid( feature );
+    const QgsAttributeList primaryKeys = layer->primaryKeyAttributes();
+    const QgsAttributes values = feature.attributes();
+    QgsAttributeMap attributes;
+    for ( int i = 0; i < values.size() && i < layer->fields().count(); ++i )
+    {
+      if ( !primaryKeys.contains( i ) )
+        attributes.insert( i, values.at( i ) );
+    }
+    QgsFeature newFeature = QgsVectorLayerUtils::createFeature( layer, feature.geometry(), attributes );
+    layer->addFeature( newFeature );
+  }
   const auto duplicateFeatureContextLayers = duplicateFeatureContext.layers();
 
   // commit changes

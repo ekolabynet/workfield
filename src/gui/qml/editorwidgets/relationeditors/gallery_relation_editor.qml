@@ -283,7 +283,13 @@ QfRelationEditorBase {
     // (podkatalog na obiekt + klucz w nazwie pliku). Bez tych zmiennych
     // wyrażenie attachment_naming nie ma skąd wziąć rodzica.
     variables: ({
-        "rodzic_fid": referencingFeatureListModel.feature.id,
+        // [WF-TEMP-FID] 24.10.2026: a parent not saved yet has a temporary id
+        // (negative, or the smallest 64-bit number) — it made folders like
+        // DCIM/platy_-9223372036854775808/. Without a real number the naming
+        // expression falls back to the flat name. The parent uuid exists from
+        // the moment the object is created, so it is passed for new names.
+        "rodzic_fid": referencingFeatureListModel.feature.id >= 0 ? referencingFeatureListModel.feature.id : null,
+        "parent_uuid": referencingFeatureListModel.feature.attribute("uuid") || null,
         "rodzic_warstwa": referencingFeatureListModel.relation && referencingFeatureListModel.relation.referencedLayer ? referencingFeatureListModel.relation.referencedLayer.name : ""
       })
   }

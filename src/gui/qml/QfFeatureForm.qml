@@ -318,6 +318,60 @@ Page {
     anchors.leftMargin: form.leftMargin
     anchors.rightMargin: form.rightMargin
 
+    // [WF-OBJECT-NUMBER] 24.10.2026 (Piotr): the number of the object is basic
+    // in an inventory, so it stands at the very top of the form, read only,
+    // whatever the layout of the form made in QGIS. Not shown for a new object
+    // (the number is given on saving) nor when several objects are edited at
+    // once. Source: field NR when the layer has it filled (a number that
+    // survives merging returns), otherwise fid. The choice per layer moves to
+    // Settings in the next step.
+    Rectangle {
+      id: objectNumberBar
+
+      readonly property var objectNumber: {
+        const featureModel = form.model ? form.model.featureModel : null;
+        if (!featureModel || form.state === 'Add' || featureModel.modelMode === QfFeatureModel.MultiFeatureModel)
+          return null;
+        const feature = featureModel.feature;
+        const layer = featureModel.currentLayer;
+        if (!layer || !feature || !(feature.id >= 0))
+          return null;
+        const fields = LayerUtils.layerFields(layer);
+        for (let i = 0; i < fields.length; i++) {
+          const name = String(fields[i].name);
+          if (name.toUpperCase() === "NR") {
+            const value = feature.attribute(name);
+            if (value !== undefined && value !== null && String(value) !== "")
+              return {
+                "source": "NR",
+                "value": String(value)
+              };
+          }
+        }
+        return {
+          "source": "fid",
+          "value": String(feature.id)
+        };
+      }
+
+      visible: objectNumber !== null
+      Layout.fillWidth: true
+      Layout.preferredHeight: visible ? 34 : 0
+      color: QfTheme.controlBackgroundAlternateColor
+
+      Text {
+        anchors.left: parent.left
+        anchors.leftMargin: 12
+        anchors.right: parent.right
+        anchors.rightMargin: 12
+        anchors.verticalCenter: parent.verticalCenter
+        elide: Text.ElideRight
+        text: objectNumberBar.objectNumber ? qsTr("Nr obiektu (%1): %2").arg(objectNumberBar.objectNumber.source).arg(objectNumberBar.objectNumber.value) : ""
+        font: QfTheme.strongFont
+        color: QfTheme.mainTextColor
+      }
+    }
+
     QfTabBar {
       id: tabRow
       objectName: "tabRow"

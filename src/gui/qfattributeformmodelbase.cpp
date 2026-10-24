@@ -14,6 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "featureidentity.h" // [WF-FID-HIDDEN]
 #include "qfattributeformmodel.h"
 #include "qfattributeformmodelbase.h"
 
@@ -1233,6 +1234,20 @@ QgsEditorWidgetSetup QfAttributeFormModelBase::findBest( const int fieldIndex )
   QgsFields fields = mLayer->fields();
   if ( fieldIndex >= 0 && fieldIndex < fields.count() )
   {
+    // [WF-FID-HIDDEN] 24.10.2026 (tester, Piotr): the GeoPackage key (fid) was
+    // an empty, editable field in every form. Nobody should type it: the file
+    // gives it on saving, attachments (ZAL_*) hang on it, a repeated number
+    // blocks the save. The number of an existing object is shown read only at
+    // the top of the form instead (QfFeatureForm, [WF-OBJECT-NUMBER]).
+    // The identity fields (uuid, PARENT_UUID) are never shown either.
+    // Only file-based providers: a PostgreSQL key may be a number people use.
+    const QString providerType = mLayer->providerType();
+    const bool fileKey = providerType == QLatin1String( "ogr" ) || providerType == QLatin1String( "spatialite" );
+    if ( ( fileKey && mLayer->primaryKeyAttributes().contains( fieldIndex ) ) || FeatureIdentity::isIdentityField( fields.at( fieldIndex ).name() ) )
+    {
+      return QgsEditorWidgetSetup( QStringLiteral( "Hidden" ), QVariantMap() );
+    }
+
     //when field has a configured setup, take it
     QgsEditorWidgetSetup configuredSetup = mLayer->editorWidgetSetup( fieldIndex );
     if ( !configuredSetup.isNull() )

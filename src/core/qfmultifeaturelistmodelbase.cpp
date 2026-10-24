@@ -15,6 +15,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "featureidentity.h" // [WF-MERGE-KEEP-ATTACHMENTS]
 #include "qffeatureutils.h"
 #include "qflayerutils.h"
 #include "qfmultifeaturelistmodel.h"
@@ -765,6 +766,26 @@ bool QfMultiFeatureListModelBase::mergeSelection()
     QgsFeature mergedFeature = selectedFeatures[0].second;
     mergedFeature.setGeometry( combinedGeometry );
     isSuccess = vlayer->updateFeature( mergedFeature );
+
+    // [WF-MERGE-KEEP-ATTACHMENTS] 24.10.2026: the merged-away objects are
+    // deleted, and the composition relation deleted their attachments with
+    // them — photos lost their link without a word. They describe a part of
+    // the merged object, so they move onto the object that stays (the first
+    // selected). Committed before the deletions: if anything fails later,
+    // the photos hang on an object that exists.
+    for ( int i = 1; isSuccess && i < selectedFeatures.size(); ++i )
+    {
+      const QList<QgsVectorLayer *> childLayers = FeatureIdentity::moveCompositionChildren( QgsProject::instance(), vlayer, selectedFeatures.at( i ).second, mergedFeature );
+      for ( QgsVectorLayer *childLayer : childLayers )
+      {
+        if ( !childLayer->commitChanges() )
+        {
+          QgsMessageLog::logMessage( tr( "Cannot move attachments to the merged feature in layer \"%1\": %2" ).arg( childLayer->name(), childLayer->commitErrors().join( QStringLiteral( "; " ) ) ), "QField", Qgis::Warning );
+          childLayer->rollBack();
+          isSuccess = false;
+        }
+      }
+    }
 
     if ( isSuccess )
     {

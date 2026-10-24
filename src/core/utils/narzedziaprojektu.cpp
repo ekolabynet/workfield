@@ -7,6 +7,7 @@
  ***************************************************************************/
 
 #include "narzedziaprojektu.h"
+#include "featureidentity.h" // [WF-SPLIT-IDENTITY]
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -1680,6 +1681,7 @@ QVariantMap NarzedziaProjektu::splitParts( QgsVectorLayer *layer, QgsFeatureId f
     for ( int k = 0; k < keys.size(); ++k )
       copy.setAttribute( keys.at( k ), QVariant() );
     copy.setGeometry( fitted.at( 0 ) );
+    FeatureIdentity::assignNewUuid( copy ); // [WF-SPLIT-IDENTITY] a new part is a new object
 
     if ( layer->addFeature( copy ) )
       created << QVariant::fromValue( static_cast<qlonglong>( copy.id() ) );

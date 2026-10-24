@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 
+#include "featureidentity.h" // [WF-PASTE-IDENTITY]
 #include "qfclipboardmanager.h"
 #include "qffeatureutils.h"
 
@@ -135,11 +136,37 @@ void QfClipboardManager::copyFeatureToClipboard( const QgsFeature &feature, bool
   }
 }
 
+// [WF-PASTE-IDENTITY] 24.10.2026: a pasted object is a new object — its
+// identity (uuid, PARENT_UUID) is not copied. The fields are removed, not
+// emptied: pasting attributes into an existing object skips fields it does
+// not find, so that object keeps its own uuid; pasting as a new object gets
+// the default of the layer (uuid()).
+static QgsFeature withoutIdentityFields( const QgsFeature &feature )
+{
+  const QgsFields fields = feature.fields();
+  QgsFields keptFields;
+  QgsAttributes keptValues;
+  for ( int i = 0; i < fields.count(); ++i )
+  {
+    if ( FeatureIdentity::isIdentityField( fields.at( i ).name() ) )
+      continue;
+    keptFields.append( fields.at( i ) );
+    keptValues << feature.attribute( i );
+  }
+  if ( keptFields.count() == fields.count() )
+    return feature;
+
+  QgsFeature result( feature );
+  result.setFields( keptFields, false );
+  result.setAttributes( keptValues );
+  return result;
+}
+
 QgsFeature QfClipboardManager::pasteFeatureFromClipboard()
 {
   if ( mHasNativeFeature )
   {
-    return mNativeFeature;
+    return withoutIdentityFields( mNativeFeature );
   }
 
   QgsFeature feature;
@@ -183,7 +210,7 @@ QgsFeature QfClipboardManager::pasteFeatureFromClipboard()
     }
   }
 
-  return feature;
+  return withoutIdentityFields( feature ); // [WF-PASTE-IDENTITY]
 }
 
 bool QfClipboardManager::pasteFeatureFromClipboardIntoLayer( QgsVectorLayer *layer )
@@ -249,6 +276,15 @@ bool QfClipboardManager::pasteFeatureFromClipboardIntoLayer( QgsVectorLayer *lay
   for ( const QgsFeature &f : compatible )
   {
     QgsFeature copyFeature = QgsVectorLayerUtils::createFeature( layer, f.geometry(), f.attributes().toMap() );
+    // [WF-PASTE-IDENTITY] cut + paste moves the same object to another layer —
+    // it keeps its identity
+    if ( mIsCutOperation && mHasNativeFeature )
+    {
+      const int sourceIndex = FeatureIdentity::uuidFieldIndex( mNativeFeature.fields() );
+      const int targetIndex = FeatureIdentity::uuidFieldIndex( layer->fields() );
+      if ( sourceIndex >= 0 && targetIndex >= 0 )
+        copyFeature.setAttribute( targetIndex, mNativeFeature.attribute( sourceIndex ) );
+    }
     if ( !layer->addFeature( copyFeature ) )
     {
       qInfo() << tr( "Paste failed: could not add feature to layer %1" ).arg( layer->name() );
