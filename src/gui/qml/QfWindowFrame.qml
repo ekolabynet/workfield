@@ -13,7 +13,9 @@ import org.qfield.gui
  * "✗ = without saving" and "✓ = confirm", not an arrow.
  *
  * - Title bar: ✗ on the left, title, ✓ on the right (mode "decision").
- *   Mode "close": only ✗ — for settings that are saved immediately.
+ *   Mode "close": only an orange ← on the left — for windows that save every
+ *   change immediately, so there is nothing to confirm or throw away
+ *   (Piotr 24.10, 16:39).
  * - The body scrolls, with a wide bar that is always visible when the body
  *   does not fit, and a "more below" hint at the bottom edge.
  * - On a narrow screen the window takes the full width; when the body does
@@ -27,7 +29,7 @@ import org.qfield.gui
  *     onConfirmed: create()
  *     TextField { Layout.fillWidth: true }
  *   }
- * ✗ emits cancelled() and closes; ✓ only emits confirmed() — the window
+ * ✗ / ← emits cancelled() and closes; ✓ only emits confirmed() — the window
  * closes itself when the work is done (it may refuse, e.g. a bad name).
  *
  * \ingroup qml
@@ -128,7 +130,7 @@ Popup {
         QfDecisionButton {
           id: closeButton
           role: "cancel"
-          text: "✕"
+          text: frame.mode === "close" ? "←" : "✕"
           font.pointSize: QfTheme.strongFont.pointSize
           font.bold: true
           Layout.preferredWidth: 48
@@ -147,7 +149,7 @@ Popup {
             color: closeButton.fill
             opacity: closeButton.enabled ? 1.0 : 0.5
           }
-          Accessible.name: frame.mode === "close" ? qsTr("Zamknij") : qsTr("Wyjdź bez zapisywania")
+          Accessible.name: frame.mode === "close" ? qsTr("Wróć") : qsTr("Wyjdź bez zapisywania")
           onClicked: frame.cancel()
         }
 
