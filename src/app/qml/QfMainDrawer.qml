@@ -1389,14 +1389,18 @@ Drawer {
       // [WF-DRAWER-ARROW] Field test 23.10: the arrow that hides the drawer has to be
       // big and coloured (ZASADY_INTERFEJSU: filled background, visible in the sun
       // and with gloves). Round, brand colour, white arrow.
+      // [WF-WINDOW-FRAME] 24.10.2026 — orange and as big as the ← / ✕ of the windows
+      // (Piotr: „większe strzałki zamykania szuflad, pomarańczowe”)
       QfToolButton {
-        width: 40
-        height: 40
-        padding: 0
-        round: true
-        bgcolor: Theme.mainColor
+        width: 56
+        height: 44
+        padding: 6
+        round: false
+        bgcolor: "#fb8c00"
         iconSource: Theme.getThemeVectorIcon("ic_arrow_left_black_24dp")
         iconColor: "white"
+        icon.width: 30
+        icon.height: 30
         onClicked: dashBoard.close()
       }
     }
