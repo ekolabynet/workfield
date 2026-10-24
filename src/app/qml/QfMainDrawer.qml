@@ -165,16 +165,30 @@ Drawer {
       platformUtilities.exportFolderTo(cel);
   }
 
-  FolderDialog {
+  // [WF-FILE-BROWSER] 24.10.2026 krok 3 — the target folder is chosen in the
+  // "Files" window (was a system FolderDialog). `open()` and `tryb` stay, so
+  // the callers did not change.
+  QtObject {
     id: oknoFolderuEksportu
     property string tryb: "caly"
-    title: tryb === "paczka" || tryb === "paczkaDane" ? qsTr("Gdzie zapisać paczkę ZIP?")
+    readonly property string title: tryb === "paczka" || tryb === "paczkaDane" ? qsTr("Gdzie zapisać paczkę ZIP?")
          : tryb === "dane" ? qsTr("Dokąd wyeksportować dane projektu?") : qsTr("Dokąd wyeksportować projekt?")
-    onAccepted: {
+
+    function open() {
+      fileBrowser.pickFolder({
+                               "title": oknoFolderuEksportu.title,
+                               "place": "pobrane",
+                               "confirmText": qsTr("Zapisz tutaj"),
+                               "done": function (folder) {
+                                 oknoFolderuEksportu.zapiszDo(folder);
+                               }
+                             });
+    }
+
+    function zapiszDo(folder) {
       const katalog = qgisProject ? qgisProject.homePath : "";
       if (katalog === "")
         return;
-      const folder = String(selectedFolder).replace(/^file:\/\//, "");
       if (tryb === "paczka" || tryb === "paczkaDane") {
         const tylkoDane = tryb === "paczkaDane";
         const zip = folder + "/" + (tylkoDane ? dashBoard.nazwaEksportuDanych(katalog)
@@ -207,6 +221,63 @@ Drawer {
       else
         displayToast(qsTr("Nie udało się skopiować projektu do %1").arg(cel), "error");
     }
+  }
+
+  /**
+   * [WF-FILE-BROWSER] 24.10.2026 krok 3 — "Importuj projekt (folder / ZIP)".
+   * Phone: the system import (Java, copies into Imported Projects), as before.
+   * Computer: it did NOTHING (empty QfPlatformUtilities::importProjectFolder);
+   * now the "Files" window picks the folder or ZIP and the project is copied /
+   * unpacked into the projects of the store, then shown in "Pliki".
+   */
+  function importujProjekt(rodzaj) {
+    if (platformUtilities.capabilities & PlatformUtilities.CustomImport) {
+      if (rodzaj === "zip")
+        platformUtilities.importProjectArchive();
+      else
+        platformUtilities.importProjectFolder();
+      return;
+    }
+    const projekty = String(drzewoZlecen.korzen).replace(/\/+$/, "") + "/wydania";
+    const wolnaNazwa = function (nazwa) {
+      let cel = projekty + "/" + nazwa;
+      let i = 1;
+      while (FileUtils.fileExists(cel))
+        cel = projekty + "/" + nazwa + "_" + (++i);
+      return cel;
+    };
+    const pokaz = function (cel) {
+      displayToast(qsTr("Projekt zaimportowany: %1").arg(FileUtils.fileName(cel)));
+      fileBrowser.openAt(cel);
+    };
+    if (rodzaj === "zip") {
+      fileBrowser.pickFile({
+                             "title": qsTr("Wskaż paczkę ZIP z projektem"),
+                             "pattern": /\.zip$/i,
+                             "place": "pobrane",
+                             "confirmText": qsTr("Importuj"),
+                             "done": function (zip) {
+                               const cel = wolnaNazwa(FileUtils.fileName(zip, false));
+                               if (FileUtils.unzipTo(zip, cel))
+                                 pokaz(cel);
+                               else
+                                 displayToast(qsTr("Nie udało się rozpakować %1").arg(FileUtils.fileName(zip)), "error");
+                             }
+                           });
+      return;
+    }
+    fileBrowser.pickFolder({
+                             "title": qsTr("Wskaż folder z projektem"),
+                             "place": "pobrane",
+                             "confirmText": qsTr("Importuj ten folder"),
+                             "done": function (folder) {
+                               const cel = wolnaNazwa(FileUtils.fileName(folder));
+                               if (FileUtils.copyRecursively(folder, cel, null, false))
+                                 pokaz(cel);
+                               else
+                                 displayToast(qsTr("Nie udało się skopiować folderu %1").arg(folder), "error");
+                             }
+                           });
   }
 
   //! Pytanie „Cały projekt / Tylko dane” (Piotr 8.10.2026: przy obu eksportach).
@@ -2571,7 +2642,7 @@ Drawer {
           ikona: "wfg_import"
           onClicked: {
             dashBoard.close();
-            platformUtilities.importProjectFolder();
+            dashBoard.importujProjekt("folder"); // [WF-FILE-BROWSER] krok 3
           }
         }
         QfPozycjaMenu {
@@ -2580,7 +2651,7 @@ Drawer {
           ikona: "wfg_paczka"
           onClicked: {
             dashBoard.close();
-            platformUtilities.importProjectArchive();
+            dashBoard.importujProjekt("zip"); // [WF-FILE-BROWSER] krok 3
           }
         }
       }

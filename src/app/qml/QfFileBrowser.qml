@@ -27,7 +27,8 @@ import Theme
  * window, files of another kind greyed (not hidden — one sees they are
  * there), ✕ / ✓ in the title bar; on a phone "Pobrane ↗" and "Wymiana ↗" and
  * "Inne miejsce…" open the system window (the app cannot list other apps'
- * files there).
+ * files there). Step 3 = picking a folder ("✓ Wybierz ten folder" takes
+ * the folder shown; files greyed), "Nowy folder".
  *
  * File operations are the ones proven in the gallery's "Pliki" tab (09.09):
  * the bin lives IN the project, renaming / moving only inside the project,
@@ -41,8 +42,8 @@ QfWindowFrame {
   title: mode === "browse" ? qsTr("Pliki") : pickTitle
   exitMode: mode === "browse" ? "close" : "decision"
   confirmText: pickConfirmText
-  confirmEnabled: selectedPath !== ""
-  onConfirmed: finishPick(selectedPath)
+  confirmEnabled: mode === "pickFolder" ? currentPath !== "" : selectedPath !== ""
+  onConfirmed: finishPick(mode === "pickFolder" ? currentPath : selectedPath)
   scrollable: false
   preferredWidth: 900
   preferredHeight: 640
@@ -62,7 +63,7 @@ QfWindowFrame {
   property string clipboardMode: ""   // "kopiuj" | "przenies"
   property bool sortByName: false
 
-  //! [WF-FILE-BROWSER] step 2: "browse" | "pickFile"
+  //! [WF-FILE-BROWSER] step 2–3: "browse" | "pickFile" | "pickFolder"
   property string mode: "browse"
   property string pickTitle: ""
   property string pickConfirmText: qsTr("Wybierz")
@@ -120,9 +121,22 @@ QfWindowFrame {
    * "done" runs after the window has closed.
    */
   function pickFile(opts) {
-    mode = "pickFile";
-    pickTitle = opts.title || qsTr("Wskaż plik");
-    pickConfirmText = opts.confirmText || qsTr("Wybierz");
+    startPick("pickFile", opts);
+  }
+
+  /**
+   * Step 3 — the same window picks a FOLDER: the one shown when ✓ is pressed.
+   *   fileBrowser.pickFolder({ "title": qsTr("Dokąd zapisać?"), "place": "pobrane",
+   *                            "confirmText": qsTr("Zapisz tutaj"), "done": function (folder) { … } })
+   */
+  function pickFolder(opts) {
+    startPick("pickFolder", opts);
+  }
+
+  function startPick(newMode, opts) {
+    mode = newMode;
+    pickTitle = opts.title || (newMode === "pickFolder" ? qsTr("Wskaż folder") : qsTr("Wskaż plik"));
+    pickConfirmText = opts.confirmText || (newMode === "pickFolder" ? qsTr("Wybierz ten folder") : qsTr("Wybierz"));
     pickPattern = opts.pattern || null;
     pickDone = opts.done || null;
     selectedPath = "";
@@ -162,6 +176,8 @@ QfWindowFrame {
 
   //! In the pick mode: does this file fit what we are looking for?
   function matches(name, isDir) {
+    if (mode === "pickFolder")
+      return isDir;
     return mode !== "pickFile" || isDir || pickPattern === null || pickPattern.test(name);
   }
 
@@ -178,6 +194,11 @@ QfWindowFrame {
   //! Places the app cannot list itself (other apps' files on a phone):
   //! the system window, opened in that folder.
   function openSystemPicker(folder) {
+    if (mode === "pickFolder") {
+      systemFolderPicker.currentFolder = "file://" + folder;
+      systemFolderPicker.open();
+      return;
+    }
     systemPicker.currentFolder = "file://" + folder;
     systemPicker.open();
   }
@@ -233,7 +254,7 @@ QfWindowFrame {
     }
     const shown = list.filter(p => p.path !== "" && FileUtils.fileExists(p.path));
     // phone, pick mode: other apps' files are visible only in the system window
-    if (onPhone && mode === "pickFile") {
+    if (onPhone && mode !== "browse") {
       shown.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": phoneDownloads, "kind": "folder", "system": true });
       shown.push({ "key": "wymiana", "name": qsTr("Wymiana"), "path": phoneExchange, "kind": "folder", "system": true });
     }
@@ -397,6 +418,10 @@ QfWindowFrame {
       currentPath = String(path);
       selectedPath = "";
       message = "";
+      return;
+    }
+    if (mode === "pickFolder") {
+      say(qsTr("Wybierasz folder: wejdź do niego i naciśnij „%1”.").arg(pickConfirmText));
       return;
     }
     if (mode === "pickFile") {
@@ -617,7 +642,7 @@ QfWindowFrame {
       }
 
       OutlineButton {
-        visible: browser.mode === "pickFile"
+        visible: browser.mode !== "browse"
         Layout.fillWidth: true
         text: qsTr("Inne miejsce…")
         onClicked: browser.openSystemPicker(browser.currentPath)
@@ -717,6 +742,21 @@ QfWindowFrame {
                 }
               }
             }
+          }
+        }
+
+        Text {
+          // [WF-FILE-BROWSER] step 3 — a new folder here (export, ordering)
+          text: qsTr("+ folder")
+          visible: browser.currentPath !== ""
+          color: "#4DB6AC"
+          font.pointSize: Theme.tinyFont.pointSize
+          Layout.rightMargin: 10
+
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -8
+            onClicked: newFolderWindow.open()
           }
         }
 
@@ -899,7 +939,7 @@ QfWindowFrame {
 
       // phone, pick mode: the way out to the system window
       OutlineButton {
-        visible: browser.mode === "pickFile" && browser.narrowScreen
+        visible: browser.mode !== "browse" && browser.narrowScreen
         Layout.fillWidth: true
         text: browser.onPhone ? qsTr("Inne miejsce… (okno systemowe Androida)") : qsTr("Inne miejsce…")
         onClicked: browser.openSystemPicker(browser.onPhone ? browser.phoneDownloads : browser.currentPath)
@@ -1002,6 +1042,56 @@ QfWindowFrame {
         return;
       }
       browser.finishPick(path);
+    }
+  }
+
+  SystemoweOkna.FolderDialog {
+    id: systemFolderPicker
+    title: browser.pickTitle
+    onAccepted: browser.finishPick(String(selectedFolder).replace(/^file:\/\//, ""))
+  }
+
+  // [WF-FILE-BROWSER] step 3 — "+ folder"
+  QfWindowFrame {
+    id: newFolderWindow
+
+    title: qsTr("Nowy folder")
+    confirmText: qsTr("Utwórz")
+    confirmEnabled: newFolderField.text.trim() !== "" && !/[\/\\]/.test(newFolderField.text)
+    preferredWidth: 520
+    onConfirmed: create()
+
+    onOpened: {
+      newFolderField.text = "";
+      newFolderField.forceActiveFocus();
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("W folderze: %1").arg(browser.crumbs.length > 0 ? browser.crumbs[browser.crumbs.length - 1].name : browser.currentPath)
+      color: Theme.secondaryTextColor
+      font: Theme.tipFont
+      elide: Text.ElideMiddle
+    }
+
+    TextField {
+      id: newFolderField
+      Layout.fillWidth: true
+      font: Theme.defaultFont
+      onAccepted: newFolderWindow.create()
+    }
+
+    function create() {
+      const name = newFolderField.text.trim();
+      if (name === "" || /[\/\\]/.test(name))
+        return;
+      if (platformUtilities.createDir(browser.currentPath, name)) {
+        browser.say(qsTr("Utworzono folder %1").arg(name));
+        browser.currentPath = browser.currentPath + "/" + name;
+      } else {
+        browser.say(qsTr("Nie udało się utworzyć folderu %1").arg(name), true);
+      }
+      close();
     }
   }
 

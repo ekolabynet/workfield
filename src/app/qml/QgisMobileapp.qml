@@ -6223,9 +6223,7 @@ ApplicationWindow {
 
     onShowProjectFolder: {
       dashBoard.close();
-      qfieldLocalDataPickerScreen.projectFolderView = true;
-      qfieldLocalDataPickerScreen.model.resetToPath(projectInfo.filePath);
-      qfieldLocalDataPickerScreen.visible = true;
+      fileBrowser.openPlace("projekt"); // [WF-FILE-BROWSER] was the QField screen
     }
 
     // If the user clicks the "Return home" button in the middle of digitizing, we will ask if they want to discard their changes.
@@ -7572,8 +7570,7 @@ ApplicationWindow {
           welcomeScreen.model.reloadModel();
         } else {
           // A directory path is provided, display it
-          qfieldLocalDataPickerScreen.model.currentPath = path;
-          qfieldLocalDataPickerScreen.visible = true;
+          fileBrowser.openAt(path); // [WF-FILE-BROWSER] was the QField screen
         }
         welcomeScreen.visible = false;
       } else {
@@ -8644,11 +8641,9 @@ ApplicationWindow {
       aboutDialog.visible = true;
     }
 
-    onShowLocalDataPicker: {
-      qfieldLocalDataPickerScreen.projectFolderView = false;
-      qfieldLocalDataPickerScreen.model.resetToRoot();
-      qfieldLocalDataPickerScreen.visible = true;
-    }
+    // [WF-FILE-BROWSER] 24.10.2026 — the start screen opens a project the
+    // same way as the menu: the "Files" window (was the QField "local files")
+    onShowLocalDataPicker: wfAkcje.otworzProjekt()
 
     onShowQFieldCloudScreen: {
       qfieldCloudStatus.refresh();
@@ -8710,11 +8705,7 @@ ApplicationWindow {
 
     Component.onCompleted: focusstack.addFocusTaker(this)
 
-    onViewProjectFolder: projectPath => {
-      qfieldLocalDataPickerScreen.projectFolderView = true;
-      qfieldLocalDataPickerScreen.model.resetToPath(projectPath);
-      qfieldLocalDataPickerScreen.visible = true;
-    }
+    onViewProjectFolder: projectPath => fileBrowser.openAt(projectPath) // [WF-FILE-BROWSER]
   }
 
   QfCloudPopup {

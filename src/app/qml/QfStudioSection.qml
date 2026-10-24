@@ -66,12 +66,20 @@ ColumnLayout {
     }
   }
 
-  FolderDialog {
+  // [WF-FILE-BROWSER] 24.10.2026 krok 3 — the store root is chosen in the
+  // "Files" window ("Inne miejsce…" for a folder outside its places)
+  QtObject {
     id: wyborKorzenia
-    title: qsTr("Katalog z projektami")
-    onAccepted: {
-      ustawieniaStudia.korzenProjektow = selectedFolder.toString().replace("file://", "");
-      studio.przeladuj();
+
+    function open() {
+      fileBrowser.pickFolder({
+                               "title": qsTr("Katalog z projektami"),
+                               "place": "magazyn",
+                               "done": function (folder) {
+                                 ustawieniaStudia.korzenProjektow = folder;
+                                 studio.przeladuj();
+                               }
+                             });
     }
   }
 
