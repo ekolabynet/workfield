@@ -774,9 +774,13 @@ QfWindowFrame {
       text: qsTr("Zdjęcia")
       width: implicitWidth
     }
+    // [WF-FILE-BROWSER] 24.10.2026 krok 4 — files live in the "Files" window
+    // now (the gallery is for photos). Hidden, not removed: the tab numbers
+    // (tabCloud, tabTags) and the StackLayout pages must stay in order.
     TabButton {
       text: qsTr("Pliki")
-      width: implicitWidth
+      visible: false
+      width: 0
     }
     TabButton {
       text: qsTr("Chmura")

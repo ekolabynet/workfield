@@ -33,6 +33,31 @@ Page {
   property bool pickerMode: false
 
   signal datasetPicked(string path)
+
+  // [WF-FILE-BROWSER] 24.10.2026 krok 4 — the "Files" window reaches WebDAV and
+  // QFieldCloud through this screen (it keeps the connections), without opening it.
+  function wfHasWebdav(path) {
+    openedOnce = true;
+    return webdavConnectionLoader.item ? webdavConnectionLoader.item.hasWebdavConfiguration(path) : false;
+  }
+  function wfWebdavUpload(path) {
+    openedOnce = true;
+    if (webdavConnectionLoader.item)
+      webdavConnectionLoader.item.uploadPaths([path]);
+  }
+  function wfWebdavDownload(path) {
+    openedOnce = true;
+    if (webdavConnectionLoader.item)
+      webdavConnectionLoader.item.downloadPath(path);
+  }
+  function wfInCloudProject(path) {
+    return cloudProjectsModel.currentProjectId !== "" && String(path).search(cloudProjectsModel.currentProjectId) !== -1;
+  }
+  function wfPushToCloud(path) {
+    pushFilesToQFieldCloudConnection.enabled = true;
+    pushFilesToQFieldCloudConnection.sendingMultiple = true;
+    QfCloudUtils.addPendingAttachments(cloudConnection.userInformation.username, QfCloudUtils.getProjectId(QfFileUtils.absolutePath(path)), [path], cloudConnection, true);
+  }
   property alias model: table.model
 
   signal finished(var loading)

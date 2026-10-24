@@ -3521,40 +3521,8 @@ Drawer {
     }
   }
 
-  // WorkFieldGIS 22.10.2026 — „Otwórz projekty”, gdy na karcie SD są projekty:
-  // dwa duże przyciski z liczbą projektów. Bez karty okno się nie pokazuje.
-  // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ✕/✓ (or ←) in the title bar, scrolling body
-  QfWindowFrame {
-    id: wyborMiejscaOtwierania
-
-    title: qsTr("Otwórz projekty")
-    // one button per place in the body: nothing to confirm
-    exitMode: "close"
-    preferredWidth: 400
-
-    property var miejsca: []
-
-    function pokaz(m) {
-      miejsca = m;
-      open();
-    }
-
-    Repeater {
-      model: wyborMiejscaOtwierania.miejsca
-
-      delegate: Button {
-        required property var modelData
-        Layout.fillWidth: true
-        Layout.preferredHeight: 56
-        font: t.defaultFont
-        text: (modelData.rodzaj === "karta" ? "SD · " : "") + modelData.nazwa + " — " + qsTr("projektów: %1").arg(modelData.projektow)
-        onClicked: {
-          wyborMiejscaOtwierania.close();
-          photoGallery.openFiles(modelData.katalog);
-        }
-      }
-    }
-  }
+  // [WF-FILE-BROWSER] 24.10.2026 krok 4 — the "where from?" chooser
+  // (wyborMiejscaOtwierania) is gone: the SD card is a place of the "Files" window.
 
   // [WF-WINDOW-FRAME] 24.10.2026 — common frame (tester, Samsung A7): ✗ / ✓ in
   // the title bar, the body scrolls, full screen when it does not fit.

@@ -957,11 +957,17 @@ QfWindowFrame {
     readonly property bool inProject: browser.insideProject(path)
     readonly property bool inBin: browser.binDir !== "" && String(path).indexOf(browser.binDir + "/") === 0
     readonly property string lock: browser.lockReason(name, path)
+    // [WF-FILE-BROWSER] krok 4 — cloud entries (decision 2: they do not disappear)
+    property bool webdav: false
+    property bool cloud: false
 
     function show(n, p, d) {
       name = n;
       path = String(p);
       isDir = d === true;
+      const up = typeof qfieldLocalDataPickerScreen !== "undefined" ? qfieldLocalDataPickerScreen : null;
+      webdav = up !== null && up.wfHasWebdav(path);
+      cloud = up !== null && up.wfInCloudProject(path);
       browser.message = "";
       popup();
     }
@@ -1010,6 +1016,27 @@ QfWindowFrame {
         else
           platformUtilities.sendCompressedFilesTo([fileMenu.path]);
       }
+    }
+
+    MenuItem {
+      text: qsTr("Wyślij na serwer WebDAV")
+      visible: fileMenu.webdav
+      height: visible ? implicitHeight : 0
+      onTriggered: qfieldLocalDataPickerScreen.wfWebdavUpload(fileMenu.path)
+    }
+
+    MenuItem {
+      text: qsTr("Pobierz z serwera WebDAV")
+      visible: fileMenu.webdav && fileMenu.isDir
+      height: visible ? implicitHeight : 0
+      onTriggered: qfieldLocalDataPickerScreen.wfWebdavDownload(fileMenu.path)
+    }
+
+    MenuItem {
+      text: qsTr("Wyślij do QFieldCloud")
+      visible: fileMenu.cloud
+      height: visible ? implicitHeight : 0
+      onTriggered: qfieldLocalDataPickerScreen.wfPushToCloud(fileMenu.path)
     }
 
     MenuItem {
