@@ -3296,8 +3296,17 @@ Drawer {
     }
   }
 
-  Popup {
+  // [WF-WINDOW-FRAME] 24.10.2026 — common frame (tester, Samsung A7): ✗ / ✓ in
+  // the title bar, the body scrolls, full screen when it does not fit.
+  QfWindowFrame {
     id: projectNameDialog
+
+    title: mode === "blank" ? qsTr("Nowy projekt") /* WF-NOWY-TYTUL */
+         : mode === "szablon" ? qsTr("Zapisz jako szablon")
+         : qsTr("Zapisz jako nowy projekt")
+    confirmText: mode === "saveas" ? qsTr("Zapisz") : qsTr("Utwórz")
+    busy: pracuje
+    onConfirmed: zatwierdz()
 
     property string mode: "blank"
 
@@ -3345,8 +3354,6 @@ Drawer {
     property bool pracuje: false
     property string opisPracy: ""
     property string nazwaKopii: ""
-
-    closePolicy: pracuje ? Popup.NoAutoClose : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
 
     function openFor(newMode) {
       mode = newMode;
@@ -3397,11 +3404,151 @@ Drawer {
       open();
     }
 
-    parent: mainWindow.contentItem
-    x: (mainWindow.width - width) / 2
-    y: Math.max(8, (mainWindow.height - height) / 2) // [WF-NOWY-WLASCIWOSCI] okno urosło
-    width: Math.min(mainWindow.width - 40, 400)
-    modal: true
+    // [WF-WINDOW-FRAME] ✓ in the title bar (was the „Utwórz / Zapisz” button below)
+    function zatwierdz() {
+      const name = projectNameField.text.trim();
+      if (name === "") {
+        return;
+      }
+      const safeName = FileUtils.sanitizeFilePathPart(name);
+      const root = welcomeScreen.templatesDataRoot();
+      platformUtilities.createDir(root, "Imported Projects");
+      const destination = root + "Imported Projects/" + safeName;
+      // ---- zapis jako szablon: sam przepis, bez danych i bez zdjec
+      if (projectNameDialog.mode === "szablon") {
+        // korzeniem jest magazyn, nie katalog aplikacji — patrz QfNoweZadanie
+        // to samo martwe odwolanie co przy "Otworz projekt" — przez nie
+        // "Zapisz jako szablon" przerywalo sie w pierwszej linijce
+        const korzenSzablonow = NarzedziaProjektu.katalogSzablonow(drzewoZlecen.korzen);
+        if (korzenSzablonow === "") {
+          displayToast(qsTr("Nie znalazłem katalogu szablonów"), "error");
+          return;
+        }
+        const celSzablonu = korzenSzablonow + "/" + safeName;
+        if (FileUtils.fileExists(celSzablonu + "/przepis.json")) {
+          displayToast(qsTr("Szablon %1 już istnieje").arg(safeName), "error");
+          return;
+        }
+        const przepis = NarzedziaProjektu.zrzucPrzepis(qgisProject);
+        if (!przepis || !przepis.warstwy || przepis.warstwy.length === 0) {
+          displayToast(qsTr("Nie udało się odczytać struktury projektu"), "error");
+          return;
+        }
+        przepis.id = safeName;
+        // kafle paska to tresc branzowa — jada w przepisie, zeby szablon
+        // byl samowystarczalny (dziesiec kilobajtow zamiast gigabajtow)
+        const trescKlawiszy = NarzedziaProjektu.czytajTekst(qgisProject.homePath + "/workfield_klawisze.json");
+        if (trescKlawiszy !== "") {
+          try {
+            przepis.pliki = [{
+              "nazwa": "workfield_klawisze.json",
+              "tresc": JSON.parse(trescKlawiszy)
+            }];
+          } catch (e) {}
+        }
+        platformUtilities.createDir(korzenSzablonow, safeName);
+        if (NarzedziaProjektu.zapiszTekst(celSzablonu + "/przepis.json", JSON.stringify(przepis, null, 2))) {
+          displayToast(qsTr("Szablon %1 zapisany — %2 warstw").arg(safeName).arg(przepis.warstwy.length));
+        } else {
+          displayToast(qsTr("Nie udało się zapisać przepisu"), "error");
+        }
+        projectNameDialog.close();
+        return;
+      }
+
+      if (projectNameDialog.mode === "blank") {
+        // WorkField 6.10.2026 [WF-NOWY-KATALOG] — ta sama reguła co
+        // „Nowe zlecenie” po poprawce z 29.09: na Androidzie „Imported
+        // Projects” (lista projektów, menedżer plików, kabel), na
+        // komputerze katalog zadań magazynu (~/WorkField/wydania).
+        // Dotąd pusty projekt szedł zawsze do iface.dataRoot().
+        // WorkFieldGIS 22.10.2026 — na telefonie miejsce z wyboru (pamięć / karta SD).
+        // [WF-NOWY-WLASCIWOSCI] układ musi być znany, zanim cokolwiek powstanie
+        const uklad = projectNameDialog.ukladNowego;
+        if (uklad === "" || iface.opisUkladu(uklad) === "") {
+          displayToast(qsTr("Nieznany układ współrzędnych — wybierz z listy albo popraw kod EPSG"), "error");
+          return;
+        }
+        if (nowyUkladDomyslny.checked)
+          iface.ustawDomyslnyUklad(uklad);
+        // miejsce z okna (gdy jest karta SD); „zapamiętaj” = na stałe, inaczej tylko ta sesja
+        if (projectNameDialog.miejscaNowego.length > 1) {
+          if (nowyMiejsceDomyslne.checked)
+            iface.ustawMiejsceDomyslne(projectNameDialog.miejsceNowego);
+          else
+            iface.ustawMiejsceSesji(projectNameDialog.miejsceNowego);
+        }
+        let katalogNowych = Qt.platform.os === "android"
+          ? iface.katalogNowychProjektow()
+          : NarzedziaProjektu.katalogZadan(drzewoZlecen.korzen);
+        if (katalogNowych === "")
+          katalogNowych = root + "Imported Projects";
+        const celNowego = katalogNowych + "/" + safeName;
+        if (FileUtils.fileExists(celNowego + "/projekt.qgs")) {
+          displayToast(qsTr("Projekt %1 już istnieje — zmień nazwę").arg(safeName), "error");
+          return;
+        }
+        platformUtilities.createDir(katalogNowych, safeName);
+        const centerPoints = iface.visibleExtentPointsIn2180(dashBoard.mapSettings, 2);
+        dashBoard.pendingBlankCenter = centerPoints.length > 4 ? centerPoints[4] : null;
+        dashBoard.pendingBlankSetup = true;
+        dashBoard.pendingUklad = uklad;
+        dashBoard.pendingWlasciwosci = {
+          "tytul": name,
+          "obiekt": nowyObiekt.text.trim(),
+          "skrot": nowySkrot.text.trim().toUpperCase(),
+          "kategoria": nowaKategoria.text.trim().toUpperCase()
+        };
+        dashBoard.pendingMetryczka = {
+          "zleceniodawca": metZleceniodawca.text.trim(),
+          "teren": metTeren.text.trim(),
+          "zlecenie": metZlecenie.text.trim()
+        };
+        if (iface.createBlankProject(celNowego + "/projekt.qgs")) {
+          dataDrawer.close();
+          iface.loadFile(celNowego + "/projekt.qgs", name);
+        } else {
+          displayToast(qsTr("Nie udało się utworzyć projektu"));
+        }
+      } else {
+        // Zapis PRZED kopiowaniem — inaczej kopia dostaje stara
+        // tresc, a czlowiek komunikat o sukcesie. Nie kopiujemy,
+        // gdy zapis zawiodl: lepiej nic niz cicha polowa.
+        if (!ProjectUtils.saveProject(qgisProject)) {
+          displayToast(qsTr("Nie zapisano projektu — kopia nie powstala"), "error");
+          return;
+        }
+        // WorkField 19.10.2026 [WF-ZAPISZ-JAKO] — kopia CAŁEGO katalogu
+        // (dane.gpkg, zdjęcia, klawisze) OBOK oryginału. Dotąd szła
+        // zawsze do „Imported Projects” katalogu aplikacji — na
+        // komputerze nie tam, gdzie leżą projekty. Oryginał zostaje.
+        const sourceDir = FileUtils.absolutePath(projectSection.filePath);
+        const katalogKopii = FileUtils.absolutePath(sourceDir);
+        const celKopii = katalogKopii + "/" + safeName;
+        if (celKopii === sourceDir || FileUtils.fileExists(celKopii)) {
+          displayToast(qsTr("Katalog %1 już istnieje — zmień nazwę").arg(safeName), "error");
+          return;
+        }
+        // [WF-KOPIA-PROJEKTU] kopiuje i opróżnia W TLE (iface.kopiujProjekt);
+        // wynik przychodzi do onKopiaProjektuGotowa wyżej.
+        const doWyczyszczenia = [];
+        if (!zachowajObiekty.checked) {
+          for (const w of projectNameDialog.warstwyKopii) {
+            if (!w.zalacznik && projectNameDialog.wyborKopii[w.id] === true)
+              doWyczyszczenia.push(w.id);
+          }
+        }
+        projectNameDialog.nazwaKopii = name;
+        if (!iface.kopiujProjekt(qgisProject, celKopii, doWyczyszczenia, kopiujZalaczniki.checked, kopiujOrto.checked, kopiujPodklady.checked)) {
+          displayToast(qsTr("Nie mogę teraz zrobić kopii (trwa poprzednia albo zły katalog)"), "error");
+          return;
+        }
+        projectNameDialog.pracuje = true;
+        projectNameDialog.opisPracy = qsTr("Kopiuję pliki projektu…");
+        return;
+      }
+      projectNameDialog.close();
+    }
 
     Connections {
       target: iface
@@ -3448,461 +3595,282 @@ Drawer {
       }
     }
 
-    ColumnLayout {
-      anchors.fill: parent
+    Text {
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank"
+      text: qsTr("Tytuł projektu")
+      font: t.tipFont
+      color: t.secondaryTextColor
+    }
+
+    TextField {
+      id: projectNameField
+      Layout.fillWidth: true
+      font: t.defaultFont
+      enabled: !projectNameDialog.pracuje
+    }
+
+    // ── [WF-NOWY-WLASCIWOSCI] właściwości nowego projektu ─────────────
+    Text {
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank"
+      text: qsTr("Katalog: %1").arg(FileUtils.sanitizeFilePathPart(projectNameField.text.trim()))
+      font: t.tinyFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WrapAnywhere
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      visible: projectNameDialog.mode === "blank"
+      text: qsTr("Obiekt (w wyrażeniach: @obiekt_nazwa, @obiekt_skrot, @obiekt_kategoria)")
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank"
       spacing: 8
 
-      Text {
-        Layout.fillWidth: true
-        text: projectNameDialog.mode === "blank" ? qsTr("Nowy projekt") /* WF-NOWY-TYTUL */
-            : projectNameDialog.mode === "szablon" ? qsTr("Zapisz jako szablon")
-            : qsTr("Zapisz jako nowy projekt")
-        font: t.strongFont
-        color: t.mainTextColor
-      }
-
-      Text {
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
-        text: qsTr("Tytuł projektu")
-        font: t.tipFont
-        color: t.secondaryTextColor
-      }
-
       TextField {
-        id: projectNameField
+        id: nowyObiekt
         Layout.fillWidth: true
         font: t.defaultFont
-        enabled: !projectNameDialog.pracuje
-      }
-
-      // ── [WF-NOWY-WLASCIWOSCI] właściwości nowego projektu ─────────────
-      Text {
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
-        text: qsTr("Katalog: %1").arg(FileUtils.sanitizeFilePathPart(projectNameField.text.trim()))
-        font: t.tinyFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WrapAnywhere
-      }
-
-      Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 4
-        visible: projectNameDialog.mode === "blank"
-        text: qsTr("Obiekt (w wyrażeniach: @obiekt_nazwa, @obiekt_skrot, @obiekt_kategoria)")
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      RowLayout {
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
-        spacing: 8
-
-        TextField {
-          id: nowyObiekt
-          Layout.fillWidth: true
-          font: t.defaultFont
-          placeholderText: qsTr("Nazwa obiektu")
-        }
-        TextField {
-          id: nowySkrot
-          Layout.preferredWidth: 90
-          font: t.defaultFont
-          placeholderText: qsTr("Skrót")
-        }
-      }
-
-      TextField {
-        id: nowaKategoria
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
-        font: t.defaultFont
-        placeholderText: qsTr("Kategoria: APPL / SCI / …")
-      }
-
-      Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 4
-        visible: projectNameDialog.mode === "blank"
-        text: qsTr("Układ współrzędnych")
-        font: t.tipFont
-        color: t.secondaryTextColor
-      }
-
-      ComboBox {
-        id: nowyUklad
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
-        font: t.tinyFont
-        textRole: "label"
-        model: projectNameDialog.uklady
-      }
-
-      TextField {
-        id: nowyUkladInny
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank" && nowyUklad.currentIndex === projectNameDialog.uklady.length - 1
-        font: t.defaultFont
-        placeholderText: qsTr("Kod EPSG, np. 25834")
-        inputMethodHints: Qt.ImhDigitsOnly
-      }
-
-      Text {
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
-        text: {
-          const u = projectNameDialog.ukladNowego;
-          if (u === "")
-            return qsTr("Wpisz kod EPSG.");
-          const o = iface.opisUkladu(u);
-          return o !== "" ? u + " — " + o : qsTr("Nieznany układ: %1").arg(u);
-        }
-        font: t.tinyFont
-        color: iface.opisUkladu(projectNameDialog.ukladNowego) !== "" ? t.secondaryTextColor : "#e53935"
-        wrapMode: Text.WordWrap
-      }
-
-      CheckBox {
-        id: nowyUkladDomyslny
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank"
-        text: qsTr("Ustaw jako mój domyślny układ")
-        font: t.tipFont
-      }
-
-      Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 4
-        visible: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1
-        text: qsTr("Gdzie")
-        font: t.tipFont
-        color: t.secondaryTextColor
-      }
-
-      ButtonGroup {
-        id: nowyMiejsceGrupa
-      }
-
-      Repeater {
-        model: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1 ? projectNameDialog.miejscaNowego : []
-
-        delegate: RadioButton {
-          required property var modelData
-          Layout.fillWidth: true
-          ButtonGroup.group: nowyMiejsceGrupa
-          font: t.tipFont
-          text: modelData.nazwa + " — " + Number(modelData.wolneGb).toFixed(1) + qsTr(" GB wolne")
-          checked: projectNameDialog.miejsceNowego === modelData.rodzaj
-          onClicked: projectNameDialog.miejsceNowego = modelData.rodzaj
-        }
-      }
-
-      CheckBox {
-        id: nowyMiejsceDomyslne
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1
-        text: qsTr("Zapamiętaj jako domyślne")
-        font: t.tipFont
-      }
-
-      // [WF-KOPIA-PROJEKTU] dwie opcje Piotra; obie domyślnie WYŁĄCZONE
-      Text {
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "saveas"
-        text: qsTr("Ten sam układ: warstwy, style, formularze, podkłady, klawisze. Oryginał zostaje bez zmian.")
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-      CheckBox {
-        id: zachowajObiekty
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "saveas"
-        enabled: !projectNameDialog.pracuje
-        text: qsTr("Zachowaj obiekty z warstw")
-        font: t.defaultFont
-      }
-      CheckBox {
-        id: kopiujZalaczniki
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "saveas"
-        enabled: !projectNameDialog.pracuje
-        text: qsTr("Skopiuj załączniki (zdjęcia)")
-        font: t.defaultFont
-      }
-      // [WF-KOPIA-ORTO] arkusze z GUGiK po złożeniu nie są warstwami — osobne pytanie
-      CheckBox {
-        id: kopiujOrto
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "saveas" && (projectNameDialog.ortoKopii.plikow || 0) > 0
-        // [WF-KOPIA-PODKLADY] arkusze, z których korzystają warstwy, idą razem z podkładami
-        enabled: !projectNameDialog.pracuje && !(projectNameDialog.ortoKopii.uzywane === true && kopiujPodklady.checked)
-        text: projectNameDialog.ortoKopii.uzywane === true
-              ? qsTr("Skopiuj arkusze ORTO (%1, %2 MB) — używane przez warstwy, idą razem z podkładami").arg(projectNameDialog.ilePlikow(projectNameDialog.ortoKopii.plikow)).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
-              : qsTr("Skopiuj arkusze ORTO (%1, %2 MB)").arg(projectNameDialog.ilePlikow(projectNameDialog.ortoKopii.plikow)).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
-        font: t.defaultFont
-      }
-      // [WF-KOPIA-PODKLADY] 19.10.2026 — podkłady rastrowe (np. ortofotomapa 1,6 GB)
-      // domyślnie WSPÓLNE z oryginałem: nowy projekt wskazuje na plik oryginału.
-      CheckBox {
-        id: kopiujPodklady
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "saveas" && (projectNameDialog.podkladyKopii.plikow || 0) > 0
-        enabled: !projectNameDialog.pracuje
-        text: qsTr("Skopiuj podkłady rastrowe (%1, %2 MB)").arg(projectNameDialog.ilePlikow(projectNameDialog.podkladyKopii.plikow)).arg(Math.round((projectNameDialog.podkladyKopii.rozmiar || 0) / 1048576))
-        font: t.defaultFont
-        onToggled: {
-          if (projectNameDialog.ortoKopii.uzywane === true)
-            kopiujOrto.checked = checked;
-        }
-      }
-      Text {
-        Layout.fillWidth: true
-        visible: kopiujPodklady.visible && !kopiujPodklady.checked
-        text: qsTr("Bez zaznaczenia nowy projekt korzysta z podkładów oryginału — po usunięciu oryginału straci tło mapy. Zaznacz, gdy projekt ma być samodzielny (np. na telefon).")
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-      Text {
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "saveas" && !zachowajObiekty.checked && listaWarstwKopii.count > 0
-        text: qsTr("Puste w nowym projekcie (odznacz warstwę, której obiekty mają zostać):")
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-      }
-      ListView {
-        id: listaWarstwKopii
-        Layout.fillWidth: true
-        Layout.preferredHeight: Math.min(contentHeight, mainWindow.height * 0.35)
-        visible: projectNameDialog.mode === "saveas" && !zachowajObiekty.checked && count > 0
-        clip: true
-        model: projectNameDialog.warstwyKopii.filter(w => !w.zalacznik)
-        delegate: CheckBox {
-          width: ListView.view.width
-          enabled: modelData.wewnatrz && !projectNameDialog.pracuje
-          checked: projectNameDialog.wyborKopii[modelData.id] === true
-          onToggled: projectNameDialog.wyborKopii[modelData.id] = checked
-          text: modelData.nazwa + (modelData.obiektow >= 0 ? " (" + modelData.obiektow + ")" : "") + (modelData.powod ? " — " + modelData.powod : "")
-          font: t.tipFont
-        }
-      }
-      Text {
-        Layout.fillWidth: true
-        visible: projectNameDialog.opisPracy !== ""
-        text: projectNameDialog.opisPracy
-        font: t.tipFont
-        color: t.mainTextColor
-        wrapMode: Text.WordWrap
-      }
-
-      // WorkField 6.10.2026 [WF-METRYCZKA] — nieobowiązkowa. Wypełniona
-      // trafia do ZADANIE.json i posłuży do grupowania projektów.
-      Text {
-        Layout.fillWidth: true
-        Layout.topMargin: 4
-        visible: projectNameDialog.mode === "blank"
-        // [WF-NOWY-WLASCIWOSCI] zwinięta, rozwija się tapnięciem
-        text: (projectNameDialog.metryczkaOtwarta ? "▾ " : "▸ ") + qsTr("Metryczka (zleceniodawca, teren, zlecenie) — nieobowiązkowa. Wypełniona pozwoli później grupować projekty.")
-        font: t.tipFont
-        color: t.secondaryTextColor
-        wrapMode: Text.WordWrap
-
-        MouseArea {
-          anchors.fill: parent
-          onClicked: projectNameDialog.metryczkaOtwarta = !projectNameDialog.metryczkaOtwarta
-        }
+        placeholderText: qsTr("Nazwa obiektu")
       }
       TextField {
-        id: metZleceniodawca
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
+        id: nowySkrot
+        Layout.preferredWidth: 90
         font: t.defaultFont
-        placeholderText: qsTr("Zleceniodawca")
+        placeholderText: qsTr("Skrót")
       }
-      TextField {
-        id: metTeren
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
-        font: t.defaultFont
-        placeholderText: qsTr("Teren")
-      }
-      TextField {
-        id: metZlecenie
-        Layout.fillWidth: true
-        visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
-        font: t.defaultFont
-        placeholderText: qsTr("Zlecenie")
-      }
+    }
 
-      RowLayout {
-        Layout.fillWidth: true
+    TextField {
+      id: nowaKategoria
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank"
+      font: t.defaultFont
+      placeholderText: qsTr("Kategoria: APPL / SCI / …")
+    }
 
-        Item {
-          Layout.fillWidth: true
-        }
-        DecisionButton {
-          role: "neutral"
-          text: qsTr("Anuluj")
-          font.pointSize: t.tinyFont.pointSize
-          enabled: !projectNameDialog.pracuje
-          onClicked: projectNameDialog.close()
-        }
-        DecisionButton {
-          role: "confirm"
-          enabled: !projectNameDialog.pracuje
-          text: projectNameDialog.mode === "saveas" ? qsTr("Zapisz") : qsTr("Utwórz")
-          font.pointSize: t.tinyFont.pointSize
-          onClicked: {
-            const name = projectNameField.text.trim();
-            if (name === "") {
-              return;
-            }
-            const safeName = FileUtils.sanitizeFilePathPart(name);
-            const root = welcomeScreen.templatesDataRoot();
-            platformUtilities.createDir(root, "Imported Projects");
-            const destination = root + "Imported Projects/" + safeName;
-            // ---- zapis jako szablon: sam przepis, bez danych i bez zdjec
-            if (projectNameDialog.mode === "szablon") {
-              // korzeniem jest magazyn, nie katalog aplikacji — patrz QfNoweZadanie
-              // to samo martwe odwolanie co przy "Otworz projekt" — przez nie
-              // "Zapisz jako szablon" przerywalo sie w pierwszej linijce
-              const korzenSzablonow = NarzedziaProjektu.katalogSzablonow(drzewoZlecen.korzen);
-              if (korzenSzablonow === "") {
-                displayToast(qsTr("Nie znalazłem katalogu szablonów"), "error");
-                return;
-              }
-              const celSzablonu = korzenSzablonow + "/" + safeName;
-              if (FileUtils.fileExists(celSzablonu + "/przepis.json")) {
-                displayToast(qsTr("Szablon %1 już istnieje").arg(safeName), "error");
-                return;
-              }
-              const przepis = NarzedziaProjektu.zrzucPrzepis(qgisProject);
-              if (!przepis || !przepis.warstwy || przepis.warstwy.length === 0) {
-                displayToast(qsTr("Nie udało się odczytać struktury projektu"), "error");
-                return;
-              }
-              przepis.id = safeName;
-              // kafle paska to tresc branzowa — jada w przepisie, zeby szablon
-              // byl samowystarczalny (dziesiec kilobajtow zamiast gigabajtow)
-              const trescKlawiszy = NarzedziaProjektu.czytajTekst(qgisProject.homePath + "/workfield_klawisze.json");
-              if (trescKlawiszy !== "") {
-                try {
-                  przepis.pliki = [{
-                    "nazwa": "workfield_klawisze.json",
-                    "tresc": JSON.parse(trescKlawiszy)
-                  }];
-                } catch (e) {}
-              }
-              platformUtilities.createDir(korzenSzablonow, safeName);
-              if (NarzedziaProjektu.zapiszTekst(celSzablonu + "/przepis.json", JSON.stringify(przepis, null, 2))) {
-                displayToast(qsTr("Szablon %1 zapisany — %2 warstw").arg(safeName).arg(przepis.warstwy.length));
-              } else {
-                displayToast(qsTr("Nie udało się zapisać przepisu"), "error");
-              }
-              projectNameDialog.close();
-              return;
-            }
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      visible: projectNameDialog.mode === "blank"
+      text: qsTr("Układ współrzędnych")
+      font: t.tipFont
+      color: t.secondaryTextColor
+    }
 
-            if (projectNameDialog.mode === "blank") {
-              // WorkField 6.10.2026 [WF-NOWY-KATALOG] — ta sama reguła co
-              // „Nowe zlecenie” po poprawce z 29.09: na Androidzie „Imported
-              // Projects” (lista projektów, menedżer plików, kabel), na
-              // komputerze katalog zadań magazynu (~/WorkField/wydania).
-              // Dotąd pusty projekt szedł zawsze do iface.dataRoot().
-              // WorkFieldGIS 22.10.2026 — na telefonie miejsce z wyboru (pamięć / karta SD).
-              // [WF-NOWY-WLASCIWOSCI] układ musi być znany, zanim cokolwiek powstanie
-              const uklad = projectNameDialog.ukladNowego;
-              if (uklad === "" || iface.opisUkladu(uklad) === "") {
-                displayToast(qsTr("Nieznany układ współrzędnych — wybierz z listy albo popraw kod EPSG"), "error");
-                return;
-              }
-              if (nowyUkladDomyslny.checked)
-                iface.ustawDomyslnyUklad(uklad);
-              // miejsce z okna (gdy jest karta SD); „zapamiętaj” = na stałe, inaczej tylko ta sesja
-              if (projectNameDialog.miejscaNowego.length > 1) {
-                if (nowyMiejsceDomyslne.checked)
-                  iface.ustawMiejsceDomyslne(projectNameDialog.miejsceNowego);
-                else
-                  iface.ustawMiejsceSesji(projectNameDialog.miejsceNowego);
-              }
-              let katalogNowych = Qt.platform.os === "android"
-                ? iface.katalogNowychProjektow()
-                : NarzedziaProjektu.katalogZadan(drzewoZlecen.korzen);
-              if (katalogNowych === "")
-                katalogNowych = root + "Imported Projects";
-              const celNowego = katalogNowych + "/" + safeName;
-              if (FileUtils.fileExists(celNowego + "/projekt.qgs")) {
-                displayToast(qsTr("Projekt %1 już istnieje — zmień nazwę").arg(safeName), "error");
-                return;
-              }
-              platformUtilities.createDir(katalogNowych, safeName);
-              const centerPoints = iface.visibleExtentPointsIn2180(dashBoard.mapSettings, 2);
-              dashBoard.pendingBlankCenter = centerPoints.length > 4 ? centerPoints[4] : null;
-              dashBoard.pendingBlankSetup = true;
-              dashBoard.pendingUklad = uklad;
-              dashBoard.pendingWlasciwosci = {
-                "tytul": name,
-                "obiekt": nowyObiekt.text.trim(),
-                "skrot": nowySkrot.text.trim().toUpperCase(),
-                "kategoria": nowaKategoria.text.trim().toUpperCase()
-              };
-              dashBoard.pendingMetryczka = {
-                "zleceniodawca": metZleceniodawca.text.trim(),
-                "teren": metTeren.text.trim(),
-                "zlecenie": metZlecenie.text.trim()
-              };
-              if (iface.createBlankProject(celNowego + "/projekt.qgs")) {
-                dataDrawer.close();
-                iface.loadFile(celNowego + "/projekt.qgs", name);
-              } else {
-                displayToast(qsTr("Nie udało się utworzyć projektu"));
-              }
-            } else {
-              // Zapis PRZED kopiowaniem — inaczej kopia dostaje stara
-              // tresc, a czlowiek komunikat o sukcesie. Nie kopiujemy,
-              // gdy zapis zawiodl: lepiej nic niz cicha polowa.
-              if (!ProjectUtils.saveProject(qgisProject)) {
-                displayToast(qsTr("Nie zapisano projektu — kopia nie powstala"), "error");
-                return;
-              }
-              // WorkField 19.10.2026 [WF-ZAPISZ-JAKO] — kopia CAŁEGO katalogu
-              // (dane.gpkg, zdjęcia, klawisze) OBOK oryginału. Dotąd szła
-              // zawsze do „Imported Projects” katalogu aplikacji — na
-              // komputerze nie tam, gdzie leżą projekty. Oryginał zostaje.
-              const sourceDir = FileUtils.absolutePath(projectSection.filePath);
-              const katalogKopii = FileUtils.absolutePath(sourceDir);
-              const celKopii = katalogKopii + "/" + safeName;
-              if (celKopii === sourceDir || FileUtils.fileExists(celKopii)) {
-                displayToast(qsTr("Katalog %1 już istnieje — zmień nazwę").arg(safeName), "error");
-                return;
-              }
-              // [WF-KOPIA-PROJEKTU] kopiuje i opróżnia W TLE (iface.kopiujProjekt);
-              // wynik przychodzi do onKopiaProjektuGotowa wyżej.
-              const doWyczyszczenia = [];
-              if (!zachowajObiekty.checked) {
-                for (const w of projectNameDialog.warstwyKopii) {
-                  if (!w.zalacznik && projectNameDialog.wyborKopii[w.id] === true)
-                    doWyczyszczenia.push(w.id);
-                }
-              }
-              projectNameDialog.nazwaKopii = name;
-              if (!iface.kopiujProjekt(qgisProject, celKopii, doWyczyszczenia, kopiujZalaczniki.checked, kopiujOrto.checked, kopiujPodklady.checked)) {
-                displayToast(qsTr("Nie mogę teraz zrobić kopii (trwa poprzednia albo zły katalog)"), "error");
-                return;
-              }
-              projectNameDialog.pracuje = true;
-              projectNameDialog.opisPracy = qsTr("Kopiuję pliki projektu…");
-              return;
-            }
-            projectNameDialog.close();
-          }
-        }
+    ComboBox {
+      id: nowyUklad
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank"
+      font: t.tinyFont
+      textRole: "label"
+      model: projectNameDialog.uklady
+    }
+
+    TextField {
+      id: nowyUkladInny
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank" && nowyUklad.currentIndex === projectNameDialog.uklady.length - 1
+      font: t.defaultFont
+      placeholderText: qsTr("Kod EPSG, np. 25834")
+      inputMethodHints: Qt.ImhDigitsOnly
+    }
+
+    Text {
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank"
+      text: {
+        const u = projectNameDialog.ukladNowego;
+        if (u === "")
+          return qsTr("Wpisz kod EPSG.");
+        const o = iface.opisUkladu(u);
+        return o !== "" ? u + " — " + o : qsTr("Nieznany układ: %1").arg(u);
       }
+      font: t.tinyFont
+      color: iface.opisUkladu(projectNameDialog.ukladNowego) !== "" ? t.secondaryTextColor : "#e53935"
+      wrapMode: Text.WordWrap
+    }
+
+    CheckBox {
+      id: nowyUkladDomyslny
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank"
+      text: qsTr("Ustaw jako mój domyślny układ")
+      font: t.tipFont
+    }
+
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      visible: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1
+      text: qsTr("Gdzie")
+      font: t.tipFont
+      color: t.secondaryTextColor
+    }
+
+    ButtonGroup {
+      id: nowyMiejsceGrupa
+    }
+
+    Repeater {
+      model: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1 ? projectNameDialog.miejscaNowego : []
+
+      delegate: RadioButton {
+        required property var modelData
+        Layout.fillWidth: true
+        ButtonGroup.group: nowyMiejsceGrupa
+        font: t.tipFont
+        text: modelData.nazwa + " — " + Number(modelData.wolneGb).toFixed(1) + qsTr(" GB wolne")
+        checked: projectNameDialog.miejsceNowego === modelData.rodzaj
+        onClicked: projectNameDialog.miejsceNowego = modelData.rodzaj
+      }
+    }
+
+    CheckBox {
+      id: nowyMiejsceDomyslne
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank" && projectNameDialog.miejscaNowego.length > 1
+      text: qsTr("Zapamiętaj jako domyślne")
+      font: t.tipFont
+    }
+
+    // [WF-KOPIA-PROJEKTU] dwie opcje Piotra; obie domyślnie WYŁĄCZONE
+    Text {
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "saveas"
+      text: qsTr("Ten sam układ: warstwy, style, formularze, podkłady, klawisze. Oryginał zostaje bez zmian.")
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+    CheckBox {
+      id: zachowajObiekty
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "saveas"
+      enabled: !projectNameDialog.pracuje
+      text: qsTr("Zachowaj obiekty z warstw")
+      font: t.defaultFont
+    }
+    CheckBox {
+      id: kopiujZalaczniki
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "saveas"
+      enabled: !projectNameDialog.pracuje
+      text: qsTr("Skopiuj załączniki (zdjęcia)")
+      font: t.defaultFont
+    }
+    // [WF-KOPIA-ORTO] arkusze z GUGiK po złożeniu nie są warstwami — osobne pytanie
+    CheckBox {
+      id: kopiujOrto
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "saveas" && (projectNameDialog.ortoKopii.plikow || 0) > 0
+      // [WF-KOPIA-PODKLADY] arkusze, z których korzystają warstwy, idą razem z podkładami
+      enabled: !projectNameDialog.pracuje && !(projectNameDialog.ortoKopii.uzywane === true && kopiujPodklady.checked)
+      text: projectNameDialog.ortoKopii.uzywane === true
+            ? qsTr("Skopiuj arkusze ORTO (%1, %2 MB) — używane przez warstwy, idą razem z podkładami").arg(projectNameDialog.ilePlikow(projectNameDialog.ortoKopii.plikow)).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
+            : qsTr("Skopiuj arkusze ORTO (%1, %2 MB)").arg(projectNameDialog.ilePlikow(projectNameDialog.ortoKopii.plikow)).arg(Math.round((projectNameDialog.ortoKopii.rozmiar || 0) / 1048576))
+      font: t.defaultFont
+    }
+    // [WF-KOPIA-PODKLADY] 19.10.2026 — podkłady rastrowe (np. ortofotomapa 1,6 GB)
+    // domyślnie WSPÓLNE z oryginałem: nowy projekt wskazuje na plik oryginału.
+    CheckBox {
+      id: kopiujPodklady
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "saveas" && (projectNameDialog.podkladyKopii.plikow || 0) > 0
+      enabled: !projectNameDialog.pracuje
+      text: qsTr("Skopiuj podkłady rastrowe (%1, %2 MB)").arg(projectNameDialog.ilePlikow(projectNameDialog.podkladyKopii.plikow)).arg(Math.round((projectNameDialog.podkladyKopii.rozmiar || 0) / 1048576))
+      font: t.defaultFont
+      onToggled: {
+        if (projectNameDialog.ortoKopii.uzywane === true)
+          kopiujOrto.checked = checked;
+      }
+    }
+    Text {
+      Layout.fillWidth: true
+      visible: kopiujPodklady.visible && !kopiujPodklady.checked
+      text: qsTr("Bez zaznaczenia nowy projekt korzysta z podkładów oryginału — po usunięciu oryginału straci tło mapy. Zaznacz, gdy projekt ma być samodzielny (np. na telefon).")
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+    Text {
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "saveas" && !zachowajObiekty.checked && listaWarstwKopii.count > 0
+      text: qsTr("Puste w nowym projekcie (odznacz warstwę, której obiekty mają zostać):")
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
+    }
+    ListView {
+      id: listaWarstwKopii
+      Layout.fillWidth: true
+      Layout.preferredHeight: Math.min(contentHeight, mainWindow.height * 0.35)
+      visible: projectNameDialog.mode === "saveas" && !zachowajObiekty.checked && count > 0
+      clip: true
+      model: projectNameDialog.warstwyKopii.filter(w => !w.zalacznik)
+      delegate: CheckBox {
+        width: ListView.view.width
+        enabled: modelData.wewnatrz && !projectNameDialog.pracuje
+        checked: projectNameDialog.wyborKopii[modelData.id] === true
+        onToggled: projectNameDialog.wyborKopii[modelData.id] = checked
+        text: modelData.nazwa + (modelData.obiektow >= 0 ? " (" + modelData.obiektow + ")" : "") + (modelData.powod ? " — " + modelData.powod : "")
+        font: t.tipFont
+      }
+    }
+    Text {
+      Layout.fillWidth: true
+      visible: projectNameDialog.opisPracy !== ""
+      text: projectNameDialog.opisPracy
+      font: t.tipFont
+      color: t.mainTextColor
+      wrapMode: Text.WordWrap
+    }
+
+    // WorkField 6.10.2026 [WF-METRYCZKA] — nieobowiązkowa. Wypełniona
+    // trafia do ZADANIE.json i posłuży do grupowania projektów.
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 4
+      visible: projectNameDialog.mode === "blank"
+      // [WF-NOWY-WLASCIWOSCI] zwinięta, rozwija się tapnięciem
+      text: (projectNameDialog.metryczkaOtwarta ? "▾ " : "▸ ") + qsTr("Metryczka (zleceniodawca, teren, zlecenie) — nieobowiązkowa. Wypełniona pozwoli później grupować projekty.")
+      font: t.tipFont
+      color: t.secondaryTextColor
+      wrapMode: Text.WordWrap
+
+      MouseArea {
+        anchors.fill: parent
+        onClicked: projectNameDialog.metryczkaOtwarta = !projectNameDialog.metryczkaOtwarta
+      }
+    }
+    TextField {
+      id: metZleceniodawca
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
+      font: t.defaultFont
+      placeholderText: qsTr("Zleceniodawca")
+    }
+    TextField {
+      id: metTeren
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
+      font: t.defaultFont
+      placeholderText: qsTr("Teren")
+    }
+    TextField {
+      id: metZlecenie
+      Layout.fillWidth: true
+      visible: projectNameDialog.mode === "blank" && projectNameDialog.metryczkaOtwarta
+      font: t.defaultFont
+      placeholderText: qsTr("Zlecenie")
     }
   }
 
