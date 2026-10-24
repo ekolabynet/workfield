@@ -83,7 +83,8 @@ class ZalacznikiUtils : public QObject
      * Key: the path as stored in the table (relative to the project, "/" as
      * separator, without a leading "./"). Value: { layer: name of the parent
      * layer, key: value of the foreign key (usually fid), parentUuid: the
-     * PARENT_UUID when the table has it }.
+     * PARENT_UUID when the table has it, uuid: the uuid of the photo row —
+     * the identity of the photo [WF-PHOTO-TAGS-UUID] }.
      *
      * The file name is for people and may follow any convention; the link is
      * in the table. The gallery uses the name only for files no table knows.

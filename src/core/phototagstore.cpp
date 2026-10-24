@@ -71,6 +71,7 @@ bool PhotoTagStore::open( const QString &projectDir )
 
 void PhotoTagStore::close()
 {
+  mUuidForPath.clear();
   if ( mDb )
   {
     sqlite3_close( mDb );
@@ -122,7 +123,82 @@ bool PhotoTagStore::ensureSchema()
     sqlite3_free( err );
     return false;
   }
+
+  // [WF-PHOTO-TAGS-UUID] 24.10.2026: the identity of the photo next to its
+  // path. Added to files made before; old readers simply ignore the column.
+  bool hasPhotoUuid = false;
+  sqlite3_stmt *info = nullptr;
+  if ( sqlite3_prepare_v2( mDb, "PRAGMA table_info(FOTO_TAGI)", -1, &info, nullptr ) == SQLITE_OK )
+  {
+    while ( sqlite3_step( info ) == SQLITE_ROW )
+    {
+      if ( QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( info, 1 ) ) ).compare( QLatin1String( "PHOTO_UUID" ), Qt::CaseInsensitive ) == 0 )
+        hasPhotoUuid = true;
+    }
+    sqlite3_finalize( info );
+  }
+  if ( !hasPhotoUuid && sqlite3_exec( mDb, "ALTER TABLE FOTO_TAGI ADD COLUMN PHOTO_UUID TEXT", nullptr, nullptr, &err ) != SQLITE_OK )
+  {
+    qWarning() << "PhotoTagStore: PHOTO_UUID column not added:" << ( err ? err : "?" );
+    sqlite3_free( err );
+    return false;
+  }
+  if ( !hasPhotoUuid )
+    qInfo() << "WorkField [WF-PHOTO-TAGS-UUID]: column PHOTO_UUID added to FOTO_TAGI";
+  sqlite3_exec( mDb, "CREATE INDEX IF NOT EXISTS idx_foto_tagi_photo_uuid ON FOTO_TAGI(PHOTO_UUID)", nullptr, nullptr, nullptr );
   return true;
+}
+
+int PhotoTagStore::linkPhotos( const QVariantMap &photoIndex )
+{
+  mUuidForPath.clear();
+  for ( auto it = photoIndex.constBegin(); it != photoIndex.constEnd(); ++it )
+  {
+    const QString uuid = it.value().toMap().value( QStringLiteral( "uuid" ) ).toString();
+    if ( !uuid.isEmpty() )
+      mUuidForPath.insert( it.key(), uuid );
+  }
+  if ( !mDb )
+    return 0;
+
+  sqlite3_stmt *fill = nullptr;
+  sqlite3_stmt *follow = nullptr;
+  if ( sqlite3_prepare_v2( mDb, "UPDATE FOTO_TAGI SET PHOTO_UUID = ?1 WHERE foto = ?2 AND (PHOTO_UUID IS NULL OR PHOTO_UUID = '')", -1, &fill, nullptr ) != SQLITE_OK
+       || sqlite3_prepare_v2( mDb, "UPDATE FOTO_TAGI SET foto = ?2 WHERE PHOTO_UUID = ?1 AND foto <> ?2", -1, &follow, nullptr ) != SQLITE_OK )
+  {
+    qWarning() << "WorkField [WF-PHOTO-TAGS-UUID]: prepare failed:" << sqlite3_errmsg( mDb );
+    sqlite3_finalize( fill );
+    sqlite3_finalize( follow );
+    return 0;
+  }
+
+  int filled = 0;
+  int followed = 0;
+  sqlite3_exec( mDb, "BEGIN", nullptr, nullptr, nullptr );
+  for ( auto it = mUuidForPath.constBegin(); it != mUuidForPath.constEnd(); ++it )
+  {
+    const QByteArray uuid = it.value().toUtf8();
+    const QByteArray path = it.key().toUtf8();
+    for ( sqlite3_stmt *stmt : { fill, follow } )
+    {
+      sqlite3_reset( stmt );
+      sqlite3_bind_text( stmt, 1, uuid.constData(), -1, SQLITE_TRANSIENT );
+      sqlite3_bind_text( stmt, 2, path.constData(), -1, SQLITE_TRANSIENT );
+      if ( sqlite3_step( stmt ) == SQLITE_DONE )
+        ( stmt == fill ? filled : followed ) += sqlite3_changes( mDb );
+    }
+  }
+  sqlite3_exec( mDb, "COMMIT", nullptr, nullptr, nullptr );
+  sqlite3_finalize( fill );
+  sqlite3_finalize( follow );
+
+  qInfo().noquote() << QStringLiteral( "WorkField [WF-PHOTO-TAGS-UUID]: %1 photos with uuid, %2 tags got the photo uuid, %3 tags followed a renamed photo" )
+                         .arg( mUuidForPath.size() )
+                         .arg( filled )
+                         .arg( followed );
+  if ( filled + followed > 0 )
+    emit tagsChanged( QString() );
+  return filled + followed;
 }
 
 QVariantList PhotoTagStore::tagsForPhoto( const QString &foto )
@@ -132,10 +208,11 @@ QVariantList PhotoTagStore::tagsForPhoto( const QString &foto )
     return result;
 
   sqlite3_stmt *stmt = nullptr;
-  if ( sqlite3_prepare_v2( mDb, "SELECT fid, tag, pokrycie_procent, uwagi, autor, data_czas, x, y FROM FOTO_TAGI WHERE foto = ?1 ORDER BY fid", -1, &stmt, nullptr ) != SQLITE_OK )
+  if ( sqlite3_prepare_v2( mDb, "SELECT fid, tag, pokrycie_procent, uwagi, autor, data_czas, x, y FROM FOTO_TAGI WHERE foto = ?1 OR (?2 <> '' AND PHOTO_UUID = ?2) ORDER BY fid", -1, &stmt, nullptr ) != SQLITE_OK )
     return result;
 
   sqlite3_bind_text( stmt, 1, foto.toUtf8().constData(), -1, SQLITE_TRANSIENT );
+  sqlite3_bind_text( stmt, 2, photoUuid( foto ).toUtf8().constData(), -1, SQLITE_TRANSIENT ); // [WF-PHOTO-TAGS-UUID]
   while ( sqlite3_step( stmt ) == SQLITE_ROW )
   {
     QVariantMap row;
@@ -159,7 +236,7 @@ int PhotoTagStore::addTag( const QString &foto, const QString &tag, double pokry
     return -1;
 
   sqlite3_stmt *stmt = nullptr;
-  if ( sqlite3_prepare_v2( mDb, "INSERT INTO FOTO_TAGI(foto, x, y, tag, pokrycie_procent, uwagi, autor, data_czas) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", -1, &stmt, nullptr ) != SQLITE_OK )
+  if ( sqlite3_prepare_v2( mDb, "INSERT INTO FOTO_TAGI(foto, x, y, tag, pokrycie_procent, uwagi, autor, data_czas, PHOTO_UUID) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)", -1, &stmt, nullptr ) != SQLITE_OK )
     return -1;
 
   sqlite3_bind_text( stmt, 1, foto.toUtf8().constData(), -1, SQLITE_TRANSIENT );
@@ -184,6 +261,12 @@ int PhotoTagStore::addTag( const QString &foto, const QString &tag, double pokry
     sqlite3_bind_text( stmt, 6, uwagi.trimmed().toUtf8().constData(), -1, SQLITE_TRANSIENT );
   sqlite3_bind_text( stmt, 7, mAuthor.toUtf8().constData(), -1, SQLITE_TRANSIENT );
   sqlite3_bind_text( stmt, 8, QDateTime::currentDateTime().toString( Qt::ISODate ).toUtf8().constData(), -1, SQLITE_TRANSIENT );
+  // [WF-PHOTO-TAGS-UUID] the tag belongs to the photo, wherever it moves later
+  const QString uuid = photoUuid( foto );
+  if ( uuid.isEmpty() )
+    sqlite3_bind_null( stmt, 9 );
+  else
+    sqlite3_bind_text( stmt, 9, uuid.toUtf8().constData(), -1, SQLITE_TRANSIENT );
 
   const bool ok = sqlite3_step( stmt ) == SQLITE_DONE;
   sqlite3_finalize( stmt );
@@ -227,9 +310,10 @@ int PhotoTagStore::tagCount( const QString &foto )
   if ( !mDb )
     return 0;
   sqlite3_stmt *stmt = nullptr;
-  if ( sqlite3_prepare_v2( mDb, "SELECT count(*) FROM FOTO_TAGI WHERE foto = ?1", -1, &stmt, nullptr ) != SQLITE_OK )
+  if ( sqlite3_prepare_v2( mDb, "SELECT count(*) FROM FOTO_TAGI WHERE foto = ?1 OR (?2 <> '' AND PHOTO_UUID = ?2)", -1, &stmt, nullptr ) != SQLITE_OK )
     return 0;
   sqlite3_bind_text( stmt, 1, foto.toUtf8().constData(), -1, SQLITE_TRANSIENT );
+  sqlite3_bind_text( stmt, 2, photoUuid( foto ).toUtf8().constData(), -1, SQLITE_TRANSIENT ); // [WF-PHOTO-TAGS-UUID]
   int n = 0;
   if ( sqlite3_step( stmt ) == SQLITE_ROW )
     n = sqlite3_column_int( stmt, 0 );

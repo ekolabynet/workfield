@@ -148,6 +148,8 @@ QVariantMap ZalacznikiUtils::photoIndex( QgsProject *project ) const
     const int pathIndex = child->fields().lookupField( description.value( QStringLiteral( "poleSciezki" ) ).toString() );
     const int keyIndex = child->fields().lookupField( description.value( QStringLiteral( "poleObce" ) ).toString() );
     const int parentUuidIndex = child->fields().lookupField( QStringLiteral( "PARENT_UUID" ) );
+    // [WF-PHOTO-TAGS-UUID] the uuid of the attachment row is the identity of the photo
+    const int photoUuidIndex = FeatureIdentity::uuidFieldIndex( child->fields() );
     if ( pathIndex < 0 )
       continue;
 
@@ -156,6 +158,8 @@ QVariantMap ZalacznikiUtils::photoIndex( QgsProject *project ) const
       wanted << keyIndex;
     if ( parentUuidIndex >= 0 )
       wanted << parentUuidIndex;
+    if ( photoUuidIndex >= 0 )
+      wanted << photoUuidIndex;
 
     QgsFeatureRequest request;
     request.setFlags( Qgis::FeatureRequestFlag::NoGeometry );
@@ -176,6 +180,8 @@ QVariantMap ZalacznikiUtils::photoIndex( QgsProject *project ) const
       entry.insert( QStringLiteral( "key" ), keyIndex >= 0 ? feature.attribute( keyIndex ) : QVariant() );
       if ( parentUuidIndex >= 0 )
         entry.insert( QStringLiteral( "parentUuid" ), feature.attribute( parentUuidIndex ) );
+      if ( photoUuidIndex >= 0 && !QgsVariantUtils::isNull( feature.attribute( photoUuidIndex ) ) )
+        entry.insert( QStringLiteral( "uuid" ), feature.attribute( photoUuidIndex ).toString() );
       index.insert( path, entry );
     }
   }

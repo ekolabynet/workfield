@@ -545,6 +545,10 @@ Popup {
         tagStore.author = settings.value("workfield/podpisTerenowy", "workfield");
         const ok = tagStore.open(photoGallery.projectDir);
         console.log("PhotoTagStore:", ok ? "otwarty: " + tagStore.storagePath : "BLAD otwarcia");
+        // [WF-PHOTO-TAGS-UUID] tags follow the identity of the photo (uuid of
+        // its row in the ZAL_ table), not only its file name
+        if (ok)
+          tagStore.linkPhotos(photoGallery.attachmentIndex);
         photoGallery.wersjaTagow++;
         photoGallery.rozmiarKafla = Number(settings.value('WorkField/galeriaKafel', 132));
         viewer.siatkaN = Number(settings.value('WorkField/siatkaN', 5));

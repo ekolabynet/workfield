@@ -6,6 +6,7 @@
 #ifndef PHOTOTAGSTORE_H
 #define PHOTOTAGSTORE_H
 
+#include <QHash>
 #include <QObject>
 #include <QVariantList>
 
@@ -37,6 +38,19 @@ class PhotoTagStore : public QObject
     Q_INVOKABLE int addTag( const QString &foto, const QString &tag, double pokrycie = -1, const QString &uwagi = QString(), double x = -1, double y = -1 );
 
     Q_INVOKABLE bool removeTag( int fid );
+
+    /**
+     * WorkField 24.10.2026 [WF-PHOTO-TAGS-UUID] — ties the tags to the
+     * identity of the photo, not only to its path.
+     *
+     * \a photoIndex is ZalacznikiUtils.photoIndex(): path → { uuid, ... }.
+     * Tags of a photo known to an attachment table get its uuid (PHOTO_UUID);
+     * tags whose photo was renamed or moved since (same uuid, other path)
+     * follow it to the new path. New tags get the uuid when they are added.
+     * Photos no table knows keep working by path, as before.
+     * Returns how many tags were changed.
+     */
+    Q_INVOKABLE int linkPhotos( const QVariantMap &photoIndex );
     Q_INVOKABLE int tagCount( const QString &foto );
 
     //! Rozne uzyte dotad tagi - do podpowiedzi.
@@ -96,6 +110,10 @@ class PhotoTagStore : public QObject
 
   private:
     bool ensureSchema();
+
+    //! [WF-PHOTO-TAGS-UUID] uuid of the photo at \a foto, empty when unknown
+    QString photoUuid( const QString &foto ) const { return mUuidForPath.value( foto ); }
+    QHash<QString, QString> mUuidForPath;
 
     sqlite3 *mDb = nullptr;
     QString mProjectDir;
