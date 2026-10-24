@@ -2727,8 +2727,37 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   // Zestawienie USTAWIENIA z DANYMI — sam zrzut stanu nie złapałby awarii
   // z 25.08, bo type=3 jest poprawnym ustawieniem. Dopiero razem z rozmiarem
   // najmniejszego obiektu widać, że coś jest nie tak.
+  //
+  // [WF-SNAP-TOLERANCE] 24.10.2026 — the TOLERANCE decides too. Until today the
+  // warning stayed even after the tolerance was lowered as it advised (Piotr:
+  // 0.10 m with a 0.3 m object, still warned). Now: the tolerance in metres is
+  // compared with half of the smallest object (the same threshold the advice
+  // gives). A tolerance in pixels grows with zooming out, so it still warns.
+  const double progZlepiania = std::max( 0.05, najmniejszaObwiednia / 2.0 );
+  auto tolerancjaZaDuza = [&]( double tolerancja, Qgis::MapToolUnit jednostka ) {
+    if ( jednostka == Qgis::MapToolUnit::Pixels )
+      return true;
+    // layer / project units: metres, or degrees in a geographic CRS
+    const double metry = projekt->crs().isGeographic() ? tolerancja * 111320.0 : tolerancja;
+    return metry > progZlepiania + 1e-9;
+  };
+  bool zlepia = false;
+  if ( snap.mode() == Qgis::SnappingMode::AdvancedConfiguration )
+  {
+    const auto ustawieniaWarstw = snap.individualLayerSettings();
+    for ( auto it = ustawieniaWarstw.constBegin(); it != ustawieniaWarstw.constEnd(); ++it )
+    {
+      if ( it.value().enabled() && ( it.value().typeFlag() & Qgis::SnappingType::Segment )
+           && tolerancjaZaDuza( it.value().tolerance(), it.value().units() ) )
+        zlepia = true;
+    }
+  }
+  else
+  {
+    zlepia = tolerancjaZaDuza( snap.tolerance(), snap.units() );
+  }
   if ( snap.enabled() && ( typyObowiazujace & Qgis::SnappingType::Segment )
-       && najmniejszaObwiednia >= 0 && najmniejszaObwiednia < 2.0 )
+       && najmniejszaObwiednia >= 0 && najmniejszaObwiednia < 2.0 && zlepia )
     ostrzez( QStringLiteral( "uwaga" ), QStringLiteral( "ustawienie" ),
              tr( "przyciąganie łapie segment, a najmniejszy obiekt ma %1 m (%2) — "
                  "przy takich rozmiarach wierzchołki zlepiają się w jeden punkt" )

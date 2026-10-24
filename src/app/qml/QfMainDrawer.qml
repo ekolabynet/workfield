@@ -1868,6 +1868,57 @@ Drawer {
         property var uwagiProjektu: []
         property var bledyDanych: []
 
+        // ====================================================================
+        // [WF-WARNING-LEVELS] 24.10.2026 — STOPNIE UWAG (Piotr 18:36–18:37)
+        // ====================================================================
+        //   błąd         coś nie zadziała (waga "brak", moduł nie założony)
+        //                → czerwona ramka paska
+        //   ostrzeżenie  ustawienie grozi błędem przy pomiarze (waga "uwaga",
+        //                moduł starszy/nowszy) → pomarańczowa kropka po prawej
+        //   wskazówka    warto poprawić, można pracować (waga "wskazowka")
+        //                → zielona ramka, mała pomarańczowa kropka przy napisie
+        //   zignorowana  „Ignoruj” przy uwadze → zielona ramka, szara kropka;
+        //                w rozwinięciu wyszarzona z „Przywróć”
+        // Zignorowane klucze leżą W PROJEKCIE (WorkField/ignorowaneUwagi), więc
+        // jadą z projektem na telefon. Klucz zawiera obiekt (warstwa + fid) albo
+        // treść — gdy sytuacja się zmieni (mniejszy obiekt), uwaga wraca.
+        // Błędu nie da się zignorować.
+        property var ignorowane: []
+        property int liczbaBledow: 0
+        property int liczbaOstrzezen: 0
+        property int liczbaWskazowek: 0
+        property int liczbaZignorowanych: 0
+
+        function poziomUwagi(u) {
+          if (u.waga === "brak")
+            return "blad";
+          if (u.waga === "wskazowka")
+            return "wskazowka";
+          return "ostrzezenie";
+        }
+
+        function kluczUwagi(u) {
+          const gdzie = u.warstwa !== undefined ? u.warstwa + "#" + (u.fid !== undefined ? u.fid : "") : (u.opis !== undefined ? u.opis : "");
+          return [u.czasownik || u.rodzaj || "", u.modul || "", gdzie].join("|");
+        }
+
+        function czyIgnorowana(u) {
+          return poziomUwagi(u) !== "blad" && ignorowane.indexOf(kluczUwagi(u)) >= 0;
+        }
+
+        function ustawIgnorowanie(u, ignoruj) {
+          if (!qgisProject || typeof NarzedziaProjektu === "undefined")
+            return;
+          const k = kluczUwagi(u);
+          const lista = ignorowane.filter(x => x !== k);
+          if (ignoruj)
+            lista.push(k);
+          NarzedziaProjektu.wlasciwosc(qgisProject, "WorkField", "ignorowaneUwagi", lista.join("\n"));
+          NarzedziaProjektu.zapiszProjekt(qgisProject);
+          odswiez();
+          displayToast(ignoruj ? qsTr("Uwaga zignorowana — „Przywróć” w rozwinięciu wyposażenia") : qsTr("Uwaga przywrócona"));
+        }
+
         //! Ostrzeżenia przypięte do TEGO modułu.
         function uwagiModulu(id) {
             const out = [];
@@ -1898,6 +1949,11 @@ Drawer {
             zgodnych = 0;
             wszystkich = 0;
             ostrzezen = 0;
+            ignorowane = [];
+            liczbaBledow = 0;
+            liczbaOstrzezen = 0;
+            liczbaWskazowek = 0;
+            liczbaZignorowanych = 0;
             return;
           }
           // `sprawdz` zwraca LISTE modulow, nie mape z kluczem `moduly`.
@@ -1941,7 +1997,41 @@ Drawer {
           uwagiUstawien = uU;
           uwagiProjektu = uP;
           bledyDanych = uD;
-          ostrzezen = uU.length + uP.length;
+
+          // [WF-WARNING-LEVELS] ignored keys from the project, then the counts
+          let ign = [];
+          try {
+            const zapis = NarzedziaProjektu.czytajWlasciwosc(qgisProject, "WorkField", "ignorowaneUwagi");
+            ign = zapis ? String(zapis).split("\n").filter(x => x !== "") : [];
+          } catch (e) {
+            ign = [];
+          }
+          ignorowane = ign;
+          let nB = 0, nO = 0, nW = 0, nZ = 0;
+          for (let i = 0; i < m.length; i++) {
+            if (m[i].stan === "starszy" || m[i].stan === "nowszy")
+              nO++;
+            else if (m[i].stan !== "zgodny")
+              nB++;
+          }
+          const prewencja = uU.concat(uP);
+          for (let j = 0; j < prewencja.length; j++) {
+            const poziom = poziomUwagi(prewencja[j]);
+            if (czyIgnorowana(prewencja[j]))
+              nZ++;
+            else if (poziom === "blad")
+              nB++;
+            else if (poziom === "wskazowka")
+              nW++;
+            else
+              nO++;
+          }
+          liczbaBledow = nB;
+          liczbaOstrzezen = nO;
+          liczbaWskazowek = nW;
+          liczbaZignorowanych = nZ;
+          // active remarks only: an ignored one no longer counts
+          ostrzezen = prewencja.length - nZ;
         }
       }
 
@@ -1992,15 +2082,15 @@ Drawer {
         // modułu i zlepiony wierzchołek wyglądały tak samo.
         // [WF-EQUIPMENT-OK] 24.10.2026 — everything in place and no remarks:
         // green (Piotr: „Wyposażenie kiedy jest OK też powinno być zielone”).
+        // [WF-WARNING-LEVELS] green = no errors and no warnings (hints and
+        // ignored remarks only show a small dot); red = an error; a warning
+        // keeps the ordinary frame and lights the orange dot on the right.
         readonly property bool wszystkoDobrze: stanWyposazenia.wszystkich > 0
-                                              && stanWyposazenia.ostrzezen === 0
-                                              && stanWyposazenia.zgodnych === stanWyposazenia.wszystkich
-        border.color: wszystkoDobrze
-                      ? "#43a047"
-                      : (stanWyposazenia.ostrzezen > 0
-                         ? t.warningColor
-                         : (stanWyposazenia.zgodnych < stanWyposazenia.wszystkich
-                            ? t.warningColor : t.controlBorderColor))
+                                              && stanWyposazenia.liczbaBledow === 0
+                                              && stanWyposazenia.liczbaOstrzezen === 0
+        border.color: stanWyposazenia.liczbaBledow > 0
+                      ? t.errorColor
+                      : (wszystkoDobrze ? "#43a047" : t.controlBorderColor)
 
         RowLayout {
           id: wierszPaska
@@ -2019,7 +2109,7 @@ Drawer {
             text: stanWyposazenia.wszystkich === 0
                   ? qsTr("Wyposażenie · brak danych")
                   : (stanWyposazenia.ostrzezen > 0
-                     ? qsTr("Wyposażenie · %1 z %2 · %3")
+                     ? (paskaWyposazenia.wszystkoDobrze ? "\u2713 " : "") + qsTr("Wyposażenie · %1 z %2 · %3")
                          .arg(stanWyposazenia.zgodnych)
                          .arg(stanWyposazenia.wszystkich)
                          .arg(paskaWyposazenia.liczbaUwag(stanWyposazenia.ostrzezen))
@@ -2028,8 +2118,27 @@ Drawer {
                          .arg(stanWyposazenia.zgodnych)
                          .arg(stanWyposazenia.wszystkich))
             font: t.tinyFont
-            color: stanWyposazenia.ostrzezen > 0 ? t.warningColor : (paskaWyposazenia.wszystkoDobrze ? "#66bb6a" : t.secondaryTextColor)
+            color: stanWyposazenia.liczbaBledow > 0 ? t.errorColor : (paskaWyposazenia.wszystkoDobrze ? "#66bb6a" : t.mainTextColor)
             elide: Text.ElideRight
+          }
+
+          // [WF-WARNING-LEVELS] small dot: a hint (orange) or only ignored remarks (grey)
+          Rectangle {
+            Layout.preferredWidth: 7
+            Layout.preferredHeight: 7
+            radius: 3.5
+            visible: stanWyposazenia.liczbaBledow === 0 && stanWyposazenia.liczbaOstrzezen === 0
+                     && (stanWyposazenia.liczbaWskazowek > 0 || stanWyposazenia.liczbaZignorowanych > 0)
+            color: stanWyposazenia.liczbaWskazowek > 0 ? t.warningColor : "#90A4AE"
+          }
+
+          // [WF-WARNING-LEVELS] warning: an orange dot on the right, not the whole frame
+          Rectangle {
+            Layout.preferredWidth: 12
+            Layout.preferredHeight: 12
+            radius: 6
+            visible: stanWyposazenia.liczbaOstrzezen > 0
+            color: t.warningColor
           }
 
           // [WF-EQUIPMENT-REFRESH] Piotr 18:32: after changing a setting the bar
@@ -2140,7 +2249,7 @@ Drawer {
                   font: t.tinyFont
                   // Moduł założony, ale z ostrzeżeniem, nie jest „w porządku”
                   // — zielona kropka mówiłaby wtedy nieprawdę.
-                  color: wierszModulu.uwagiTegoModulu.length > 0
+                  color: wierszModulu.uwagiTegoModulu.some(u => !stanWyposazenia.czyIgnorowana(u))
                          ? t.warningColor : t.mainTextColor
                   elide: Text.ElideRight
                 }
@@ -2153,27 +2262,48 @@ Drawer {
                 // segment" opisuje, co się dzieje; dopiero „zejdź z tolerancją
                 // do 0.05 m" mówi, co z tym zrobić — a o to chodzi w terenie.
                 ColumnLayout {
+                  id: uwagaModulu
                   Layout.fillWidth: true
                   Layout.leftMargin: 22
                   Layout.rightMargin: 8
                   Layout.bottomMargin: 2
                   spacing: 0
 
+                  readonly property bool zignorowana: stanWyposazenia.czyIgnorowana(modelData)
+                  readonly property string poziom: stanWyposazenia.poziomUwagi(modelData)
+
                   Text {
                     Layout.fillWidth: true
                     text: "↳ " + modelData.opis
                     font: t.tinyFont
-                    color: t.warningColor
+                    color: uwagaModulu.zignorowana ? "#90A4AE" : (uwagaModulu.poziom === "blad" ? t.errorColor : t.warningColor)
+                    font.strikeout: uwagaModulu.zignorowana
                     wrapMode: Text.WordWrap
                   }
 
                   Text {
                     Layout.fillWidth: true
-                    visible: modelData.rada !== undefined && modelData.rada !== ""
+                    visible: !uwagaModulu.zignorowana && modelData.rada !== undefined && modelData.rada !== ""
                     text: modelData.rada !== undefined ? modelData.rada : ""
                     font: t.tinyFont
                     color: t.secondaryTextColor
                     wrapMode: Text.WordWrap
+                  }
+
+                  // [WF-WARNING-LEVELS] „Ignoruj” / „Przywróć” — not for errors
+                  Text {
+                    Layout.alignment: Qt.AlignRight
+                    visible: uwagaModulu.poziom !== "blad"
+                    text: uwagaModulu.zignorowana ? qsTr("Przywróć") : qsTr("Ignoruj")
+                    font: t.tinyFont
+                    font.underline: true
+                    color: uwagaModulu.zignorowana ? "#66bb6a" : "#90A4AE"
+
+                    MouseArea {
+                      anchors.fill: parent
+                      anchors.margins: -8
+                      onClicked: stanWyposazenia.ustawIgnorowanie(modelData, !uwagaModulu.zignorowana)
+                    }
                   }
                 }
               }
@@ -2202,23 +2332,44 @@ Drawer {
             model: stanWyposazenia.uwagiBezModulu()
 
             ColumnLayout {
+              id: uwagaLuzem
               Layout.fillWidth: true
               Layout.leftMargin: 8
               Layout.rightMargin: 8
               spacing: 0
 
+              readonly property bool zignorowana: stanWyposazenia.czyIgnorowana(modelData)
+              readonly property string poziom: stanWyposazenia.poziomUwagi(modelData)
+
               Text {
                 Layout.fillWidth: true
                 text: "· " + (modelData.opis !== undefined ? modelData.opis : String(modelData))
                 font: t.tinyFont
-                color: modelData.waga === "brak" ? t.errorColor : t.warningColor
+                font.strikeout: uwagaLuzem.zignorowana
+                color: uwagaLuzem.zignorowana ? "#90A4AE" : (uwagaLuzem.poziom === "blad" ? t.errorColor : t.warningColor)
                 wrapMode: Text.WordWrap
+              }
+
+              // [WF-WARNING-LEVELS] „Ignoruj” / „Przywróć” — not for errors
+              Text {
+                Layout.alignment: Qt.AlignRight
+                visible: uwagaLuzem.poziom !== "blad"
+                text: uwagaLuzem.zignorowana ? qsTr("Przywróć") : qsTr("Ignoruj")
+                font: t.tinyFont
+                font.underline: true
+                color: uwagaLuzem.zignorowana ? "#66bb6a" : "#90A4AE"
+
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -8
+                  onClicked: stanWyposazenia.ustawIgnorowanie(modelData, !uwagaLuzem.zignorowana)
+                }
               }
 
               Text {
                 Layout.fillWidth: true
                 Layout.leftMargin: 10
-                visible: modelData.rada !== undefined && modelData.rada !== ""
+                visible: !uwagaLuzem.zignorowana && modelData.rada !== undefined && modelData.rada !== ""
                 text: modelData.rada !== undefined ? modelData.rada : ""
                 font: t.tinyFont
                 color: t.secondaryTextColor
