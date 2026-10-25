@@ -43,8 +43,9 @@ QfWindowFrame {
   // (Piotr: "galeria powinna mieć taki widok na początku — tabela atrybutów
   // dla wybranej lub aktywnej warstwy"). Tab numbers by name, not by digits.
   // [WF-OBJECT-ATLAS] 25.10.2026 — the atlas right after the table
-  readonly property int tabTable: 0
-  readonly property int tabAtlas: 1
+  // [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 11:15) — the atlas is the FIRST view
+  readonly property int tabAtlas: 0
+  readonly property int tabTable: 1
   readonly property int tabPhotos: 2
   readonly property int tabFiles: 3
   readonly property int tabCloud: 4
@@ -53,7 +54,7 @@ QfWindowFrame {
   property var atlasStartLayer: null
   property var atlasStartFid: null
   // ktora zakladka ma byc widoczna po otwarciu; domyślnie tabela atrybutów
-  property int startowaZakladka: tabTable
+  property int startowaZakladka: tabAtlas
   //! layer whose table the table tab shows; null = the active layer
   property var warstwaTabeli: null
 
@@ -462,9 +463,10 @@ QfWindowFrame {
     open();
   }
 
+  //! the layer asked for; otherwise the one already shown, and the first
+  //! time the first layer of the project (Piotr 11:15)
   function startAtlas() {
-    const l = atlasStartLayer ? atlasStartLayer : (warstwaTabeli ? warstwaTabeli : (typeof dashBoard !== "undefined" && dashBoard.activeLayer ? dashBoard.activeLayer : null));
-    zakladkaAtlasu.start(l, atlasStartFid);
+    zakladkaAtlasu.start(atlasStartLayer, atlasStartFid);
   }
 
   //! [WF-ATTRIBUTE-TABLE] the attribute table of \a layer (from the layer's properties)
@@ -792,11 +794,11 @@ QfWindowFrame {
     Layout.alignment: Qt.AlignLeft
 
     TabButton {
-      text: qsTr("Tabela atrybutów") // [WF-ATTRIBUTE-TABLE] first
+      text: qsTr("Atlas obiektów") // [WF-OBJECT-ATLAS] first (Piotr 11:15)
       width: implicitWidth
     }
     TabButton {
-      text: qsTr("Atlas obiektów") // [WF-OBJECT-ATLAS]
+      text: qsTr("Tabela atrybutów") // [WF-ATTRIBUTE-TABLE]
       width: implicitWidth
     }
     TabButton {
@@ -937,6 +939,16 @@ QfWindowFrame {
       // first visit of the atlas tab; later visits keep the place
       if (currentIndex === photoGallery.tabAtlas && photoGallery.opened && zakladkaAtlasu.objectList.length === 0) {
         photoGallery.startAtlas();
+      }
+    }
+
+    // ── Atlas obiektów [WF-OBJECT-ATLAS] ───────────────────
+    QfObjectAtlas {
+      id: zakladkaAtlasu
+
+      onEditRequested: function (layer, fid) {
+        featureListForm.model.setFeatures(layer, "$id = " + fid);
+        photoGallery.close();
       }
     }
 
@@ -1214,16 +1226,6 @@ QfWindowFrame {
             }
           }
         }
-      }
-    }
-
-    // ── Atlas obiektów [WF-OBJECT-ATLAS] ───────────────────
-    QfObjectAtlas {
-      id: zakladkaAtlasu
-
-      onEditRequested: function (layer, fid) {
-        featureListForm.model.setFeatures(layer, "$id = " + fid);
-        photoGallery.close();
       }
     }
 

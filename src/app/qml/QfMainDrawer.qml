@@ -2852,14 +2852,15 @@ Drawer {
         // o warstwach i plikach, a ustawienia terenowe nie sa ani jednym,
         // ani drugim. Dwa wejscia do tego samego okna to nie wygoda, tylko
         // dwa miejsca, w ktorych trzeba pamietac o zmianie.
-        // [WF-OBJECT-ATLAS] 25.10.2026 — the gallery is more than photos now:
-        // the atlas name and icon (stacked map sheets, like the QGIS atlas)
+        // [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 11:14) — the table and the atlas
+        // of a layer moved to „Aktywna warstwa” below; here the gallery stays
+        // (photos of the whole project)
         QfPozycjaMenu {
-          text: qsTr("Atlas obiektów")
-          ikona: "wfg_atlas"
+          text: qsTr("Galeria zdjęć")
+          ikona: "wfg_zdjecia"
           onClicked: {
           dashBoard.close();
-          photoGallery.openAtlas();
+          photoGallery.openPhotos();
         }
         }
       }
@@ -2896,6 +2897,29 @@ Drawer {
           ikona: "wfg_pola"
           enabled: dashBoard.activeLayer
           onClicked: layerFieldsScreen.openFor(dashBoard.activeLayer)
+        }
+        // [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 11:14: „do panelu Warstwy, jako
+        // core”) — the attribute table and the atlas of the active layer
+        QfPozycjaMenu {
+          text: qsTr("Tabela atrybutów")
+          ikona: "wfg_tabela"
+          enabled: dashBoard.activeLayer
+          onClicked: {
+            const warstwa = dashBoard.activeLayer;
+            dashBoard.close();
+            photoGallery.openTableFor(warstwa);
+          }
+        }
+        QfPozycjaMenu {
+          text: qsTr("Atlas obiektów")
+          ikona: "wfg_atlas"
+          kolorowa: true
+          enabled: dashBoard.activeLayer
+          onClicked: {
+            const warstwa = dashBoard.activeLayer;
+            dashBoard.close();
+            photoGallery.openAtlas(warstwa);
+          }
         }
         QfPozycjaMenu {
           text: qsTr("Eksportuj")

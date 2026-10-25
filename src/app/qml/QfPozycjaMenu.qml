@@ -22,6 +22,9 @@ Button {
 
   property var t: Theme
   property string ikona: ""
+  //! [WF-OBJECT-ATLAS] 25.10.2026 — a colour icon is shown as drawn (the
+  //! overlay below would paint it one colour)
+  property bool kolorowa: false
 
   //! WorkField 23.08.2026 — stan "to jest ta, na ktorej jestes". Material
   //! `highlighted` nie daje sie zobaczyc w stylu pulpitowym (sprawdzone na
@@ -180,8 +183,21 @@ Button {
       Layout.preferredWidth: pozycja.kafelek ? 26 : 22
       Layout.preferredHeight: pozycja.kafelek ? 26 : 22
       source: obrazIkony
-      visible: obrazIkony.status === Image.Ready
+      visible: obrazIkony.status === Image.Ready && !pozycja.kolorowa
       color: pozycja.enabled ? t.mainTextColor : t.secondaryTextColor
+    }
+
+    // [WF-OBJECT-ATLAS] the colour icon itself, in the same place
+    Image {
+      Layout.leftMargin: pozycja.samaIkona || pozycja.kafelek ? 0 : 6
+      Layout.alignment: pozycja.samaIkona || pozycja.kafelek ? Qt.AlignHCenter | Qt.AlignVCenter : Qt.AlignVCenter
+      Layout.preferredWidth: pozycja.kafelek ? 26 : 22
+      Layout.preferredHeight: pozycja.kafelek ? 26 : 22
+      visible: pozycja.kolorowa && pozycja.ikona !== ""
+      source: pozycja.kolorowa && pozycja.ikona !== "" ? t.getThemeVectorIcon(pozycja.ikona) : ""
+      sourceSize: Qt.size(52, 52)
+      fillMode: Image.PreserveAspectFit
+      opacity: pozycja.enabled ? 1 : 0.5
     }
 
     // NAPIS ZAWIJA SIE (25.09.2026) — uwaga Piotra: „czy tekst

@@ -2013,28 +2013,27 @@ Column {
   }
 
   // WorkField: wejscie do galerii zdjec projektu
-  Rectangle {
-    width: 56
-    height: 56
-    radius: 6
-    color: "#FFFFFF"
-    border.color: "#003D33"
-    border.width: 2
-    opacity: 0.92
+  // [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 11:10–11:14) — the colour icon of the
+  // gallery / atlas, bigger and without a background, instead of FOTO
+  Item {
+    width: 64
+    height: 64
     visible: quickCaptureBar.resolvedLayers && quickCaptureBar.resolvedLayers.length > 0
 
-    Text {
-      anchors.centerIn: parent
-      text: "FOTO"
-      font.pointSize: Theme.tinyFont.pointSize
-      font.bold: true
-      color: "#003D33"
+    Image {
+      anchors.fill: parent
+      source: Theme.getThemeVectorIcon("wfg_atlas")
+      sourceSize: Qt.size(128, 128)
+      fillMode: Image.PreserveAspectFit
+      opacity: galleryMouse.pressed ? 0.6 : 1
     }
 
     MouseArea {
+      id: galleryMouse
       anchors.fill: parent
-      onClicked: photoGallery.openPhotos()
-      onPressAndHold: displayToast(qsTr("Galeria zdjęć projektu"), "info")
+      // the gallery opens on its first view, the atlas (Piotr 11:15)
+      onClicked: photoGallery.openAtlas()
+      onPressAndHold: displayToast(qsTr("Atlas obiektów — obok Tabela atrybutów i Zdjęcia"), "info")
     }
   }
 
