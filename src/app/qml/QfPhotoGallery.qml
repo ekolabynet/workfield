@@ -30,6 +30,7 @@ QfWindowFrame {
   // the photo counter of the old header row now rides in the title
   title: galleryTabs.currentIndex === tabPhotos ? qsTr("Galeria projektu") + "  ·  " + qsTr("Zdjęć: %1").arg(photoGallery.photos.length)
        : galleryTabs.currentIndex === tabTable ? qsTr("Tabela atrybutów") + (zakladkaTabele.tabela !== "" ? "  ·  " + zakladkaTabele.tabela : "")
+       : galleryTabs.currentIndex === tabAtlas ? qsTr("Atlas obiektów") + (zakladkaAtlasu.layerName !== "" ? "  ·  " + zakladkaAtlasu.layerName : "")
        : qsTr("Galeria projektu")
   exitMode: "close"
   scrollable: false
@@ -41,11 +42,16 @@ QfWindowFrame {
   // [WF-ATTRIBUTE-TABLE] 24.10.2026 — the attribute table is the FIRST tab
   // (Piotr: "galeria powinna mieć taki widok na początku — tabela atrybutów
   // dla wybranej lub aktywnej warstwy"). Tab numbers by name, not by digits.
+  // [WF-OBJECT-ATLAS] 25.10.2026 — the atlas right after the table
   readonly property int tabTable: 0
-  readonly property int tabPhotos: 1
-  readonly property int tabFiles: 2
-  readonly property int tabCloud: 3
-  readonly property int tabTags: 4
+  readonly property int tabAtlas: 1
+  readonly property int tabPhotos: 2
+  readonly property int tabFiles: 3
+  readonly property int tabCloud: 4
+  readonly property int tabTags: 5
+  //! [WF-OBJECT-ATLAS] what the atlas opens on (null = active layer / first object)
+  property var atlasStartLayer: null
+  property var atlasStartFid: null
   // ktora zakladka ma byc widoczna po otwarciu; domyślnie tabela atrybutów
   property int startowaZakladka: tabTable
   //! layer whose table the table tab shows; null = the active layer
@@ -250,6 +256,8 @@ QfWindowFrame {
     galleryTabs.currentIndex = startowaZakladka;
     if (startowaZakladka === tabTable)
       zakladkaTabele.inicjuj(); // also when the tab index did not change
+    if (startowaZakladka === tabAtlas)
+      photoGallery.startAtlas();
     rebuildPhotos();
   }
 
@@ -440,6 +448,23 @@ QfWindowFrame {
     warstwaTabeli = null;
     startowaZakladka = tabTable;
     open();
+  }
+
+  /**
+   * [WF-OBJECT-ATLAS] The window on the atlas tab: \a layer (or the layer of
+   * the table / the active layer) and the object \a fid (or the first one).
+   */
+  function openAtlas(layer, fid) {
+    startowyKatalog = "";
+    atlasStartLayer = layer ? layer : null;
+    atlasStartFid = fid !== undefined ? fid : null;
+    startowaZakladka = tabAtlas;
+    open();
+  }
+
+  function startAtlas() {
+    const l = atlasStartLayer ? atlasStartLayer : (warstwaTabeli ? warstwaTabeli : (typeof dashBoard !== "undefined" && dashBoard.activeLayer ? dashBoard.activeLayer : null));
+    zakladkaAtlasu.start(l, atlasStartFid);
   }
 
   //! [WF-ATTRIBUTE-TABLE] the attribute table of \a layer (from the layer's properties)
@@ -771,6 +796,10 @@ QfWindowFrame {
       width: implicitWidth
     }
     TabButton {
+      text: qsTr("Atlas obiektów") // [WF-OBJECT-ATLAS]
+      width: implicitWidth
+    }
+    TabButton {
       text: qsTr("Zdjęcia")
       width: implicitWidth
     }
@@ -905,6 +934,10 @@ QfWindowFrame {
       if (currentIndex === photoGallery.tabTable) {
         zakladkaTabele.inicjuj();
       }
+      // first visit of the atlas tab; later visits keep the place
+      if (currentIndex === photoGallery.tabAtlas && photoGallery.opened && zakladkaAtlasu.objectList.length === 0) {
+        photoGallery.startAtlas();
+      }
     }
 
     // ── Tabele: przegladarka tabel danych (WorkField) ─────────
@@ -990,6 +1023,21 @@ QfWindowFrame {
         photoGallery.close();
       }
 
+      //! [WF-OBJECT-ATLAS] the object of the active row in the atlas tab
+      function wAtlasie() {
+        if (!tabelaToWarstwa || aktywnyWiersz < 0)
+          return;
+        let fid = null;
+        for (let k = 0; k < modelTabeli.liczbaKolumn; k++) {
+          if (modelTabeli.nazwaKolumny(k).toLowerCase() === "fid") {
+            fid = parseInt(modelTabeli.komorka(aktywnyWiersz, k));
+            break;
+          }
+        }
+        galleryTabs.currentIndex = photoGallery.tabAtlas;
+        zakladkaAtlasu.start(warstwa, isNaN(fid) ? null : fid);
+      }
+
       RowLayout {
         Layout.fillWidth: true
         spacing: 6
@@ -1052,6 +1100,13 @@ QfWindowFrame {
           text: qsTr("Pokaż obiekt")
           enabled: zakladkaTabele.aktywnyWiersz >= 0
           onClicked: zakladkaTabele.pokazObiekt()
+        }
+        // [WF-OBJECT-ATLAS]
+        QfDecisionButton {
+          role: "confirm"
+          text: qsTr("W atlasie")
+          enabled: zakladkaTabele.aktywnyWiersz >= 0
+          onClicked: zakladkaTabele.wAtlasie()
         }
       }
 
@@ -1159,6 +1214,16 @@ QfWindowFrame {
             }
           }
         }
+      }
+    }
+
+    // ── Atlas obiektów [WF-OBJECT-ATLAS] ───────────────────
+    QfObjectAtlas {
+      id: zakladkaAtlasu
+
+      onEditRequested: function (layer, fid) {
+        featureListForm.model.setFeatures(layer, "$id = " + fid);
+        photoGallery.close();
       }
     }
 

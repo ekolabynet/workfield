@@ -54,6 +54,7 @@
 #include "captureattitude.h"
 #include "stozkiwidzenia.h"
 #include "wyposazenie.h"
+#include "objectatlas.h" // [WF-OBJECT-ATLAS]
 #include "moduly/ksztalty.h"
 #include "phototagstore.h"
 #include "tabelamodel.h"
@@ -398,6 +399,7 @@ void QgisMobileapp::initDeclarative( QQmlEngine *engine )
   qmlRegisterType<CaptureAttitude>( "org.qfield.core", 1, 0, "CaptureAttitude" );
   qmlRegisterType<StozkiWidzenia>( "org.qfield.core", 1, 0, "StozkiWidzenia" );
   qmlRegisterType<Wyposazenie>( "org.qfield.core", 1, 0, "Wyposazenie" );
+  qmlRegisterType<ObjectAtlas>( "org.qfield.core", 1, 0, "ObjectAtlas" ); // [WF-OBJECT-ATLAS]
   qmlRegisterType<Ksztalty>( "org.qfield.core", 1, 0, "Ksztalty" );
   qmlRegisterType<PhotoTagStore>( "org.qfield.core", 1, 0, "PhotoTagStore" );
   qmlRegisterType<TabelaModel>( "org.qfield.core", 1, 0, "TabelaModel" );

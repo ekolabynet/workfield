@@ -2852,12 +2852,14 @@ Drawer {
         // o warstwach i plikach, a ustawienia terenowe nie sa ani jednym,
         // ani drugim. Dwa wejscia do tego samego okna to nie wygoda, tylko
         // dwa miejsca, w ktorych trzeba pamietac o zmianie.
+        // [WF-OBJECT-ATLAS] 25.10.2026 — the gallery is more than photos now:
+        // the atlas name and icon (stacked map sheets, like the QGIS atlas)
         QfPozycjaMenu {
-          text: qsTr("Galeria")
-          ikona: "wfg_zdjecia"
+          text: qsTr("Atlas obiektów")
+          ikona: "wfg_atlas"
           onClicked: {
           dashBoard.close();
-          photoGallery.openPhotos();
+          photoGallery.openAtlas();
         }
         }
       }

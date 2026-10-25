@@ -51,6 +51,7 @@ QtObject {
   property var panelWarstw: function () {}
   property var stylizacja: function () {}
   property var galeriaZdjec: function () {}
+  property var atlasObiektow: function () {} // [WF-OBJECT-ATLAS]
   property var kontrolaPrzypisan: function () {}
   property var panelDanych: function () {}
   property var stanProjektu: function () {}
@@ -92,9 +93,10 @@ QtObject {
     { id: "stylizacja", nazwa: qsTr("Stylizacja"), ikona: "wfg_stylizacja",
       grupa: "warstwy", desktop: true, telefon: true, wymagaProjektu: true,
       wykonaj: function () { akcje.stylizacja(); } },
-    { id: "galeria", nazwa: qsTr("Galeria zdjęć"), ikona: "wfg_zdjecia",
+    // [WF-OBJECT-ATLAS] the gallery under the atlas name and icon
+    { id: "galeria", nazwa: qsTr("Atlas obiektów"), ikona: "wfg_atlas",
       grupa: "warstwy", desktop: true, telefon: true, wymagaProjektu: true,
-      wykonaj: function () { akcje.galeriaZdjec(); } },
+      wykonaj: function () { akcje.atlasObiektow(); } },
     { id: "panel_danych", nazwa: qsTr("Panel danych"), ikona: "wfg_wymiana",
       grupa: "warstwy", desktop: true, telefon: false, wymagaProjektu: true,
       wykonaj: function () { akcje.panelDanych(); } },

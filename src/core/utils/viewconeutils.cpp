@@ -111,24 +111,23 @@ namespace
 
     const double tangent = std::tan( qDegreesToRadians( std::abs( pitch ) ) );
     const double toCentre = tangent > 0.05 ? height / tangent : range;
-    const double nearEdge = std::max( 0.2, toCentre * 0.3 );
     const double farEdge = std::min( range, std::max( toCentre * 2.0, 2.0 ) );
     const double half = qDegreesToRadians( fieldH / 2.0 );
     const double direction = qDegreesToRadians( azimuthTrue );
 
+    // [WF-VIEW-CONE] 25.10.2026 (Piotr 10:20) — a CIRCULAR SECTOR: apex at
+    // the stand, the field of view of the camera, radius = the far edge of
+    // the frame (from the pitch), at most the range. Was a ring sector from
+    // the near edge of the frame (where its bottom meets the ground).
     QVector<QgsPointXY> vertices;
-    auto add = [&]( double distance, double angle ) {
-      const double a = direction + angle;
-      vertices << QgsPointXY( stand.x() + distance * std::sin( a ), stand.y() + distance * std::cos( a ) );
-    };
-    const int steps = 12;
-    add( nearEdge, -half );
+    vertices << stand;
+    const int steps = 24;
     for ( int i = 0; i <= steps; ++i )
-      add( farEdge, -half + 2 * half * i / steps );
-    add( nearEdge, half );
-    for ( int i = steps; i >= 0; --i )
-      add( nearEdge, -half + 2 * half * i / steps );
-    vertices << vertices.first();
+    {
+      const double a = direction - half + 2 * half * i / steps;
+      vertices << QgsPointXY( stand.x() + farEdge * std::sin( a ), stand.y() + farEdge * std::cos( a ) );
+    }
+    vertices << stand;
 
     QgsGeometry polygon = QgsGeometry::fromPolygonXY( QVector<QVector<QgsPointXY>>() << vertices );
     if ( !polygon.isGeosValid() )

@@ -140,6 +140,7 @@ set(QFIELD_CORE_SRCS
     utils/zalacznikiutils.cpp
     utils/splitheirutils.cpp
     utils/viewconeutils.cpp
+    utils/objectatlas.cpp
     utils/journalutils.cpp
     utils/attachmenttrash.cpp
     procesystudio.cpp
@@ -287,6 +288,7 @@ set(QFIELD_CORE_HDRS
     utils/zalacznikiutils.h
     utils/splitheirutils.h
     utils/viewconeutils.h
+    utils/objectatlas.h
     utils/journalutils.h
     utils/attachmenttrash.h
     procesystudio.h

@@ -85,6 +85,7 @@ ApplicationWindow {
     panelWarstw: function () { dashBoard.otworzSekcje(2); }
     stylizacja: function () { dashBoard.otworzSekcje(3); }
     galeriaZdjec: function () { photoGallery.openPhotos(); }
+    atlasObiektow: function () { photoGallery.openAtlas(); } // [WF-OBJECT-ATLAS]
     kontrolaPrzypisan: function () { photoGallery.openPhotos(); }
     panelDanych: function () { dataDrawer.open(); }
     stanProjektu: function () {

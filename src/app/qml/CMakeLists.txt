@@ -81,6 +81,7 @@ set(QFIELD_APP_QML_FILES
     QfFileBrowser.qml
     QfSplitHeirDialog.qml
     QfViewConeDialog.qml
+    QfObjectAtlas.qml
     QfStudioSection.qml
     QfSubLayerPicker.qml
     QfTerenSettings.qml
