@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22">
+  <defs id="defs3051">
+    <style type="text/css" id="current-color-scheme">
+      .ColorScheme-Text {
+        color:#232629;
+      }
+      </style>
+  </defs>
+  <!-- WorkField 25.10.2026 [WF-OBJECT-ATLAS] Atlas obiektów: z tyłu tabela
+       atrybutów, z przodu zdjęcie (galeria) — prosta, jednobarwna, jak inne
+       ikony szuflady (Piotr 13:45). Wersja biała na ciemnozielony przycisk paska QC (14:01). -->
+  <path
+     style="fill:none;stroke:#FFFFFF;stroke-width:1.2;stroke-linejoin:round"
+     d="M 7.5 6 V 2.5 H 19.5 V 14.5 H 16
+        M 7.5 6 H 19.5 M 16 10.5 H 19.5
+        M 11.5 2.5 V 6 M 15.5 2.5 V 14.5
+        M 2.5 7.5 H 14.5 V 19.5 H 2.5 Z"
+     class="ColorScheme-Text"
+      />
+  <path
+     style="fill:#FFFFFF;stroke:none"
+     d="M 4.5 17.5 L 7.5 13 L 9.6 15.6 L 11 14.2 L 12.6 17.5 Z
+        M 11.2 9.3 A 1.3 1.3 0 1 0 11.2 11.9 A 1.3 1.3 0 1 0 11.2 9.3 Z"
+     class="ColorScheme-Text"
+      />
+</svg>

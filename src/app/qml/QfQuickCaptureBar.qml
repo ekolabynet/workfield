@@ -2013,19 +2013,24 @@ Column {
   }
 
   // WorkField: wejscie do galerii zdjec projektu
-  // [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 11:10–11:14) — the colour icon of the
-  // gallery / atlas, bigger and without a background, instead of FOTO
-  Item {
-    width: 64
-    height: 64
+  // [WF-OBJECT-ATLAS] 25.10.2026 — the atlas icon instead of FOTO; Piotr 14:01:
+  // dark green and white, like the fold button of this bar
+  Rectangle {
+    width: 56
+    height: 56
+    radius: width / 2
     visible: quickCaptureBar.resolvedLayers && quickCaptureBar.resolvedLayers.length > 0
+    color: galleryMouse.pressed ? Qt.darker(Theme.mainColor, 1.25) : Theme.mainColor
+    border.color: "white"
+    border.width: 2
 
     Image {
-      anchors.fill: parent
-      source: Theme.getThemeVectorIcon("wfg_atlas")
-      sourceSize: Qt.size(128, 128)
+      anchors.centerIn: parent
+      width: 34
+      height: 34
+      source: Theme.getThemeVectorIcon("wfg_atlas_bialy")
+      sourceSize: Qt.size(68, 68)
       fillMode: Image.PreserveAspectFit
-      opacity: galleryMouse.pressed ? 0.6 : 1
     }
 
     MouseArea {

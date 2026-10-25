@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- WorkField 25.10.2026 [WF-OBJECT-ATLAS] Atlas obiektów — wersja kolorowa
+       na przycisk przy mapie: ten sam prosty rysunek co w szufladzie
+       (tabela z tyłu, zdjęcie z przodu), w kolorach. -->
+  <rect x="15" y="4" width="29" height="27" rx="3" fill="#E3F2FD" stroke="#1565C0" stroke-width="2.5"/>
+  <path d="M15 13 H44 M15 22 H44 M24.7 4 V31 M34.3 4 V31" stroke="#1565C0" stroke-width="2"/>
+  <rect x="4" y="16" width="27" height="27" rx="3" fill="#FFFFFF" stroke="#263238" stroke-width="3"/>
+  <path d="M8 38 L15 27.5 L20 34 L23.5 30.5 L27 38 Z" fill="#43A047"/>
+  <circle cx="23.5" cy="22.5" r="2.8" fill="#FF8F00"/>
+</svg>

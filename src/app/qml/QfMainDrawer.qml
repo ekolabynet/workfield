@@ -2912,8 +2912,8 @@ Drawer {
         }
         QfPozycjaMenu {
           text: qsTr("Atlas obiektów")
+          // Piotr 13:45: a simple one-colour icon in the drawer, like the others
           ikona: "wfg_atlas"
-          kolorowa: true
           enabled: dashBoard.activeLayer
           onClicked: {
             const warstwa = dashBoard.activeLayer;
