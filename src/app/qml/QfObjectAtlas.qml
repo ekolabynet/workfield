@@ -70,21 +70,58 @@ Item {
    * Opens the atlas on \a preferredLayer (or keeps the current one, or the
    * first atlas atlasLayer) and on the object \a fid (or keeps the position).
    */
+  //! the last edit the atlas already jumped to ("" = none yet)
+  property string lastEditKey: ""
+
+  /**
+   * [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 11:18) — where the atlas starts:
+   *   1. the layer asked for (Tabela → „W atlasie”, „Aktywna warstwa”),
+   *   2. the object edited last (WF_JOURNAL) — once per edit, so browsing
+   *      is not thrown back to it at every opening,
+   *   3. the layer already shown, if it has objects,
+   *   4. the first layer WITH objects (an empty layer only when all are).
+   */
   function start(preferredLayer, fid) {
     layerList = qgisProject ? engine.layers(qgisProject) : [];
-    let chosen = null;
-    const wanted = preferredLayer ? preferredLayer : atlasLayer;
-    for (let i = 0; i < layerList.length; i++) {
-      if (wanted && layerList[i].id === wanted.id) {
-        chosen = layerList[i].layer;
-        layerBox.currentIndex = i;
+    const find = function (id) {
+      for (let i = 0; i < layerList.length; i++)
+        if (layerList[i].id === id)
+          return i;
+      return -1;
+    };
+    let at = -1;
+    let startFid = fid;
+    if (preferredLayer)
+      at = find(preferredLayer.id);
+    if (at < 0 && !preferredLayer) {
+      const last = qgisProject ? engine.lastEdited(qgisProject) : ({});
+      const key = last && last.layerId ? last.layerId + "#" + last.fid + "#" + last.time : "";
+      if (key !== "" && key !== lastEditKey) {
+        at = find(last.layerId);
+        if (at >= 0) {
+          lastEditKey = key;
+          if (startFid === undefined || startFid === null)
+            startFid = last.fid;
+        }
       }
     }
-    if (!chosen && layerList.length > 0) {
-      chosen = layerList[0].layer;
-      layerBox.currentIndex = 0;
+    if (at < 0 && atlasLayer) {
+      const i = find(atlasLayer.id);
+      if (i >= 0 && layerList[i].count > 0)
+        at = i;
     }
-    setLayer(chosen, fid);
+    if (at < 0) {
+      for (let i = 0; i < layerList.length; i++) {
+        if (layerList[i].count > 0) {
+          at = i;
+          break;
+        }
+      }
+    }
+    if (at < 0 && layerList.length > 0)
+      at = 0;
+    layerBox.currentIndex = at;
+    setLayer(at >= 0 ? layerList[at].layer : null, startFid);
   }
 
   function setLayer(newLayer, fid) {
@@ -820,7 +857,8 @@ Item {
       ComboBox {
         id: layerBox
         width: atlas.wide ? 240 : Math.min(atlas.width, 240)
-        model: atlas.layerList.map(l => l.name)
+        // the number of objects next to the name: an empty layer shows at once
+        model: atlas.layerList.map(l => l.name + "  (" + l.count + ")")
         onActivated: atlas.setLayer(atlas.layerList[currentIndex].layer)
       }
 
@@ -1254,6 +1292,12 @@ Item {
           }
         }
       }
+    }
+
+    // nothing to show: the controls stay at the top, not in the middle
+    Item {
+      Layout.fillHeight: true
+      visible: !scroller.visible
     }
   }
 }

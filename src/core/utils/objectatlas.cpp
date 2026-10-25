@@ -32,6 +32,7 @@
 #include <qgsvectordataprovider.h>
 #include <qgsvectorlayerlabeling.h>
 #include <QTimer>
+#include <sqlite3.h>
 #include <qgscoordinatetransform.h>
 #include <qgscurve.h>
 #include <qgscurvepolygon.h>
@@ -374,6 +375,8 @@ QVariantList ObjectAtlas::layers( QgsProject *project ) const
     entry.insert( QStringLiteral( "id" ), layer->id() );
     entry.insert( QStringLiteral( "name" ), layer->name() );
     entry.insert( QStringLiteral( "layer" ), QVariant::fromValue( static_cast<QObject *>( layer ) ) );
+    // [WF-OBJECT-ATLAS] an empty layer is listed, but the atlas does not start on it
+    entry.insert( QStringLiteral( "count" ), static_cast<qlonglong>( layer->featureCount() ) );
     out << entry;
   }
   return out;
@@ -1085,4 +1088,66 @@ QVariantMap ObjectAtlas::keptStyle( QgsProject *project, QgsVectorLayer *layer )
   out.insert( QStringLiteral( "colorBy" ), kept.section( QLatin1Char( '|' ), 0, 0 ) );
   out.insert( QStringLiteral( "labelBy" ), kept.section( QLatin1Char( '|' ), 1, 1 ) );
   return out;
+}
+
+QVariantMap ObjectAtlas::lastEdited( QgsProject *project ) const
+{
+  QVariantMap result;
+  if ( !project )
+    return result;
+
+  // atlas layers by "<file>|<table>"; the files to read
+  QHash<QString, QgsVectorLayer *> byTable;
+  QSet<QString> files;
+  for ( const QVariant &v : layers( project ) )
+  {
+    QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( v.toMap().value( QStringLiteral( "layer" ) ).value<QObject *>() );
+    const QString file = gpkgOf( layer );
+    if ( file.isEmpty() )
+      continue;
+    const QVariantMap parts = QgsProviderRegistry::instance()->decodeUri( layer->providerType(), layer->source() );
+    const QString canonical = QFileInfo( file ).canonicalFilePath();
+    byTable.insert( canonical + QLatin1Char( '|' ) + parts.value( QStringLiteral( "layerName" ) ).toString().toLower(), layer );
+    files.insert( canonical );
+  }
+
+  QString bestTime;
+  for ( const QString &file : std::as_const( files ) )
+  {
+    sqlite3 *db = nullptr;
+    if ( sqlite3_open_v2( file.toUtf8().constData(), &db, SQLITE_OPEN_READONLY, nullptr ) != SQLITE_OK )
+    {
+      if ( db )
+        sqlite3_close( db );
+      continue;
+    }
+    sqlite3_stmt *statement = nullptr;
+    const char *sql = "SELECT TABLE_NAME, FID, TIME_UTC FROM WF_JOURNAL WHERE EVENT <> 'deleted' AND FID IS NOT NULL ORDER BY SEQ DESC LIMIT 200";
+    if ( sqlite3_prepare_v2( db, sql, -1, &statement, nullptr ) == SQLITE_OK )
+    {
+      while ( sqlite3_step( statement ) == SQLITE_ROW )
+      {
+        const QString table = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( statement, 0 ) ) );
+        const qlonglong fid = sqlite3_column_int64( statement, 1 );
+        const QString time = QString::fromUtf8( reinterpret_cast<const char *>( sqlite3_column_text( statement, 2 ) ) );
+        QgsVectorLayer *layer = byTable.value( file + QLatin1Char( '|' ) + table.toLower(), nullptr );
+        if ( !layer )
+          continue; // photos, journal tables, layers outside the atlas
+        if ( !layer->getFeature( fid ).isValid() )
+          continue; // deleted since, or written under another fid
+        if ( time > bestTime )
+        {
+          bestTime = time;
+          result.insert( QStringLiteral( "layerId" ), layer->id() );
+          result.insert( QStringLiteral( "fid" ), fid );
+          result.insert( QStringLiteral( "time" ), time );
+        }
+        break; // the newest usable row of this file
+      }
+    }
+    if ( statement )
+      sqlite3_finalize( statement );
+    sqlite3_close( db );
+  }
+  return result;
 }

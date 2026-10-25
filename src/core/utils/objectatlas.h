@@ -104,6 +104,14 @@ class ObjectAtlas : public QObject
      */
     Q_INVOKABLE QVariantMap applyToLayer( QgsProject *project, QgsVectorLayer *layer, const QVariantMap &style );
 
+    /**
+     * [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 11:18) — where the atlas starts:
+     * the object edited last, read from WF_JOURNAL of the project databases
+     * (deleted objects and non-atlas tables skipped).
+     * { layerId, fid, time } or empty when nothing is known.
+     */
+    Q_INVOKABLE QVariantMap lastEdited( QgsProject *project ) const;
+
     //! The style kept "for good" for \a layer: { colorBy, labelBy } or empty.
     Q_INVOKABLE QVariantMap keptStyle( QgsProject *project, QgsVectorLayer *layer ) const;
 
