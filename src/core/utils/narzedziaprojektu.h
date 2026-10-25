@@ -576,6 +576,25 @@ class NarzedziaProjektu : public QObject
 
     Q_INVOKABLE QString plikDanych( QgsProject *projekt ) const;
 
+    /**
+     * [WF-PROJECT-DATABASE] 25.10.2026 — adds the project database.
+     *
+     * A project brought over from QGIS often has no data file: only
+     * basemaps, or layers whose files stayed on the other computer. Then
+     * tiles, working layers, the CAD drawing, photos and the equipment
+     * stamp have nowhere to go (all of them write to `dane.gpkg`).
+     *
+     * Creates `dane.gpkg` next to the project file when it is missing.
+     * When the project has no layer in which features can be created, it
+     * also creates Punkty / Linie / Poligony there (fields opis, data;
+     * photos and uuid as for any new layer) — an existing table of that
+     * name is loaded, never replaced. Existing layers stay as they are.
+     * A backup of the project file is made first; the project is saved.
+     *
+     * Returns `ok`, `opis` (one sentence for the user), `kopia`, `warstwy`.
+     */
+    Q_INVOKABLE QVariantMap addProjectDatabase( QgsProject *project );
+
     //! Zapisuje plik projektu na dysk (opakowanie na QgsProject::write).
     Q_INVOKABLE bool zapiszProjekt( QgsProject *projekt ) const;
 

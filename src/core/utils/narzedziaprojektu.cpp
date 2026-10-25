@@ -28,6 +28,7 @@
 #include <sqlite3.h>
 #include "wfcad/eksport.hpp" // WF-EKSPORT-CAD
 #include "zalaczniki.h"        // WF-NEW-LAYER
+#include "qflayerutils.h"       // [WF-PROJECT-DATABASE]
 
 #include <qgslayertreeregistrybridge.h>
 #include <qgslayertreelayer.h>
@@ -2502,6 +2503,52 @@ QVariantMap NarzedziaProjektu::linkAttachmentTables( QgsProject *project )
   return result;
 }
 
+// [WF-PROJECT-DATABASE] 25.10.2026
+namespace
+{
+  //! A layer in which the app can create features: valid, writable, with
+  //! geometry, and not a basemap, dictionary or attachment table. The same
+  //! rule as the tile candidates (ModulKafli), so both say the same thing.
+  bool takesNewFeatures( const QgsVectorLayer *layer )
+  {
+    if ( !layer || !layer->isValid() || layer->readOnly() )
+      return false;
+    const Qgis::GeometryType type = static_cast<Qgis::GeometryType>( layer->geometryType() );
+    if ( type == Qgis::GeometryType::Null || type == Qgis::GeometryType::Unknown )
+      return false;
+    const QString name = layer->name();
+    static const QStringList skippedPrefixes = {
+      QStringLiteral( "zal_" ), QStringLiteral( "ZAL_" ), QStringLiteral( "podklad_" ),
+      QStringLiteral( "REF_" ), QStringLiteral( "ref_" )
+    };
+    for ( const QString &prefix : skippedPrefixes )
+    {
+      if ( name.startsWith( prefix ) )
+        return false;
+    }
+    static const QStringList skippedNames = {
+      QStringLiteral( "slownik" ), QStringLiteral( "slownik_gatunkow" ),
+      QStringLiteral( "taksony" ), QStringLiteral( "wskazniki" ),
+      QStringLiteral( "wskazniki_polaczone" ), QStringLiteral( "SLOWNIK_GATUNKOW" )
+    };
+    return !skippedNames.contains( name );
+  }
+
+  int layersTakingFeatures( QgsProject *project )
+  {
+    int count = 0;
+    if ( !project )
+      return count;
+    const auto layers = project->mapLayers();
+    for ( auto it = layers.constBegin(); it != layers.constEnd(); ++it )
+    {
+      if ( takesNewFeatures( qobject_cast<QgsVectorLayer *>( it.value() ) ) )
+        count++;
+    }
+    return count;
+  }
+} // namespace
+
 QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
 {
   QVariantMap wynik;
@@ -2923,7 +2970,39 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
                  "Potrzebny internet, więc zrób to przed wyjazdem." ),
              QStringLiteral( "slownik" ) );
 
-  if ( plik.isEmpty() )
+  // [WF-PROJECT-DATABASE] 25.10.2026 — Piotr: a project brought over from
+  // QGIS had no data file and the tile window said only „no layer”. Tiles,
+  // working layers, the CAD drawing, photos and the equipment stamp all
+  // need dane.gpkg and a layer that takes features — an error, with a verb.
+  const bool hasDatabase = !katalog.isEmpty()
+                           && QFileInfo::exists( katalog + QStringLiteral( "/dane.gpkg" ) );
+  const int featureLayers = layersTakingFeatures( projekt );
+  dane.insert( QStringLiteral( "bazaProjektu" ), hasDatabase );
+  dane.insert( QStringLiteral( "warstwDoObiektow" ), featureLayers );
+  const bool databaseRemark = !katalog.isEmpty() && ( !hasDatabase || featureLayers == 0 );
+  if ( databaseRemark )
+  {
+    QString what;
+    if ( !hasDatabase && featureLayers == 0 )
+      what = tr( "projekt nie ma pliku danych (dane.gpkg) ani warstwy, w której można zakładać obiekty — "
+                 "kafle, warstwy robocze, zdjęcia przy obiektach i moduły wyposażenia nie zadziałają" );
+    else if ( !hasDatabase )
+      what = tr( "obok projektu nie ma dane.gpkg — wyposażenie nie ma gdzie zapisać, co założono, "
+                 "a warstwy robocze (tyczenie) i rysunek CAD nie mają gdzie powstać" );
+    else
+      what = tr( "projekt nie ma warstwy, w której można zakładać obiekty — kafle i zakładanie obiektów nie zadziałają" );
+    const QString how = featureLayers == 0
+                          ? tr( "„Dołóż bazę danych” założy dane.gpkg obok projektu (gdy go nie ma) i w nim "
+                                "warstwy Punkty, Linie i Poligony z polami opis i data, ze zdjęciami. "
+                                "Podkłady i obecne warstwy zostają; przedtem powstaje kopia projektu. "
+                                "Tak bywa z projektem przeniesionym z QGIS bez plików danych." )
+                          : tr( "„Dołóż bazę danych” założy pusty dane.gpkg obok projektu. Obecne warstwy "
+                                "zostają tam, gdzie są; przedtem powstaje kopia projektu." );
+    ostrzez( QStringLiteral( "brak" ), QStringLiteral( "projekt" ), what, how,
+             QStringLiteral( "baza_projektu" ) );
+  }
+
+  if ( plik.isEmpty() && !databaseRemark )
     ostrzez( QStringLiteral( "brak" ), QStringLiteral( "projekt" ),
              tr( "projekt nie ma pliku z danymi — dziennik Nieba nie ma dokąd pisać" ),
              tr( "Ten projekt nie zapisuje niczego trwale. Złóż go od nowa "
@@ -2982,7 +3061,136 @@ QString NarzedziaProjektu::plikDanych( QgsProject *projekt ) const
       najlepszy = it.key();
     }
   }
+  // [WF-PROJECT-DATABASE] No layer points at a GeoPackage yet, but dane.gpkg
+  // lies next to the project (e.g. just added): new layers go there.
+  if ( najlepszy.isEmpty() && !projekt->fileName().isEmpty() )
+  {
+    const QString database = QFileInfo( projekt->fileName() ).absolutePath() + QStringLiteral( "/dane.gpkg" );
+    if ( QFileInfo::exists( database ) )
+      return database;
+  }
   return najlepszy;
+}
+
+// [WF-PROJECT-DATABASE] 25.10.2026 — see the header.
+QVariantMap NarzedziaProjektu::addProjectDatabase( QgsProject *project )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  if ( !project || project->fileName().isEmpty() )
+  {
+    result.insert( QStringLiteral( "opis" ), tr( "Nie ma otwartego projektu." ) );
+    return result;
+  }
+
+  const QString home = QFileInfo( project->fileName() ).absolutePath();
+  const QString database = home + QStringLiteral( "/dane.gpkg" );
+  const bool hadDatabase = QFileInfo::exists( database );
+  const bool needsLayers = layersTakingFeatures( project ) == 0;
+  if ( hadDatabase && !needsLayers )
+  {
+    result.insert( QStringLiteral( "ok" ), true );
+    result.insert( QStringLiteral( "opis" ), tr( "Baza projektu już jest i ma warstwy — nic nie zmieniam." ) );
+    return result;
+  }
+
+  // The project file is changed (layers, settings): a backup first, as
+  // before every change made from Equipment.
+  const QString backup = kopiaZapasowa( project->fileName() );
+  if ( backup.isEmpty() )
+  {
+    result.insert( QStringLiteral( "opis" ), tr( "Nie udało się zrobić kopii projektu — nic nie zmieniam." ) );
+    return result;
+  }
+  result.insert( QStringLiteral( "kopia" ), backup );
+
+  QStringList done;
+  QStringList failed;
+  if ( !hadDatabase && !needsLayers )
+  {
+    // An empty GeoPackage: the project keeps its layers where they are.
+    GDALAllRegister();
+    GDALDriverH driver = GDALGetDriverByName( "GPKG" );
+    GDALDatasetH dataset = driver ? GDALCreate( driver, database.toUtf8().constData(), 0, 0, 0, GDT_Unknown, nullptr ) : nullptr;
+    if ( !dataset )
+    {
+      result.insert( QStringLiteral( "opis" ), tr( "Nie udało się założyć pliku %1." ).arg( database ) );
+      return result;
+    }
+    GDALClose( dataset );
+    done << QStringLiteral( "dane.gpkg" );
+  }
+
+  if ( needsLayers )
+  {
+    if ( !hadDatabase )
+      done << QStringLiteral( "dane.gpkg" );
+    const QString crs = project->crs().isValid() ? project->crs().authid() : QStringLiteral( "EPSG:2180" );
+    QVariantMap opis;
+    opis.insert( QStringLiteral( "name" ), QStringLiteral( "opis" ) );
+    opis.insert( QStringLiteral( "type" ), QStringLiteral( "text" ) );
+    QVariantMap data;
+    data.insert( QStringLiteral( "name" ), QStringLiteral( "data" ) );
+    data.insert( QStringLiteral( "type" ), QStringLiteral( "date" ) );
+    const QVariantList fields = { opis, data };
+    const QList<QPair<QString, QString>> specs = {
+      { tr( "Punkty" ), QStringLiteral( "Point" ) },
+      { tr( "Linie" ), QStringLiteral( "LineString" ) },
+      { tr( "Poligony" ), QStringLiteral( "Polygon" ) }
+    };
+    for ( const QPair<QString, QString> &spec : specs )
+    {
+      QgsVectorLayer *layer = nullptr;
+      if ( tableExists( database, spec.first ) )
+      {
+        // The table is there, the project does not show it: load THAT one.
+        // A second table of the same name never — field data may be in it.
+        layer = new QgsVectorLayer( QStringLiteral( "%1|layername=%2" ).arg( database, spec.first ), spec.first, QStringLiteral( "ogr" ) );
+        if ( !layer->isValid() )
+        {
+          delete layer;
+          layer = nullptr;
+        }
+      }
+      else
+      {
+        layer = QfLayerUtils::createEmptyLayer( database, spec.first, spec.second, crs, fields );
+      }
+      if ( !layer )
+      {
+        failed << spec.first;
+        continue;
+      }
+      layer->setName( spec.first );
+      if ( !project->addMapLayer( layer ) )
+      {
+        delete layer;
+        failed << spec.first;
+        continue;
+      }
+      wartoscDomyslna( layer, QStringLiteral( "data" ), QStringLiteral( "to_date(now())" ) );
+      setUpNewLayer( project, layer );
+      done << spec.first;
+    }
+    if ( done.size() <= ( hadDatabase ? 0 : 1 ) )
+    {
+      result.insert( QStringLiteral( "opis" ), tr( "Nie udało się założyć warstw w %1. Kopia projektu: %2." )
+                                                 .arg( database, QFileInfo( backup ).fileName() ) );
+      return result;
+    }
+  }
+
+  const bool saved = zapiszProjekt( project );
+  QString text = tr( "Dołożono: %1. Kopia projektu: %2." ).arg( done.join( QStringLiteral( ", " ) ), QFileInfo( backup ).fileName() );
+  if ( !failed.isEmpty() )
+    text += QStringLiteral( " " ) + tr( "Nie powstały: %1." ).arg( failed.join( QStringLiteral( ", " ) ) );
+  if ( !saved )
+    text += QStringLiteral( " " ) + tr( "Projektu NIE zapisano — zapisz go przed zamknięciem." );
+  qInfo() << "WFG [WF-PROJECT-DATABASE]:" << text;
+  result.insert( QStringLiteral( "ok" ), true );
+  result.insert( QStringLiteral( "opis" ), text );
+  result.insert( QStringLiteral( "warstwy" ), done );
+  return result;
 }
 
 QVariantMap NarzedziaProjektu::migawkaBazy( const QString &gpkg, const QString &katalogDocelowy ) const

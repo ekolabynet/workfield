@@ -144,6 +144,14 @@ QfWindowFrame {
       stanProjektu.odswiez();
       return;
     }
+    // [WF-PROJECT-DATABASE] dane.gpkg (and starter layers) — saved inside.
+    if (co === "baza_projektu") {
+      w = NarzedziaProjektu.addProjectDatabase(qgisProject);
+      naprawa.komunikat = w.opis;
+      naprawa.blad = !w.ok;
+      stanProjektu.odswiez();
+      return;
+    }
     if (co === "przyc_wierzcholek")
       w = wyposazenie.ustawPrzyciaganie(qgisProject, 0, false);
     else if (co === "przyc_prog")
@@ -251,6 +259,9 @@ QfWindowFrame {
         return [{ "etykieta": qsTr("Uzupełnij identyfikatory"), "co": "tozsamosc" }];
       case "powiaz_zal":
         return [{ "etykieta": qsTr("Powiąż tabele zdjęć"), "co": "powiaz_zal" }];
+      // [WF-PROJECT-DATABASE]
+      case "baza_projektu":
+        return [{ "etykieta": qsTr("Dołóż bazę danych"), "co": "baza_projektu" }];
       }
       return [];
     }

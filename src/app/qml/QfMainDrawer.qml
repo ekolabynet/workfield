@@ -2450,6 +2450,28 @@ Drawer {
                 color: t.secondaryTextColor
                 wrapMode: Text.WordWrap
               }
+
+              // [WF-PROJECT-DATABASE] the verb right under the remark
+              Text {
+                Layout.alignment: Qt.AlignRight
+                visible: modelData.czasownik === "baza_projektu"
+                text: qsTr("Dołóż bazę danych")
+                font.pointSize: t.tinyFont.pointSize
+                font.family: t.tinyFont.family
+                font.bold: true
+                font.underline: true
+                color: "#66bb6a"
+
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -8
+                  onClicked: {
+                    const w = NarzedziaProjektu.addProjectDatabase(qgisProject);
+                    stanWyposazenia.odswiez();
+                    displayToast(w.opis, w.ok ? "info" : "error");
+                  }
+                }
+              }
             }
           }
         }

@@ -717,6 +717,29 @@ QfWindowFrame {
       }
     }
 
+    // [WF-PROJECT-DATABASE] 25.10.2026 — no layer for tiles: add the project
+    // database with Punkty / Linie / Poligony here, then the list fills up.
+    QfButton {
+      Layout.fillWidth: true
+      visible: wyborKafli.lista.length === 0
+      text: qsTr("Dołóż bazę danych: Punkty, Linie, Poligony")
+      onClicked: {
+        const w = NarzedziaProjektu.addProjectDatabase(qgisProject);
+        displayToast(w.opis, w.ok ? "info" : "error");
+        ekranWyposazenia.odswiez();
+        wyborKafli.otworz(wyborKafli.modul);
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      visible: wyborKafli.lista.length === 0
+      text: qsTr("Powstanie dane.gpkg obok projektu (gdy go nie ma) i w nim trzy warstwy z polami opis i data, ze zdjęciami. Podkłady zostają; przedtem kopia projektu.")
+      color: "#B0BEC5"
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
+    }
+
     RowLayout {
       Layout.fillWidth: true
       spacing: 8

@@ -174,8 +174,10 @@ Popup {
         QfDecisionButton {
           id: closeButton
           role: "cancel"
-          text: frame.exitMode === "close" ? "←" : "✕"
-          font.pointSize: QfTheme.strongFont.pointSize
+          // [WF-EXIT-GLYPH] 25.10.2026 — „✕” (U+2715) showed as an empty box on
+          // a Samsung phone; „×” (U+00D7) is in every Latin font.
+          text: frame.exitMode === "close" ? "←" : "×"
+          font.pointSize: frame.exitMode === "close" ? QfTheme.strongFont.pointSize : QfTheme.strongFont.pointSize + 6
           font.bold: true
           Layout.preferredWidth: 48
           Layout.preferredHeight: 44

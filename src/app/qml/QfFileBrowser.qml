@@ -835,8 +835,11 @@ QfWindowFrame {
                     anchors.fill: parent
                     anchors.margins: -6
                     onClicked: {
-                      browser.currentPath = modelData.path;
+                      // [WF-FILE-BROWSER] message first: a new path rebuilds the
+                      // crumbs and destroys this delegate („browser is not defined”)
+                      const target = modelData.path;
                       browser.message = "";
+                      browser.currentPath = target;
                     }
                   }
                 }
