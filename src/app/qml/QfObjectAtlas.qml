@@ -20,6 +20,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtCore
 import org.qfield
 import org.qfield.core
 import org.qfield.gui
@@ -370,6 +371,10 @@ Item {
       onTriggered: pane.render()
     }
 
+    // the split or the height bar moved: the same view, drawn to the new size
+    onWidthChanged: if (baseExtent && baseExtent.length === 4) settleTimer.restart()
+    onHeightChanged: if (baseExtent && baseExtent.length === 4) settleTimer.restart()
+
     color: "#ECEFF1"
     border.width: 1
     border.color: Theme.controlBorderColor
@@ -471,8 +476,8 @@ Item {
       anchors.right: parent.right
       anchors.top: parent.top
       anchors.bottom: parent.bottom
-      anchors.margins: 6
-      width: 44
+      anchors.margins: pane.width < 320 ? 3 : 6
+      width: pane.width < 320 ? 34 : 44
       radius: 8
       color: Qt.rgba(1, 1, 1, 0.82)
       border.width: 1
@@ -485,8 +490,8 @@ Item {
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
-          width: 36
-          height: 34
+          width: pane.width < 320 ? 28 : 36
+          height: pane.width < 320 ? 28 : 34
           radius: 6
           color: plusMouse.pressed ? "#CFD8DC" : "transparent"
           Text {
@@ -517,8 +522,8 @@ Item {
 
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
-          width: 36
-          height: 34
+          width: pane.width < 320 ? 28 : 36
+          height: pane.width < 320 ? 28 : 34
           radius: 6
           color: minusMouse.pressed ? "#CFD8DC" : "transparent"
           Text {
@@ -538,8 +543,8 @@ Item {
         // back to the object: a target drawn, not a font glyph
         Rectangle {
           Layout.alignment: Qt.AlignHCenter
-          width: 36
-          height: 34
+          width: pane.width < 320 ? 28 : 36
+          height: pane.width < 320 ? 28 : 34
           radius: 6
           color: homeMouse.pressed ? "#CFD8DC" : "transparent"
           Canvas {
@@ -677,8 +682,10 @@ Item {
     property int direction: 1
     signal clicked
 
-    width: 56
-    height: 48
+    width: atlas.wide ? 56 : 46
+    height: 44
+    Layout.preferredWidth: width
+    Layout.preferredHeight: height
     radius: 8
     enabled: atlas.objectList.length > 1
     opacity: enabled ? 1 : 0.35
@@ -845,51 +852,105 @@ Item {
     overviewMap.repaint();
   }
 
-  // ── top: atlasLayer and object ────────────────────────────────────────────────
+  // [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 13:23) — sizes the hand chose stay
+  Settings {
+    id: atlasSettings
+    category: "WorkFieldAtlas"
+    //! height of the maps row on a phone; 0 = automatic
+    property real mapsHeight: 0
+    property real photoHeight: 90
+  }
+
+  readonly property real mapsHeight: Math.max(120, Math.min(atlas.height * 0.7, atlasSettings.mapsHeight > 0 ? atlasSettings.mapsHeight : Math.round(atlas.width * 0.6)))
+  readonly property real photoHeight: Math.max(48, Math.min(320, atlasSettings.photoHeight))
+
+  //! a bar to drag: the height of what is above it
+  component Grip: Rectangle {
+    id: grip
+    signal dragged(real dy)
+    Layout.fillWidth: true
+    Layout.preferredHeight: 16
+    radius: 4
+    color: gripMouse.pressed ? Qt.alpha("#FF8F00", 0.35) : Qt.alpha(Theme.mainColor, 0.08)
+
+    Column {
+      anchors.centerIn: parent
+      spacing: 3
+      Repeater {
+        model: 2
+        Rectangle {
+          width: 46
+          height: 3
+          radius: 1.5
+          color: gripMouse.pressed ? "#FF8F00" : "#90A4AE"
+        }
+      }
+    }
+
+    MouseArea {
+      id: gripMouse
+      anchors.fill: parent
+      anchors.topMargin: -8
+      anchors.bottomMargin: -8
+      preventStealing: true
+      cursorShape: Qt.SizeVerCursor
+      property real lastY: 0
+      onPressed: function (mouse) {
+        lastY = mapToItem(null, mouse.x, mouse.y).y;
+      }
+      onPositionChanged: function (mouse) {
+        const y = mapToItem(null, mouse.x, mouse.y).y;
+        grip.dragged(y - lastY);
+        lastY = y;
+      }
+    }
+  }
+
+  // ── top: two rows — layer + object; counter, form, colours switch ────────
   ColumnLayout {
     anchors.fill: parent
-    spacing: 6
+    spacing: 4
 
-    Flow {
+    RowLayout {
       Layout.fillWidth: true
-      spacing: 6
+      spacing: 4
 
       ComboBox {
         id: layerBox
-        width: atlas.wide ? 240 : Math.min(atlas.width, 240)
+        Layout.preferredWidth: atlas.wide ? 260 : Math.round(atlas.width * 0.36)
+        Layout.preferredHeight: 44
         // the number of objects next to the name: an empty layer shows at once
         model: atlas.layerList.map(l => l.name + "  (" + l.count + ")")
         onActivated: atlas.setLayer(atlas.layerList[currentIndex].layer)
       }
 
-      Row {
-        spacing: 4
+      BigArrow {
+        direction: -1
+        onClicked: atlas.step(-1)
+      }
 
-        BigArrow {
-          direction: -1
-          onClicked: atlas.step(-1)
-        }
-
-        ComboBox {
-          id: objectBox
-          width: atlas.wide ? 280 : Math.max(120, atlas.width - 140)
-          height: 48
-          model: atlas.objectList.map(o => o.label)
-          onActivated: {
-            atlas.index = currentIndex;
-            atlas.show();
-          }
-        }
-
-        BigArrow {
-          direction: 1
-          onClicked: atlas.step(1)
+      ComboBox {
+        id: objectBox
+        Layout.fillWidth: true
+        Layout.preferredHeight: 44
+        model: atlas.objectList.map(o => o.label)
+        onActivated: {
+          atlas.index = currentIndex;
+          atlas.show();
         }
       }
 
+      BigArrow {
+        direction: 1
+        onClicked: atlas.step(1)
+      }
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
       Text {
-        height: 40
-        verticalAlignment: Text.AlignVCenter
         text: atlas.objectList.length > 0 ? qsTr("%1 / %2").arg(atlas.index + 1).arg(atlas.objectList.length) : ""
         color: Theme.secondaryTextColor
         font: Theme.tipFont
@@ -902,26 +963,24 @@ Item {
         onClicked: atlas.editRequested(atlas.atlasLayer, atlas.page.fid)
       }
 
-      // [WF-OBJECT-ATLAS] colours and labels only here, or for good
-      Row {
-        height: 48
-        spacing: 4
-        visible: atlas.atlasLayer !== null
+      Item {
+        Layout.fillWidth: true
+      }
 
-        Switch {
-          id: keepSwitch
-          anchors.verticalCenter: parent.verticalCenter
-          checked: atlas.keep
-          onToggled: atlas.setKeep(checked)
-        }
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(260, atlas.width - 80)
-          text: atlas.keep ? qsTr("Kolory i etykiety na stałe — także na mapie głównej") : qsTr("Kolory i etykiety tylko w atlasie")
-          color: atlas.keep ? "#FFB74D" : Theme.secondaryTextColor
-          font: Theme.tipFont
-          wrapMode: Text.WordWrap
-        }
+      // [WF-OBJECT-ATLAS] colours and labels only here, or for good
+      Switch {
+        id: keepSwitch
+        visible: atlas.atlasLayer !== null
+        checked: atlas.keep
+        onToggled: atlas.setKeep(checked)
+      }
+      Text {
+        visible: atlas.atlasLayer !== null
+        Layout.maximumWidth: atlas.wide ? 300 : 120
+        text: atlas.keep ? qsTr("Kolory i etykiety na stałe") : qsTr("Kolory i etykiety tylko w atlasie")
+        color: atlas.keep ? "#FFB74D" : Theme.secondaryTextColor
+        font: Theme.tinyFont
+        wrapMode: Text.WordWrap
       }
     }
 
@@ -935,38 +994,47 @@ Item {
       wrapMode: Text.WordWrap
     }
 
-    // ── body: maps and the object's description ───────────────────────────
-    Flickable {
-      id: scroller
+    // ── body ──────────────────────────────────────────────────────────────
+    // phone: the two maps SIDE BY SIDE (the split moves), a bar to drag their
+    // height, the photo strip (its height drags too), the attribute table
+    // scrolling below. Wide screen: maps on the left one above the other,
+    // photos and attributes on the right.
+    GridLayout {
+      id: body
       Layout.fillWidth: true
       Layout.fillHeight: true
       visible: atlas.page && atlas.page.ok === true
-      clip: true
-      contentWidth: width
-      contentHeight: atlas.wide ? height : body.implicitHeight
-      interactive: !atlas.wide
-      boundsBehavior: Flickable.StopAtBounds
+      columns: atlas.wide ? 2 : 1
+      columnSpacing: 8
+      rowSpacing: 2
 
-      GridLayout {
-        id: body
-        width: scroller.width
-        height: atlas.wide ? scroller.height : implicitHeight
-        columns: atlas.wide ? 2 : 1
-        columnSpacing: 8
-        rowSpacing: 8
+      ColumnLayout {
+        id: mapsColumn
+        Layout.fillWidth: !atlas.wide
+        Layout.preferredWidth: atlas.wide ? Math.round(atlas.width * 0.6) : -1
+        Layout.fillHeight: atlas.wide
+        Layout.preferredHeight: atlas.wide ? -1 : atlas.mapsHeight
+        spacing: 4
 
-        ColumnLayout {
-          id: mapsColumn
-          Layout.preferredWidth: atlas.wide ? body.width * 0.6 : body.width
-          Layout.alignment: Qt.AlignTop
-          spacing: 6
+        Text {
+          Layout.fillWidth: true
+          visible: atlas.wide
+          text: atlas.page.title !== undefined ? atlas.page.title + "  ·  " + atlas.layerName : ""
+          color: Theme.mainTextColor
+          font: Theme.strongTipFont
+          elide: Text.ElideRight
+        }
 
-          Text {
-            Layout.fillWidth: true
-            text: atlas.page.title !== undefined ? atlas.page.title + "  ·  " + atlas.layerName : ""
-            color: Theme.mainTextColor
-            font: Theme.strongTipFont
-            elide: Text.ElideRight
+        SplitView {
+          id: mapsSplit
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          orientation: atlas.wide ? Qt.Vertical : Qt.Horizontal
+
+          handle: Rectangle {
+            implicitWidth: 10
+            implicitHeight: 10
+            color: SplitHandle.pressed ? "#FF8F00" : (SplitHandle.hovered ? "#78909C" : "#455A64")
           }
 
           MapPane {
@@ -975,316 +1043,335 @@ Item {
             caption: qsTr("Mapa obiektu")
             interactive: true
             objectName: "atlasObjectMap"
-            Layout.fillWidth: true
-            Layout.preferredHeight: atlas.wide ? (scroller.height - 40) * 0.64 : width * 0.75
-          }
-
-          // what the colours mean; the active labels; × switches off
-          Flow {
-            Layout.fillWidth: true
-            spacing: 6
-            visible: atlas.colorBy !== "" || atlas.labelBy !== ""
-
-            Text {
-              visible: atlas.colorBy !== ""
-              height: 24
-              verticalAlignment: Text.AlignVCenter
-              text: qsTr("Kolory: %1").arg(atlas.fieldName(atlas.colorBy))
-              color: Theme.mainTextColor
-              font: Theme.tipFont
-            }
-            Repeater {
-              model: atlas.colorBy !== "" ? atlas.legend : []
-              delegate: Row {
-                required property var modelData
-                height: 24
-                spacing: 4
-                Rectangle {
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: 14
-                  height: 14
-                  radius: 2
-                  color: modelData.color
-                  border.width: 1
-                  border.color: "#37474F"
-                }
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: modelData.label
-                  color: Theme.secondaryTextColor
-                  font: Theme.tinyFont
-                }
-              }
-            }
-            OffChip {
-              visible: atlas.colorBy !== ""
-              onClicked: atlas.toggleColor(atlas.colorBy)
-            }
-            Text {
-              visible: atlas.labelBy !== ""
-              height: 24
-              verticalAlignment: Text.AlignVCenter
-              text: qsTr("Etykiety: %1").arg(atlas.fieldName(atlas.labelBy))
-              color: Theme.mainTextColor
-              font: Theme.tipFont
-            }
-            OffChip {
-              visible: atlas.labelBy !== ""
-              onClicked: atlas.toggleLabels(atlas.labelBy)
-            }
+            SplitView.preferredWidth: mapsSplit.width * 0.58
+            SplitView.preferredHeight: mapsSplit.height * 0.64
+            SplitView.minimumWidth: 90
+            SplitView.minimumHeight: 90
           }
 
           MapPane {
             id: overviewMap
             slot: "overview"
             caption: qsTr("Mapa poglądowa")
-            Layout.fillWidth: true
-            Layout.preferredHeight: atlas.wide ? (scroller.height - 40) * 0.36 : width * 0.55
+            SplitView.fillWidth: true
+            SplitView.fillHeight: true
+            SplitView.minimumWidth: 80
+            SplitView.minimumHeight: 80
           }
         }
 
-        ColumnLayout {
-          id: infoColumn
+  // what the colours mean; the active labels; × switches off
+  Flow {
+    Layout.fillWidth: true
+    spacing: 6
+    visible: atlas.colorBy !== "" || atlas.labelBy !== ""
+
+    Text {
+      visible: atlas.colorBy !== ""
+      height: 24
+      verticalAlignment: Text.AlignVCenter
+      text: qsTr("Kolory: %1").arg(atlas.fieldName(atlas.colorBy))
+      color: Theme.mainTextColor
+      font: Theme.tipFont
+    }
+    Repeater {
+      model: atlas.colorBy !== "" ? atlas.legend : []
+      delegate: Row {
+        required property var modelData
+        height: 24
+        spacing: 4
+        Rectangle {
+          anchors.verticalCenter: parent.verticalCenter
+          width: 14
+          height: 14
+          radius: 2
+          color: modelData.color
+          border.width: 1
+          border.color: "#37474F"
+        }
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          text: modelData.label
+          color: Theme.secondaryTextColor
+          font: Theme.tinyFont
+        }
+      }
+    }
+    OffChip {
+      visible: atlas.colorBy !== ""
+      onClicked: atlas.toggleColor(atlas.colorBy)
+    }
+    Text {
+      visible: atlas.labelBy !== ""
+      height: 24
+      verticalAlignment: Text.AlignVCenter
+      text: qsTr("Etykiety: %1").arg(atlas.fieldName(atlas.labelBy))
+      color: Theme.mainTextColor
+      font: Theme.tipFont
+    }
+    OffChip {
+      visible: atlas.labelBy !== ""
+      onClicked: atlas.toggleLabels(atlas.labelBy)
+    }
+  }
+      }
+
+      // phone: drag to make the maps taller / lower
+      Grip {
+        visible: !atlas.wide
+        onDragged: function (dy) {
+          atlasSettings.mapsHeight = Math.max(120, Math.min(atlas.height * 0.7, atlas.mapsHeight + dy));
+        }
+      }
+
+      ColumnLayout {
+        id: infoColumn
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        spacing: 2
+
+        // photos with numbers; a tap lights the cone, a second tap opens the photo
+        Text {
           Layout.fillWidth: true
-          Layout.fillHeight: atlas.wide
-          Layout.alignment: Qt.AlignTop
+          text: atlas.photos.length > 0 ? qsTr("Zdjęcia (%1) — stuknij: stożek widoku, drugi raz: zdjęcie").arg(atlas.photos.length) : qsTr("Bez zdjęć")
+          color: Theme.secondaryTextColor
+          font: Theme.tinyFont
+          elide: Text.ElideRight
+        }
+
+        ListView {
+          id: photoStrip
+          Layout.fillWidth: true
+          Layout.preferredHeight: atlas.photos.length > 0 ? atlas.photoHeight : 0
+          visible: atlas.photos.length > 0
+          orientation: ListView.Horizontal
           spacing: 6
+          clip: true
+          model: atlas.photos
 
-          // photos with numbers; a tap lights the cone, a second tap opens the photo
-          Text {
-            Layout.fillWidth: true
-            text: atlas.photos.length > 0 ? qsTr("Zdjęcia (%1) — stuknij, aby pokazać stożek widoku").arg(atlas.photos.length) : qsTr("Bez zdjęć")
-            color: Theme.secondaryTextColor
-            font: Theme.tipFont
-            wrapMode: Text.WordWrap
-          }
+          delegate: Item {
+            required property var modelData
+            required property int index
+            height: photoStrip.height
+            width: Math.round(height * 1.15)
 
-          ListView {
-            id: photoStrip
-            Layout.fillWidth: true
-            Layout.preferredHeight: atlas.photos.length > 0 ? 104 : 0
-            visible: atlas.photos.length > 0
-            orientation: ListView.Horizontal
-            spacing: 6
-            clip: true
-            model: atlas.photos
+            Rectangle {
+              anchors.fill: parent
+              radius: 4
+              color: "#263238"
+              border.width: index === atlas.selectedPhoto ? 3 : 1
+              border.color: index === atlas.selectedPhoto ? "#FF8F00" : Theme.controlBorderColor
+            }
 
-            delegate: Item {
-              required property var modelData
-              required property int index
-              width: 120
-              height: 104
+            Image {
+              anchors.fill: parent
+              anchors.margins: 3
+              source: "file://" + modelData.absolutePath
+              sourceSize.width: 360
+              fillMode: Image.PreserveAspectCrop
+              asynchronous: true
+              clip: true
+            }
 
-              Rectangle {
-                anchors.fill: parent
-                radius: 4
-                color: "#263238"
-                border.width: index === atlas.selectedPhoto ? 3 : 1
-                border.color: index === atlas.selectedPhoto ? "#FF8F00" : Theme.controlBorderColor
-              }
-
-              Image {
-                anchors.fill: parent
-                anchors.margins: 3
-                source: "file://" + modelData.absolutePath
-                sourceSize.width: 240
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                clip: true
-              }
-
-              Rectangle {
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.margins: 5
-                width: 24
-                height: 24
-                radius: 12
-                color: index === atlas.selectedPhoto ? "#FF8F00" : "#1976D2"
-                border.width: 2
-                border.color: "white"
-
-                Text {
-                  anchors.centerIn: parent
-                  text: String(modelData.number)
-                  color: "white"
-                  font.pointSize: Theme.tinyFont.pointSize
-                  font.bold: true
-                }
-              }
+            Rectangle {
+              anchors.left: parent.left
+              anchors.top: parent.top
+              anchors.margins: 5
+              width: 24
+              height: 24
+              radius: 12
+              color: index === atlas.selectedPhoto ? "#FF8F00" : "#1976D2"
+              border.width: 2
+              border.color: "white"
 
               Text {
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.margins: 6
-                visible: !modelData.cone
-                text: qsTr("bez stożka")
+                anchors.centerIn: parent
+                text: String(modelData.number)
                 color: "white"
-                font.pointSize: Theme.tinyFont.pointSize - 1
-                style: Text.Outline
-                styleColor: "black"
+                font.pointSize: Theme.tinyFont.pointSize
+                font.bold: true
               }
+            }
 
-              MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                  if (atlas.selectedPhoto === index)
-                    platformUtilities.open(modelData.absolutePath);
-                  else
-                    atlas.selectedPhoto = index;
-                }
+            Text {
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              anchors.margins: 6
+              visible: !modelData.cone
+              text: qsTr("bez stożka")
+              color: "white"
+              font.pointSize: Theme.tinyFont.pointSize - 1
+              style: Text.Outline
+              styleColor: "black"
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              onClicked: {
+                if (atlas.selectedPhoto === index)
+                  platformUtilities.open(modelData.absolutePath);
+                else
+                  atlas.selectedPhoto = index;
               }
             }
           }
+        }
 
-          Text {
-            Layout.fillWidth: true
-            text: qsTr("Atrybuty — ołówek zmienia wartość; kolory i Aa porównują obiekt z innymi")
-            color: Theme.secondaryTextColor
-            font: Theme.tipFont
-            wrapMode: Text.WordWrap
+        // drag to make the photos bigger / smaller
+        Grip {
+          visible: atlas.photos.length > 0
+          onDragged: function (dy) {
+            atlasSettings.photoHeight = Math.max(48, Math.min(320, atlas.photoHeight + dy));
           }
+        }
 
-          ListView {
-            id: attributeList
-            Layout.fillWidth: true
-            Layout.fillHeight: atlas.wide
-            Layout.preferredHeight: atlas.wide ? -1 : contentHeight
-            interactive: atlas.wide
-            clip: true
-            spacing: 0
-            model: (atlas.page.measures || []).map(m => ({ "name": m.name, "value": m.value, "measure": true })).concat(atlas.page.attributes || [])
+        Text {
+          Layout.fillWidth: true
+          text: qsTr("Atrybuty — ołówek zmienia wartość; kolory i Aa porównują obiekt z innymi")
+          color: Theme.secondaryTextColor
+          font: Theme.tinyFont
+          wrapMode: Text.WordWrap
+        }
 
-            delegate: Rectangle {
-              required property var modelData
-              required property int index
-              width: attributeList.width
-              id: attrRow
-              readonly property bool editing: modelData.measure !== true && atlas.editingField === modelData.field
-              height: row.implicitHeight + 8 + (editing ? editor.implicitHeight + 6 : 0)
-              color: editing ? Qt.alpha("#FF8F00", 0.12) : (index % 2 === 1 ? Qt.alpha(Theme.mainColor, 0.06) : "transparent")
+        ListView {
+          id: attributeList
+          Layout.fillWidth: true
+          Layout.fillHeight: true
+          interactive: true
+          clip: true
+          spacing: 0
+          boundsBehavior: Flickable.StopAtBounds
+          model: (atlas.page.measures || []).map(m => ({ "name": m.name, "value": m.value, "measure": true })).concat(atlas.page.attributes || [])
 
-              MouseArea {
-                anchors.fill: parent
-                enabled: modelData.measure !== true && modelData.editable === true && !attrRow.editing
-                onClicked: atlas.editingField = modelData.field
+          delegate: Rectangle {
+            required property var modelData
+            required property int index
+            width: attributeList.width
+            id: attrRow
+            readonly property bool editing: modelData.measure !== true && atlas.editingField === modelData.field
+            height: row.implicitHeight + 8 + (editing ? editor.implicitHeight + 6 : 0)
+            color: editing ? Qt.alpha("#FF8F00", 0.12) : (index % 2 === 1 ? Qt.alpha(Theme.mainColor, 0.06) : "transparent")
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: modelData.measure !== true && modelData.editable === true && !attrRow.editing
+              onClicked: atlas.editingField = modelData.field
+            }
+
+            RowLayout {
+              id: row
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.top: parent.top
+              anchors.topMargin: 4
+              anchors.leftMargin: 6
+              anchors.rightMargin: 4
+              spacing: 6
+
+              Text {
+                Layout.preferredWidth: Math.min(attributeList.width * 0.4, 180)
+                text: modelData.name
+                color: Theme.secondaryTextColor
+                font.pointSize: Theme.tipFont.pointSize
+                font.italic: modelData.measure === true
+                wrapMode: Text.WordWrap
               }
 
+              Text {
+                Layout.fillWidth: true
+                text: modelData.value
+                color: Theme.mainTextColor
+                font: Theme.tipFont
+                wrapMode: Text.WordWrap
+              }
+
+              // colour the objects by this field
+              IconChip {
+                visible: modelData.measure !== true
+                kind: "color"
+                active: atlas.colorBy === modelData.field
+                onClicked: atlas.toggleColor(modelData.field)
+              }
+              // this field as labels
+              IconChip {
+                visible: modelData.measure !== true
+                kind: "labels"
+                active: atlas.labelBy === modelData.field
+                onClicked: atlas.toggleLabels(modelData.field)
+              }
+              // edit the value
+              IconChip {
+                visible: modelData.measure !== true
+                enabled: modelData.editable === true
+                opacity: enabled ? 1 : 0.25
+                kind: "pencil"
+                active: attrRow.editing
+                onClicked: atlas.editingField = attrRow.editing ? "" : modelData.field
+              }
+            }
+
+            // the editor of this value, under the row
+            ColumnLayout {
+              id: editor
+              visible: attrRow.editing
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.top: row.bottom
+              anchors.margins: 6
+              spacing: 4
+
+              ComboBox {
+                id: mapBox
+                visible: modelData.kind === "valuemap"
+                Layout.fillWidth: true
+                model: modelData.options ? modelData.options.map(o => o.label) : []
+                currentIndex: {
+                  const o = modelData.options || [];
+                  for (let i = 0; i < o.length; i++)
+                    if (String(o[i].value) === String(modelData.raw))
+                      return i;
+                  return -1;
+                }
+              }
+              Switch {
+                id: boolSwitch
+                visible: modelData.kind === "bool"
+                checked: modelData.raw === "1"
+                text: checked ? qsTr("tak") : qsTr("nie")
+              }
+              TextField {
+                id: textField
+                visible: modelData.kind !== "valuemap" && modelData.kind !== "bool"
+                Layout.fillWidth: true
+                text: modelData.raw !== undefined ? modelData.raw : ""
+                placeholderText: modelData.kind === "date" ? qsTr("rrrr-mm-dd") : (modelData.kind === "datetime" ? qsTr("rrrr-mm-dd gg:mm") : "")
+                inputMethodHints: modelData.kind === "number" ? Qt.ImhFormattedNumbersOnly : Qt.ImhNone
+                onAccepted: saveButton.clicked()
+              }
               RowLayout {
-                id: row
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.topMargin: 4
-                anchors.leftMargin: 6
-                anchors.rightMargin: 4
+                Layout.fillWidth: true
                 spacing: 6
-
-                Text {
-                  Layout.preferredWidth: Math.min(attributeList.width * 0.4, 180)
-                  text: modelData.name
-                  color: Theme.secondaryTextColor
-                  font.pointSize: Theme.tipFont.pointSize
-                  font.italic: modelData.measure === true
-                  wrapMode: Text.WordWrap
-                }
-
-                Text {
+                Item {
                   Layout.fillWidth: true
-                  text: modelData.value
-                  color: Theme.mainTextColor
-                  font: Theme.tipFont
-                  wrapMode: Text.WordWrap
                 }
-
-                // colour the objects by this field
-                IconChip {
-                  visible: modelData.measure !== true
-                  kind: "color"
-                  active: atlas.colorBy === modelData.field
-                  onClicked: atlas.toggleColor(modelData.field)
+                QfDecisionButton {
+                  role: "cancel"
+                  text: qsTr("Anuluj")
+                  onClicked: atlas.editingField = ""
                 }
-                // this field as labels
-                IconChip {
-                  visible: modelData.measure !== true
-                  kind: "labels"
-                  active: atlas.labelBy === modelData.field
-                  onClicked: atlas.toggleLabels(modelData.field)
-                }
-                // edit the value
-                IconChip {
-                  visible: modelData.measure !== true
-                  enabled: modelData.editable === true
-                  opacity: enabled ? 1 : 0.25
-                  kind: "pencil"
-                  active: attrRow.editing
-                  onClicked: atlas.editingField = attrRow.editing ? "" : modelData.field
-                }
-              }
-
-              // the editor of this value, under the row
-              ColumnLayout {
-                id: editor
-                visible: attrRow.editing
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: row.bottom
-                anchors.margins: 6
-                spacing: 4
-
-                ComboBox {
-                  id: mapBox
-                  visible: modelData.kind === "valuemap"
-                  Layout.fillWidth: true
-                  model: modelData.options ? modelData.options.map(o => o.label) : []
-                  currentIndex: {
-                    const o = modelData.options || [];
-                    for (let i = 0; i < o.length; i++)
-                      if (String(o[i].value) === String(modelData.raw))
-                        return i;
-                    return -1;
-                  }
-                }
-                Switch {
-                  id: boolSwitch
-                  visible: modelData.kind === "bool"
-                  checked: modelData.raw === "1"
-                  text: checked ? qsTr("tak") : qsTr("nie")
-                }
-                TextField {
-                  id: textField
-                  visible: modelData.kind !== "valuemap" && modelData.kind !== "bool"
-                  Layout.fillWidth: true
-                  text: modelData.raw !== undefined ? modelData.raw : ""
-                  placeholderText: modelData.kind === "date" ? qsTr("rrrr-mm-dd") : (modelData.kind === "datetime" ? qsTr("rrrr-mm-dd gg:mm") : "")
-                  inputMethodHints: modelData.kind === "number" ? Qt.ImhFormattedNumbersOnly : Qt.ImhNone
-                  onAccepted: saveButton.clicked()
-                }
-                RowLayout {
-                  Layout.fillWidth: true
-                  spacing: 6
-                  Item {
-                    Layout.fillWidth: true
-                  }
-                  QfDecisionButton {
-                    role: "cancel"
-                    text: qsTr("Anuluj")
-                    onClicked: atlas.editingField = ""
-                  }
-                  QfDecisionButton {
-                    id: saveButton
-                    role: "confirm"
-                    text: qsTr("Zapisz")
-                    onClicked: {
-                      let value;
-                      if (modelData.kind === "valuemap")
-                        value = mapBox.currentIndex >= 0 ? modelData.options[mapBox.currentIndex].value : "";
-                      else if (modelData.kind === "bool")
-                        value = boolSwitch.checked;
-                      else
-                        value = textField.text.trim().replace(modelData.kind === "number" ? "," : "\u0000", ".");
-                      atlas.saveValue(modelData.field, value);
-                    }
+                QfDecisionButton {
+                  id: saveButton
+                  role: "confirm"
+                  text: qsTr("Zapisz")
+                  onClicked: {
+                    let value;
+                    if (modelData.kind === "valuemap")
+                      value = mapBox.currentIndex >= 0 ? modelData.options[mapBox.currentIndex].value : "";
+                    else if (modelData.kind === "bool")
+                      value = boolSwitch.checked;
+                    else
+                      value = textField.text.trim().replace(modelData.kind === "number" ? "," : "\u0000", ".");
+                    atlas.saveValue(modelData.field, value);
                   }
                 }
               }
@@ -1297,7 +1384,7 @@ Item {
     // nothing to show: the controls stay at the top, not in the middle
     Item {
       Layout.fillHeight: true
-      visible: !scroller.visible
+      visible: !body.visible
     }
   }
 }
