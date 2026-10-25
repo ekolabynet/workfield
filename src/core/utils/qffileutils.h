@@ -48,6 +48,11 @@ class QFIELD_CORE_EXPORT QfFileUtils : public QObject
     Q_INVOKABLE static QString fileName( const QString &filePath, bool includeSuffix = true );
     //! Returns true if the \a filePath exists (false if it's a directory)
     Q_INVOKABLE static bool fileExists( const QString &filePath );
+
+    //! [WF-FILE-BROWSER] 25.10.2026 — true for an existing FOLDER.
+    //! fileExists() is true only for files, so the folder places of the
+    //! „Pliki” window were filtered out (Piotr 09:58: the app folders vanished).
+    Q_INVOKABLE static bool folderExists( const QString &path );
     //! Returns the suffix (extension)
     Q_INVOKABLE static QString fileSuffix( const QString &filePath );
     //! Returns a human-friendly size from bytes

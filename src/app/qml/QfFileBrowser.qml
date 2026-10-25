@@ -75,6 +75,7 @@ QfWindowFrame {
   //! a system place to point at (phone): the file is probably there
   property string hintPlace: ""
   readonly property string phoneDownloads: "/storage/emulated/0/Download"
+  readonly property string phoneStorage: "/storage/emulated/0"
   readonly property string phoneExchange: "/storage/emulated/0/Documents/WorkField"
 
   readonly property var projectPattern: /\.(qgs|qgz)$/i
@@ -104,13 +105,13 @@ QfWindowFrame {
       } catch (e) {
         k = "";
       }
-      if (k !== "" && FileUtils.fileExists(k))
+      if (k !== "" && FileUtils.folderExists(k))
         return k;
       return stripUrl(iface.dataRoot()) + "/Imported Projects";
     }
     // computer: the WorkField folder itself (Piotr 25.10, 00:13)
     const w = stripUrl(storeSettings.korzenProjektow);
-    return FileUtils.fileExists(w) ? w : stripUrl(iface.dataRoot());
+    return FileUtils.folderExists(w) ? w : stripUrl(iface.dataRoot());
   }
 
   function desktopDownloads() {
@@ -123,14 +124,14 @@ QfWindowFrame {
     const dataRoot = stripUrl(iface.dataRoot());
     if (key === "projekt" && projectDir !== "")
       return projectDir;
-    if (key === "szablony" && FileUtils.fileExists(dataRoot + "/Szablony"))
+    if (key === "szablony" && FileUtils.folderExists(dataRoot + "/Szablony"))
       return dataRoot + "/Szablony";
     if (!onPhone) {
       if (key === "magazyn")
         return stripUrl(storeSettings.korzenProjektow);
-      if (key === "pobrane" && FileUtils.fileExists(desktopDownloads()))
+      if (key === "pobrane" && FileUtils.folderExists(desktopDownloads()))
         return desktopDownloads();
-      if (key === "wymiana" && FileUtils.fileExists(stripUrl(storeSettings.korzenProjektow) + "/wymiana"))
+      if (key === "wymiana" && FileUtils.folderExists(stripUrl(storeSettings.korzenProjektow) + "/wymiana"))
         return stripUrl(storeSettings.korzenProjektow) + "/wymiana";
     }
     return projectsHome();
@@ -196,7 +197,7 @@ QfWindowFrame {
     message = "";
     messageIsError = false;
     if (hintPlace !== "")
-      say(qsTr("Plik w Pobranych albo gdzie indziej w telefonie? Dotknij „%1 ↗” — otworzy się okno systemowe.").arg(placeName(hintPlace)));
+      say(qsTr("Plik w Pobranych albo gdzie indziej w telefonie? Dotknij „Pamięć telefonu…” na dole — otworzy się okno systemowe."));
     open();
   }
 
@@ -277,20 +278,21 @@ QfWindowFrame {
       } catch (e) {
         places0 = [];
       }
+      // [WF-FILE-BROWSER] 25.10.2026 (Piotr 09:58) — on a phone the places are
+      // the app space only: internal storage and, separately, the SD card.
+      // Everything else in the phone: „Pamięć telefonu…” at the bottom.
       for (let i = 0; i < places0.length; i++) {
         const card = places0[i].rodzaj === "karta";
         list.push({
                     "key": card ? "karta" : "telefon",
-                    "name": card ? qsTr("Aplikacja — karta SD") : qsTr("Aplikacja — telefon"),
+                    "name": card ? qsTr("Karta SD") : qsTr("Pamięć wewnętrzna"),
                     "path": stripUrl(places0[i].korzen),
                     "start": stripUrl(places0[i].katalog),
                     "kind": "folder"
                   });
       }
       if (places0.length === 0)
-        list.push({ "key": "telefon", "name": qsTr("Aplikacja — telefon"), "path": dataRoot, "start": dataRoot + "/Imported Projects", "kind": "folder" });
-      list.push({ "key": "wymiana", "name": qsTr("Przestrzeń wymiany"), "path": phoneExchange, "kind": "folder", "system": true });
-      list.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": phoneDownloads, "kind": "folder", "system": true });
+        list.push({ "key": "telefon", "name": qsTr("Pamięć wewnętrzna"), "path": dataRoot, "start": dataRoot + "/Imported Projects", "kind": "folder" });
     } else {
       const store = stripUrl(storeSettings.korzenProjektow);
       list.push({ "key": "aplikacja", "name": qsTr("Katalog aplikacji"), "path": dataRoot, "kind": "folder" });
@@ -299,7 +301,7 @@ QfWindowFrame {
       list.push({ "key": "wymiana", "name": qsTr("Przestrzeń wymiany"), "path": store + "/wymiana", "kind": "folder" });
       list.push({ "key": "pobrane", "name": qsTr("Pobrane"), "path": desktopDownloads(), "kind": "folder" });
     }
-    places = list.filter(p => p.system === true || (p.path !== "" && FileUtils.fileExists(p.path)));
+    places = list.filter(p => p.system === true || FileUtils.folderExists(p.path));
   }
 
   //! The place the current folder belongs to (the longest matching root).
@@ -767,6 +769,15 @@ QfWindowFrame {
         Layout.fillWidth: true
         spacing: 6
 
+        Text {
+          visible: browser.onPhone
+          height: 40
+          verticalAlignment: Text.AlignVCenter
+          text: qsTr("Przestrzeń aplikacji:")
+          color: Theme.secondaryTextColor
+          font: Theme.tipFont
+        }
+
         Repeater {
           model: browser.places
           delegate: PlaceChip {
@@ -1040,12 +1051,14 @@ QfWindowFrame {
         }
       }
 
-      // phone, pick mode: the way out to the system window
+      // phone: the whole phone storage through the system window (also when
+      // browsing — a chosen file opens as from the list); Downloads, the
+      // exchange space and other apps' files are there (Piotr 09:58)
       OutlineButton {
-        visible: browser.mode !== "browse" && browser.narrowScreen
+        visible: browser.onPhone || (browser.mode !== "browse" && browser.narrowScreen)
         Layout.fillWidth: true
-        text: browser.onPhone ? qsTr("Inne miejsce… (okno systemowe Androida)") : qsTr("Inne miejsce…")
-        onClicked: browser.openSystemPicker(browser.onPhone ? browser.phoneDownloads : browser.currentPath)
+        text: browser.onPhone ? qsTr("Pamięć telefonu… (okno systemowe Androida)") : qsTr("Inne miejsce…")
+        onClicked: browser.openSystemPicker(browser.onPhone ? browser.phoneStorage : browser.currentPath)
       }
     }
   }

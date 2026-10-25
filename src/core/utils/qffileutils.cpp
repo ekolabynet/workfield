@@ -97,6 +97,11 @@ bool QfFileUtils::fileExists( const QString &filePath )
   return ( fileInfo.exists() && fileInfo.isFile() );
 }
 
+bool QfFileUtils::folderExists( const QString &path )
+{
+  return !path.isEmpty() && QFileInfo( path ).isDir();
+}
+
 QString QfFileUtils::representFileSize( qint64 bytes, bool decimalRepresentation )
 {
   QStringList list;
