@@ -281,7 +281,9 @@ Popup {
       // [WF-WINDOW-FRAME] resize grip: drag the corner (desktop / tablet)
       Rectangle {
         id: grip
-        visible: frame.resizable && !frame.fullScreen && !frame.narrowScreen
+        // [WF-WINDOW-FRAME] 25.10.2026 (Piotr 13:34) — also on a window that
+        // starts as the whole height: dragging makes it a window of that size
+        visible: frame.resizable && !frame.forceFullScreen && !frame.narrowScreen
         z: 10
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -290,11 +292,24 @@ Popup {
         radius: 4
         color: gripArea.pressed ? Qt.alpha(QfTheme.mainColor, 0.6) : Qt.alpha(QfTheme.controlBorderColor, 0.6)
 
-        Text {
-          anchors.centerIn: parent
-          text: "◢"
-          color: QfTheme.mainTextColor
-          font.pointSize: QfTheme.tipFont.pointSize
+        // three diagonal lines, drawn — „◢” is missing in some phone fonts
+        Canvas {
+          anchors.fill: parent
+          anchors.margins: 6
+          onPaint: {
+            const c = getContext("2d");
+            c.reset();
+            c.strokeStyle = QfTheme.mainTextColor;
+            c.lineWidth = 2;
+            c.lineCap = "round";
+            c.beginPath();
+            for (let i = 0; i < 3; i++) {
+              const d = 5 + i * 5;
+              c.moveTo(width - 1, height - 1 - d);
+              c.lineTo(width - 1 - d, height - 1);
+            }
+            c.stroke();
+          }
         }
 
         MouseArea {

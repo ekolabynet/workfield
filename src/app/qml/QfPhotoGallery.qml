@@ -34,7 +34,13 @@ QfWindowFrame {
        : qsTr("Galeria projektu")
   exitMode: "close"
   scrollable: false
-  forceFullScreen: true
+  // [WF-OBJECT-ATLAS] 25.10.2026 (Piotr 13:34) — on a computer the window
+  // resizes by its lower right corner, and keeps that size; it starts as the
+  // whole height. On a phone (narrow screen) it is the whole screen as before.
+  forceFullScreen: false
+  resizable: true
+  sizeKey: "WorkField/okna/galeria"
+  preferredHeight: 4000
   bodySpacing: 6
 
   // katalog, od ktorego zaczyna zakladka Pliki; pusty = katalog projektu
