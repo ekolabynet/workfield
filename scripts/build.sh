@@ -34,7 +34,7 @@ fi
 # WorkFieldGIS 19.10.2026 — numeracja jak w QGIS (decyzja Piotra): PARZYSTE
 # = wydania oficjalne (0.14.0), NIEPARZYSTE = buildy robocze (0.15.x).
 # Wydanie oficjalne budowac z BUMP=0, zeby nie wyszlo 0.14.1.
-export APP_VERSION_NUM="${APP_VERSION_NUM:-0.14.10}"
+export APP_VERSION_NUM="${APP_VERSION_NUM:-0.14.12}"
 export APP_CODENAME="${APP_CODENAME:-Fractal Fir}"
 # APP_VERSION (CPack, link do wydania w oknie "O programie") z tego samego zrodla
 export APP_VERSION=${APP_VERSION:-v$APP_VERSION_NUM}
