@@ -23,6 +23,7 @@
 #include <QPointer>
 #include <QVariantList>
 #include <QVariantMap>
+#include <qgsgeometry.h>
 
 class QgsProject;
 class QgsVectorLayer;
@@ -115,6 +116,53 @@ class ObjectAtlas : public QObject
     //! The style kept "for good" for \a layer: { colorBy, labelBy } or empty.
     Q_INVOKABLE QVariantMap keptStyle( QgsProject *project, QgsVectorLayer *layer ) const;
 
+    // ======================================================================
+    // [WF-ATLAS-SHAPE] 26.10.2026 (Piotr 13:26) — micro editing of the shape,
+    // the counterpart of the small changes of attributes: move a vertex or a
+    // point, add a vertex in the middle of a side, delete one; snapping to
+    // the corners of neighbours; a vertex to my GPS position.
+    //
+    // Vertices travel to the window in the MAP CRS, each with its original
+    // coordinates in the LAYER CRS: an untouched vertex is written back with
+    // its original numbers, so a save never shifts what nobody moved.
+    // ======================================================================
+
+    /**
+     * The exact vertices of the object (not thinned):
+     *   ok, message, kind ("point" | "line" | "polygon"), hasZ, hasM,
+     *   vertexCount, rings: [{ part, ring, closed, vertices: [[x, y, ox, oy, z, m], …] }]
+     * x, y in the map CRS; ox, oy in the layer CRS; a closed ring without
+     * its repeated last vertex. Refused (ok false + message) for a layer that
+     * cannot change geometries, curved geometries and more than 2000 vertices.
+     */
+    Q_INVOKABLE QVariantMap editableGeometry( QgsProject *project, QgsVectorLayer *layer, qlonglong fid ) const;
+
+    /**
+     * What \a rings (as from editableGeometry; a vertex may carry a 7th item,
+     * true = moved / new) would make, without saving:
+     *   ok, valid, problem, measureName, before, after, beforeValue,
+     *   afterValue, shift (metres, the farthest moved vertex), shiftText.
+     */
+    Q_INVOKABLE QVariantMap checkGeometry( QgsProject *project, QgsVectorLayer *layer, qlonglong fid, const QVariantList &rings ) const;
+
+    /**
+     * Writes \a rings as the geometry of \a fid — only a valid one — and
+     * commits, unless the layer was already in editing (like setValue).
+     * The geometry is written exactly: no clipping to the neighbours.
+     * Returns { ok, message }.
+     */
+    Q_INVOKABLE QVariantMap saveGeometry( QgsProject *project, QgsVectorLayer *layer, qlonglong fid, const QVariantList &rings );
+
+    /**
+     * Vertices to snap to: of the visible atlas layers inside \a extent (map
+     * CRS), without the object \a fid itself. [[x, y], …] in the map CRS,
+     * at most 8000.
+     */
+    Q_INVOKABLE QVariantList snapTargets( QgsProject *project, QgsVectorLayer *layer, qlonglong fid, const QVariantList &extent ) const;
+
+    //! WGS 84 \a longitude / \a latitude (GPS) → [x, y] in the map CRS; [] on failure
+    Q_INVOKABLE QVariantList fromWgs84( QgsProject *project, double longitude, double latitude ) const;
+
   signals:
     void mapRendered( const QVariantMap &result );
 
@@ -122,6 +170,8 @@ class ObjectAtlas : public QObject
     //! the layer drawn with the atlas colouring / labels (a clone, cached)
     QgsVectorLayer *styledLayer( QgsVectorLayer *layer, const QVariantMap &style );
     QVariantList legendOf( QgsVectorLayer *layer ) const;
+    //! [WF-ATLAS-SHAPE] \a rings from the window → a geometry in the layer CRS; empty + \a error on failure
+    QgsGeometry geometryFromRings( QgsProject *project, QgsVectorLayer *layer, const QVariantList &rings, QString &error, double *shift = nullptr ) const;
 
     QgsVectorLayer *mStyled = nullptr;
     QString mStyledKey;

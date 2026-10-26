@@ -55,6 +55,12 @@
 #include <qgsproviderregistry.h>
 #include <qgsvariantutils.h>
 #include <qgsvectorlayer.h>
+#include <qgslinestring.h>
+#include <qgsmultilinestring.h>
+#include <qgsmultipoint.h>
+#include <qgsmultipolygon.h>
+#include <qgspolygon.h>
+#include <qgswkbtypes.h>
 
 #include <algorithm>
 #include <cmath>
@@ -326,6 +332,53 @@ namespace
       }
       layer->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );
       layer->setLabelsEnabled( true );
+    }
+  }
+
+  // [WF-ATLAS-SHAPE] 26.10.2026
+  const int kMaxEditVertices = 2000;
+  const int kMaxSnapTargets = 8000;
+
+  bool canChangeGeometries( const QgsVectorLayer *layer )
+  {
+    if ( !layer || layer->readOnly() || !layer->dataProvider() )
+      return false;
+#if _QGIS_VERSION_INT >= 33800
+    return layer->dataProvider()->capabilities() & Qgis::VectorProviderCapability::ChangeGeometries;
+#else
+    return layer->dataProvider()->capabilities() & QgsVectorDataProvider::ChangeGeometries;
+#endif
+  }
+
+  QgsDistanceArea distanceArea( const QgsProject *project, const QgsVectorLayer *layer )
+  {
+    QgsDistanceArea da;
+    da.setSourceCrs( layer->crs(), project->transformContext() );
+    if ( !project->ellipsoid().isEmpty() )
+      da.setEllipsoid( project->ellipsoid() );
+    return da;
+  }
+
+  //! the measure that tells most about a change of shape: area / length / none
+  void shapeMeasure( const QgsDistanceArea &da, const QgsGeometry &g, Qgis::GeometryType type, QString &name, double &value, QString &text )
+  {
+    value = 0;
+    if ( type == Qgis::GeometryType::Polygon )
+    {
+      name = QObject::tr( "Pole" );
+      value = da.convertAreaMeasurement( da.measureArea( g ), Qgis::AreaUnit::SquareMeters );
+      text = areaText( value );
+    }
+    else if ( type == Qgis::GeometryType::Line )
+    {
+      name = QObject::tr( "Długość" );
+      value = da.convertLengthMeasurement( da.measureLength( g ), Qgis::DistanceUnit::Meters );
+      text = lengthText( value );
+    }
+    else
+    {
+      name.clear();
+      text.clear();
     }
   }
 
@@ -1150,4 +1203,440 @@ QVariantMap ObjectAtlas::lastEdited( QgsProject *project ) const
     sqlite3_close( db );
   }
   return result;
+}
+
+// ==========================================================================
+// [WF-ATLAS-SHAPE] 26.10.2026 — micro editing of the shape
+// ==========================================================================
+
+QVariantMap ObjectAtlas::editableGeometry( QgsProject *project, QgsVectorLayer *layer, qlonglong fid ) const
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  if ( !project || !layer || !layer->isValid() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Nie ma warstwy." ) );
+    return result;
+  }
+  if ( !canChangeGeometries( layer ) )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Warstwa „%1” nie pozwala zmieniać kształtów." ).arg( layer->name() ) );
+    return result;
+  }
+  const QgsFeature feature = layer->getFeature( fid );
+  const QgsGeometry geometry = feature.isValid() ? feature.geometry() : QgsGeometry();
+  if ( geometry.isNull() || geometry.isEmpty() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Obiekt nie ma geometrii — nie ma czego poprawiać." ) );
+    return result;
+  }
+  if ( QgsWkbTypes::isCurvedType( geometry.wkbType() ) )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Obiekt ma łuki — mikro-edycja zna tylko odcinki." ) );
+    return result;
+  }
+
+  const QgsCoordinateReferenceSystem mapCrs = project->crs().isValid() ? project->crs() : layer->crs();
+  const QgsCoordinateTransform toMap( layer->crs(), mapCrs, project->transformContext() );
+  const bool hasZ = QgsWkbTypes::hasZ( geometry.wkbType() );
+  const bool hasM = QgsWkbTypes::hasM( geometry.wkbType() );
+
+  QVariantList rings;
+  int count = 0;
+  bool failed = false;
+  auto ringOf = [&]( const QgsCurve *curve, int part, int ring, bool closed ) {
+    QgsPointSequence points;
+    if ( curve )
+      curve->points( points );
+    if ( closed && points.size() > 1 && points.first() == points.last() )
+      points.removeLast();
+    QVariantList vertices;
+    for ( const QgsPoint &p : std::as_const( points ) )
+    {
+      QgsPointXY m;
+      try
+      {
+        m = toMap.transform( QgsPointXY( p.x(), p.y() ) );
+      }
+      catch ( QgsCsException & )
+      {
+        failed = true;
+        return;
+      }
+      vertices << QVariant( QVariantList { m.x(), m.y(), p.x(), p.y(), hasZ ? p.z() : 0.0, hasM ? p.m() : 0.0 } );
+    }
+    count += vertices.size();
+    QVariantMap r;
+    r.insert( QStringLiteral( "part" ), part );
+    r.insert( QStringLiteral( "ring" ), ring );
+    r.insert( QStringLiteral( "closed" ), closed );
+    r.insert( QStringLiteral( "vertices" ), vertices );
+    rings << r;
+  };
+
+  int part = 0;
+  for ( auto it = geometry.const_parts_begin(); it != geometry.const_parts_end(); ++it, ++part )
+  {
+    const QgsAbstractGeometry *g = *it;
+    if ( const QgsCurvePolygon *polygon = qgsgeometry_cast<const QgsCurvePolygon *>( g ) )
+    {
+      ringOf( polygon->exteriorRing(), part, 0, true );
+      for ( int r = 0; r < polygon->numInteriorRings(); ++r )
+        ringOf( polygon->interiorRing( r ), part, r + 1, true );
+    }
+    else if ( const QgsCurve *curve = qgsgeometry_cast<const QgsCurve *>( g ) )
+    {
+      ringOf( curve, part, 0, false );
+    }
+    else if ( const QgsPoint *p = qgsgeometry_cast<const QgsPoint *>( g ) )
+    {
+      QgsLineString one;
+      one.addVertex( *p );
+      ringOf( &one, part, 0, false );
+    }
+  }
+  if ( failed )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Nie umiem przeliczyć obiektu do układu mapy." ) );
+    return result;
+  }
+  if ( count > kMaxEditVertices )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Obiekt ma %1 wierzchołków — za dużo na mikro-edycję (najwyżej %2)." ).arg( count ).arg( kMaxEditVertices ) );
+    return result;
+  }
+  result.insert( QStringLiteral( "ok" ), true );
+  result.insert( QStringLiteral( "kind" ), geometryKind( layer ) );
+  result.insert( QStringLiteral( "hasZ" ), hasZ );
+  result.insert( QStringLiteral( "hasM" ), hasM );
+  result.insert( QStringLiteral( "vertexCount" ), count );
+  result.insert( QStringLiteral( "rings" ), rings );
+  return result;
+}
+
+QgsGeometry ObjectAtlas::geometryFromRings( QgsProject *project, QgsVectorLayer *layer, const QVariantList &rings, QString &error, double *shift ) const
+{
+  error.clear();
+  if ( shift )
+    *shift = 0;
+  if ( !project || !layer || rings.isEmpty() )
+  {
+    error = tr( "Nie ma kształtu do zapisania." );
+    return QgsGeometry();
+  }
+  const Qgis::WkbType layerType = layer->wkbType();
+  const bool hasZ = QgsWkbTypes::hasZ( layerType );
+  const bool hasM = QgsWkbTypes::hasM( layerType );
+  const bool multi = QgsWkbTypes::isMultiType( layerType );
+  const Qgis::GeometryType type = static_cast<Qgis::GeometryType>( layer->geometryType() );
+  const QgsCoordinateReferenceSystem mapCrs = project->crs().isValid() ? project->crs() : layer->crs();
+  const QgsCoordinateTransform toLayer( mapCrs, layer->crs(), project->transformContext() );
+  const QgsDistanceArea da = distanceArea( project, layer );
+
+  // part -> rings in order (exterior first)
+  std::map<int, std::map<int, std::unique_ptr<QgsLineString>>> parts;
+  for ( const QVariant &rv : rings )
+  {
+    const QVariantMap r = rv.toMap();
+    const QVariantList vertices = r.value( QStringLiteral( "vertices" ) ).toList();
+    QVector<double> xs, ys, zs, ms;
+    for ( const QVariant &vv : vertices )
+    {
+      const QVariantList v = vv.toList();
+      if ( v.size() < 2 )
+        continue;
+      // a new vertex comes with null in place of the original coordinates
+      auto present = []( const QVariant &x ) { return x.isValid() && !x.isNull() && x.userType() != QMetaType::Nullptr; };
+      const bool hasOriginal = v.size() >= 4 && present( v.at( 2 ) ) && present( v.at( 3 ) );
+      const bool moved = !hasOriginal || ( v.size() >= 7 && v.at( 6 ).toBool() );
+      double x, y;
+      if ( moved )
+      {
+        try
+        {
+          const QgsPointXY p = toLayer.transform( QgsPointXY( v.at( 0 ).toDouble(), v.at( 1 ).toDouble() ) );
+          x = p.x();
+          y = p.y();
+        }
+        catch ( QgsCsException & )
+        {
+          error = tr( "Nie umiem przeliczyć wierzchołka do układu warstwy." );
+          return QgsGeometry();
+        }
+        if ( shift && hasOriginal )
+          *shift = std::max( *shift, da.convertLengthMeasurement( da.measureLine( QgsPointXY( v.at( 2 ).toDouble(), v.at( 3 ).toDouble() ), QgsPointXY( x, y ) ), Qgis::DistanceUnit::Meters ) );
+      }
+      else
+      {
+        x = v.at( 2 ).toDouble();
+        y = v.at( 3 ).toDouble();
+      }
+      xs << x;
+      ys << y;
+      zs << ( v.size() >= 5 ? v.at( 4 ).toDouble() : 0.0 );
+      ms << ( v.size() >= 6 ? v.at( 5 ).toDouble() : 0.0 );
+    }
+    const bool closed = r.value( QStringLiteral( "closed" ) ).toBool();
+    if ( type == Qgis::GeometryType::Polygon )
+    {
+      if ( xs.size() < 3 )
+      {
+        error = tr( "Wielokąt musi mieć co najmniej 3 wierzchołki." );
+        return QgsGeometry();
+      }
+      if ( closed )
+      {
+        xs << xs.first();
+        ys << ys.first();
+        zs << zs.first();
+        ms << ms.first();
+      }
+    }
+    else if ( type == Qgis::GeometryType::Line && xs.size() < 2 )
+    {
+      error = tr( "Linia musi mieć co najmniej 2 wierzchołki." );
+      return QgsGeometry();
+    }
+    else if ( type == Qgis::GeometryType::Point && xs.size() != 1 )
+    {
+      error = tr( "Punkt ma dokładnie jeden wierzchołek." );
+      return QgsGeometry();
+    }
+    parts[r.value( QStringLiteral( "part" ) ).toInt()][r.value( QStringLiteral( "ring" ) ).toInt()] = std::make_unique<QgsLineString>( xs, ys, hasZ ? zs : QVector<double>(), hasM ? ms : QVector<double>() );
+  }
+  if ( parts.empty() )
+  {
+    error = tr( "Nie ma kształtu do zapisania." );
+    return QgsGeometry();
+  }
+  if ( !multi && parts.size() > 1 )
+  {
+    error = tr( "Warstwa jednoczęściowa, a kształt ma %1 części." ).arg( parts.size() );
+    return QgsGeometry();
+  }
+
+  std::vector<std::unique_ptr<QgsAbstractGeometry>> built;
+  for ( auto &p : parts )
+  {
+    auto &ringsOfPart = p.second;
+    if ( type == Qgis::GeometryType::Polygon )
+    {
+      auto polygon = std::make_unique<QgsPolygon>();
+      auto exterior = ringsOfPart.find( 0 );
+      if ( exterior == ringsOfPart.end() )
+      {
+        error = tr( "Część %1 nie ma obrysu zewnętrznego." ).arg( p.first + 1 );
+        return QgsGeometry();
+      }
+      polygon->setExteriorRing( exterior->second.release() );
+      for ( auto &ring : ringsOfPart )
+      {
+        if ( ring.first != 0 && ring.second )
+          polygon->addInteriorRing( ring.second.release() );
+      }
+      built.push_back( std::move( polygon ) );
+    }
+    else if ( type == Qgis::GeometryType::Line )
+    {
+      built.push_back( std::move( ringsOfPart.begin()->second ) );
+    }
+    else
+    {
+      const QgsLineString *one = ringsOfPart.begin()->second.get();
+      built.push_back( std::make_unique<QgsPoint>( one->pointN( 0 ) ) );
+    }
+  }
+
+  if ( !multi )
+    return QgsGeometry( built.front().release() );
+  std::unique_ptr<QgsGeometryCollection> collection;
+  if ( type == Qgis::GeometryType::Polygon )
+    collection = std::make_unique<QgsMultiPolygon>();
+  else if ( type == Qgis::GeometryType::Line )
+    collection = std::make_unique<QgsMultiLineString>();
+  else
+    collection = std::make_unique<QgsMultiPoint>();
+  for ( auto &g : built )
+    collection->addGeometry( g.release() );
+  return QgsGeometry( collection.release() );
+}
+
+QVariantMap ObjectAtlas::checkGeometry( QgsProject *project, QgsVectorLayer *layer, qlonglong fid, const QVariantList &rings ) const
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  if ( !project || !layer || !layer->isValid() )
+    return result;
+  QString error;
+  double shift = 0;
+  const QgsGeometry after = geometryFromRings( project, layer, rings, error, &shift );
+  result.insert( QStringLiteral( "ok" ), true );
+  if ( after.isNull() )
+  {
+    result.insert( QStringLiteral( "valid" ), false );
+    result.insert( QStringLiteral( "problem" ), error );
+    return result;
+  }
+  QVector<QgsGeometry::Error> errors;
+  after.validateGeometry( errors, Qgis::GeometryValidationEngine::Geos );
+  QString problem;
+  if ( !errors.isEmpty() )
+    problem = tr( "Kształt jest wadliwy: %1" ).arg( errors.first().what() );
+  result.insert( QStringLiteral( "valid" ), problem.isEmpty() );
+  result.insert( QStringLiteral( "problem" ), problem );
+
+  const Qgis::GeometryType type = static_cast<Qgis::GeometryType>( layer->geometryType() );
+  const QgsDistanceArea da = distanceArea( project, layer );
+  QString name, beforeText, afterText;
+  double beforeValue = 0, afterValue = 0;
+  shapeMeasure( da, layer->getFeature( fid ).geometry(), type, name, beforeValue, beforeText );
+  shapeMeasure( da, after, type, name, afterValue, afterText );
+  result.insert( QStringLiteral( "measureName" ), name );
+  result.insert( QStringLiteral( "before" ), beforeText );
+  result.insert( QStringLiteral( "after" ), afterText );
+  result.insert( QStringLiteral( "beforeValue" ), beforeValue );
+  result.insert( QStringLiteral( "afterValue" ), afterValue );
+  result.insert( QStringLiteral( "shift" ), shift );
+  result.insert( QStringLiteral( "shiftText" ), lengthText( shift ) );
+  return result;
+}
+
+QVariantMap ObjectAtlas::saveGeometry( QgsProject *project, QgsVectorLayer *layer, qlonglong fid, const QVariantList &rings )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  if ( !project || !layer || !layer->isValid() || !canChangeGeometries( layer ) )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Tej warstwy nie da się edytować." ) );
+    return result;
+  }
+  QString error;
+  const QgsGeometry geometry = geometryFromRings( project, layer, rings, error );
+  if ( geometry.isNull() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Nie zapisuję: %1" ).arg( error ) );
+    return result;
+  }
+  QVector<QgsGeometry::Error> errors;
+  geometry.validateGeometry( errors, Qgis::GeometryValidationEngine::Geos );
+  if ( !errors.isEmpty() )
+  {
+    result.insert( QStringLiteral( "message" ), tr( "Nie zapisuję — kształt jest wadliwy: %1" ).arg( errors.first().what() ) );
+    return result;
+  }
+
+  bool started = false;
+  if ( !layer->isEditable() )
+  {
+    if ( !layer->startEditing() )
+    {
+      result.insert( QStringLiteral( "message" ), tr( "Warstwy nie da się edytować." ) );
+      return result;
+    }
+    started = true;
+  }
+  QgsGeometry toWrite = geometry;
+  bool ok = layer->changeGeometry( fid, toWrite );
+  QString message;
+  if ( started )
+  {
+    if ( ok )
+    {
+      ok = layer->commitChanges();
+      if ( !ok )
+      {
+        message = layer->commitErrors().join( QStringLiteral( "; " ) );
+        layer->rollBack();
+      }
+    }
+    else
+    {
+      layer->rollBack();
+    }
+  }
+  if ( ok )
+  {
+    mStyleGeneration++; // the styled clone must read the new shape
+    layer->triggerRepaint();
+    message = started ? tr( "Zapisano nowy kształt obiektu." ) : tr( "Kształt zmieniony — warstwa jest w edycji, zapisz ją." );
+  }
+  else if ( message.isEmpty() )
+  {
+    message = tr( "Nie udało się zapisać kształtu." );
+  }
+  result.insert( QStringLiteral( "ok" ), ok );
+  result.insert( QStringLiteral( "message" ), message );
+  return result;
+}
+
+QVariantList ObjectAtlas::snapTargets( QgsProject *project, QgsVectorLayer *layer, qlonglong fid, const QVariantList &extent ) const
+{
+  QVariantList out;
+  const QgsRectangle area = rectFrom( extent );
+  if ( !project || area.isNull() || !project->layerTreeRoot() )
+    return out;
+  const QgsCoordinateReferenceSystem mapCrs = project->crs().isValid() ? project->crs() : ( layer ? layer->crs() : QgsCoordinateReferenceSystem() );
+  for ( const QVariant &entry : layers( project ) )
+  {
+    QgsVectorLayer *candidate = qobject_cast<QgsVectorLayer *>( entry.toMap().value( QStringLiteral( "layer" ) ).value<QObject *>() );
+    if ( !candidate )
+      continue;
+    QgsLayerTreeLayer *node = project->layerTreeRoot()->findLayer( candidate );
+    if ( candidate != layer && ( !node || !node->isVisible() ) )
+      continue;
+    const QgsCoordinateTransform toMap( candidate->crs(), mapCrs, project->transformContext() );
+    QgsRectangle inLayer;
+    try
+    {
+      inLayer = toMap.transformBoundingBox( area, Qgis::TransformDirection::Reverse );
+    }
+    catch ( QgsCsException & )
+    {
+      continue;
+    }
+    QgsFeatureRequest request( inLayer );
+    request.setNoAttributes();
+    QgsFeatureIterator it = candidate->getFeatures( request );
+    QgsFeature f;
+    while ( it.nextFeature( f ) )
+    {
+      if ( candidate == layer && f.id() == fid )
+        continue;
+      const QgsGeometry g = f.geometry();
+      for ( auto v = g.vertices_begin(); v != g.vertices_end(); ++v )
+      {
+        try
+        {
+          const QgsPointXY p = toMap.transform( QgsPointXY( ( *v ).x(), ( *v ).y() ) );
+          if ( area.contains( p ) )
+            out << QVariant( point( p.x(), p.y() ) );
+        }
+        catch ( QgsCsException & )
+        {
+        }
+        if ( out.size() >= kMaxSnapTargets )
+          return out;
+      }
+    }
+  }
+  return out;
+}
+
+QVariantList ObjectAtlas::fromWgs84( QgsProject *project, double longitude, double latitude ) const
+{
+  if ( !project || !std::isfinite( longitude ) || !std::isfinite( latitude ) )
+    return QVariantList();
+  const QgsCoordinateReferenceSystem mapCrs = project->crs();
+  if ( !mapCrs.isValid() )
+    return QVariantList();
+  try
+  {
+    const QgsCoordinateTransform t( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ), mapCrs, project->transformContext() );
+    const QgsPointXY p = t.transform( QgsPointXY( longitude, latitude ) );
+    return point( p.x(), p.y() );
+  }
+  catch ( QgsCsException & )
+  {
+    return QVariantList();
+  }
 }

@@ -15,6 +15,15 @@
  the object and the cones are drawn here, on a Canvas, from coordinates in
  the map CRS — so a tapped photo lights its cone at once. The same drawing
  will carry the cone dragging (step 3); the PDF is step 2.
+
+ [WF-ATLAS-SHAPE] 26.10.2026 (Piotr 13:26) — micro editing of the shape, the
+ counterpart of the small changes of attributes: „Popraw kształt” over the
+ maps; on the object map drag a vertex (or the point), pull the dot in the
+ middle of a side to add a vertex, hold a vertex to delete it, tap one to
+ choose it (then „Do mojej pozycji” puts it at the GPS position). Snapping
+ to the corners of the neighbours. Nothing reaches the layer before „Zapisz”;
+ before it the bar shows what changes (area / length, how far a vertex went)
+ and a self-crossing shape is refused, not saved.
  ***************************************************************************/
 
 import QtQuick
@@ -48,6 +57,23 @@ Item {
   property var legend: []
   //! the field being edited in place ("" = none)
   property string editingField: ""
+
+  // [WF-ATLAS-SHAPE] the shape being corrected
+  property bool shapeEditing: false
+  property string shapeKind: ""
+  //! [{ part, ring, closed, vertices: [[x, y, ox, oy, z, m, moved], …] }] — map CRS
+  property var shapeRings: []
+  property var shapeHistory: []
+  property var shapeTargets: []
+  //! the chosen vertex: ring index, vertex index (-1 = none)
+  property int shapeRing: -1
+  property int shapeVertex: -1
+  //! ObjectAtlas.checkGeometry() of the current shape
+  property var shapeInfo: ({})
+  //! where the dragged vertex snapped (map CRS) — drawn as a ring
+  property var shapeSnapMark: null
+  property string shapeNote: ""
+  readonly property bool shapeDirty: shapeHistory.length > 0
 
   readonly property bool wide: width > 820
   readonly property var photos: page && page.photos ? page.photos : []
@@ -208,6 +234,254 @@ Item {
       rerender();
   }
 
+  // ── [WF-ATLAS-SHAPE] micro editing of the shape ─────────────────────────
+  function toast(message, kind) {
+    if (typeof displayToast === "function")
+      displayToast(message, kind ? kind : "info");
+  }
+
+  function startShapeEdit() {
+    if (!atlasLayer || !page || !page.ok)
+      return;
+    const g = engine.editableGeometry(qgisProject, atlasLayer, page.fid);
+    if (!g.ok) {
+      toast(g.message, "warning");
+      return;
+    }
+    shapeKind = g.kind;
+    // plain JS arrays: the vertices are moved in place while the hand drags
+    shapeRings = JSON.parse(JSON.stringify(g.rings));
+    shapeHistory = [];
+    shapeRing = -1;
+    shapeVertex = -1;
+    shapeSnapMark = null;
+    shapeNote = "";
+    // a point: the one vertex is chosen at once (ready for „Do mojej pozycji”)
+    if (shapeKind === "point" && shapeRings.length === 1) {
+      shapeRing = 0;
+      shapeVertex = 0;
+    }
+    const e = page.objectExtent;
+    if (e && e.length === 4) {
+      const cx = (e[0] + e[2]) / 2, cy = (e[1] + e[3]) / 2;
+      const hw = (e[2] - e[0]) * 1.5, hh = (e[3] - e[1]) * 1.5;
+      shapeTargets = engine.snapTargets(qgisProject, atlasLayer, page.fid, [cx - hw, cy - hh, cx + hw, cy + hh]);
+    } else {
+      shapeTargets = [];
+    }
+    shapeEditing = true;
+    refreshShapeInfo();
+    objectMap.repaint();
+  }
+
+  //! \a save: write the shape; otherwise drop it (\a why tells the hand why)
+  function endShapeEdit(save, why) {
+    if (!shapeEditing)
+      return;
+    if (save) {
+      const r = engine.saveGeometry(qgisProject, atlasLayer, page.fid, shapeRings);
+      toast(r.message, r.ok ? "info" : "error");
+      if (!r.ok)
+        return;
+    } else if (shapeDirty) {
+      toast(why ? why : qsTr("Zmiana kształtu porzucona — obiekt jest taki jak przed nią."), "warning");
+    }
+    shapeEditing = false;
+    shapeRings = [];
+    shapeHistory = [];
+    shapeTargets = [];
+    shapeRing = -1;
+    shapeVertex = -1;
+    shapeSnapMark = null;
+    shapeInfo = ({});
+    if (save) {
+      const keepPhoto = selectedPhoto;
+      page = engine.describe(qgisProject, atlasLayer, page.fid);
+      selectedPhoto = keepPhoto;
+      rerender();
+    }
+    objectMap.repaint();
+    overviewMap.repaint();
+  }
+
+  function rememberShape() {
+    shapeHistory = shapeHistory.concat([JSON.stringify(shapeRings)]);
+  }
+
+  function undoShape() {
+    if (shapeHistory.length === 0)
+      return;
+    const last = shapeHistory[shapeHistory.length - 1];
+    shapeHistory = shapeHistory.slice(0, shapeHistory.length - 1);
+    shapeRings = JSON.parse(last);
+    if (shapeRing >= shapeRings.length || (shapeRing >= 0 && shapeVertex >= shapeRings[shapeRing].vertices.length)) {
+      shapeRing = -1;
+      shapeVertex = -1;
+    }
+    shapeNote = "";
+    refreshShapeInfo();
+    objectMap.repaint();
+  }
+
+  function refreshShapeInfo() {
+    shapeInfo = engine.checkGeometry(qgisProject, atlasLayer, page.fid, shapeRings);
+  }
+
+  //! the text of the bar: what the change makes
+  function shapeSummary() {
+    const i = shapeInfo || {};
+    if (!shapeDirty)
+      return shapeKind === "point" ? qsTr("Przeciągnij punkt albo stuknij „Do mojej pozycji”.")
+                                   : qsTr("Przeciągnij wierzchołek. Kropka w połowie boku dodaje wierzchołek, przytrzymanie wierzchołka go usuwa, stuknięcie go wybiera.");
+    let t = "";
+    if (i.measureName)
+      t = qsTr("%1: było %2, będzie %3").arg(i.measureName).arg(i.before).arg(i.after);
+    if (i.shift > 0)
+      t += (t !== "" ? "; " : "") + qsTr("najdalej przesunięty wierzchołek: %1").arg(i.shiftText);
+    if (shapeNote !== "")
+      t += (t !== "" ? "; " : "") + shapeNote;
+    return t;
+  }
+
+  function moveVertex(r, i, x, y) {
+    const v = shapeRings[r].vertices[i];
+    v[0] = x;
+    v[1] = y;
+    while (v.length < 7)
+      v.push(null);
+    v[6] = true;
+  }
+
+  //! a new vertex after \a i in ring \a r (z and m: the mean of the neighbours)
+  function insertVertex(r, i, x, y) {
+    const vs = shapeRings[r].vertices;
+    const a = vs[i], b = vs[(i + 1) % vs.length];
+    vs.splice(i + 1, 0, [x, y, null, null, (a[4] + b[4]) / 2, (a[5] + b[5]) / 2, true]);
+    return i + 1;
+  }
+
+  function deleteChosenVertex() {
+    if (shapeRing < 0 || shapeVertex < 0)
+      return;
+    const ring = shapeRings[shapeRing];
+    const least = shapeKind === "polygon" ? 3 : (shapeKind === "line" ? 2 : 1);
+    if (shapeKind === "point" || ring.vertices.length <= least) {
+      toast(shapeKind === "point" ? qsTr("Punktu nie usuwa się tutaj — tylko przesuwa.")
+                                  : qsTr("Nie usunę: %1 musi mieć co najmniej %2 wierzchołki.").arg(shapeKind === "polygon" ? qsTr("wielokąt") : qsTr("linia")).arg(least), "warning");
+      return;
+    }
+    rememberShape();
+    ring.vertices.splice(shapeVertex, 1);
+    shapeRings = shapeRings.slice();
+    shapeVertex = -1;
+    shapeRing = -1;
+    shapeNote = "";
+    refreshShapeInfo();
+    objectMap.repaint();
+  }
+
+  //! the chosen vertex (or the point) to the GPS / RTK position
+  function vertexToMyPosition() {
+    if (shapeRing < 0 || shapeVertex < 0) {
+      toast(qsTr("Najpierw stuknij wierzchołek, który ma trafić w Twoją pozycję."), "warning");
+      return;
+    }
+    const source = typeof positionSource !== "undefined" ? positionSource : null;
+    if (!source) {
+      toast(qsTr("Nie ma źródła pozycji w tej aplikacji."), "error");
+      return;
+    }
+    if (!source.active) {
+      toast(qsTr("GPS jest wyłączony — włącz pozycjonowanie i spróbuj ponownie."), "warning");
+      return;
+    }
+    const pi = source.positionInformation;
+    const ok = pi && isFinite(pi.latitude) && isFinite(pi.longitude) && pi.latitudeValid !== false && pi.longitudeValid !== false && !(pi.latitude === 0 && pi.longitude === 0);
+    if (!ok) {
+      toast(qsTr("Nie ma jeszcze pozycji — poczekaj na sygnał."), "warning");
+      return;
+    }
+    const xy = engine.fromWgs84(qgisProject, pi.longitude, pi.latitude);
+    if (!xy || xy.length !== 2) {
+      toast(qsTr("Nie umiem przeliczyć pozycji do układu mapy."), "error");
+      return;
+    }
+    const hacc = pi.haccValid !== false && isFinite(pi.hacc) ? pi.hacc : NaN;
+    const fix = pi.fixStatusDescription ? String(pi.fixStatusDescription) : "";
+    rememberShape();
+    moveVertex(shapeRing, shapeVertex, xy[0], xy[1]);
+    shapeRings = shapeRings.slice();
+    shapeNote = qsTr("wierzchołek w pozycji GPS: %1%2").arg(isFinite(hacc) ? qsTr("dokładność %1 m").arg(hacc.toLocaleString(Qt.locale(), "f", 2)) : qsTr("dokładność nieznana")).arg(fix !== "" ? ", " + fix : "");
+    refreshShapeInfo();
+    objectMap.viewCenter = xy;
+    objectMap.changed();
+    objectMap.repaint();
+    if (!isFinite(hacc) || hacc > 1.0)
+      toast(qsTr("Uwaga: dokładność pozycji %1 — sprawdź, zanim zapiszesz.").arg(isFinite(hacc) ? qsTr("%1 m").arg(hacc.toLocaleString(Qt.locale(), "f", 1)) : qsTr("nieznana")), "warning");
+  }
+
+  //! content coordinates of a pane (the picture before the live move) to the map
+  function paneToMap(pane, cx, cy) {
+    const e = pane.extent;
+    return [e[0] + cx / pane.width * (e[2] - e[0]), e[3] - cy / pane.height * (e[3] - e[1])];
+  }
+
+  //! what is under the finger: { kind: "vertex" | "mid" | "", ring, index }
+  function shapeHit(pane, cx, cy) {
+    const touch = 24 / pane.liveScale;
+    let best = { "kind": "", "ring": -1, "index": -1 }, bestD = touch;
+    for (let r = 0; r < shapeRings.length; r++) {
+      const vs = shapeRings[r].vertices;
+      for (let i = 0; i < vs.length; i++) {
+        const q = pane.px(vs[i][0], vs[i][1]);
+        const d = Math.hypot(q[0] - cx, q[1] - cy);
+        if (d < bestD) {
+          bestD = d;
+          best = { "kind": "vertex", "ring": r, "index": i };
+        }
+      }
+    }
+    if (best.kind !== "" || shapeKind === "point")
+      return best;
+    bestD = 18 / pane.liveScale;
+    for (let r = 0; r < shapeRings.length; r++) {
+      const vs = shapeRings[r].vertices;
+      const n = shapeRings[r].closed ? vs.length : vs.length - 1;
+      for (let i = 0; i < n; i++) {
+        const a = pane.px(vs[i][0], vs[i][1]);
+        const b = pane.px(vs[(i + 1) % vs.length][0], vs[(i + 1) % vs.length][1]);
+        if (Math.hypot(b[0] - a[0], b[1] - a[1]) * pane.liveScale < 36)
+          continue;
+        const d = Math.hypot((a[0] + b[0]) / 2 - cx, (a[1] + b[1]) / 2 - cy);
+        if (d < bestD) {
+          bestD = d;
+          best = { "kind": "mid", "ring": r, "index": i };
+        }
+      }
+    }
+    return best;
+  }
+
+  //! the nearest corner of a neighbour within reach, or null
+  function snapTo(pane, x, y) {
+    shapeSnapMark = null;
+    if (!atlasSettings.shapeSnap || shapeTargets.length === 0)
+      return null;
+    const here = pane.px(x, y);
+    const reach = 16 / pane.liveScale;
+    let best = null, bestD = reach;
+    for (let i = 0; i < shapeTargets.length; i++) {
+      const q = pane.px(shapeTargets[i][0], shapeTargets[i][1]);
+      const d = Math.hypot(q[0] - here[0], q[1] - here[1]);
+      if (d < bestD) {
+        bestD = d;
+        best = shapeTargets[i];
+      }
+    }
+    shapeSnapMark = best;
+    return best;
+  }
+
   function fieldName(field) {
     const list = page && page.attributes ? page.attributes : [];
     for (let i = 0; i < list.length; i++) {
@@ -218,6 +492,8 @@ Item {
   }
 
   function show() {
+    if (shapeEditing)
+      endShapeEdit(false, qsTr("Zmiana kształtu porzucona — przeszedłeś do innego obiektu."));
     selectedPhoto = -1;
     editingField = "";
     if (!atlasLayer || index < 0 || index >= objectList.length) {
@@ -416,6 +692,9 @@ Item {
     }
 
     // the hand: drag moves the view; the wheel zooms (computer)
+    // [WF-ATLAS-SHAPE] while the shape is corrected: a press on a vertex /
+    // a side's middle drags it, a tap chooses it, a hold deletes it;
+    // anywhere else the view moves as always
     MouseArea {
       anchors.fill: parent
       enabled: pane.interactive
@@ -423,14 +702,78 @@ Item {
       cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
       property real lastX: 0
       property real lastY: 0
+      property real startX: 0
+      property real startY: 0
+      property var hit: ({ "kind": "" })
+      property bool dragging: false
+      property bool held: false
+      readonly property bool shaping: pane.slot === "object" && atlas.shapeEditing
       onPressed: function (mouse) {
         lastX = mouse.x;
         lastY = mouse.y;
+        startX = mouse.x;
+        startY = mouse.y;
+        dragging = false;
+        held = false;
+        hit = { "kind": "" };
+        if (shaping && pane.extent && pane.extent.length === 4) {
+          const c = content.mapFromItem(pane, mouse.x, mouse.y);
+          hit = atlas.shapeHit(pane, c.x, c.y);
+        }
       }
       onPositionChanged: function (mouse) {
+        if (shaping && hit.kind !== "") {
+          if (!dragging) {
+            if (Math.hypot(mouse.x - startX, mouse.y - startY) < 5)
+              return;
+            dragging = true;
+            atlas.rememberShape();
+            if (hit.kind === "mid") {
+              const c0 = content.mapFromItem(pane, mouse.x, mouse.y);
+              const m0 = atlas.paneToMap(pane, c0.x, c0.y);
+              hit = { "kind": "vertex", "ring": hit.ring, "index": atlas.insertVertex(hit.ring, hit.index, m0[0], m0[1]) };
+            }
+            atlas.shapeRing = hit.ring;
+            atlas.shapeVertex = hit.index;
+          }
+          const c = content.mapFromItem(pane, mouse.x, mouse.y);
+          let m = atlas.paneToMap(pane, c.x, c.y);
+          const s = atlas.snapTo(pane, m[0], m[1]);
+          if (s)
+            m = s;
+          atlas.moveVertex(hit.ring, hit.index, m[0], m[1]);
+          pane.repaint();
+          return;
+        }
         pane.moveBy(mouse.x - lastX, mouse.y - lastY);
         lastX = mouse.x;
         lastY = mouse.y;
+      }
+      onReleased: function (mouse) {
+        if (!shaping)
+          return;
+        if (dragging) {
+          atlas.shapeSnapMark = null;
+          atlas.shapeNote = "";
+          atlas.shapeRings = atlas.shapeRings.slice();
+          atlas.refreshShapeInfo();
+        } else if (!held && hit.kind === "vertex") {
+          atlas.shapeRing = hit.ring;
+          atlas.shapeVertex = hit.index;
+        } else if (!held && hit.kind === "" && Math.hypot(mouse.x - startX, mouse.y - startY) < 5 && atlas.shapeKind !== "point") {
+          atlas.shapeRing = -1;
+          atlas.shapeVertex = -1;
+        }
+        dragging = false;
+        pane.repaint();
+      }
+      onPressAndHold: function (mouse) {
+        if (shaping && !dragging && hit.kind === "vertex") {
+          held = true;
+          atlas.shapeRing = hit.ring;
+          atlas.shapeVertex = hit.index;
+          atlas.deleteChosenVertex();
+        }
       }
       onWheel: function (wheel) {
         pane.zoomTo(pane.viewLevel + wheel.angleDelta.y / 120 * 0.25);
@@ -755,8 +1098,82 @@ Item {
     ctx.stroke();
   }
 
+  // [WF-ATLAS-SHAPE] the shape being corrected: the old one thin and dashed,
+  // the new one strong; handles on the vertices, dots in the middle of the
+  // sides; the corners of the neighbours as small grey dots
+  function paintShape(ctx, pane) {
+    const k = 1 / pane.liveScale; // sizes stay the same while the view zooms by hand
+    ctx.save();
+    ctx.setLineDash([6 * k, 4 * k]);
+    paintObject(ctx, pane, "rgba(55,71,79,0.8)", "rgba(0,0,0,0)", 1.5 * k);
+    ctx.restore();
+    if (atlasSettings.shapeSnap) {
+      ctx.fillStyle = "rgba(69,90,100,0.75)";
+      for (let i = 0; i < shapeTargets.length; i++) {
+        const q = pane.px(shapeTargets[i][0], shapeTargets[i][1]);
+        ctx.fillRect(q[0] - 2 * k, q[1] - 2 * k, 4 * k, 4 * k);
+      }
+    }
+    if (shapeKind !== "point") {
+      ctx.beginPath();
+      for (let r = 0; r < shapeRings.length; r++)
+        tracePart(ctx, pane, shapeRings[r].vertices, shapeRings[r].closed);
+      ctx.lineWidth = 3 * k;
+      ctx.strokeStyle = shapeInfo && shapeInfo.valid === false ? "#D50000" : "#FF6F00";
+      if (shapeKind === "polygon") {
+        ctx.fillStyle = shapeInfo && shapeInfo.valid === false ? "rgba(213,0,0,0.18)" : "rgba(255,111,0,0.16)";
+        ctx.fillRule = Qt.OddEvenFill;
+        ctx.fill();
+      }
+      ctx.stroke();
+      // the middles of the sides: pull to add a vertex
+      for (let r = 0; r < shapeRings.length; r++) {
+        const vs = shapeRings[r].vertices;
+        const n = shapeRings[r].closed ? vs.length : vs.length - 1;
+        for (let i = 0; i < n; i++) {
+          const a = pane.px(vs[i][0], vs[i][1]);
+          const b = pane.px(vs[(i + 1) % vs.length][0], vs[(i + 1) % vs.length][1]);
+          if (Math.hypot(b[0] - a[0], b[1] - a[1]) * pane.liveScale < 36)
+            continue;
+          ctx.beginPath();
+          ctx.arc((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 5 * k, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(255,255,255,0.85)";
+          ctx.fill();
+          ctx.lineWidth = 1.5 * k;
+          ctx.strokeStyle = "#FF6F00";
+          ctx.stroke();
+        }
+      }
+    }
+    for (let r = 0; r < shapeRings.length; r++) {
+      const vs = shapeRings[r].vertices;
+      for (let i = 0; i < vs.length; i++) {
+        const q = pane.px(vs[i][0], vs[i][1]);
+        const chosen = r === shapeRing && i === shapeVertex;
+        ctx.beginPath();
+        ctx.arc(q[0], q[1], (chosen ? 11 : (shapeKind === "point" ? 10 : 8)) * k, 0, 2 * Math.PI);
+        ctx.fillStyle = chosen ? "#FF6F00" : "white";
+        ctx.fill();
+        ctx.lineWidth = (chosen ? 3 : 2.5) * k;
+        ctx.strokeStyle = chosen ? "white" : (vs[i][6] ? "#E65100" : "#37474F");
+        ctx.stroke();
+      }
+    }
+    if (shapeSnapMark) {
+      const s = pane.px(shapeSnapMark[0], shapeSnapMark[1]);
+      ctx.beginPath();
+      ctx.arc(s[0], s[1], 15 * k, 0, 2 * Math.PI);
+      ctx.lineWidth = 3 * k;
+      ctx.strokeStyle = "#D500F9";
+      ctx.stroke();
+    }
+  }
+
   function paintObjectMap(ctx, pane) {
-    paintObject(ctx, pane, "#FF6F00", "rgba(255,111,0,0.12)", 3);
+    if (shapeEditing)
+      paintShape(ctx, pane);
+    else
+      paintObject(ctx, pane, "#FF6F00", "rgba(255,111,0,0.12)", 3);
     // view cones: all of them pale, the chosen one strong; number at the stand
     for (let i = 0; i < photos.length; i++) {
       const cone = photos[i].cone;
@@ -859,28 +1276,68 @@ Item {
     //! height of the maps row on a phone; 0 = automatic
     property real mapsHeight: 0
     property real photoHeight: 90
+    //! wide screen: the share of the width taken by the maps
+    property real mapsRatio: 0.6
+    //! [WF-ATLAS-SHAPE] snapping to the corners of the neighbours
+    property bool shapeSnap: true
   }
 
   readonly property real mapsHeight: Math.max(120, Math.min(atlas.height * 0.7, atlasSettings.mapsHeight > 0 ? atlasSettings.mapsHeight : Math.round(atlas.width * 0.6)))
   readonly property real photoHeight: Math.max(48, Math.min(320, atlasSettings.photoHeight))
+  readonly property real mapsRatio: Math.max(0.25, Math.min(0.8, atlasSettings.mapsRatio))
 
-  //! a bar to drag: the height of what is above it
+  // [WF-ATLAS-SHAPE] a word button of the shape bar (on / off, enabled or not)
+  component TextChip: Rectangle {
+    id: textChip
+    property string label: ""
+    property bool active: false
+    property bool strong: false
+    signal clicked
+    implicitWidth: chipLabel.implicitWidth + (atlas.wide ? 22 : 16)
+    implicitHeight: atlas.wide ? 38 : 34
+    radius: 8
+    opacity: enabled ? 1 : 0.4
+    color: strong ? (textChipMouse.pressed ? Qt.darker(Theme.mainColor, 1.25) : Theme.mainColor)
+                  : (active ? "#FF8F00" : (textChipMouse.pressed ? Qt.alpha(Theme.mainColor, 0.3) : Qt.alpha(Theme.mainColor, 0.12)))
+    border.width: 1
+    border.color: active ? "#FFB74D" : Qt.alpha(Theme.mainColor, 0.45)
+    Text {
+      id: chipLabel
+      anchors.centerIn: parent
+      text: textChip.label
+      color: textChip.strong || textChip.active ? "white" : Theme.mainTextColor
+      font.pointSize: Theme.tipFont.pointSize
+      font.bold: textChip.strong || textChip.active
+    }
+    MouseArea {
+      id: textChipMouse
+      anchors.fill: parent
+      onClicked: textChip.clicked()
+    }
+  }
+
+  //! a bar to drag: the height of what is above it, or (across: true, a
+  //! vertical bar) the width of what is on its left
   component Grip: Rectangle {
     id: grip
-    signal dragged(real dy)
-    Layout.fillWidth: true
-    Layout.preferredHeight: 16
+    property bool across: false
+    signal dragged(real d)
+    Layout.fillWidth: !across
+    Layout.fillHeight: across
+    Layout.preferredHeight: across ? -1 : 16
+    Layout.preferredWidth: across ? 16 : -1
     radius: 4
     color: gripMouse.pressed ? Qt.alpha("#FF8F00", 0.35) : Qt.alpha(Theme.mainColor, 0.08)
 
-    Column {
+    Grid {
       anchors.centerIn: parent
       spacing: 3
+      columns: grip.across ? 2 : 1
       Repeater {
         model: 2
         Rectangle {
-          width: 46
-          height: 3
+          width: grip.across ? 3 : 46
+          height: grip.across ? 46 : 3
           radius: 1.5
           color: gripMouse.pressed ? "#FF8F00" : "#90A4AE"
         }
@@ -890,18 +1347,22 @@ Item {
     MouseArea {
       id: gripMouse
       anchors.fill: parent
-      anchors.topMargin: -8
-      anchors.bottomMargin: -8
+      anchors.topMargin: grip.across ? 0 : -8
+      anchors.bottomMargin: grip.across ? 0 : -8
+      anchors.leftMargin: grip.across ? -6 : 0
+      anchors.rightMargin: grip.across ? -6 : 0
       preventStealing: true
-      cursorShape: Qt.SizeVerCursor
-      property real lastY: 0
+      cursorShape: grip.across ? Qt.SizeHorCursor : Qt.SizeVerCursor
+      property real last: 0
       onPressed: function (mouse) {
-        lastY = mapToItem(null, mouse.x, mouse.y).y;
+        const p = mapToItem(null, mouse.x, mouse.y);
+        last = grip.across ? p.x : p.y;
       }
       onPositionChanged: function (mouse) {
-        const y = mapToItem(null, mouse.x, mouse.y).y;
-        grip.dragged(y - lastY);
-        lastY = y;
+        const p = mapToItem(null, mouse.x, mouse.y);
+        const now = grip.across ? p.x : p.y;
+        grip.dragged(now - last);
+        last = now;
       }
     }
   }
@@ -963,6 +1424,19 @@ Item {
         onClicked: atlas.editRequested(atlas.atlasLayer, atlas.page.fid)
       }
 
+      // [WF-ATLAS-SHAPE] micro editing of the shape on the object map
+      TextChip {
+        visible: atlas.page && atlas.page.ok === true
+        label: atlas.wide ? qsTr("Popraw kształt") : qsTr("Kształt")
+        active: atlas.shapeEditing
+        onClicked: {
+          if (atlas.shapeEditing)
+            atlas.endShapeEdit(false);
+          else
+            atlas.startShapeEdit();
+        }
+      }
+
       Item {
         Layout.fillWidth: true
       }
@@ -977,10 +1451,91 @@ Item {
       Text {
         visible: atlas.atlasLayer !== null
         Layout.maximumWidth: atlas.wide ? 300 : 120
+        // [WF-ATLAS-SHAPE] narrow screen: the label wraps instead of pushing the row wider
+        Layout.preferredWidth: atlas.wide ? 300 : 90
         text: atlas.keep ? qsTr("Kolory i etykiety na stałe") : qsTr("Kolory i etykiety tylko w atlasie")
         color: atlas.keep ? "#FFB74D" : Theme.secondaryTextColor
         font: Theme.tinyFont
         wrapMode: Text.WordWrap
+      }
+    }
+
+    // [WF-ATLAS-SHAPE] the shape bar: what the change makes, and the tools
+    Rectangle {
+      Layout.fillWidth: true
+      visible: atlas.shapeEditing
+      implicitHeight: shapeColumn.implicitHeight + 10
+      radius: 8
+      color: Qt.alpha("#FF8F00", 0.10)
+      border.width: 1
+      border.color: atlas.shapeInfo && atlas.shapeInfo.valid === false ? "#D50000" : "#FFB74D"
+
+      ColumnLayout {
+        id: shapeColumn
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 5
+        spacing: 4
+
+        Text {
+          Layout.fillWidth: true
+          text: atlas.shapeSummary()
+          color: Theme.mainTextColor
+          font: Theme.tipFont
+          wrapMode: Text.WordWrap
+        }
+        Text {
+          Layout.fillWidth: true
+          visible: atlas.shapeInfo && atlas.shapeInfo.valid === false
+          text: atlas.shapeInfo && atlas.shapeInfo.problem ? atlas.shapeInfo.problem + " " + qsTr("— tak nie zapiszę; cofnij albo popraw.") : ""
+          color: "#D50000"
+          font.pointSize: Theme.tipFont.pointSize
+          font.bold: true
+          wrapMode: Text.WordWrap
+        }
+
+        Flow {
+          Layout.fillWidth: true
+          spacing: 6
+
+          // the decisions first (a phone wraps the rest below)
+          TextChip {
+            label: qsTr("Zapisz kształt")
+            strong: true
+            enabled: atlas.shapeDirty && !(atlas.shapeInfo && atlas.shapeInfo.valid === false)
+            onClicked: atlas.endShapeEdit(true)
+          }
+          TextChip {
+            label: qsTr("Cofnij")
+            enabled: atlas.shapeDirty
+            onClicked: atlas.undoShape()
+          }
+          TextChip {
+            label: qsTr("Anuluj")
+            onClicked: atlas.endShapeEdit(false)
+          }
+          // on = orange
+          TextChip {
+            label: qsTr("Przyciąganie")
+            active: atlasSettings.shapeSnap
+            onClicked: {
+              atlasSettings.shapeSnap = !atlasSettings.shapeSnap;
+              objectMap.repaint();
+            }
+          }
+          TextChip {
+            label: qsTr("Do mojej pozycji")
+            enabled: atlas.shapeVertex >= 0
+            onClicked: atlas.vertexToMyPosition()
+          }
+          TextChip {
+            visible: atlas.shapeKind !== "point"
+            label: atlas.wide ? qsTr("Usuń wierzchołek") : qsTr("Usuń")
+            enabled: atlas.shapeVertex >= 0
+            onClicked: atlas.deleteChosenVertex()
+          }
+        }
       }
     }
 
@@ -1004,14 +1559,14 @@ Item {
       Layout.fillWidth: true
       Layout.fillHeight: true
       visible: atlas.page && atlas.page.ok === true
-      columns: atlas.wide ? 2 : 1
+      columns: atlas.wide ? 3 : 1
       columnSpacing: 8
       rowSpacing: 2
 
       ColumnLayout {
         id: mapsColumn
         Layout.fillWidth: !atlas.wide
-        Layout.preferredWidth: atlas.wide ? Math.round(atlas.width * 0.6) : -1
+        Layout.preferredWidth: atlas.wide ? Math.round(atlas.width * atlas.mapsRatio) : -1
         Layout.fillHeight: atlas.wide
         Layout.preferredHeight: atlas.wide ? -1 : atlas.mapsHeight
         spacing: 4
@@ -1121,6 +1676,16 @@ Item {
         visible: !atlas.wide
         onDragged: function (dy) {
           atlasSettings.mapsHeight = Math.max(120, Math.min(atlas.height * 0.7, atlas.mapsHeight + dy));
+        }
+      }
+
+      // wide screen (Piotr 13:41): drag to narrow the maps or the photos and
+      // attributes on the right — each on its own
+      Grip {
+        across: true
+        visible: atlas.wide
+        onDragged: function (dx) {
+          atlasSettings.mapsRatio = Math.max(0.25, Math.min(0.8, atlas.mapsRatio + dx / Math.max(1, atlas.width)));
         }
       }
 
