@@ -120,13 +120,22 @@ void QfLayerUtils::setDefaultRenderer( QgsVectorLayer *layer, QgsProject *projec
     return;
   }
 
-  QgsSymbol *symbol = project ? project->styleSettings()->defaultSymbol( symbolType ) : nullptr;
-  if ( !symbol )
+  std::unique_ptr<QgsSymbol> symbol;
+  if ( project )
   {
-    symbol = QfLayerUtils::defaultSymbol( layer, attachmentField, colorField );
+#if _QGIS_VERSION_INT >= 40300
+    symbol = project->styleSettings()->defaultSymbol( symbolType );
+#else
+    symbol.reset( project->styleSettings()->defaultSymbol( symbolType ) );
+#endif
   }
 
-  QgsSingleSymbolRenderer *renderer = new QgsSingleSymbolRenderer( symbol );
+  if ( !symbol )
+  {
+    symbol.reset( QfLayerUtils::defaultSymbol( layer, attachmentField, colorField ) );
+  }
+
+  QgsSingleSymbolRenderer *renderer = new QgsSingleSymbolRenderer( symbol.release() );
   layer->setRenderer( renderer );
 }
 
@@ -1448,12 +1457,13 @@ void QfLayerUtils::setCategoryVisible( QgsVectorLayer *layer, int categoryIndex,
 
 static QgsColorRamp *rampByName( const QString &rampName )
 {
+  // WorkFieldGIS 24.11.2026 — QGIS 4.4 zwraca tu std::unique_ptr; ten zapis działa z 4.2 (Android) i z 4.4 (desktop).
   QgsStyle *style = QgsStyle::defaultStyle();
   if ( style && style->colorRampNames().contains( rampName ) )
-    return style->colorRamp( rampName );
+    return std::unique_ptr<QgsColorRamp>( style->colorRamp( rampName ) ).release();
 
   if ( style && !style->colorRampNames().isEmpty() )
-    return style->colorRamp( style->colorRampNames().first() );
+    return std::unique_ptr<QgsColorRamp>( style->colorRamp( style->colorRampNames().first() ) ).release();
 
   return nullptr;
 }

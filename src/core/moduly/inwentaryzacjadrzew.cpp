@@ -882,7 +882,8 @@ QVariantMap InwentaryzacjaDrzew::styluj( QgsProject *projekt ) const
       QVariantMap w;
       w.insert( QStringLiteral( "geometryModifier" ), QStringLiteral( "CASE WHEN coalesce(\"bufor_m\", 0) > 0 THEN buffer($geometry, \"bufor_m\") END" ) );
       w.insert( QStringLiteral( "SymbolType" ), QStringLiteral( "Fill" ) );
-      QgsSymbolLayer *generator = QgsGeometryGeneratorSymbolLayer::create( w );
+      // WorkFieldGIS 24.11.2026 — QGIS 4.4 zwraca tu std::unique_ptr; ten zapis działa z 4.2 (Android) i z 4.4 (desktop).
+      QgsSymbolLayer *generator = std::unique_ptr<QgsSymbolLayer>( QgsGeometryGeneratorSymbolLayer::create( w ) ).release();
       QgsSimpleLineSymbolLayer *linia = new QgsSimpleLineSymbolLayer( QColor( 245, 124, 0 ), 0.5 );
       linia->setWidthUnit( Qgis::RenderUnit::Millimeters );
       linia->setPenStyle( Qt::DashLine );
