@@ -97,6 +97,8 @@
 #include "qgsquickmapsettings.h"
 
 #include <QDateTime>
+#include <QElapsedTimer> // [WF-PERF-START]
+#include <QFile>         // [WF-PERF-START]
 #include <QDesktopServices>
 #include <QFileInfo>
 #include <QFontDatabase>
@@ -156,12 +158,46 @@
 #define QUOTE( string ) _QUOTE( string )
 #define _QUOTE( string ) #string
 
+// WorkFieldGIS 24.11.2026 — [WF-PERF-START] pomiar startu. `am start -W` na telefonie
+// mierzy tylko pierwszą klatkę (ekran powitalny, ~0,4 s), a nie utworzenie okna QML —
+// a to właśnie skraca refaktoryzacja okna głównego. Wiek procesu z /proc (Linux,
+// Android; dokładność ~10 ms), gdzie indziej -1. Punkt pomiarowy zostaje w kodzie.
+static qint64 wfProcessAgeMs()
+{
+#if defined( Q_OS_LINUX ) || defined( Q_OS_ANDROID )
+  QFile stat( QStringLiteral( "/proc/self/stat" ) );
+  QFile uptime( QStringLiteral( "/proc/uptime" ) );
+  if ( !stat.open( QIODevice::ReadOnly ) || !uptime.open( QIODevice::ReadOnly ) )
+    return -1;
+  const QByteArray statLine = stat.readAll();
+  const int closing = statLine.lastIndexOf( ')' );
+  if ( closing < 0 )
+    return -1;
+  // after "pid (name) " the fields start at no. 3 (state); starttime is no. 22
+  const QList<QByteArray> fields = statLine.mid( closing + 2 ).split( ' ' );
+  if ( fields.size() < 20 )
+    return -1;
+  const long ticksPerSecond = sysconf( _SC_CLK_TCK );
+  if ( ticksPerSecond <= 0 )
+    return -1;
+  const double startedAfterBoot = fields.at( 19 ).toDouble() / static_cast<double>( ticksPerSecond );
+  const double sinceBoot = uptime.readAll().split( ' ' ).value( 0 ).toDouble();
+  return static_cast<qint64>( ( sinceBoot - startedAfterBoot ) * 1000.0 );
+#else
+  return -1;
+#endif
+}
+
 QgisMobileapp::QgisMobileapp( QgsApplication *app, QObject *parent )
   : QQmlApplicationEngine( parent )
   , mIface( new QfAppInterface( this, this ) )
   , mFirstRenderingFlag( true )
   , mApp( app )
 {
+  QElapsedTimer startupTimer; // [WF-PERF-START]
+  startupTimer.start();
+  const qint64 processAgeAtStart = wfProcessAgeMs();
+
   // Set QGIS-specific core settings
   QgsSettingsRegistryCore::settingsEnableWMSTilePrefetching->setValue( true );
 
@@ -295,7 +331,20 @@ QgisMobileapp::QgisMobileapp( QgsApplication *app, QObject *parent )
 
   QfPlatformUtilities::instance()->setScreenLockPermission( false );
 
+  const qint64 beforeQmlMs = startupTimer.elapsed(); // [WF-PERF-START]
   loadFromModule( "org.qfield.app", "QgisMobileapp" );
+  {
+    const qint64 qmlMs = startupTimer.elapsed() - beforeQmlMs;
+    const qint64 processAgeNow = wfProcessAgeMs();
+    const QString text = QStringLiteral( "WorkField [WF-PERF-START]: okno gotowe %1 ms od startu procesu — przed konstruktorem %2 ms, "
+                                         "konstruktor do QML %3 ms, tworzenie okna QML %4 ms" )
+                           .arg( processAgeNow )
+                           .arg( processAgeAtStart )
+                           .arg( beforeQmlMs )
+                           .arg( qmlMs );
+    QgsMessageLog::logMessage( text, QStringLiteral( "WorkField" ), Qgis::Info );
+    qInfo( "%s", qPrintable( text ) ); // logcat
+  }
   mMapCanvas = rootObjects().first()->findChild<QgsQuickMapCanvasMap *>();
   Q_ASSERT_X( mMapCanvas, "QML Init", "QgsQuickMapCanvasMap not found. It is likely that we failed to load the QML files. Check debug output for related messages." );
   mMapCanvas->mapSettings()->setProject( mProject );

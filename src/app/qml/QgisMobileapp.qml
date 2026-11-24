@@ -7590,8 +7590,10 @@ ApplicationWindow {
       qfieldLocalDataPickerScreen.focus = false;
       welcomeScreen.visible = false;
       welcomeScreen.focus = false;
-      projectCreationScreen.visible = false;
-      projectCreationScreen.focus = false;
+      if (projectCreationScreenLoader.item) { // [WF-LAZY-WIZARD]
+        projectCreationScreenLoader.item.visible = false;
+        projectCreationScreenLoader.item.focus = false;
+      }
       if (changelogPopup.visible)
         changelogPopup.close();
       dashBoard.layerTree.freeze();
@@ -8218,9 +8220,10 @@ ApplicationWindow {
       const ostrzezenie = rtk.indexOf(nazwa) >= 0;
       const gracz = ostrzezenie ? graczRtk : graczPrzyciskow;
       gracz.zatrzymaj();
-      gracz.wyjscie.volume = Math.max(0, Math.min(100, settings.valueInt('WorkField/dzwiekiGlosnosc', 70))) / 100;
-      gracz.odtwarzacz.source = "qrc:/sounds/wtk/" + pliki[nazwa] + ".mp3";
-      gracz.odtwarzacz.play();
+      const player = gracz.player(); // [WF-LAZY-SOUNDS]
+      player.audioOutput.volume = Math.max(0, Math.min(100, settings.valueInt('WorkField/dzwiekiGlosnosc', 70))) / 100;
+      player.source = "qrc:/sounds/wtk/" + pliki[nazwa] + ".mp3";
+      player.play();
       // the length setting cuts long RTK phrases with a short fade
       if (ostrzezenie && nazwa !== "bezFix")
         gracz.wycisz(parseFloat(settings.value('WorkField/dzwiekiDlugosc', '4')) * 1000);
@@ -8241,14 +8244,22 @@ ApplicationWindow {
         displayToast(tekst, rodzaj || "info");
     }
 
+    // WorkFieldGIS 24.11.2026 — [WF-LAZY-SOUNDS] odtwarzacz powstaje przy pierwszym dźwięku,
+    // nie przy starcie. Pierwszy MediaPlayer uruchamia silnik Qt Multimedia: w profilu startu
+    // (qmlprofiler, laptop) kosztowało to ok. 0,5 s, czyli ok. 20% tworzenia okna. Przy
+    // wyłączonych dźwiękach silnik nie startuje wcale. Pierwszy dźwięk w sesji zagra z tym
+    // jednorazowym opóźnieniem.
     component Gracz: Item {
-      property alias odtwarzacz: mp
-      property alias wyjscie: out
+      function player() {
+        playerLoader.active = true;
+        return playerLoader.item;
+      }
 
       function zatrzymaj() {
         wyciszanie.stop();
         zegar.stop();
-        mp.stop();
+        if (playerLoader.item)
+          playerLoader.item.stop();
       }
 
       function wycisz(ms) {
@@ -8256,10 +8267,13 @@ ApplicationWindow {
         zegar.restart();
       }
 
-      MediaPlayer {
-        id: mp
-        audioOutput: AudioOutput {
-          id: out
+      Loader {
+        id: playerLoader
+        active: false
+        sourceComponent: Component {
+          MediaPlayer {
+            audioOutput: AudioOutput {}
+          }
         }
       }
 
@@ -8271,11 +8285,14 @@ ApplicationWindow {
 
       NumberAnimation {
         id: wyciszanie
-        target: out
+        target: playerLoader.item ? playerLoader.item.audioOutput : null
         property: "volume"
         to: 0
         duration: 600
-        onFinished: mp.stop()
+        onFinished: {
+          if (playerLoader.item)
+            playerLoader.item.stop();
+        }
       }
     }
 
@@ -8657,37 +8674,51 @@ ApplicationWindow {
     }
 
     onShowProjectCreationScreen: {
-      projectCreationScreen.show();
+      projectCreationScreenLoader.active = true; // [WF-LAZY-WIZARD]
+      projectCreationScreenLoader.item.show();
     }
 
     Component.onCompleted: focusstack.addFocusTaker(this)
   }
 
-  QfProjectCreationScreen {
-    id: projectCreationScreen
-    objectName: "projectCreationScreen"
-
-    visible: false
-    focus: visible
+  // WorkFieldGIS 24.11.2026 — [WF-LAZY-WIZARD] kreator „Utwórz nowy projekt” z QField
+  // powstaje dopiero przy pierwszym otwarciu. W WFG nie ma do niego przycisku
+  // (QfWelcomeScreen nie emituje showProjectCreationScreen), a dotąd jego 632 linie
+  // QML tworzyły się przy każdym starcie aplikacji. Pierwszy krok refaktoryzacji
+  // okna głównego (claude/REFAKTOR_okno_glowne_plan_2026-11-24.md, R2.1).
+  Loader {
+    id: projectCreationScreenLoader
+    active: false
     width: parent.width
     height: parent.height
+    sourceComponent: Component {
+      QfProjectCreationScreen {
+        id: projectCreationScreen
+        objectName: "projectCreationScreen"
 
-    onTriggerConnection: {
-      qfieldCloudPopup.pendingAction = "connect";
-      qfieldCloudPopup.show();
+        visible: false
+        focus: visible
+        width: parent.width
+        height: parent.height
+
+        onTriggerConnection: {
+          qfieldCloudPopup.pendingAction = "connect";
+          qfieldCloudPopup.show();
+        }
+
+        onTriggerCloudify: (title, path) => {
+          iface.clearProject();
+          cloudProjectsModel.currentProjectId = "";
+          qfieldCloudPopup.cloudify(title, QfFileUtils.absolutePath(path));
+        }
+
+        onTriggerProjectLoad: (title, path) => {
+          iface.loadFile(path, title);
+        }
+
+        Component.onCompleted: focusstack.addFocusTaker(this)
+      }
     }
-
-    onTriggerCloudify: (title, path) => {
-      iface.clearProject();
-      cloudProjectsModel.currentProjectId = "";
-      qfieldCloudPopup.cloudify(title, QfFileUtils.absolutePath(path));
-    }
-
-    onTriggerProjectLoad: (title, path) => {
-      iface.loadFile(path, title);
-    }
-
-    Component.onCompleted: focusstack.addFocusTaker(this)
   }
 
   QfCloudScreen {
@@ -9184,8 +9215,38 @@ ApplicationWindow {
 
   // WorkFieldGIS 24.10.2026 [WF-FILE-BROWSER] — one "Files" window instead of
   // the gallery tab, the QField screen and the "where from?" chooser (step 1)
-  QfFileBrowser {
+  // WorkFieldGIS 24.11.2026 — [WF-LAZY-FILE-BROWSER] okno „Pliki” (QfFileBrowser,
+  // 1 301 linii QML) powstaje przy pierwszym użyciu, nie przy starcie. Wołają je okno
+  // główne i 9 innych plików QML, zawsze tymi czterema funkcjami — ten obiekt ma te same
+  // funkcje i to samo id, więc wywołujący zostają bez zmian. Krok R2.2 refaktoryzacji
+  // (claude/REFAKTOR_okno_glowne_plan_2026-11-24.md).
+  QtObject {
     id: fileBrowser
+
+    function browser() {
+      fileBrowserLoader.active = true;
+      return fileBrowserLoader.item;
+    }
+    function openPlace(key) {
+      return browser().openPlace(key);
+    }
+    function openAt(path) {
+      return browser().openAt(path);
+    }
+    function pickFile(opts) {
+      return browser().pickFile(opts);
+    }
+    function pickFolder(opts) {
+      return browser().pickFolder(opts);
+    }
+  }
+
+  Loader {
+    id: fileBrowserLoader
+    active: false
+    sourceComponent: Component {
+      QfFileBrowser {}
+    }
   }
 
   QfSubLayerPicker {
