@@ -2665,6 +2665,23 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   QString collapsedLayer;
   qlonglong collapsedFid = -1;
 
+  // WorkFieldGIS 24.11.2026 — [WF-SCAN-SCOPE] puste i zwinięte geometrie
+  // szukamy tylko w pliku danych projektu (ten sam, który wskazuje
+  // plikDanych(): data.gpkg, dane.gpkg, inaczej GeoPackage z największą
+  // liczbą warstw). Pomiar 24.11 na projekcie ZZW (laptop): 29 432 obiektów,
+  // ok. 127 ms przy KAŻDYM otwarciu menu, z czego ok. 75% to wyniki analiz
+  // z biura (korony, klasy wysokości PGRS_0.4) — w nich nic nie powstaje
+  // w terenie. Projekt bez pliku danych: skan jak dotąd, wszystkich warstw.
+  // Najmniejszy obiekt (próg przyciągania) liczy się teraz z danych terenowych.
+  const QString scanFile = [&]() {
+    const QString path = plikDanych( projekt );
+    if ( path.isEmpty() )
+      return QString();
+    const QFileInfo info( path );
+    return info.exists() ? info.canonicalFilePath() : info.absoluteFilePath();
+  }();
+  int skippedLayers = 0;
+
   const auto mapaWarstw = projekt->mapLayers();
   for ( auto it = mapaWarstw.constBegin(); it != mapaWarstw.constEnd(); ++it )
   {
@@ -2705,7 +2722,13 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
 
     // Obiekty zwinięte do punktu i puste geometrie. Liczone Z DANYCH,
     // bo z samych ustawień tego nie widać.
-    if ( wektor->geometryType() == Qgis::GeometryType::Polygon )
+    const bool scanThisLayer = scanFile.isEmpty() || identityFilePath( wektor ) == scanFile; // [WF-SCAN-SCOPE]
+    if ( wektor->geometryType() == Qgis::GeometryType::Polygon && !scanThisLayer )
+    {
+      ++skippedLayers;
+      qCDebug( wfgPerformance, "WorkField/Wydajnosc: stanProjektu pominieta (poza plikiem danych) %s", qPrintable( wektor->name() ) );
+    }
+    if ( wektor->geometryType() == Qgis::GeometryType::Polygon && scanThisLayer )
     {
       int puste = 0;
       QElapsedTimer layerTimer; // [WF-PERF]
@@ -3066,13 +3089,14 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
     for ( int i = 0; i < layerTimings.size() && i < 3; ++i )
       slowest << layerTimings.at( i ).second;
     const QString text = QStringLiteral( "WorkField [WF-PERF]: stanProjektu %1 ms — poligony %2 ms (%3 obiektów, %4 warstw), "
-                                         "identyfikatory %5 ms, reszta %6 ms%7" )
+                                         "identyfikatory %5 ms, reszta %6 ms, pominięte warstwy poza plikiem danych: %7%8" )
                            .arg( totalMs )
                            .arg( polygonScanMs )
                            .arg( polygonScanFeatures )
                            .arg( layerTimings.size() )
                            .arg( identityMs )
                            .arg( totalMs - polygonScanMs - identityMs )
+                           .arg( skippedLayers )
                            .arg( slowest.isEmpty() ? QString() : QStringLiteral( "; najdłużej: " ) + slowest.join( QStringLiteral( ", " ) ) );
     QgsMessageLog::logMessage( text, QStringLiteral( "WorkField" ), totalMs >= kSlowStatusMs ? Qgis::Warning : Qgis::Info );
     qCDebug( wfgPerformance, "%s", qPrintable( text ) );
