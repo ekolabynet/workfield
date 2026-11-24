@@ -22,6 +22,10 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QElapsedTimer>   // [WF-PERF]
+#include <QLoggingCategory> // [WF-PERF]
+#include <algorithm>        // [WF-PERF]
+#include <qgsmessagelog.h>  // [WF-PERF]
 #include <QDomDocument> // WF-DUPLIKAT
 #include <QRegularExpression> // WF-DUPLIKAT
 
@@ -65,6 +69,20 @@
 #include <gdal.h>
 #include <gdal_utils.h>
 #include <ogr_api.h>
+
+// WorkFieldGIS 24.11.2026 — [WF-PERF] pomiar stanProjektu().
+// Tester zgłosił, że WFG jest wolny na starszym telefonie. stanProjektu()
+// czyta WSZYSTKIE obiekty warstw poligonowych (z geometrią) i przechodzi
+// identyfikatory — na wątku interfejsu, przy każdym otwarciu menu.
+// Zanim to przeniesiemy, mierzymy: ile trwa i ile obiektów czyta.
+// Podsumowanie idzie zawsze do dziennika komunikatów (Info; od
+// kSlowStatusMs — Warning). Szczegóły per warstwa domyślnie milczą:
+//
+//     QT_LOGGING_RULES="workfield.performance=true"
+//
+// Punkt pomiarowy zostaje w kodzie (ZASADY_LATEK.md).
+Q_LOGGING_CATEGORY( wfgPerformance, "workfield.performance", QtWarningMsg )
+static constexpr qint64 kSlowStatusMs = 300; // [WF-PERF]
 
 NarzedziaProjektu::NarzedziaProjektu( QObject *parent )
   : QObject( parent )
@@ -2555,6 +2573,14 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   if ( !projekt )
     return wynik;
 
+  // [WF-PERF] 24.11.2026 — czas całości, skanu poligonów i identyfikatorów
+  QElapsedTimer totalTimer;
+  totalTimer.start();
+  qint64 polygonScanMs = 0;
+  qlonglong polygonScanFeatures = 0;
+  qint64 identityMs = 0;
+  QList<QPair<qint64, QString>> layerTimings;
+
   QVariantList warstwy;
   QVariantList ostrzezenia;
 
@@ -2682,10 +2708,14 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
     if ( wektor->geometryType() == Qgis::GeometryType::Polygon )
     {
       int puste = 0;
+      QElapsedTimer layerTimer; // [WF-PERF]
+      layerTimer.start();
+      qlonglong readFeatures = 0;
       QgsFeature obiekt;
       QgsFeatureIterator iterator = wektor->getFeatures();
       while ( iterator.nextFeature( obiekt ) )
       {
+        ++readFeatures; // [WF-PERF]
         const QgsGeometry geom = obiekt.geometry();
         if ( geom.isNull() )
           continue;
@@ -2716,6 +2746,16 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
           najmniejszyFid = obiekt.id();
         }
       }
+      // [WF-PERF] czas i liczba obiektów tej warstwy
+      const qint64 layerMs = layerTimer.elapsed();
+      polygonScanMs += layerMs;
+      polygonScanFeatures += readFeatures;
+      layerTimings.append( qMakePair( layerMs, QStringLiteral( "%1: %2 ms / %3 obiektów" )
+                                                 .arg( wektor->name() )
+                                                 .arg( layerMs )
+                                                 .arg( readFeatures ) ) );
+      qCDebug( wfgPerformance, "WorkField/Wydajnosc: stanProjektu poligony %s: %lld ms, %lld obiektow",
+               qPrintable( wektor->name() ), static_cast<long long>( layerMs ), static_cast<long long>( readFeatures ) );
       if ( puste > 0 )
         ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
                  tr( "„%1”: %2 obiektów z PUSTĄ geometrią — istnieją, "
@@ -2874,7 +2914,10 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
   // button. Repeated uuid: the same button. A PARENT_UUID disagreeing with the
   // relation: only shown — one of the two keys is wrong, a human decides.
   {
+    QElapsedTimer identityTimer; // [WF-PERF]
+    identityTimer.start();
     const QVariantList identity = identityIssues( projekt );
+    identityMs = identityTimer.elapsed();
     QStringList missingIn;
     QStringList withoutParent;
     int emptyValues = 0;
@@ -3008,6 +3051,28 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
              tr( "Ten projekt nie zapisuje niczego trwale. Złóż go od nowa "
                  "z szablonu albo dołóż warstwę w GeoPackage obok projekt.qgs "
                  "— ZANIM zaczniesz zbierać dane." ) );
+
+  // [WF-PERF] podsumowanie — zawsze jedna linijka w dzienniku komunikatów
+  {
+    const qint64 totalMs = totalTimer.elapsed();
+    std::sort( layerTimings.begin(), layerTimings.end(), []( const QPair<qint64, QString> &a, const QPair<qint64, QString> &b ) {
+      return a.first > b.first;
+    } );
+    QStringList slowest;
+    for ( int i = 0; i < layerTimings.size() && i < 3; ++i )
+      slowest << layerTimings.at( i ).second;
+    const QString text = QStringLiteral( "WorkField [WF-PERF]: stanProjektu %1 ms — poligony %2 ms (%3 obiektów, %4 warstw), "
+                                         "identyfikatory %5 ms, reszta %6 ms%7" )
+                           .arg( totalMs )
+                           .arg( polygonScanMs )
+                           .arg( polygonScanFeatures )
+                           .arg( layerTimings.size() )
+                           .arg( identityMs )
+                           .arg( totalMs - polygonScanMs - identityMs )
+                           .arg( slowest.isEmpty() ? QString() : QStringLiteral( "; najdłużej: " ) + slowest.join( QStringLiteral( ", " ) ) );
+    QgsMessageLog::logMessage( text, QStringLiteral( "WorkField" ), totalMs >= kSlowStatusMs ? Qgis::Warning : Qgis::Info );
+    qCDebug( wfgPerformance, "%s", qPrintable( text ) );
+  }
 
   wynik.insert( QStringLiteral( "warstwy" ), warstwy );
   wynik.insert( QStringLiteral( "pomiar" ), pomiar );
