@@ -2712,7 +2712,11 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
       layerTimer.start();
       qlonglong readFeatures = 0;
       QgsFeature obiekt;
-      QgsFeatureIterator iterator = wektor->getFeatures();
+      // WorkFieldGIS 24.11.2026 — [WF-SCAN-GEOMETRY] tylko geometria: skan szuka
+      // pustych i zwiniętych kształtów, żadnego atrybutu nie potrzebuje.
+      QgsFeatureRequest geometryOnly;
+      geometryOnly.setNoAttributes();
+      QgsFeatureIterator iterator = wektor->getFeatures( geometryOnly );
       while ( iterator.nextFeature( obiekt ) )
       {
         ++readFeatures; // [WF-PERF]
