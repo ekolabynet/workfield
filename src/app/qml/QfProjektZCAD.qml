@@ -88,8 +88,13 @@ QfWindowFrame {
     // allowed". Odczyt z `Download` dziala, zapis nie.
     const katalogProjektow = iface.katalogNowychProjektow(); // WorkFieldGIS 22.10.2026 — pamięć / karta SD
     const cel = katalogProjektow + "/" + nazwa;
-    if (FileUtils.fileExists(cel)) {
-      komunikat.text = qsTr("Projekt o tej nazwie już istnieje.");
+    // [WF-CAD-NAME-TAKEN] 25.11.2026 — FileUtils.fileExists() mówi „tak” tylko
+    // dla PLIKU, a projekt to KATALOG: sprawdzenie nigdy nie działało i przy
+    // zajętej nazwie wychodziło ogólne „Nie udało się utworzyć projektu”
+    // (Piotr 7:37, Adamowizna „_1”). Pytamy o pliki, które w nim leżą.
+    if (FileUtils.fileExists(cel) || FileUtils.fileExists(cel + "/projekt.qgs")
+        || FileUtils.fileExists(cel + "/projekt.qgz") || FileUtils.fileExists(cel + "/dane.gpkg")) {
+      komunikat.text = qsTr("Projekt „%1” już istnieje. Zmień nazwę.").arg(nazwa);
       return;
     }
     // `NarzedziaProjektu.nowyProjekt` zamiast `createBlankProject`:
@@ -99,7 +104,10 @@ QfWindowFrame {
     const plikProjektu = NarzedziaProjektu.nowyProjekt(katalogProjektow,
                                                        nazwa, ukladWybrany);
     if (plikProjektu === "") {
-      komunikat.text = qsTr("Nie udało się utworzyć projektu.");
+      // [WF-CAD-NAME-TAKEN] nowyProjekt() odmawia też, gdy katalog już jest
+      // (np. pusty, po nieudanej próbie) — mówimy, gdzie patrzeć.
+      komunikat.text = qsTr("Nie udało się utworzyć projektu. Jeśli w %1 jest już katalog „%2”, zmień nazwę.")
+                         .arg(katalogProjektow).arg(nazwa);
       return;
     }
 
@@ -197,6 +205,9 @@ QfWindowFrame {
     Layout.fillWidth: true
     placeholderText: qsTr("Nazwa projektu")
     font: Theme.tipFont
+    // [WF-CAD-NAME-TAKEN] stary komunikat znika przy zmianie nazwy — wcześniej
+    // zostawał i wyglądało, że nowa nazwa też nie przeszła.
+    onTextEdited: komunikat.text = ""
   }
 
   Text {
