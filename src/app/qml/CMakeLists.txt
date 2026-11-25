@@ -33,6 +33,7 @@ set(QFIELD_APP_QML_FILES
     QfAkcje.qml
     QfBasemapScreen.qml
     QfCaptureSettings.qml
+    QfQuickCaptureOptions.qml
     QfCloudSettings.qml
     QfColorPicker.qml
     QfDataDrawer.qml

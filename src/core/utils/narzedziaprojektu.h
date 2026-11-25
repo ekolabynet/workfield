@@ -530,6 +530,25 @@ class NarzedziaProjektu : public QObject
     Q_INVOKABLE QVariantMap repairIdentity( QgsProject *project );
 
     /**
+     * WorkFieldGIS 24.11.2026 [WF-AUTO-EQUIP] — what repairIdentity() would add
+     * to the SCHEMA, without changing anything: layers missing the uuid field,
+     * or the PARENT_UUID field of a photo table with a parent relation.
+     * Returns { layers: [names], withData: [names of those that have objects],
+     * files: [their GeoPackages], projectHasData: any data layer has objects }. Empty values in existing fields are not
+     * here: fillMissingIdentity() fills them on every open anyway.
+     */
+    Q_INVOKABLE QVariantMap identityFieldsPlan( QgsProject *project ) const;
+
+    /**
+     * WorkFieldGIS 24.11.2026 [WF-AUTO-EQUIP] — repairIdentity() preceded by
+     * copies: a sealed snapshot (migawkaBazy) of every GeoPackage from
+     * identityFieldsPlan() and a copy of the project file, all into "kopie"
+     * next to the project. A failed copy stops before any change.
+     * Returns the map of repairIdentity() plus "kopie" (paths of the copies).
+     */
+    Q_INVOKABLE QVariantMap repairIdentityWithBackup( QgsProject *project );
+
+    /**
      * WorkField 24.10.2026 [WF-IDENTITY] — the "Powiąż tabele zdjęć" button.
      * A photo table (ZAL_*) with no relation to a layer of objects: its photos
      * never show in a form. Linked to the layer whose photo table it is by
@@ -573,6 +592,71 @@ class NarzedziaProjektu : public QObject
      * `QgsSnappingConfig` nie ma odpowiednika w QML.
      */
     Q_INVOKABLE QVariantMap stanProjektu( QgsProject *projekt ) const;
+
+    /**
+     * WorkFieldGIS 24.11.2026 — [WF-CRS-REPROJECT] przelicza warstwę, do której
+     * przy pustym układzie projektu trafiły stopnie WGS84 zamiast metrów
+     * (SOŁTYKA CZWARTEK). Wszystko albo nic: każda geometria musi być w zakresie
+     * stopni i po przeliczeniu leżeć w obszarze układu warstwy, inaczej nic się
+     * nie zmienia. Przedtem migawka bazy w katalogu „kopie”, potem jedna sesja
+     * edycji (dziennik WF_JOURNAL zapisuje stare geometrie). Wymaga prawidłowego
+     * układu projektu. Zwraca { ok, opis, przeliczone, kopia }.
+     */
+    Q_INVOKABLE QVariantMap reprojectDegreesLayer( QgsProject *project, const QString &layerName );
+
+    /**
+     * WorkFieldGIS 24.11.2026 — [WF-OSM-VECTOR] obowiązkowy podkład: kafle wektorowe
+     * OpenStreetMap (OpenFreeMap, schemat OpenMapTiles) w stylu „WFG Jasny” z wtyczki
+     * WFG Urban Environment. Dodaje warstwę, jeśli jej nie ma (rozpoznaje ją po
+     * własności „wfg/basemap” = „osm_vector”), i zawsze stawia ją na samym dole
+     * legendy. Wołane przy „Nowy projekt”, „Zapisz” i „Zapisz jako”. Adres kafli
+     * z TileJSON OpenFreeMap (jedno zapytanie na sesję, limit 4 s); bez sieci
+     * warstwa nie powstaje i zostanie dodana przy następnym zapisie.
+     * Zwraca { ok, opis, dodano, przeniesiono }.
+     */
+    Q_INVOKABLE QVariantMap ensureOsmVectorBasemap( QgsProject *project );
+
+    /**
+     * [WF-ESRI-HIDDEN] WorkFieldGIS 24.11.2026 — ustawia widoczność w legendzie
+     * warstw o podanej nazwie (warstwa zostaje w projekcie, tylko zgaszona).
+     * Zwraca liczbę zmienionych węzłów legendy.
+     */
+    Q_INVOKABLE int setLayerVisibleByName( QgsProject *project, const QString &layerName, bool visible );
+
+    /**
+     * [WF-CRS-DETECT] WorkFieldGIS 24.11.2026 — układ warstwy rozpoznany z wartości
+     * współrzędnych (Polska: EPSG 4326, 3857, 2180, 2176–2179; też zamienione osie
+     * i współrzędne lokalne rysunku przy 0,0). Tylko warstwy z plików lokalnych.
+     * Zwykle wystarcza extent(); obiekty liczone są tylko przy rozjeździe w zasięgu
+     * (np. rysunek z częścią obiektów przy 0,0), do 200 000 obiektów. Zwraca
+     * { layerId, name, declared, detected, swapped, kind: ok|collision|outliers|
+     * swapped|local|unknown|skip, total, inside, outside, local, zakres, extent
+     * (główna część w układzie projektu, do przybliżenia), canConvert, opis }.
+     */
+    Q_INVOKABLE QVariantMap detectLayerCrs( QgsProject *project, const QString &layerId ) const;
+
+    /**
+     * [WF-CRS-DETECT] wszystkie warstwy z plików lokalnych. Zwraca { checked, ms,
+     * entries: [ wynik detectLayerCrs dla rodzajów innych niż ok i skip ] }.
+     */
+    Q_INVOKABLE QVariantMap checkProjectCrs( QgsProject *project ) const;
+
+    /**
+     * [WF-CRS-DETECT] „transformacja w locie”: warstwa dostaje układ authid, dane
+     * na dysku bez zmian (zostaje po zapisie projektu). Zwraca { ok, opis }.
+     */
+    Q_INVOKABLE QVariantMap assignLayerCrs( QgsProject *project, const QString &layerId, const QString &authid );
+
+    /**
+     * [WF-CRS-CONVERT] „konwersja”: kopia warstwy w nowej tabeli bazy projektu
+     * (dane.gpkg), przeliczona z sourceAuthid do układu projektu, opcjonalnie
+     * z zamianą osi. Obiekty poza obszarem układu źródłowego (np. przy 0,0) są
+     * pomijane. Przed zapisem migawka bazy; liczniki rozstrzygają — niezgodność
+     * zostawia warstwę w projekcie bez zmian. Nowa warstwa wchodzi w miejsce
+     * starej (styl i widoczność przeniesione), oryginał zostaje na dysku.
+     * Zwraca { ok, opis, tabela, zapisane, pominiete, layerId }.
+     */
+    Q_INVOKABLE QVariantMap convertLayerToProjectDb( QgsProject *project, const QString &layerId, const QString &sourceAuthid, bool swapAxes );
 
     Q_INVOKABLE QString plikDanych( QgsProject *projekt ) const;
 

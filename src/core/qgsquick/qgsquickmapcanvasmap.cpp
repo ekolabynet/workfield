@@ -687,6 +687,12 @@ void QgsQuickMapCanvasMap::zoomToFullExtent()
   const QList<QgsMapLayer *> layers = mMapSettings->layers();
   for ( QgsMapLayer *layer : layers )
   {
+    // WorkFieldGIS 24.11.2026 [WF-EXTENT-BASEMAP] — podkłady (kafle wektorowe,
+    // XYZ/WMS) mają zasięg całego świata. W projekcie z DXF podkład OSM wstawał
+    // pierwszy, mapa skakała do „świata” w EPSG:2178 (skala 5000 km) i rysunek
+    // dołożony chwilę później już jej nie przesuwał. Zasięg liczymy z danych.
+    if ( layer->type() == Qgis::LayerType::VectorTile || layer->providerType() == QLatin1String( "wms" ) )
+      continue;
     if ( mMapSettings->destinationCrs() != layer->crs() )
     {
       QgsCoordinateTransform transform( layer->crs(), mMapSettings->destinationCrs(), mMapSettings->transformContext() );
@@ -703,6 +709,13 @@ void QgsQuickMapCanvasMap::zoomToFullExtent()
     {
       extent.combineExtentWith( layer->extent() );
     }
+  }
+  // [WF-EXTENT-BASEMAP] same podkłady: zasięg zostaje pusty, więc pierwsza
+  // warstwa z danymi (np. rysunek CAD) ustawi widok przy następnej zmianie warstw.
+  if ( extent.isEmpty() )
+  {
+    refresh();
+    return;
   }
   mMapSettings->setExtent( extent );
 

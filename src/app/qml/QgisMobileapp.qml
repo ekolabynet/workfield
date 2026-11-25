@@ -617,6 +617,7 @@ ApplicationWindow {
     // (18.09.2026, docs/ImportDXF.md).
     let podkladow = 0;
     let warstwyCAD = [];
+    let cadLayerIds = []; // [WF-CRS-DETECT]
     try {
       warstwyCAD = LayerUtils.warstwyZPliku(rysunek) || [];
     } catch (e) {
@@ -632,6 +633,7 @@ ApplicationWindow {
       if (!ProjectUtils.addMapLayer(qgisProject, c.warstwa))
         continue;
       podkladow++;
+      cadLayerIds.push(c.warstwa.id);
 
       // Punkty i teksty w JEDNOSTKACH MAPY, z progiem widocznosci.
       // Rysunek ma trzydziesci tysiecy obiektow: przy widoku ogolnym maja
@@ -655,6 +657,18 @@ ApplicationWindow {
     if (podkladow === 0)
       displayToast(qsTr("Nie udało się wczytać rysunku — projekt bez podkładu"),
                    "warning");
+
+    // [WF-OSM-VECTOR] 24.11.2026 — grupa „Rysunek CAD” wchodzi na dół legendy,
+    // POD podkład OSM dodany przy otwarciu. Przesuwamy podkład z powrotem na dół
+    // (obie drogi: kreator „Projekt z DXF” i „Import z rysunku DXF”).
+    if (podkladow > 0)
+      mainWindow.ensureOsmBasemap("cad", false);
+
+    // [WF-CRS-DETECT] 24.11.2026 — układ rysunku po wartościach i widok na
+    // główną część rysunku (Adamowizna: śmieci przy 0,0 rozciągały zasięg
+    // aż po Abu Zabi). Kolizja — okno z wyborem.
+    if (cadLayerIds.length > 0)
+      mainWindow.crsCheckLayers(cadLayerIds, "cad", true);
 
     return podkladow;
   }
@@ -718,12 +732,15 @@ ApplicationWindow {
     if (typeof NarzedziaProjektu !== "undefined")
       NarzedziaProjektu.zapiszProjekt(qgisProject);
 
-    // Podklad dokladamy nie tutaj, tylko WSKAZUJEMY, gdzie jest: zakladka
-    // Warstwy ma "Dodaj podkład" i CADowiec wybierze sobie ortofoto albo
-    // OSM jednym tapnieciem. Narzucanie podkladu w kreatorze zabieraloby
-    // mu ten wybor i wydluzalo pierwszy start.
+    // [WF-AUTO-EQUIP] 24.11.2026 — warstwy robocze powstały PO sprawdzeniu przy
+    // otwarciu; są puste, więc identyfikatory dostają od razu, bez pytania.
+    mainWindow.autoEquipCheck();
+
+    // Podklad OSM (wektorowy) jest juz w projekcie [WF-OSM-VECTOR, 24.11];
+    // ortofoto i inne podklady CADowiec doklada sam w zakladce Warstwy
+    // ("Dodaj podkład") — wskazujemy, gdzie to jest.
     if (zalozone === robocze.length)
-      displayToast(qsTr("Projekt gotowy. Podkład dodasz w zakładce Warstwy."),
+      displayToast(qsTr("Projekt gotowy. Ortofotomapę i inne podkłady dodasz w zakładce Warstwy."),
                    "info",
                    qsTr("Warstwy"),
                    function () {
@@ -792,6 +809,319 @@ ApplicationWindow {
       qfieldSettings.wprostZSzuflady = true;
       qfieldSettings.openCategory(kategoria);
     }
+  }
+
+  // [WF-OSM-VECTOR] WorkFieldGIS 24.11.2026 — Piotr: podkład wektorowy OSM
+  // (OpenFreeMap) w każdym projekcie: nowym, otwieranym, zapisywanym,
+  // zapisywanym jako; zawsze na dole legendy. Jedna droga dla wszystkich
+  // wywołań, żeby przełącznik w Ustawieniach → Teren działał wszędzie.
+  readonly property string osmBasemapSettingKey: "WorkField/osmVectorBasemap"
+  function osmBasemapAddedText() {
+    return qsTr("Dodano podkład wektorowy OpenStreetMap. Możesz to wyłączyć w Ustawieniach → Teren.");
+  }
+  function ensureOsmBasemap(trigger, announce) {
+    if (!settings.valueBool(osmBasemapSettingKey, true)) {
+      console.log("WorkField [WF-OSM-VECTOR]: " + trigger + " — wyłączone w ustawieniach");
+      return { "ok": true, "dodano": false, "przeniesiono": false, "opis": "", "disabled": true };
+    }
+    // [WF-OSM-MOVE] WorkFieldGIS 24.11.2026 — wywrotka SEGV w
+    // QfFlatLayerTreeModelBase::data (QMetaObject::cast). Trzy pomiary Piotra:
+    // wywraca się tylko przy otwarciu z „przeniesiono=true”. Płaska lista
+    // warstw trzyma zwykłe indeksy modelu, a przenosiny kasują węzeł legendy —
+    // dlatego na czas przenosin lista jest zamrożona, a po nich budowana od
+    // nowa. Cudzego zamrożenia (wczytywanie projektu) nie ruszamy.
+    const tree = dashBoard.layerTree;
+    const ownFreeze = tree && !tree.isFrozen;
+    if (ownFreeze)
+      tree.freeze();
+    let result;
+    try {
+      result = NarzedziaProjektu.ensureOsmVectorBasemap(qgisProject);
+    } catch (e) {
+      console.log("WorkField [WF-OSM-VECTOR]: " + trigger + " failed: " + e);
+      if (ownFreeze)
+        tree.unfreeze(true);
+      return { "ok": false, "dodano": false, "przeniesiono": false, "opis": "", "disabled": false };
+    }
+    if (ownFreeze) {
+      const rebuild = result.dodano || result.przeniesiono;
+      tree.unfreeze(rebuild);
+      if (rebuild)
+        console.log("WorkField [WF-OSM-MOVE]: " + trigger + " — lista warstw zbudowana od nowa");
+    } else if (result.dodano || result.przeniesiono) {
+      console.log("WorkField [WF-OSM-MOVE]: " + trigger + " — lista warstw była już zamrożona, przebuduje ją właściciel");
+    }
+    console.log("WorkField [WF-OSM-VECTOR]: " + trigger + " ok=" + result.ok + " dodano=" + result.dodano + " przeniesiono=" + result.przeniesiono + (result.ok ? "" : " (" + result.opis + ")"));
+    if (announce && result.dodano)
+      displayToast(osmBasemapAddedText());
+    return result;
+  }
+
+  // [WF-AUTO-EQUIP] WorkFieldGIS 24.11.2026 — Piotr: identyfikatory (uuid)
+  // i wyposażenie projektu uzupełniane przy otwarciu; „telefon i tak ostrzega,
+  // że tego nie ma w warstwie i zostawia użytkownika ze stresem”. Warstwy bez
+  // obiektów (świeży projekt) — od razu; warstwy z danymi i moduły — po
+  // pytaniu. Wyłącznik: Ustawienia → Teren (WorkField/autoEquipProject).
+  readonly property string autoEquipSettingKey: "WorkField/autoEquipProject"
+  property var autoEquipPlan: null
+  function autoEquipModules() {
+    // Only modules the app may install itself (catalog "gdzie": teren) and
+    // that ask nothing — structure modules stay in the office (WYPOSAZENIE.md).
+    let out = [];
+    let stan = [];
+    try {
+      stan = autoEquipCatalog.sprawdz(qgisProject) || [];
+    } catch (e) {
+      stan = [];
+    }
+    for (const m of stan) {
+      if (m.stan !== "brak" && m.stan !== "starszy")
+        continue;
+      // 24.11 22:28 — „klawisze” pyta o warstwy (pole `pyta`), a bez odpowiedzi
+      // kończył się błędem przy każdym otwarciu. Moduły z pytaniem — tylko w oknie.
+      if (autoEquipCatalog.mozeZalozyc(m.modul) !== "" || autoEquipCatalog.zapowiedzModulu(m.modul) !== "" || (m.pyta !== undefined && m.pyta !== ""))
+        continue;
+      out.push({ "modul": m.modul, "nazwa": m.nazwa, "stan": m.stan });
+    }
+    return out;
+  }
+  function autoEquipCheck() {
+    if (autoEquipDialog.visible)
+      return;
+    if (!settings.valueBool(autoEquipSettingKey, true)) {
+      console.log("WorkField [WF-AUTO-EQUIP]: wyłączone w ustawieniach");
+      return;
+    }
+    let identity = { "layers": [], "withData": [], "files": [], "projectHasData": false };
+    try {
+      identity = NarzedziaProjektu.identityFieldsPlan(qgisProject);
+    } catch (e) {
+      console.log("WorkField [WF-AUTO-EQUIP]: plan failed: " + e);
+    }
+    const modules = autoEquipModules();
+    console.log("WorkField [WF-AUTO-EQUIP]: bez uuid " + identity.layers.length + " (z danymi " + identity.withData.length + "), moduły do założenia " + modules.length);
+    if (identity.layers.length === 0 && modules.length === 0)
+      return;
+    // A project without data (fresh, from DXF): no question. With data:
+    // fields in layers with objects or a module (a new version of a module on
+    // a project with data needs a yes — workfield-obieg §6) — the question.
+    if (identity.withData.length === 0 && !(modules.length > 0 && identity.projectHasData)) {
+      autoEquipRun({ "identity": identity, "modules": modules });
+      return;
+    }
+    autoEquipPlan = { "identity": identity, "modules": modules };
+    autoEquipDialog.open();
+  }
+  function autoEquipRun(plan) {
+    let done = [];
+    let failed = [];
+    // Moduły NAJPIERW: „załączniki” zakłada nowe tabele zdjęć (24.11 22:28 zostały
+    // bez uuid, bo identyfikatory szły przed nimi). Identyfikatory potem, z planem
+    // policzonym od nowa.
+    for (const m of plan.modules) {
+      const w = autoEquipCatalog.zaloz(qgisProject, m.modul);
+      (w.ok ? done : failed).push(m.nazwa + ": " + w.opis);
+    }
+    let identityNow = plan.identity;
+    try {
+      identityNow = NarzedziaProjektu.identityFieldsPlan(qgisProject);
+    } catch (e) {
+      console.log("WorkField [WF-AUTO-EQUIP]: plan failed: " + e);
+    }
+    if (identityNow.layers.length > 0) {
+      const w = NarzedziaProjektu.repairIdentityWithBackup(qgisProject);
+      (w.ok ? done : failed).push(w.opis);
+    }
+    const saved = ProjectUtils.saveProject(qgisProject);
+    console.log("WorkField [WF-AUTO-EQUIP]: zrobione: " + done.join(" | ") + (failed.length ? " BŁĘDY: " + failed.join(" | ") : "") + ", zapis " + saved);
+    if (failed.length > 0 || !saved)
+      displayToast(qsTr("Uzupełnianie projektu nie w pełni się udało: %1").arg(failed.length ? failed.join("; ") : qsTr("projektu nie zapisano")), "warning");
+    else
+      displayToast(qsTr("Uzupełniono identyfikatory i wyposażenie projektu. Możesz to wyłączyć w Ustawieniach → Teren."));
+    if (typeof dashBoard !== "undefined" && dashBoard.odswiezWyposazenie)
+      dashBoard.odswiezWyposazenie();
+  }
+
+  // [WF-CRS-DETECT] 24.11.2026 — układ warstwy rozpoznany po WARTOŚCIACH
+  // współrzędnych (NarzedziaProjektu.detectLayerCrs). Piotr 23:40: kolizję
+  // o rzędy wielkości pokazujemy do zatwierdzenia — transformacja w locie
+  // (warstwa dostaje układ, plik bez zmian) albo konwersja (kopia w układzie
+  // projektu do dane.gpkg, przedtem migawka bazy). Obiekty przy 0,0
+  // i współrzędne lokalne — sam komunikat. Trzy wejścia: dodanie pliku,
+  // otwarcie projektu, Narzędzia → „Układy warstw — sprawdź”.
+  property var crsQueue: []
+  property var crsHandled: ({})
+  property var crsAddedPending: []
+  property bool crsBusy: false
+  property bool crsProjectLoading: false
+
+  function crsReset() {
+    crsQueue = [];
+    crsHandled = ({});
+    crsAddedPending = [];
+  }
+
+  // QgsRectangle nie ma w QML odczytu współrzędnych — nie da się go łączyć
+  // w JS. Przy kilku warstwach rysunku bierzemy tę z największą liczbą
+  // obiektów w układzie (zwykle linie). Wywnioskowane, nie zmierzone.
+  function crsZoomTo(extent) {
+    if (!extent)
+      return;
+    Qt.callLater(function () {
+      mapCanvas.mapSettings.extent = extent;
+      console.log("WorkField [WF-CRS-DETECT]: widok przybliżony do głównej części warstwy");
+    });
+  }
+
+  function crsTake(entries, trigger, zoom) {
+    let notes = [];
+    let zoomEntry = null;
+    // [WF-CRS-AUTO] 25.11.2026 — do cichego ustawienia układu (niżej)
+    const projectAuthid = qgisProject && qgisProject.crs ? qgisProject.crs.authid : "";
+    const wasDirty = ProjectUtils.isProjectDirty(qgisProject);
+    let autoAssigned = 0;
+    for (const e of entries) {
+      if (!e || !e.layerId)
+        continue;
+      crsHandled[e.layerId] = true;
+      if (e.kind === "ok" || e.kind === "skip") {
+        if (zoom && e.extent && (!zoomEntry || e.inside > zoomEntry.inside))
+          zoomEntry = e;
+        continue;
+      }
+      console.log("WorkField [WF-CRS-DETECT]: " + trigger + " — " + e.kind + " — " + e.opis);
+      // [WF-CRS-AUTO] 25.11.2026 — warstwa BEZ układu (DXF go nie niesie),
+      // a liczby pasują do układu projektu: to nie kolizja rzędów wielkości,
+      // tylko brak metryczki. Ustawiamy w locie bez pytania, plik bez zmian.
+      // Piotr 7:22: okno przy każdym rysunku prowadziło do zbędnej konwersji.
+      if (e.kind === "collision" && !e.declared && e.detected === projectAuthid) {
+        const a = NarzedziaProjektu.assignLayerCrs(qgisProject, e.layerId, e.detected);
+        console.log("WorkField [WF-CRS-AUTO]: " + trigger + " — " + (a.ok ? "ok" : "BŁĄD") + ": " + a.opis);
+        if (a.ok) {
+          autoAssigned++;
+          if (e.outside > 0)
+            notes.push(qsTr("„%1”: %2 z %3 obiektów leży poza obszarem układu %4 (np. przy punkcie 0,0) — widok ich nie obejmuje.").arg(e.name).arg(e.outside).arg(e.total).arg(e.detected));
+          if (zoom && e.extent && (!zoomEntry || e.inside > zoomEntry.inside))
+            zoomEntry = e;
+          continue;
+        }
+      }
+      if (e.kind === "collision" || e.kind === "swapped") {
+        if (mainWindow.crsQueue.some(q => q.layerId === e.layerId))
+          continue;
+        e.trigger = trigger;
+        e.zoom = zoom;
+        mainWindow.crsQueue.push(e);
+      } else if (e.kind === "outliers") {
+        notes.push(e.opis);
+        if (zoom && e.extent && (!zoomEntry || e.inside > zoomEntry.inside))
+          zoomEntry = e;
+      } else if (e.kind === "local") {
+        notes.push(e.opis);
+      } else if (e.kind === "unknown" && trigger === "narzedzia") {
+        // Przy otwarciu i dodaniu — tylko log: dane spoza Polski są
+        // poprawne, a komunikat przy każdym otwarciu byłby szumem.
+        notes.push(e.opis);
+      }
+    }
+    // Przy otwarciu i z Narzędzi zapisujemy od razu (jak podkład OSM), żeby
+    // nie powtarzało się przy każdym otwarciu. Rysunek z kreatora zapisuje
+    // zlozProjektZCAD, a import do projektu i tak go zmienia.
+    if (autoAssigned > 0 && !wasDirty && trigger !== "cad") {
+      const saved = ProjectUtils.saveProject(qgisProject);
+      console.log("WorkField [WF-CRS-AUTO]: projekt zapisany: " + saved);
+    }
+    if (zoomEntry)
+      crsZoomTo(zoomEntry.extent);
+    if (notes.length > 0)
+      displayToast(notes.join("\n"), "warning");
+    Qt.callLater(mainWindow.crsShowNext);
+  }
+
+  function crsCheckLayers(layerIds, trigger, zoom) {
+    let entries = [];
+    for (const id of layerIds) {
+      try {
+        entries.push(NarzedziaProjektu.detectLayerCrs(qgisProject, id));
+      } catch (e) {
+        console.log("WorkField [WF-CRS-DETECT]: " + trigger + " — błąd sprawdzania: " + e);
+      }
+    }
+    crsTake(entries, trigger, zoom);
+  }
+
+  function crsCheckProject(trigger) {
+    let res = { "checked": 0, "ms": 0, "entries": [] };
+    try {
+      res = NarzedziaProjektu.checkProjectCrs(qgisProject);
+    } catch (e) {
+      console.log("WorkField [WF-CRS-DETECT]: " + trigger + " — błąd sprawdzania: " + e);
+    }
+    const all = res.entries || [];
+    // Przy otwarciu — bez warstw, o które już pytaliśmy w tej sesji projektu.
+    // Z Narzędzi — wszystko, także pominięte.
+    const entries = trigger === "narzedzia" ? all : all.filter(e => !crsHandled[e.layerId]);
+    console.log("WorkField [WF-CRS-DETECT]: " + trigger + " — sprawdzone " + res.checked + ", do zgłoszenia " + entries.length + ", " + res.ms + " ms");
+    if (trigger === "narzedzia" && entries.length === 0)
+      displayToast(qsTr("Układy warstw zgodne z wartościami współrzędnych (sprawdzone: %1)").arg(res.checked));
+    crsTake(entries, trigger, false);
+    return res;
+  }
+
+  function crsShowNext() {
+    if (crsQueue.length === 0)
+      return;
+    // Okno jeszcze się zamyka (animacja) albo czeka okno uzupełniania
+    // projektu — dwa okna naraz zasłaniają się. Ponawiamy za chwilę.
+    if (crsDialog.visible || autoEquipDialog.visible) {
+      crsRetryTimer.restart();
+      return;
+    }
+    crsDialog.entry = crsQueue.shift();
+    crsDialog.open();
+  }
+
+  function crsApply(entry, action) {
+    if (!entry)
+      return;
+    const wasDirty = ProjectUtils.isProjectDirty(qgisProject);
+    let r = { "ok": false, "opis": "" };
+    crsBusy = true;
+    try {
+      if (action === "assign") {
+        r = NarzedziaProjektu.assignLayerCrs(qgisProject, entry.layerId, entry.detected);
+      } else {
+        // Konwersja usuwa starą warstwę i wstawia nową — lista warstw
+        // zamrożona i zbudowana od nowa (lekcja z [WF-OSM-MOVE]).
+        const tree = dashBoard.layerTree;
+        const ownFreeze = tree && !tree.isFrozen;
+        if (ownFreeze)
+          tree.freeze();
+        try {
+          r = NarzedziaProjektu.convertLayerToProjectDb(qgisProject, entry.layerId, entry.detected, entry.swapped === true);
+        } finally {
+          if (ownFreeze)
+            tree.unfreeze(true);
+        }
+      }
+    } catch (e) {
+      r = { "ok": false, "opis": String(e) };
+    }
+    crsBusy = false;
+    if (r.layerId)
+      crsHandled[r.layerId] = true;
+    console.log("WorkField [WF-CRS-FIX]: " + action + " „" + entry.name + "” — " + (r.ok ? "ok" : "BŁĄD") + ": " + r.opis);
+    if (r.ok) {
+      if (entry.zoom && entry.extent)
+        crsZoomTo(entry.extent);
+      if (!wasDirty) {
+        const saved = ProjectUtils.saveProject(qgisProject);
+        console.log("WorkField [WF-CRS-FIX]: projekt zapisany: " + saved);
+      }
+    }
+    if (r.opis)
+      displayToast(r.opis, r.ok ? "info" : "warning");
+    Qt.callLater(mainWindow.crsShowNext);
   }
 
   property string projectTitle: ""
@@ -7277,7 +7607,10 @@ ApplicationWindow {
     // WorkField: wartosc w property, zeby przelacznik w oknie Teren
     // dzialal od razu (odczyt settings nie jest reaktywny)
     property bool naKomputerze: settings.valueBool('WorkField/quickCaptureNaKomputerze', false)
-    visible: (Qt.platform.os === "android" || Qt.platform.os === "ios" || naKomputerze)
+    // [WF-QC-OPTIONS] 24.11.2026 — na telefonie też da się pasek ukryć
+    // (Narzędzia → Pasek szybkiego zapisu); domyślnie widoczny jak dotąd.
+    property bool naTelefonie: settings.valueBool('WorkField/quickCaptureNaTelefonie', true)
+    visible: ((Qt.platform.os === "android" || Qt.platform.os === "ios") ? naTelefonie : naKomputerze)
              && !(featureListForm.visible && featureListForm.isFullscreen)
 
     // WorkField: wolny obszar mapy — formularz atrybutów może zajmować
@@ -7286,8 +7619,74 @@ ApplicationWindow {
     readonly property real wolnaSzerokosc: featureListForm.visible && !featureListForm.isFullscreen && featureListForm.x > 0 ? featureListForm.x : parent.width
     readonly property real wolnaWysokosc: featureListForm.visible && !featureListForm.isFullscreen && featureListForm.y > 0 ? featureListForm.y : parent.height
 
+    // [WF-QC-FIT] 24.11.2026 — Piotr 22:48: pasek zasłaniał inne przyciski,
+    // a strzałka zwijania ginęła pod górną belką (na telefonie mapa biegnie pod
+    // nią, a pasek zaczynał się na y = 8). Wolny pas przy krawędzi paska: od
+    // dolnej krawędzi górnej belki (mainWindow.dolBelki) do dołu wolnego
+    // obszaru, w największej przerwie między przyciskami mapy, które stoją przy
+    // tej samej krawędzi — znanymi z nazwy (szukaj, powiększanie, GNSS,
+    // rysowanie) i każdym małym elementem nakładki. Sprawdzane co 0,7 s, póki
+    // pasek jest widoczny; zmiana pasa idzie do dziennika z listą przeszkód.
+    property real wolnaGora: 8
+    property real wolnyDol: wolnaWysokosc - 8
+    maxWysokosc: Math.max(0, wolnyDol - wolnaGora)
+
+    function przeliczWolnyPas() {
+      const p = quickCaptureBar.parent;
+      if (!p)
+        return;
+      const gora0 = (mainWindow.dolBelkiZmiana >= 0 ? mainWindow.dolBelki(p) : 0) + 8;
+      const dol0 = wolnaWysokosc - mainWindow.sceneBottomMargin - 8;
+      const szer = Math.max(quickCaptureBar.width, quickCaptureBar.qcRozmiarDomyslny);
+      const lewo = quickCaptureBar.qcKrawedz === "lewa" ? 8 : wolnaSzerokosc - szer - 8;
+      const prawo = lewo + szer;
+      let kandydaci = [locatorItem, zoomToolbar, locationToolbar, digitizingToolbarContainer];
+      for (let i = 0; i < p.children.length; i++)
+        kandydaci.push(p.children[i]);
+      for (let i = 0; i < mapCanvasOverlays.children.length; i++)
+        kandydaci.push(mapCanvasOverlays.children[i]);
+      let zajete = [];
+      let opis = [];
+      for (const o of kandydaci) {
+        if (!o || o === quickCaptureBar || !o.visible || o.opacity <= 0 || !(o.width > 0) || !(o.height > 0))
+          continue;
+        if (o.width > p.width * 0.4 || o.height > p.height * 0.6)
+          continue; // the map, panels, full-screen layers — not buttons
+        const r = o.mapToItem(p, 0, 0);
+        if (r.x + o.width < lewo || r.x > prawo || r.y + o.height < gora0 || r.y > dol0)
+          continue;
+        zajete.push([r.y - 8, r.y + o.height + 8]);
+        opis.push(String(o).split("(")[0] + "@" + Math.round(r.y));
+      }
+      zajete.sort((a, b) => a[0] - b[0]);
+      let pas = [gora0, gora0];
+      let start = gora0;
+      for (const z of zajete) {
+        if (z[0] - start > pas[1] - pas[0])
+          pas = [start, z[0]];
+        start = Math.max(start, z[1]);
+      }
+      if (dol0 - start > pas[1] - pas[0])
+        pas = [start, dol0];
+      if (pas[1] - pas[0] < 120)
+        pas = [gora0, dol0]; // no sensible gap: at least stay under the top bar
+      if (Math.abs(wolnaGora - pas[0]) > 1 || Math.abs(wolnyDol - pas[1]) > 1) {
+        wolnaGora = pas[0];
+        wolnyDol = pas[1];
+        console.log("WorkField [WF-QC-FIT]: wolny pas " + Math.round(pas[0]) + "–" + Math.round(pas[1]) + " px, przeszkody: " + (opis.length ? opis.join(", ") : "brak"));
+      }
+    }
+
+    Timer {
+      interval: 700
+      repeat: true
+      running: quickCaptureBar.visible
+      triggeredOnStart: true
+      onTriggered: quickCaptureBar.przeliczWolnyPas()
+    }
+
     x: quickCaptureBar.qcKrawedz === "lewa" ? 8 : wolnaSzerokosc - quickCaptureBar.width - 8
-    y: Math.max(8, (wolnaWysokosc - quickCaptureBar.height) / 2)
+    y: Math.max(wolnaGora, Math.min(wolnyDol - quickCaptureBar.height, (wolnaGora + wolnyDol - quickCaptureBar.height) / 2))
 
     Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
     Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
@@ -7581,6 +7980,10 @@ ApplicationWindow {
 
     function onLoadProjectTriggered(path, name) {
       qfieldAuthRequestHandler.isProjectLoading = true;
+      // [WF-CRS-DETECT] warstwy wczytywane z projektu nie idą przez
+      // „dodanie pliku” — sprawdza je osobno koniec wczytywania.
+      mainWindow.crsReset();
+      mainWindow.crsProjectLoading = true;
       messageLogModel.suppress({
         "WFS": [""],
         "WMS": [""],
@@ -7608,12 +8011,17 @@ ApplicationWindow {
 
     function onLoadProjectEnded(path, name) {
       mainWindow.refreshProjectTitle();
+      mainWindow.crsProjectLoading = false; // [WF-CRS-DETECT]
 
       // [WF-IDENTITY] 24.10.2026: empty uuid / PARENT_UUID filled on every
       // open (photos added with the capture bar get PARENT_UUID here). Only
       // values, never fields — fields are added by "Uzupełnij identyfikatory".
       // Templates are skipped: they are copied, and copies must not share uuids.
       if (path.indexOf("/templates/") === -1 && path.indexOf("/szablony/") === -1) {
+        // [WF-AUTO-EQUIP] 24.11 22:28 — projekt z DXF: warstwy robocze i baza
+        // powstają chwilę później (zlozProjektZCAD), stempel modułu nie miał
+        // gdzie się zapisać. Sprawdzenie robi wtedy zlozProjektZCAD.
+        const cadComing = mainWindow.cadRysunek !== "";
         Qt.callLater(function () {
           const written = NarzedziaProjektu.fillMissingIdentity(qgisProject);
           if (written > 0)
@@ -7632,6 +8040,35 @@ ApplicationWindow {
             console.log("WorkField [WF-ATTACHMENT-TRASH]: watching " + AttachmentTrash.watchProject(qgisProject) + " attachment tables");
           } catch (e) {
             console.log("WorkField [WF-ATTACHMENT-TRASH]: watch failed: " + e);
+          }
+          // [WF-OSM-VECTOR] 24.11.2026 — podkład także w projekcie otwieranym.
+          // Gdy go dodaliśmy, a projekt nie miał niezapisanych zmian, zapisujemy
+          // od razu — inaczej wracałby (z komunikatem) przy każdym otwarciu.
+          const wasDirty = ProjectUtils.isProjectDirty(qgisProject);
+          const basemap = mainWindow.ensureOsmBasemap("load", true);
+          // [WF-OSM-MOVE] 24.11.2026 — po przeniesieniu też zapisujemy:
+          // inaczej przenosiny (i ryzyko) powtarzały się przy każdym otwarciu.
+          const basemapChanged = basemap.dodano || basemap.przeniesiono;
+          if (basemapChanged && !wasDirty) {
+            const saved = ProjectUtils.saveProject(qgisProject);
+            console.log("WorkField [WF-OSM-VECTOR]: load — projekt zapisany z podkładem: " + saved);
+          } else if (basemapChanged) {
+            console.log("WorkField [WF-OSM-VECTOR]: load — projekt miał niezapisane zmiany, nie zapisuję");
+          }
+          // [WF-AUTO-EQUIP] 24.11.2026 — identyfikatory i wyposażenie
+          try {
+            if (!cadComing)
+              mainWindow.autoEquipCheck();
+          } catch (e) {
+            console.log("WorkField [WF-AUTO-EQUIP]: failed: " + e);
+          }
+          // [WF-CRS-DETECT] 24.11.2026 — układy warstw po wartościach. Projekt
+          // z DXF sprawdza rysunek sam (dodajRysunekCAD), z przybliżeniem.
+          try {
+            if (!cadComing)
+              mainWindow.crsCheckProject("load");
+          } catch (e) {
+            console.log("WorkField [WF-CRS-DETECT]: load failed: " + e);
           }
         });
       }
@@ -7667,6 +8104,10 @@ ApplicationWindow {
           return;
         }
         if (!o.length)
+          return;
+        // [WF-AUTO-EQUIP] 24.11.2026 — pytanie o uzupełnienie jest otwarte:
+        // drugi komunikat o tym samym tylko by straszył.
+        if (autoEquipDialog.visible)
           return;
         // Pierwsze ostrzezenie w calosci: sama liczba nie mowi, czy chodzi
         // o brakujacy plik, czy o obrys zwiniety do zera.
@@ -9159,6 +9600,12 @@ ApplicationWindow {
     t: Theme
   }
 
+  // [WF-QC-OPTIONS] 24.11.2026 — okno ustawień paska szybkiego zapisu
+  // (Narzędzia → Pasek szybkiego zapisu i zębatka na pasku).
+  QfQuickCaptureOptions {
+    id: quickCaptureOptions
+  }
+
   // WorkField 24.09.2026 — okno „Teren" przeniesione do Ustawien
   // (kategoria „teren", plik `QfSettingsTeren.qml`).
   //
@@ -9205,6 +9652,182 @@ ApplicationWindow {
 
   QfTextEditor {
     id: textEditor
+  }
+
+  // [WF-AUTO-EQUIP] 24.11.2026 — ten sam katalog modułów co okno Wyposażenia.
+  Wyposazenie {
+    id: autoEquipCatalog
+  }
+
+  QfDialog {
+    id: autoEquipDialog
+    parent: mainWindow.contentItem
+    anchors.centerIn: parent
+    width: Math.min(520, mainWindow.width - 32)
+    modal: true
+    closePolicy: Popup.NoAutoClose
+    title: qsTr("Uzupełnić projekt?")
+    standardButtons: Dialog.Ok | Dialog.Cancel
+
+    function planText() {
+      const p = mainWindow.autoEquipPlan;
+      if (!p)
+        return "";
+      let lines = [];
+      if (p.identity.layers.length > 0)
+        lines.push(qsTr("• identyfikatory obiektów (pole uuid) w warstwach: %1").arg(p.identity.layers.join(", ")));
+      for (const m of p.modules)
+        lines.push(m.stan === "starszy" ? qsTr("• %1 — nowsza wersja").arg(m.nazwa) : qsTr("• %1").arg(m.nazwa));
+      return lines.join("\n");
+    }
+
+    // QfDialog shows the answers in its title bar: ✕ = not now, ✓ + this text = yes.
+    onAboutToShow: {
+      const ok = standardButton(Dialog.Ok);
+      if (ok)
+        ok.text = qsTr("Uzupełnij");
+      _yesText = qsTr("Uzupełnij");
+    }
+    onAccepted: {
+      const p = mainWindow.autoEquipPlan;
+      mainWindow.autoEquipPlan = null;
+      if (p)
+        mainWindow.autoEquipRun(p);
+    }
+    onRejected: {
+      mainWindow.autoEquipPlan = null;
+      console.log("WorkField [WF-AUTO-EQUIP]: odłożone przez użytkownika");
+    }
+
+    Column {
+      width: parent.width
+      spacing: 10
+
+      Text {
+        width: parent.width
+        wrapMode: Text.Wrap
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        text: qsTr("W projekcie brakuje:") + "\n" + autoEquipDialog.planText()
+      }
+
+      Text {
+        width: parent.width
+        wrapMode: Text.Wrap
+        color: Theme.secondaryTextColor
+        font: Theme.tinyFont
+        text: qsTr("Atrybuty i geometria się nie zmieniają. Przedtem powstaje kopia bazy i projektu w katalogu „kopie” obok projektu. Jeśli projekt jest też na innych telefonach, uzupełnij go na wszystkich — wtedy wszystkie mają tę samą budowę bazy. Automat wyłączysz w Ustawieniach → Teren.")
+      }
+    }
+  }
+
+  // [WF-CRS-DETECT] 24.11.2026 — jedno zgłoszenie naraz; następne po decyzji.
+  QfDialog {
+    id: crsDialog
+    property var entry: null
+    parent: mainWindow.contentItem
+    anchors.centerIn: parent
+    width: Math.min(560, mainWindow.width - 32)
+    modal: true
+    closePolicy: Popup.NoAutoClose
+    title: entry && entry.kind === "swapped" ? qsTr("Zamienione osie współrzędnych") : qsTr("Układ warstwy się nie zgadza")
+    standardButtons: Dialog.Cancel
+
+    function projectAuthid() {
+      return qgisProject && qgisProject.crs ? qgisProject.crs.authid : "";
+    }
+
+    onAboutToShow: {
+      const cancel = standardButton(Dialog.Cancel);
+      if (cancel)
+        cancel.text = qsTr("Pomiń");
+    }
+    onRejected: {
+      if (entry)
+        console.log("WorkField [WF-CRS-FIX]: pominięte „" + entry.name + "” (" + entry.kind + ")");
+      entry = null;
+      Qt.callLater(mainWindow.crsShowNext);
+    }
+
+    Column {
+      width: parent.width
+      spacing: 10
+
+      Text {
+        width: parent.width
+        wrapMode: Text.Wrap
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        text: crsDialog.entry ? crsDialog.entry.opis : ""
+      }
+
+      Text {
+        width: parent.width
+        wrapMode: Text.Wrap
+        color: Theme.secondaryTextColor
+        font: Theme.tinyFont
+        text: qsTr("W locie: warstwa dostaje układ wykryty z liczb, plik się nie zmienia — szybkie i odwracalne. Konwertuj: obiekty przeliczone do układu projektu trafiają do nowej tabeli w dane.gpkg (przedtem migawka bazy), a warstwa w projekcie zostaje podmieniona w tym samym miejscu listy.")
+      }
+
+      QfButton {
+        width: parent.width
+        visible: crsDialog.entry !== null && crsDialog.entry.kind === "collision"
+        text: crsDialog.entry ? qsTr("W locie (ustaw %1)").arg(crsDialog.entry.detected) : ""
+        onClicked: {
+          const e = crsDialog.entry;
+          crsDialog.entry = null;
+          crsDialog.close();
+          mainWindow.crsApply(e, "assign");
+        }
+      }
+
+      QfButton {
+        width: parent.width
+        visible: crsDialog.entry !== null && crsDialog.entry.canConvert === true
+        text: qsTr("Konwertuj do bazy projektu (%1)").arg(crsDialog.projectAuthid())
+        onClicked: {
+          const e = crsDialog.entry;
+          crsDialog.entry = null;
+          crsDialog.close();
+          mainWindow.crsApply(e, "convert");
+        }
+      }
+    }
+  }
+
+  Timer {
+    id: crsRetryTimer
+    interval: 1500
+    repeat: false
+    onTriggered: mainWindow.crsShowNext()
+  }
+
+  // [WF-CRS-DETECT] dodanie pliku: warstwa po warstwie, zebrane w jedną
+  // paczkę (plik z kilkoma warstwami = jedno sprawdzenie). Pomijamy wczytywanie
+  // projektu, własne konwersje i dokładanie przy zamrożonej liście (podkład OSM).
+  Timer {
+    id: crsAddedTimer
+    interval: 400
+    repeat: false
+    onTriggered: {
+      const ids = mainWindow.crsAddedPending.filter(id => !mainWindow.crsHandled[id]);
+      mainWindow.crsAddedPending = [];
+      if (ids.length > 0)
+        mainWindow.crsCheckLayers(ids, "plik", false);
+    }
+  }
+
+  Connections {
+    target: qgisProject
+
+    function onLayerWasAdded(layer) {
+      if (!layer || mainWindow.crsBusy || mainWindow.crsProjectLoading)
+        return;
+      if (dashBoard.layerTree && dashBoard.layerTree.isFrozen)
+        return;
+      mainWindow.crsAddedPending.push(layer.id);
+      crsAddedTimer.restart();
+    }
   }
 
   QfWyposazenie {

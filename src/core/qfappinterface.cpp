@@ -570,6 +570,15 @@ bool QfAppInterface::saveProjectAs( const QString &path )
 bool QfAppInterface::createBlankProject( const QString &path )
 {
   QgsProject::instance()->clear();
+  // WorkFieldGIS 24.11.2026 — [WF-CRS-BLANK] clear() zostawia projekt BEZ układu współrzędnych
+  // (QgsProject::clear: mCrs = pusty). Tak powstał projekt SOŁTYKA CZWARTEK: pozycje GNSS nie
+  // były przeliczane i do warstwy EPSG:2178 trafiły stopnie WGS84
+  // (claude/DIAGNOZA_SOLTYKA_CZWARTEK_pusty_CRS_2026-11-24.md). Pusty projekt dostaje układ
+  // domyślny (Ustawienia, inaczej EPSG:2178). Okno „Nowy projekt” z szuflady i tak ustawia
+  // potem układ wybrany przez człowieka.
+  const QgsCoordinateReferenceSystem crs( domyslnyUklad() );
+  QgsProject::instance()->setCrs( crs );
+  qInfo() << "WorkField [WF-CRS-BLANK]: nowy pusty projekt" << path << "układ" << crs.authid();
   return QgsProject::instance()->write( path );
 }
 
@@ -1740,6 +1749,9 @@ bool QfAppInterface::zoomToProjectData( QgsQuickMapSettings *mapSettings )
   for ( QgsMapLayer *layer : layers )
   {
     if ( layer->providerType() == QStringLiteral( "wms" ) )
+      continue;
+    // [WF-EXTENT-BASEMAP] 24.11.2026 — kafle wektorowe (podkład OSM) też są podkładem
+    if ( layer->type() == Qgis::LayerType::VectorTile )
       continue;
     QgsRectangle extent = layer->extent();
     if ( extent.isEmpty() )

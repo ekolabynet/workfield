@@ -79,6 +79,8 @@ QfWindowFrame {
   //! a „zrobione" trzeba przeczytać przy okazji patrzenia na listę.
   property string komunikat: ""
   property bool blad: false
+  //! [WF-CRS-REPROJECT] warstwa czekająca na drugie naciśnięcie (potwierdzenie)
+  property string pendingReproject: ""
 
   //! Katalog modułów: to on przestawia ustawienia, robi kopię projektu
   //! i zapisuje. Okno tylko pyta i pokazuje wynik.
@@ -118,6 +120,44 @@ QfWindowFrame {
         return;
       }
       naprawa.close();
+      return;
+    }
+
+    // WorkFieldGIS 24.11.2026 — [WF-CRS-STATE] układ projektu z warstwy danych.
+    // Przycisk jest potwierdzeniem: człowiek widzi w nim kod układu. Projekt
+    // zapisany od razu, bo bez zapisu po ponownym otwarciu układu znów nie ma.
+    if (co === "ustaw_uklad") {
+      if (!o.uklad || !iface.setProjectCrs(o.uklad)) {
+        naprawa.komunikat = qsTr("Nie udało się ustawić układu %1.").arg(o.uklad);
+        naprawa.blad = true;
+        return;
+      }
+      if (!ProjectUtils.saveProject(qgisProject)) {
+        naprawa.komunikat = qsTr("Układ %1 ustawiony, ale projektu NIE zapisano — po ponownym otwarciu znów go nie będzie.").arg(o.uklad);
+        naprawa.blad = true;
+      } else {
+        naprawa.komunikat = qsTr("Układ projektu: %1, projekt zapisany. Otwórz projekt ponownie, zanim zaczniesz mierzyć.").arg(o.uklad);
+        naprawa.blad = false;
+      }
+      stanProjektu.odswiez();
+      return;
+    }
+
+    // WorkFieldGIS 24.11.2026 — [WF-CRS-REPROJECT] stopnie → układ warstwy.
+    // Zmienia geometrię wszystkich obiektów warstwy, więc dwa naciśnięcia:
+    // pierwsze mówi, co się stanie, drugie wykonuje.
+    if (co === "przelicz_stopnie") {
+      if (naprawa.pendingReproject !== o.warstwa) {
+        naprawa.pendingReproject = o.warstwa;
+        naprawa.komunikat = qsTr("Przeliczę WSZYSTKIE obiekty warstwy „%1” ze stopni WGS84 na %2. Przedtem zrobię kopię bazy w katalogu „kopie”. Naciśnij przycisk jeszcze raz, żeby potwierdzić.").arg(o.warstwa).arg(o.uklad);
+        naprawa.blad = false;
+        return;
+      }
+      naprawa.pendingReproject = "";
+      const przeliczenie = NarzedziaProjektu.reprojectDegreesLayer(qgisProject, o.warstwa);
+      naprawa.komunikat = przeliczenie.opis;
+      naprawa.blad = !przeliczenie.ok;
+      stanProjektu.odswiez();
       return;
     }
 
@@ -262,6 +302,12 @@ QfWindowFrame {
       // [WF-PROJECT-DATABASE]
       case "baza_projektu":
         return [{ "etykieta": qsTr("Dołóż bazę danych"), "co": "baza_projektu" }];
+      // [WF-CRS-REPROJECT]
+      case "przelicz_stopnie":
+        return [{ "etykieta": qsTr("Przelicz na %1").arg(o.uklad), "co": "przelicz_stopnie" }];
+      // [WF-CRS-STATE]
+      case "ustaw_uklad":
+        return [{ "etykieta": qsTr("Ustaw %1").arg(o.uklad), "co": "ustaw_uklad" }];
       }
       return [];
     }

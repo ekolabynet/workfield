@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Instalator łatki 24.11.2026 — przyciąganie i unikanie nakładania wyjęte z wyposażenia
+(sprawdzanie, okno Wyposażenia, automat, nowy projekt). Decyzja Piotra 22:43.
+Plik: /DATA/SOFT/GIS/QFIELD_Pro/QField/src/app/qml/QfMainDrawer.qml
+Miejsce w repo: skrypty/jednorazowe/2026-11-24_instaluj_bez_modulow_przyciagania_szuflada.py
+"""
+import hashlib
+import os
+import shutil
+import sys
+from datetime import datetime
+
+PLIK = '/DATA/SOFT/GIS/QFIELD_Pro/QField/src/app/qml/QfMainDrawer.qml'
+MD5_PRZED = '8ca241c63faed018016b8cd76ae4d2cb'  # po instaluj_osm_wektor_wszedzie_szuflada
+MD5_PO = 'b362bcd8bb63a7a392f2fb3e4286f535'
+
+ZMIANY = [
+    ('    let zostaly = ["przyciaganie", "bez_nakladania", "zalaczniki", "klawisze", "tyczenie"];',
+     '    // WorkFieldGIS 24.11.2026 — Piotr: przyciąganie i unikanie nakładania nie są\n    // już modułami wyposażenia (osobne ustawienia w warstwach); wyjęte z katalogu.\n    let zostaly = ["zalaczniki", "klawisze", "tyczenie"];'),
+]
+
+
+def md5(dane):
+    return hashlib.md5(dane).hexdigest()
+
+
+def main():
+    argv = sys.argv[1:]
+    zapisz = "--zapisz" in argv
+    plik = PLIK
+    if "--plik" in argv:
+        plik = argv[argv.index("--plik") + 1]
+
+    with open(plik, "rb") as f:
+        surowe = f.read()
+    teraz = md5(surowe)
+    print("plik:", plik)
+    print("md5 :", teraz)
+
+    if teraz == MD5_PO:
+        print("JUŻ ZAINSTALOWANE — nic nie zmieniam.")
+        return 0
+    if teraz != MD5_PRZED:
+        print("STOP: md5 inne niż oczekiwane", MD5_PRZED)
+        print("Plik różni się od wersji, na której zbudowano łatkę. Nie nadpisuję cudzej pracy.")
+        print("Przyślij ten plik, zbuduję instalator na jego bajtach.")
+        return 1
+
+    tekst = surowe.decode("utf-8")
+    for nr, (stare, _nowe) in enumerate(ZMIANY, 1):
+        ile = tekst.count(stare)
+        if ile != 1:
+            print("STOP: kotwica %d występuje %d razy (ma być 1). Nic nie zapisano." % (nr, ile))
+            return 1
+    for stare, nowe in ZMIANY:
+        tekst = tekst.replace(stare, nowe, 1)
+
+    nowe_bajty = tekst.encode("utf-8")
+    print("po zmianie md5:", md5(nowe_bajty))
+    linie_przed = surowe.count(b"\n")
+    linie_po = nowe_bajty.count(b"\n")
+    print("linie: %d -> %d (+%d)" % (linie_przed, linie_po, linie_po - linie_przed))
+
+    if not zapisz:
+        print("PRÓBA — nic nie zapisano. Zapis: dopisz --zapisz")
+        return 0
+
+    kopia = plik + ".przed_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+    nr = 1
+    while os.path.exists(kopia):  # dwie łatki w tej samej sekundzie
+        nr += 1
+        kopia = plik + ".przed_" + datetime.now().strftime("%Y%m%d_%H%M%S") + "_%d" % nr
+    shutil.copy2(plik, kopia)
+    with open(plik, "wb") as f:
+        f.write(nowe_bajty)
+    print("ZAPISANO. Kopia:", kopia)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

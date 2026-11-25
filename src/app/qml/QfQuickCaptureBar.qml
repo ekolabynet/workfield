@@ -82,9 +82,50 @@ Column {
 
   readonly property bool zwinieteEfektywne: qcSekcja === "zwijana" && ustawieniaZwiniete
 
+  // [WF-QC-FIT] WorkFieldGIS 24.11.2026 — Piotr 22:48: pasek bywa wyższy niż
+  // wolne miejsce, zasłania inne przyciski, a strzałka zwijania ginie (na
+  // telefonie mapa biegnie pod górną belką, a pasek zaczynał się na y = 8).
+  // Okno główne podaje wysokość wolnego pasa (0 = bez limitu). Kafle idą wtedy
+  // do drugiej kolumny, a gdy i dwie nie wystarczą — przewijają się palcem.
+  // Strzałka i zębatka zostają zawsze na górze paska.
+  property real maxWysokosc: 0
+
+  // [WF-QC-OPTIONS] ustawienia TEGO urządzenia z okna „Pasek szybkiego zapisu”;
+  // "" / 0 = jak w sekcji „ustawienia” pliku workfield_klawisze.json projektu.
+  property string userEdge: settings.value("WorkField/qcUserEdge", "")
+  property int userTileSize: settings.valueInt("WorkField/qcUserTileSize", 0)
+  property string projectEdge: "prawa"
+  readonly property int tileSizeOverride: userTileSize >= 40 && userTileSize <= 120 ? userTileSize : 0
+
+  onUserEdgeChanged: applyUserOptions()
+
+  function applyUserOptions() {
+    qcKrawedz = userEdge === "lewa" || userEdge === "prawa" ? userEdge : projectEdge;
+  }
+
+  function tileSize(entry) {
+    if (tileSizeOverride > 0)
+      return tileSizeOverride;
+    return entry && entry.rozmiar ? entry.rozmiar : qcRozmiarDomyslny;
+  }
+
+  //! Rows of the tile grid: one column when everything fits, otherwise two
+  //! balanced columns (scrolling, when two are not enough either).
+  function tileRows(available) {
+    const n = resolvedLayers.length;
+    if (n === 0)
+      return 1;
+    let biggest = 0;
+    for (let i = 0; i < n; i++)
+      biggest = Math.max(biggest, tileSize(resolvedLayers[i]));
+    const perColumn = Math.max(1, Math.floor((available + qcOdstep) / (biggest + qcOdstep)));
+    return n <= perColumn ? n : Math.ceil(n / 2);
+  }
+
   function wczytajUstawienia(defs) {
     const u = defs && defs.ustawienia ? defs.ustawienia : ({});
-    qcKrawedz = u.krawedz === "lewa" ? "lewa" : "prawa";
+    projectEdge = u.krawedz === "lewa" ? "lewa" : "prawa"; // [WF-QC-OPTIONS]
+    applyUserOptions();
     qcWyrownanie = u.wyrownanie === "lewo" || u.wyrownanie === "prawo" ? u.wyrownanie : "srodek";
     qcSekcja = u.sekcjaUstawien === "stala" ? "stala" : "zwijana";
     qcRozmiarDomyslny = typeof u.rozmiarKafelka === 'number' && u.rozmiarKafelka >= 40 && u.rozmiarKafelka <= 120 ? Math.round(u.rozmiarKafelka) : 56;
@@ -101,6 +142,14 @@ Column {
   // part (fast mode, ODL, KTW, "+") — the capture tiles stay, so a short tap
   // is enough: a stray tap no longer takes anything away in the middle of
   // a measurement. Long press says in one sentence what the button does.
+  // [WF-QC-OPTIONS] 24.11.2026 — strzałka i zębatka w jednym wierszu na górze
+  // paska; zębatka otwiera okno ustawień paska (to samo co Narzędzia →
+  // Pasek szybkiego zapisu).
+  Row {
+    id: naglowekPaska
+    spacing: 6
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
+
   Rectangle {
     id: przyciskZwijania
 
@@ -108,7 +157,6 @@ Column {
     height: 40
     radius: width / 2
     visible: quickCaptureBar.qcSekcja === "zwijana"
-    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
 
     color: Theme.mainColor
     border.color: "white"
@@ -155,6 +203,37 @@ Column {
       onPressAndHold: displayToast(quickCaptureBar.ustawieniaZwiniete ? qsTr("Strzałka w dół: rozwija przyciski ustawień paska (tryb szybki, ODL, KTW, dodaj warstwę).") : qsTr("Strzałka w górę: zwija przyciski ustawień paska (tryb szybki, ODL, KTW, dodaj warstwę). Kafelki pomiaru zostają."))
     }
   }
+
+  Rectangle {
+    id: przyciskOpcji
+
+    width: 40
+    height: 40
+    radius: width / 2
+    color: "#455A64"
+    border.color: "white"
+    border.width: 2
+
+    Image {
+      anchors.centerIn: parent
+      width: 24
+      height: 24
+      source: Theme.getThemeVectorIcon("ic_settings_white_24dp")
+      sourceSize.width: 48
+      sourceSize.height: 48
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      anchors.margins: -4
+      onClicked: {
+        quickCaptureBar.haptyka(20);
+        quickCaptureOptions.openOptions();
+      }
+      onPressAndHold: displayToast(qsTr("Zębatka: ustawienia paska — pokaż/ukryj, krawędź, rozmiar kafli, tryby, edycja kafli."))
+    }
+  }
+  } // naglowekPaska
 
   QfToolButton {
     id: fastModeButton
@@ -1745,13 +1824,41 @@ Column {
 
   Component.onCompleted: refreshLayers()
 
+  // [WF-QC-FIT] 24.11.2026 — kafle w siatce: jedna kolumna, gdy się mieszczą,
+  // dwie, gdy nie; przewijanie, gdy i dwie nie wystarczą.
+  Flickable {
+    id: kafleFlick
+
+    readonly property real available: quickCaptureBar.maxWysokosc > 0 ? Math.max(quickCaptureBar.qcRozmiarDomyslny, quickCaptureBar.maxWysokosc - kafleFlick.y) : 100000
+
+    width: kafleSiatka.width
+    height: Math.min(kafleSiatka.height, available)
+    x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
+    contentWidth: kafleSiatka.width
+    contentHeight: kafleSiatka.height
+    clip: kafleSiatka.height > height
+    interactive: kafleSiatka.height > height
+    boundsBehavior: Flickable.StopAtBounds
+    flickableDirection: Flickable.VerticalFlick
+
+    ScrollIndicator.vertical: ScrollIndicator {
+      active: kafleFlick.interactive
+    }
+
+  Grid {
+    id: kafleSiatka
+
+    flow: Grid.TopToBottom
+    rows: quickCaptureBar.tileRows(kafleFlick.available)
+    spacing: quickCaptureBar.qcOdstep
+    horizontalItemAlignment: quickCaptureBar.qcWyrownanie === "lewo" ? Grid.AlignLeft : quickCaptureBar.qcWyrownanie === "prawo" ? Grid.AlignRight : Grid.AlignHCenter
+
   Repeater {
     model: quickCaptureBar.resolvedLayers
 
     delegate: Rectangle {
-      width: modelData.rozmiar ? modelData.rozmiar : quickCaptureBar.qcRozmiarDomyslny
+      width: quickCaptureBar.tileSize(modelData) // [WF-QC-OPTIONS]
       height: width
-      x: quickCaptureBar.qcWyrownanie === "lewo" ? 0 : quickCaptureBar.qcWyrownanie === "prawo" ? parent.width - width : (parent.width - width) / 2
       radius: modelData.shape === "circle" ? width / 2 : modelData.shape === "rounded" ? 16 : 6
       color: modelData.color
       border.color: "#003D33"
@@ -1850,6 +1957,8 @@ Column {
       }
     }
   }
+  } // kafleSiatka
+  } // kafleFlick
 
   // WorkField: ile stad do obiektu?
   // [WF-WINDOW-FRAME] 24.10.2026 — common frame: ← in the title bar (a tap on a choice acts at once)

@@ -541,14 +541,6 @@
   ],
   "wyposazenie": [
     {
-      "modul": "przyciaganie",
-      "wersja": 1
-    },
-    {
-      "modul": "bez_nakladania",
-      "wersja": 1
-    },
-    {
       "modul": "klawisze",
       "wersja": 1
     },

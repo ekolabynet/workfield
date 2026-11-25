@@ -212,6 +212,80 @@ ColumnLayout {
       }
     }
 
+    // [WF-OSM-VECTOR] WorkFieldGIS 24.11.2026 — Piotr: podkład wektorowy OSM
+    // dokładany do każdego projektu; tu się go wyłącza.
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      text: qsTr("Podkład mapy")
+      color: Theme.secondaryTextColor
+      font: Theme.strongTipFont
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Switch {
+        id: osmBasemapSwitch
+        checked: settings.valueBool('WorkField/osmVectorBasemap', true)
+        onToggled: settings.setValue('WorkField/osmVectorBasemap', checked)
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Podkład wektorowy OpenStreetMap w każdym projekcie")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Dokładany przy otwarciu, zapisie i zakładaniu projektu, zawsze na dole legendy. Kafle z OpenFreeMap, potrzebna sieć. Wyłączenie nie usuwa podkładu z projektów, które już go mają.")
+      color: Theme.secondaryTextColor
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
+    }
+
+    // [WF-AUTO-EQUIP] WorkFieldGIS 24.11.2026 — Piotr: identyfikatory
+    // i wyposażenie uzupełniane przy otwarciu projektu; tu się to wyłącza.
+    Text {
+      Layout.fillWidth: true
+      Layout.topMargin: 6
+      text: qsTr("Uzupełnianie projektu")
+      color: Theme.secondaryTextColor
+      font: Theme.strongTipFont
+    }
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: 8
+
+      Switch {
+        id: autoEquipSwitch
+        checked: settings.valueBool('WorkField/autoEquipProject', true)
+        onToggled: settings.setValue('WorkField/autoEquipProject', checked)
+      }
+
+      Text {
+        Layout.fillWidth: true
+        text: qsTr("Identyfikatory obiektów (uuid) i wyposażenie przy otwarciu projektu")
+        color: Theme.mainTextColor
+        font: Theme.tipFont
+        wrapMode: Text.Wrap
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      text: qsTr("Warstwy bez obiektów — od razu. Warstwy z danymi i moduły — po pytaniu, z kopią bazy i projektu w katalogu „kopie”. Wyłączone: zostaje samo ostrzeżenie i przycisk w oknie „Co jest nie tak”.")
+      color: Theme.secondaryTextColor
+      font: Theme.tinyFont
+      wrapMode: Text.Wrap
+    }
+
     // [WF-SOUNDS] Dźwięki i ostrzeżenia RTK — Piotr 23.10: dźwięk (głośność,
     // długość) i haptyka (siła, wyżej: „Wibracje”) ustawiane niezależnie.
     Text {

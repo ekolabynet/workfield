@@ -100,6 +100,14 @@ Drawer {
       // Ta sama droga, co wpis GNSS linijke wyzej.
       mainWindow.pokazUstawienia("teren");
       return;
+    case "pasekSzybkiegoZapisu": // [WF-QC-OPTIONS] 24.11.2026
+      dataDrawer.close();
+      quickCaptureOptions.openOptions();
+      return;
+    case "ukladyWarstw": // [WF-CRS-DETECT] 24.11.2026
+      dataDrawer.close();
+      mainWindow.crsCheckProject("narzedzia");
+      return;
     case "klawisze":
       dataDrawer.close();
       captureSettings.openDialog();
@@ -260,6 +268,7 @@ Drawer {
     { "label": qsTr("Ustawienia terenowe"), "action": "teren", "ikona": "wfg_teren" },
     { "label": qsTr("Klawisze szybkiego zapisu"), "action": "klawisze", "ikona": "wfg_zapisz", "polka": "zaawansowana" },
     { "label": qsTr("Wyposażenie projektu"), "action": "wyposazenie", "ikona": "wfg_wlasciwosci", "polka": "zaawansowana" },
+    { "label": qsTr("Układy warstw \u2014 sprawdź"), "action": "ukladyWarstw", "ikona": "wfg_lupa" }, // [WF-CRS-DETECT] 24.11.2026
     { "label": qsTr("Pliki"), "action": "pliki", "ikona": "wfg_przeglad" }, // [WF-FILE-BROWSER] was "Pliki aplikacji" (+ "Folder aplikacji")
     { "label": qsTr("Spis plików \u2014 co zniknęło"), "action": "spis", "ikona": "wfg_przeglad", "polka": "zaawansowana" },
     { "label": qsTr("Kopia na nośnik"), "action": "kopia", "ikona": "wfg_paczka", "polka": "zaawansowana" }
@@ -763,6 +772,64 @@ Drawer {
         //  3. Niebo, Teren i edytor plikow byly osiagalne wylacznie z trzeciego
         //     poziomu (Niebo: Narzedzia > Diagnostyka > stopka; Teren i edytor:
         //     LEWA szuflada > Dane > Teren > na sam dol). Wchodza na poziom 1.
+        // [WF-QC-OPTIONS] WorkFieldGIS 24.11.2026 — Piotr 22:48: „wyraźne
+        // ustawienie w panelu Narzędzia — jako osobny duży punkt”. Karta nad
+        // listą, nie wiersz w niej; to samo okno otwiera zębatka na pasku.
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.margins: 6
+          Layout.preferredHeight: 64
+          radius: 8
+          color: kartaPaskaMysz.pressed ? Qt.darker(t.mainColor, 1.3) : t.mainColor
+          border.color: "white"
+          border.width: 1
+
+          RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            spacing: 12
+
+            Image {
+              Layout.preferredWidth: 32
+              Layout.preferredHeight: 32
+              source: t.getThemeVectorIcon("ic_settings_white_24dp")
+              sourceSize.width: 64
+              sourceSize.height: 64
+            }
+
+            ColumnLayout {
+              Layout.fillWidth: true
+              spacing: 2
+
+              Text {
+                Layout.fillWidth: true
+                text: qsTr("Pasek szybkiego zapisu")
+                color: "white"
+                font: t.strongFont
+                elide: Text.ElideRight
+              }
+
+              Text {
+                Layout.fillWidth: true
+                text: qsTr("%1 · krawędź: %2 · kafli: %3")
+                        .arg(quickCaptureOptions.barShown ? qsTr("włączony") : qsTr("wyłączony"))
+                        .arg(quickCaptureBar.qcKrawedz === "lewa" ? qsTr("lewa") : qsTr("prawa"))
+                        .arg(quickCaptureBar.resolvedLayers.length)
+                color: "#E0F2F1"
+                font: t.tinyFont
+                elide: Text.ElideRight
+              }
+            }
+          }
+
+          MouseArea {
+            id: kartaPaskaMysz
+            anchors.fill: parent
+            onClicked: dataDrawer.wykonajNarzedzie("pasekSzybkiegoZapisu")
+          }
+        }
+
         // ── Wtyczki ─────────────────────────────────────────────
         Item {
           id: sekcjaWtyczek

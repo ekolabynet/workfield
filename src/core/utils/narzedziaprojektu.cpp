@@ -26,6 +26,25 @@
 #include <QLoggingCategory> // [WF-PERF]
 #include <algorithm>        // [WF-PERF]
 #include <qgsmessagelog.h>  // [WF-PERF]
+#include <cmath>                     // [WF-CRS-STATE]
+#include <qgscoordinatetransform.h>  // [WF-CRS-STATE]
+#include <qgsexception.h>            // [WF-CRS-STATE]
+#include <QNetworkRequest>              // [WF-OSM-VECTOR]
+#include <qgsblockingnetworkrequest.h>  // [WF-OSM-VECTOR]
+#include <qgsdatasourceuri.h>           // [WF-OSM-VECTOR]
+#include <qgsjsonutils.h>               // [WF-OSM-VECTOR]
+#include <qgslayermetadata.h>           // [WF-OSM-VECTOR]
+#include <qgsmapboxglstyleconverter.h>  // [WF-OSM-VECTOR]
+#include <qgsvectortilelabeling.h>      // [WF-OSM-VECTOR]
+#include <qgsvectortilelayer.h>         // [WF-OSM-VECTOR]
+#include <qgsvectortilerenderer.h>      // [WF-OSM-VECTOR]
+#include <memory>                       // [WF-CRS-DETECT]
+#include <qgsrasterlayer.h>             // [WF-CRS-DETECT]
+#include <qgsvectorfilewriter.h>        // [WF-CRS-DETECT]
+#include <qgscategorizedsymbolrenderer.h> // [WF-CRS-CONVERT-STYLE]
+#include <qgsembeddedsymbolrenderer.h>    // [WF-CRS-CONVERT-STYLE]
+#include <qgssymbol.h>                    // [WF-CRS-CONVERT-STYLE]
+#include <qgssymbollayerutils.h>          // [WF-CRS-CONVERT-STYLE]
 #include <QDomDocument> // WF-DUPLIKAT
 #include <QRegularExpression> // WF-DUPLIKAT
 
@@ -82,6 +101,7 @@
 //
 // Punkt pomiarowy zostaje w kodzie (ZASADY_LATEK.md).
 Q_LOGGING_CATEGORY( wfgPerformance, "workfield.performance", QtWarningMsg )
+Q_LOGGING_CATEGORY( wfgCrs, "workfield.crs", QtWarningMsg ) // [WF-CRS-STATE]
 static constexpr qint64 kSlowStatusMs = 300; // [WF-PERF]
 
 NarzedziaProjektu::NarzedziaProjektu( QObject *parent )
@@ -897,6 +917,940 @@ bool NarzedziaProjektu::odstempluj( const QString &gpkg, const QString &modul ) 
 }
 
 // ------------------------------------------------------------------------- pliki
+
+// WorkFieldGIS 24.11.2026 — [WF-CRS-REPROJECT] przeliczenie warstwy ze stopni WGS84
+// na jej układ metryczny (claude/DIAGNOZA_SOLTYKA_CZWARTEK_pusty_CRS_2026-11-24.md).
+// Decyzja Piotra 24.11: czasownik ma być na telefonie, żeby złe dane nie szły dalej
+// (kopie, eksport CAD, zwrot). Bezpieczniki: wszystko albo nic, migawka bazy przed
+// zmianą, jedna sesja edycji z dziennikiem, sprawdzenie obszaru układu po przeliczeniu.
+QVariantMap NarzedziaProjektu::reprojectDegreesLayer( QgsProject *project, const QString &layerName )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  const auto fail = [&result]( const QString &text ) {
+    result.insert( QStringLiteral( "opis" ), text );
+    qCWarning( wfgCrs, "WorkField [WF-CRS-REPROJECT]: %s", qPrintable( text ) );
+    return result;
+  };
+
+  if ( !project )
+    return fail( tr( "Nie ma otwartego projektu." ) );
+  if ( !project->crs().isValid() )
+    return fail( tr( "Najpierw ustaw układ projektu (przycisk przy pierwszym ostrzeżeniu). "
+                     "Bez niego nowe punkty dalej trafiałyby w stopniach." ) );
+  QgsVectorLayer *layer = znajdzWarstwe( project, layerName );
+  if ( !layer || !layer->isSpatial() )
+    return fail( tr( "Nie ma w projekcie warstwy „%1”." ).arg( layerName ) );
+  const QgsCoordinateReferenceSystem layerCrs = layer->crs();
+  if ( !layerCrs.isValid() || layerCrs.isGeographic() )
+    return fail( tr( "Warstwa „%1” nie jest w układzie metrycznym — nie ma czego przeliczać." ).arg( layer->name() ) );
+  if ( layer->isEditable() && layer->isModified() )
+    return fail( tr( "Warstwa „%1” ma niezapisane zmiany. Zapisz je albo odrzuć i spróbuj jeszcze raz." ).arg( layer->name() ) );
+  const QString gpkg = JournalUtils::gpkgPath( layer );
+  if ( gpkg.isEmpty() )
+    return fail( tr( "Warstwa „%1” nie leży w GeoPackage — tego nie przeliczam." ).arg( layer->name() ) );
+
+  // 1. Wszystko albo nic: najpierw liczymy w pamięci i sprawdzamy KAŻDY obiekt.
+  QgsCoordinateTransform toLayer;
+  QgsRectangle area;
+  try
+  {
+    toLayer = QgsCoordinateTransform( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ), layerCrs, project->transformContext() );
+    area = toLayer.transformBoundingBox( layerCrs.bounds() );
+  }
+  catch ( QgsCsException & )
+  {
+    area = QgsRectangle();
+  }
+  if ( area.isNull() )
+    return fail( tr( "Nie znam obszaru układu %1, więc nie umiem sprawdzić wyniku. Nic nie zmieniłem." ).arg( layerCrs.authid() ) );
+
+  QHash<QgsFeatureId, QgsGeometry> converted;
+  int skipped = 0;
+  QgsFeatureRequest request;
+  request.setNoAttributes();
+  QgsFeatureIterator iterator = layer->getFeatures( request );
+  QgsFeature feature;
+  while ( iterator.nextFeature( feature ) )
+  {
+    QgsGeometry geometry = feature.geometry();
+    if ( geometry.isNull() || geometry.isEmpty() )
+    {
+      ++skipped;
+      continue;
+    }
+    const QgsRectangle box = geometry.boundingBox();
+    if ( std::fabs( box.xMinimum() ) > 180.0 || std::fabs( box.xMaximum() ) > 180.0
+         || std::fabs( box.yMinimum() ) > 90.0 || std::fabs( box.yMaximum() ) > 90.0 )
+      return fail( tr( "Obiekt fid %1 w warstwie „%2” nie jest w stopniach — warstwa jest mieszana. "
+                       "Nic nie zmieniłem; to trzeba rozdzielić w biurze." )
+                     .arg( feature.id() )
+                     .arg( layer->name() ) );
+    try
+    {
+      if ( geometry.transform( toLayer ) != Qgis::GeometryOperationResult::Success )
+        return fail( tr( "Nie udało się przeliczyć obiektu fid %1. Nic nie zmieniłem." ).arg( feature.id() ) );
+    }
+    catch ( QgsCsException & )
+    {
+      return fail( tr( "Nie udało się przeliczyć obiektu fid %1. Nic nie zmieniłem." ).arg( feature.id() ) );
+    }
+    if ( !area.contains( geometry.boundingBox().center() ) )
+      return fail( tr( "Obiekt fid %1 po przeliczeniu wypada poza obszar układu %2. Nic nie zmieniłem." )
+                     .arg( feature.id() )
+                     .arg( layerCrs.authid() ) );
+    converted.insert( feature.id(), geometry );
+  }
+  if ( converted.isEmpty() )
+    return fail( tr( "W warstwie „%1” nie ma czego przeliczać." ).arg( layer->name() ) );
+
+  // 2. Migawka bazy PRZED zmianą: dziennik WAL do pliku, kopia, quick_check na kopii.
+  const QVariantMap snapshot = migawkaBazy( gpkg, QFileInfo( gpkg ).absolutePath() + QStringLiteral( "/kopie" ) );
+  if ( !snapshot.value( QStringLiteral( "ok" ) ).toBool() )
+    return fail( tr( "Nie udało się zrobić kopii bazy przed przeliczeniem (%1). Nic nie zmieniłem." )
+                   .arg( snapshot.value( QStringLiteral( "blad" ) ).toString() ) );
+
+  // 3. Jedna sesja edycji: wyzwalacze WF_JOURNAL zapisują stare geometrie, a
+  //    zasięg w gpkg_contents i indeks przestrzenny odświeża dostawca (sprawdzone
+  //    24.11 na QGIS 3.34 / GDAL 3.8).
+  const bool wasEditable = layer->isEditable();
+  if ( !wasEditable && !layer->startEditing() )
+    return fail( tr( "Warstwy „%1” nie da się edytować. Nic nie zmieniłem." ).arg( layer->name() ) );
+  {
+    JournalUtils::OperationScope journalScope( layer, QStringLiteral( "reproject_degrees" ), layerCrs.authid() );
+    for ( auto it = converted.constBegin(); it != converted.constEnd(); ++it )
+    {
+      QgsGeometry geometry = it.value(); // changeGeometry() bierze referencję niestałą
+      if ( !layer->changeGeometry( it.key(), geometry ) )
+      {
+        layer->rollBack( !wasEditable );
+        return fail( tr( "Nie udało się zmienić obiektu fid %1. Nic nie zapisałem." ).arg( it.key() ) );
+      }
+    }
+    if ( !layer->commitChanges( !wasEditable ) )
+    {
+      const QString errors = layer->commitErrors().join( QStringLiteral( "; " ) );
+      layer->rollBack( !wasEditable );
+      return fail( tr( "Zapis się nie udał: %1. Kopia bazy sprzed próby: %2" )
+                     .arg( errors, snapshot.value( QStringLiteral( "sciezka" ) ).toString() ) );
+    }
+  }
+  layer->updateExtents( true );
+  layer->triggerRepaint();
+
+  QString text = tr( "Przeliczyłem %1 obiektów warstwy „%2” ze stopni WGS84 na %3. Kopia bazy sprzed zmiany: kopie/%4." )
+                   .arg( converted.size() )
+                   .arg( layer->name(), layerCrs.authid(), snapshot.value( QStringLiteral( "nazwa" ) ).toString() );
+  if ( skipped > 0 )
+    text += QLatin1Char( ' ' ) + tr( "Bez geometrii, pominięte: %1." ).arg( skipped );
+  result.insert( QStringLiteral( "ok" ), true );
+  result.insert( QStringLiteral( "opis" ), text );
+  result.insert( QStringLiteral( "przeliczone" ), converted.size() );
+  result.insert( QStringLiteral( "kopia" ), snapshot.value( QStringLiteral( "sciezka" ) ) );
+  qCWarning( wfgCrs, "WorkField [WF-CRS-REPROJECT]: %s", qPrintable( text ) );
+  return result;
+}
+
+// ========================================================================
+// WorkFieldGIS 24.11.2026 — [WF-CRS-DETECT] układ warstwy z wartości współrzędnych
+// ========================================================================
+// Decyzje Piotra 24.11.2026, 23:4x: w projektach mieszanych układ rozpoznajemy po
+// wartościach współrzędnych (EPSG 4326, 3857, 2180, 2176–2179, z miejscem na
+// kolejne). Kolizję zadeklarowanego układu z rozpoznanym, różniącą się rzędami
+// wielkości, pokazujemy do zatwierdzenia: transformacja w locie (warstwa dostaje
+// układ, dane bez zmian) albo konwersja (kopia w nowej tabeli dane.gpkg w układzie
+// projektu; oryginał zostaje na dysku). Oba wybory także na telefonie. Obiekty
+// rysunku przy 0,0 (współrzędne lokalne obok państwowych, Adamowizna) — widok bez
+// nich, komunikat, przy konwersji pominięte.
+namespace
+{
+  struct CrsWindow
+  {
+      const char *authid;
+      double xMin;
+      double xMax;
+      double yMin;
+      double yMax;
+  };
+
+  // Polska z zapasem ok. 50 km. Okna się nie nakładają, a „lokalne” (|x| i |y|
+  // poniżej 100 km) nie nachodzi na 1992 (od 100 km). Kolejne układy: tutaj.
+  const CrsWindow kCrsWindows[] = {
+    { "EPSG:4326", 13.5, 24.7, 48.5, 55.3 },
+    { "EPSG:3857", 1.50e6, 2.75e6, 6.20e6, 7.45e6 },
+    { "EPSG:2180", 1.0e5, 9.0e5, 1.0e5, 8.2e5 },
+    { "EPSG:2176", 5.25e6, 5.75e6, 5.35e6, 6.15e6 },
+    { "EPSG:2177", 6.25e6, 6.75e6, 5.35e6, 6.15e6 },
+    { "EPSG:2178", 7.25e6, 7.75e6, 5.35e6, 6.15e6 },
+    { "EPSG:2179", 8.25e6, 8.75e6, 5.35e6, 6.15e6 },
+  };
+  constexpr int kCrsWindowCount = static_cast<int>( sizeof( kCrsWindows ) / sizeof( kCrsWindows[0] ) );
+  constexpr double kCrsLocalLimit = 1.0e5;
+  constexpr long long kCrsIterateLimit = 200000;
+  constexpr int kCrsLocal = -2;
+  constexpr int kCrsNone = -1;
+  constexpr int kCrsMixed = -3;
+
+  bool crsInWindow( const CrsWindow &window, double x, double y )
+  {
+    return x >= window.xMin && x <= window.xMax && y >= window.yMin && y <= window.yMax;
+  }
+
+  // 0..n-1: okno; n..2n-1: okno z zamienionymi osiami; kCrsLocal; kCrsNone
+  int crsClassifyPoint( double x, double y )
+  {
+    for ( int i = 0; i < kCrsWindowCount; ++i )
+      if ( crsInWindow( kCrsWindows[i], x, y ) )
+        return i;
+    for ( int i = 0; i < kCrsWindowCount; ++i )
+      if ( crsInWindow( kCrsWindows[i], y, x ) )
+        return kCrsWindowCount + i;
+    if ( std::fabs( x ) < kCrsLocalLimit && std::fabs( y ) < kCrsLocalLimit )
+      return kCrsLocal;
+    return kCrsNone;
+  }
+
+  int crsClassifyRect( const QgsRectangle &rect )
+  {
+    const int a = crsClassifyPoint( rect.xMinimum(), rect.yMinimum() );
+    const int b = crsClassifyPoint( rect.xMaximum(), rect.yMaximum() );
+    return a == b ? a : kCrsMixed;
+  }
+
+  const CrsWindow *crsWindowFor( const QString &authid )
+  {
+    for ( int i = 0; i < kCrsWindowCount; ++i )
+      if ( authid == QLatin1String( kCrsWindows[i].authid ) )
+        return &kCrsWindows[i];
+    return nullptr;
+  }
+
+  bool crsSame( const QgsCoordinateReferenceSystem &declared, const QString &detected )
+  {
+    if ( !declared.isValid() )
+      return false;
+    if ( declared.authid() == detected )
+      return true;
+    if ( detected == QLatin1String( "EPSG:4326" ) && declared.isGeographic() )
+      return true;
+    const QgsCoordinateReferenceSystem candidate( detected );
+    return candidate.isValid() && declared.toProj() == candidate.toProj();
+  }
+
+  bool crsCheckableLayer( QgsMapLayer *layer )
+  {
+    if ( QgsVectorLayer *vector = qobject_cast<QgsVectorLayer *>( layer ) )
+    {
+      const QString provider = vector->providerType();
+      return vector->isSpatial()
+             && ( provider == QLatin1String( "ogr" ) || provider == QLatin1String( "spatialite" ) || provider == QLatin1String( "delimitedtext" ) );
+    }
+    if ( QgsRasterLayer *raster = qobject_cast<QgsRasterLayer *>( layer ) )
+    {
+      if ( raster->providerType() != QLatin1String( "gdal" ) )
+        return false;
+      return QFileInfo::exists( raster->source().section( QLatin1Char( '|' ), 0, 0 ) );
+    }
+    return false;
+  }
+
+  QString crsNumber( double value )
+  {
+    return std::fabs( value ) < 1000.0 ? QString::number( value, 'f', 4 ) : QString::number( value, 'f', 0 );
+  }
+
+  QString crsTableName( const QString &name )
+  {
+    static const QString from = QStringLiteral( "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ" );
+    static const QString to = QStringLiteral( "acelnoszzACELNOSZZ" );
+    QString out;
+    for ( const QChar c : name )
+    {
+      const int i = from.indexOf( c );
+      const QChar plain = i >= 0 ? to.at( i ) : c;
+      if ( plain.unicode() < 128 && ( plain.isLetterOrNumber() || plain == QLatin1Char( '_' ) ) )
+        out += plain;
+      else if ( !out.endsWith( QLatin1Char( '_' ) ) )
+        out += QLatin1Char( '_' );
+    }
+    while ( out.endsWith( QLatin1Char( '_' ) ) )
+      out.chop( 1 );
+    while ( out.startsWith( QLatin1Char( '_' ) ) )
+      out.remove( 0, 1 );
+    if ( out.isEmpty() )
+      out = QStringLiteral( "warstwa" );
+    if ( out.at( 0 ).isDigit() )
+      out.prepend( QStringLiteral( "w_" ) );
+    return out.left( 40 );
+  }
+
+  bool crsTableExists( const QString &gpkg, const QString &table )
+  {
+    if ( !QFile::exists( gpkg ) )
+      return false;
+    GDALAllRegister();
+    GDALDatasetH dataset = GDALOpenEx( gpkg.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr );
+    if ( !dataset )
+      return false;
+    const bool taken = GDALDatasetGetLayerByName( dataset, table.toUtf8().constData() ) != nullptr;
+    GDALClose( dataset );
+    return taken;
+  }
+} // namespace
+
+QVariantMap NarzedziaProjektu::detectLayerCrs( QgsProject *project, const QString &layerId ) const
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "layerId" ), layerId );
+  result.insert( QStringLiteral( "kind" ), QStringLiteral( "skip" ) );
+  if ( !project )
+    return result;
+  QgsMapLayer *layer = project->mapLayer( layerId );
+  if ( !layer || !layer->isValid() || !crsCheckableLayer( layer ) )
+    return result;
+
+  QgsVectorLayer *vector = qobject_cast<QgsVectorLayer *>( layer );
+  const QgsCoordinateReferenceSystem declared = layer->crs();
+  result.insert( QStringLiteral( "name" ), layer->name() );
+  result.insert( QStringLiteral( "declared" ), declared.isValid() ? declared.authid() : QString() );
+  result.insert( QStringLiteral( "canConvert" ), vector != nullptr );
+
+  const QgsRectangle extent = layer->extent();
+  if ( extent.isNull() || !std::isfinite( extent.xMinimum() ) || !std::isfinite( extent.yMaximum() ) )
+    return result;
+
+  const int rectClass = crsClassifyRect( extent );
+  int best = kCrsNone;
+  long long total = 0;
+  long long inside = 0;
+  long long local = 0;
+  QgsRectangle mainBox;
+
+  if ( rectClass == kCrsMixed && vector && vector->featureCount() <= kCrsIterateLimit )
+  {
+    // Rozjazd w zasięgu: liczymy obiekty. Środek ramki obiektu decyduje o oknie.
+    QVector<long long> counts( 2 * kCrsWindowCount, 0 );
+    QVector<QgsRectangle> boxes( 2 * kCrsWindowCount );
+    QVector<bool> hasBox( 2 * kCrsWindowCount, false );
+    QgsFeatureRequest request;
+    request.setNoAttributes();
+    QgsFeatureIterator iterator = vector->getFeatures( request );
+    QgsFeature feature;
+    while ( iterator.nextFeature( feature ) )
+    {
+      if ( !feature.hasGeometry() )
+        continue;
+      const QgsRectangle box = feature.geometry().boundingBox();
+      if ( box.isNull() )
+        continue;
+      ++total;
+      const QgsPointXY center = box.center();
+      const int c = crsClassifyPoint( center.x(), center.y() );
+      if ( c >= 0 )
+      {
+        ++counts[c];
+        if ( !hasBox[c] )
+        {
+          boxes[c] = box;
+          hasBox[c] = true;
+        }
+        else
+        {
+          boxes[c].combineExtentWith( box );
+        }
+      }
+      else if ( c == kCrsLocal )
+      {
+        ++local;
+      }
+    }
+    for ( int i = 0; i < counts.size(); ++i )
+      if ( counts[i] > 0 && ( best < 0 || counts[i] > counts[best] ) )
+        best = i;
+    if ( best >= 0 )
+    {
+      inside = counts[best];
+      mainBox = boxes[best];
+    }
+  }
+  else if ( rectClass >= 0 )
+  {
+    best = rectClass;
+    total = vector ? vector->featureCount() : 1;
+    inside = total;
+    mainBox = extent;
+  }
+  else if ( rectClass == kCrsLocal )
+  {
+    total = vector ? vector->featureCount() : 1;
+    local = total;
+  }
+
+  result.insert( QStringLiteral( "total" ), total );
+  result.insert( QStringLiteral( "inside" ), inside );
+  result.insert( QStringLiteral( "outside" ), best >= 0 ? total - inside : 0 );
+  result.insert( QStringLiteral( "local" ), local );
+  const QString extentText = QStringLiteral( "x %1…%2, y %3…%4" )
+                               .arg( crsNumber( extent.xMinimum() ), crsNumber( extent.xMaximum() ),
+                                     crsNumber( extent.yMinimum() ), crsNumber( extent.yMaximum() ) );
+  result.insert( QStringLiteral( "zakres" ), extentText );
+
+  if ( best < 0 )
+  {
+    if ( total > 0 && local == total )
+    {
+      result.insert( QStringLiteral( "kind" ), QStringLiteral( "local" ) );
+      result.insert( QStringLiteral( "opis" ),
+                     tr( "„%1”: współrzędne lokalne rysunku (blisko punktu 0,0: %2), bez położenia w układzie państwowym. "
+                         "Rysunek trzeba najpierw dowiązać do układu w programie CAD." )
+                       .arg( layer->name(), extentText ) );
+    }
+    else
+    {
+      result.insert( QStringLiteral( "kind" ), QStringLiteral( "unknown" ) );
+      result.insert( QStringLiteral( "opis" ), tr( "„%1”: nie rozpoznaję układu po współrzędnych (%2)." ).arg( layer->name(), extentText ) );
+    }
+    return result;
+  }
+
+  const bool swapped = best >= kCrsWindowCount;
+  const QString detected = QLatin1String( kCrsWindows[best % kCrsWindowCount].authid );
+  const long long outside = total - inside;
+  result.insert( QStringLiteral( "detected" ), detected );
+  result.insert( QStringLiteral( "swapped" ), swapped );
+
+  // Główna część rysunku w układzie projektu — do przybliżenia widoku.
+  QgsRectangle rawBox = mainBox;
+  if ( swapped )
+    rawBox = QgsRectangle( mainBox.yMinimum(), mainBox.xMinimum(), mainBox.yMaximum(), mainBox.xMaximum() );
+  const QgsCoordinateReferenceSystem detectedCrs( detected );
+  QgsCoordinateReferenceSystem viewFrom = crsSame( declared, detected ) ? declared : detectedCrs;
+  QgsRectangle viewBox;
+  try
+  {
+    if ( project->crs().isValid() && viewFrom.isValid() )
+      viewBox = QgsCoordinateTransform( viewFrom, project->crs(), project->transformContext() ).transformBoundingBox( rawBox );
+  }
+  catch ( QgsCsException & )
+  {
+    viewBox = QgsRectangle();
+  }
+  if ( !viewBox.isNull() )
+    result.insert( QStringLiteral( "extent" ), QVariant::fromValue( viewBox ) );
+
+  const QString declaredText = declared.isValid() ? ( declared.authid().isEmpty() ? declared.description() : declared.authid() ) : tr( "brak" );
+  const QString outsideText = outside > 0
+                                ? QLatin1Char( ' ' ) + tr( "%1 z %2 obiektów leży poza obszarem tego układu (np. przy punkcie 0,0) — "
+                                                           "widok ich nie obejmuje, a konwersja je pominie." )
+                                                         .arg( outside )
+                                                         .arg( total )
+                                : QString();
+
+  if ( swapped )
+  {
+    result.insert( QStringLiteral( "kind" ), QStringLiteral( "swapped" ) );
+    result.insert( QStringLiteral( "opis" ),
+                   tr( "„%1”: współrzędne mają zamienione osie X i Y (%2) — to %3 w odwróconej kolejności. "
+                       "Transformacja w locie tego nie naprawi; konwersja zamieni osie i przeliczy do układu projektu." )
+                       .arg( layer->name(), extentText, detected )
+                     + outsideText );
+  }
+  else if ( crsSame( declared, detected ) )
+  {
+    result.insert( QStringLiteral( "kind" ), outside > 0 ? QStringLiteral( "outliers" ) : QStringLiteral( "ok" ) );
+    if ( outside > 0 )
+      result.insert( QStringLiteral( "opis" ),
+                     tr( "„%1”: układ %2 się zgadza, ale %3 z %4 obiektów leży poza jego obszarem (np. przy punkcie 0,0). "
+                         "Widok pokazuje resztę rysunku; konwersja by je pominęła." )
+                       .arg( layer->name(), detected )
+                       .arg( outside )
+                       .arg( total ) );
+  }
+  else
+  {
+    result.insert( QStringLiteral( "kind" ), QStringLiteral( "collision" ) );
+    result.insert( QStringLiteral( "opis" ),
+                   tr( "„%1”: zapisany układ %2, a współrzędne (%3) pasują do %4." )
+                       .arg( layer->name(), declaredText, extentText, detected )
+                     + outsideText );
+  }
+  return result;
+}
+
+QVariantMap NarzedziaProjektu::checkProjectCrs( QgsProject *project ) const
+{
+  QVariantMap result;
+  QVariantList entries;
+  int checked = 0;
+  QElapsedTimer timer;
+  timer.start();
+  if ( project )
+  {
+    const auto layers = project->mapLayers();
+    for ( auto it = layers.constBegin(); it != layers.constEnd(); ++it )
+    {
+      if ( !crsCheckableLayer( it.value() ) )
+        continue;
+      ++checked;
+      const QVariantMap entry = detectLayerCrs( project, it.key() );
+      const QString kind = entry.value( QStringLiteral( "kind" ) ).toString();
+      if ( kind == QLatin1String( "ok" ) || kind == QLatin1String( "skip" ) )
+        continue;
+      entries.append( entry );
+      qCWarning( wfgCrs, "WorkField [WF-CRS-DETECT]: %s — %s", qPrintable( kind ),
+                 qPrintable( entry.value( QStringLiteral( "opis" ) ).toString() ) );
+    }
+  }
+  result.insert( QStringLiteral( "checked" ), checked );
+  result.insert( QStringLiteral( "entries" ), entries );
+  result.insert( QStringLiteral( "ms" ), static_cast<qint64>( timer.elapsed() ) );
+  QgsMessageLog::logMessage( QStringLiteral( "[WF-CRS-DETECT] sprawdzone warstwy: %1, do decyzji: %2, %3 ms" )
+                               .arg( checked )
+                               .arg( entries.size() )
+                               .arg( timer.elapsed() ),
+                             QStringLiteral( "WorkField" ), Qgis::MessageLevel::Info );
+  return result;
+}
+
+QVariantMap NarzedziaProjektu::assignLayerCrs( QgsProject *project, const QString &layerId, const QString &authid )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  QgsMapLayer *layer = project ? project->mapLayer( layerId ) : nullptr;
+  const QgsCoordinateReferenceSystem crs( authid );
+  if ( !layer || !crs.isValid() )
+  {
+    result.insert( QStringLiteral( "opis" ), tr( "Nie ma warstwy albo układu %1." ).arg( authid ) );
+    return result;
+  }
+  const QString before = layer->crs().isValid() ? layer->crs().authid() : tr( "brak" );
+  layer->setCrs( crs );
+  layer->triggerRepaint();
+  const QString text = tr( "„%1”: układ warstwy %2 → %3 (transformacja w locie, dane bez zmian). Zapisz projekt, żeby zostało." )
+                         .arg( layer->name(), before, crs.authid() );
+  result.insert( QStringLiteral( "ok" ), true );
+  result.insert( QStringLiteral( "opis" ), text );
+  QgsMessageLog::logMessage( QStringLiteral( "[WF-CRS-DETECT] %1" ).arg( text ), QStringLiteral( "WorkField" ), Qgis::MessageLevel::Info );
+  return result;
+}
+
+QVariantMap NarzedziaProjektu::convertLayerToProjectDb( QgsProject *project, const QString &layerId, const QString &sourceAuthid, bool swapAxes )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  const auto fail = [&result]( const QString &text ) {
+    result.insert( QStringLiteral( "opis" ), text );
+    qCWarning( wfgCrs, "WorkField [WF-CRS-CONVERT]: %s", qPrintable( text ) );
+    return result;
+  };
+
+  if ( !project )
+    return fail( tr( "Nie ma otwartego projektu." ) );
+  QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( project->mapLayer( layerId ) );
+  if ( !layer || !layer->isValid() || !layer->isSpatial() )
+    return fail( tr( "Konwertować umiem tylko warstwy wektorowe." ) );
+  const QgsCoordinateReferenceSystem target = project->crs();
+  if ( !target.isValid() )
+    return fail( tr( "Projekt nie ma układu współrzędnych — najpierw go ustaw." ) );
+  const QgsCoordinateReferenceSystem source( sourceAuthid );
+  if ( !source.isValid() )
+    return fail( tr( "Nie znam układu %1." ).arg( sourceAuthid ) );
+  if ( layer->isEditable() && layer->isModified() )
+    return fail( tr( "Warstwa „%1” ma niezapisane zmiany. Zapisz je albo odrzuć i spróbuj jeszcze raz." ).arg( layer->name() ) );
+  if ( project->fileName().isEmpty() )
+    return fail( tr( "Projekt nie jest zapisany — nie wiem, gdzie leży jego baza." ) );
+
+  const QString projectDir = QFileInfo( project->fileName() ).absolutePath();
+  QString gpkg = plikDanych( project );
+  if ( gpkg.isEmpty() )
+    gpkg = projectDir + QStringLiteral( "/dane.gpkg" );
+
+  const QString base = crsTableName( layer->name() ) + QLatin1Char( '_' ) + target.authid().section( QLatin1Char( ':' ), 1 );
+  QString table = base;
+  for ( int n = 2; crsTableExists( gpkg, table ) || znajdzWarstwe( project, table ); ++n )
+    table = base + QLatin1Char( '_' ) + QString::number( n );
+
+  QString snapshotName;
+  if ( QFile::exists( gpkg ) )
+  {
+    const QVariantMap snapshot = migawkaBazy( gpkg, QFileInfo( gpkg ).absolutePath() + QStringLiteral( "/kopie" ) );
+    if ( !snapshot.value( QStringLiteral( "ok" ) ).toBool() )
+      return fail( tr( "Nie udało się zrobić kopii bazy przed konwersją (%1). Nic nie zmieniłem." )
+                     .arg( snapshot.value( QStringLiteral( "blad" ) ).toString() ) );
+    snapshotName = snapshot.value( QStringLiteral( "nazwa" ) ).toString();
+  }
+
+  QgsCoordinateTransform transform( source, target, project->transformContext() );
+  const CrsWindow *window = crsWindowFor( source.authid() );
+
+  QgsVectorFileWriter::SaveVectorOptions options;
+  options.driverName = QStringLiteral( "GPKG" );
+  options.layerName = table;
+  options.fileEncoding = QStringLiteral( "UTF-8" );
+  options.actionOnExistingFile = QFile::exists( gpkg ) ? QgsVectorFileWriter::CreateOrOverwriteLayer : QgsVectorFileWriter::CreateOrOverwriteFile;
+  // [WF-CRS-CONVERT-STYLE] 25.11.2026 — rysunek CAD (DXF) nie ma stylu warstwy:
+  // kolor i grubość każdej encji podaje sterownik w locie (renderer
+  // „embeddedSymbol”). GeoPackage tego nie umie, więc po konwersji całość
+  // dostawała jeden domyślny kolor (Piotr 7:22, zmierzone na QGIS 3.34).
+  // Styl encji zapisujemy w polu cad_style, a warstwa dostaje styl
+  // kategoryzowany z tymi samymi symbolami.
+  const bool embeddedStyle = layer->renderer() && layer->renderer()->type() == QLatin1String( "embeddedSymbol" );
+  QgsFields outFields = layer->fields();
+  QString styleField;
+  if ( embeddedStyle )
+  {
+    styleField = QStringLiteral( "cad_style" );
+    for ( int n = 2; outFields.lookupField( styleField ) >= 0; ++n )
+      styleField = QStringLiteral( "cad_style_%1" ).arg( n );
+#if _QGIS_VERSION_INT >= 33800
+    outFields.append( QgsField( styleField, QMetaType::Type::QString ) );
+#else
+    outFields.append( QgsField( styleField, QVariant::String ) );
+#endif
+  }
+  QHash<QString, QString> styleIds;
+  std::vector<std::pair<QString, std::unique_ptr<QgsSymbol>>> styleSymbols;
+
+  QString newFile;
+  QString newLayerName;
+  std::unique_ptr<QgsVectorFileWriter> writer( QgsVectorFileWriter::create( gpkg, outFields, layer->wkbType(), target, project->transformContext(), options,
+                                                                            QgsFeatureSink::RegeneratePrimaryKey, &newFile, &newLayerName ) );
+  if ( !writer || writer->hasError() )
+    return fail( tr( "Nie da się założyć tabeli %1: %2" ).arg( table, writer ? writer->errorMessage() : QString() ) );
+
+  long long written = 0;
+  long long skipped = 0;
+  long long failed = 0;
+  QgsFeatureRequest request;
+  if ( embeddedStyle )
+#if _QGIS_VERSION_INT >= 33600
+    request.setFlags( Qgis::FeatureRequestFlag::EmbeddedSymbols );
+#else
+    request.setFlags( QgsFeatureRequest::EmbeddedSymbols );
+#endif
+  QgsFeatureIterator iterator = layer->getFeatures( request );
+  QgsFeature feature;
+  while ( iterator.nextFeature( feature ) )
+  {
+    if ( feature.hasGeometry() )
+    {
+      QgsGeometry geometry = feature.geometry();
+      if ( swapAxes )
+        geometry.get()->swapXy();
+      const QgsPointXY center = geometry.boundingBox().center();
+      if ( window && !crsInWindow( *window, center.x(), center.y() ) )
+      {
+        ++skipped;
+        continue;
+      }
+      try
+      {
+        if ( geometry.transform( transform ) != Qgis::GeometryOperationResult::Success )
+        {
+          ++failed;
+          continue;
+        }
+      }
+      catch ( QgsCsException & )
+      {
+        ++failed;
+        continue;
+      }
+      feature.setGeometry( geometry );
+    }
+    if ( embeddedStyle )
+    {
+      QString styleId;
+      if ( const QgsSymbol *symbol = feature.embeddedSymbol() )
+      {
+        const QString key = QgsSymbolLayerUtils::symbolProperties( const_cast<QgsSymbol *>( symbol ) );
+        styleId = styleIds.value( key );
+        if ( styleId.isEmpty() )
+        {
+          styleId = QStringLiteral( "s%1" ).arg( styleIds.size() + 1 );
+          styleIds.insert( key, styleId );
+          styleSymbols.emplace_back( styleId, std::unique_ptr<QgsSymbol>( symbol->clone() ) );
+        }
+      }
+      QgsAttributes attributes = feature.attributes();
+      attributes.append( styleId.isEmpty() ? QVariant() : QVariant( styleId ) );
+      feature.setFields( outFields, false );
+      feature.setAttributes( attributes );
+    }
+    if ( writer->addFeature( feature ) )
+      ++written;
+    else
+      ++failed;
+  }
+  writer.reset();
+
+  if ( failed > 0 )
+    return fail( tr( "%1 obiektów nie dało się przeliczyć albo zapisać. Tabela %2 została w bazie do obejrzenia; "
+                     "warstwa w projekcie bez zmian." )
+                   .arg( failed )
+                   .arg( table ) );
+
+  QgsVectorLayer *fresh = new QgsVectorLayer( gpkg + QStringLiteral( "|layername=" ) + table, layer->name(), QStringLiteral( "ogr" ) );
+  if ( !fresh->isValid() )
+  {
+    delete fresh;
+    return fail( tr( "Tabela %1 jest w bazie, ale nie daje się otworzyć jako warstwa." ).arg( table ) );
+  }
+  // LICZNIKI ROZSTRZYGAJĄ: niezgodność = do projektu nic nie wchodzi.
+  if ( fresh->featureCount() != written )
+  {
+    const long long found = fresh->featureCount();
+    delete fresh;
+    return fail( tr( "Tabela %1 ma %2 obiektów zamiast %3. Warstwa w projekcie bez zmian." ).arg( table ).arg( found ).arg( written ) );
+  }
+
+  QDomDocument style;
+  QString message;
+  layer->exportNamedStyle( style, message );
+  fresh->importNamedStyle( style, message );
+  int styleCount = 0;
+  if ( embeddedStyle && !styleSymbols.empty() )
+  {
+    QgsCategoryList categories;
+    for ( auto &entry : styleSymbols )
+    {
+      const QString label = entry.second->color().name();
+      categories << QgsRendererCategory( entry.first, entry.second.release(), label );
+    }
+    // Obiekty bez stylu w rysunku — symbol domyślny rysunku.
+    if ( const QgsEmbeddedSymbolRenderer *embedded = dynamic_cast<const QgsEmbeddedSymbolRenderer *>( layer->renderer() ) )
+      if ( embedded->defaultSymbol() )
+        categories << QgsRendererCategory( QVariant(), embedded->defaultSymbol()->clone(), tr( "bez stylu w rysunku" ) );
+    styleCount = static_cast<int>( styleSymbols.size() );
+    fresh->setRenderer( new QgsCategorizedSymbolRenderer( styleField, categories ) );
+  }
+
+  project->addMapLayer( fresh, false );
+  QgsLayerTree *root = project->layerTreeRoot();
+  QgsLayerTreeLayer *node = root->findLayer( layer->id() );
+  QgsLayerTreeGroup *parent = node ? qobject_cast<QgsLayerTreeGroup *>( node->parent() ) : nullptr;
+  if ( !parent )
+    parent = root;
+  const int index = node ? static_cast<int>( parent->children().indexOf( static_cast<QgsLayerTreeNode *>( node ) ) ) : 0;
+  QgsLayerTreeLayer *freshNode = parent->insertLayer( index, fresh );
+  if ( node && freshNode )
+    freshNode->setItemVisibilityChecked( node->itemVisibilityChecked() );
+
+  const QString oldName = layer->name();
+  const QString oldFile = layer->source().section( QLatin1Char( '|' ), 0, 0 );
+  const QString newId = fresh->id();
+  project->removeMapLayer( layer->id() );
+
+  QString text = tr( "„%1” przeliczona z %2%3 do %4: %5 obiektów w tabeli %6 bazy projektu. Oryginał został na dysku: %7." )
+                   .arg( oldName, source.authid(), swapAxes ? tr( " (z zamianą osi)" ) : QString(), target.authid() )
+                   .arg( written )
+                   .arg( table, QFileInfo( oldFile ).fileName() );
+  if ( skipped > 0 )
+    text += QLatin1Char( ' ' ) + tr( "Pominięte poza obszarem układu (np. przy punkcie 0,0): %1." ).arg( skipped );
+  if ( styleCount > 0 )
+    text += QLatin1Char( ' ' ) + tr( "Kolory i grubości z rysunku zachowane (stylów: %1, pole %2)." ).arg( styleCount ).arg( styleField );
+  if ( !snapshotName.isEmpty() )
+    text += QLatin1Char( ' ' ) + tr( "Kopia bazy sprzed zmiany: kopie/%1." ).arg( snapshotName );
+  result.insert( QStringLiteral( "ok" ), true );
+  result.insert( QStringLiteral( "opis" ), text );
+  result.insert( QStringLiteral( "tabela" ), table );
+  result.insert( QStringLiteral( "zapisane" ), written );
+  result.insert( QStringLiteral( "pominiete" ), skipped );
+  result.insert( QStringLiteral( "layerId" ), newId );
+  qCWarning( wfgCrs, "WorkField [WF-CRS-CONVERT]: %s", qPrintable( text ) );
+  return result;
+}
+
+// ========================================================================
+// WorkFieldGIS 24.11.2026 — [WF-OSM-VECTOR] obowiązkowy podkład OSM (kafle wektorowe)
+// ========================================================================
+// Decyzja Piotra 24.11: przy każdym „Nowy projekt”, „Zapisz” i „Zapisz jako”
+// projekt ma podkład OpenStreetMap z kafli wektorowych, zawsze na samym dole.
+// Lekcja SOŁTYKI: projekt bez podkładu nie pokazał, że punkty leżą na oceanie.
+// Źródło jak w wtyczce WFG Urban Environment (core/vector_tiles.py): OpenFreeMap
+// (darmowe, bez klucza), schemat OpenMapTiles. Styl „WFG Jasny” z jej
+// core/basemap_styles.py (kod BSD 3-Clause na podstawie MapTiler Basic, wygląd
+// CC BY 4.0), wbudowany niżej — styl nie wymaga sieci; kafle tak (i pamięć
+// podręczna sieci QGIS). Konwersja sprawdzona 24.11 w QGIS 3.34: 0 ostrzeżeń,
+// 36 stylów rysowania i 8 etykiet.
+namespace
+{
+  const QString kOsmVectorProperty = QStringLiteral( "wfg/basemap" );
+  const QString kOsmVectorValue = QStringLiteral( "osm_vector" );
+  const QString kOsmTileJson = QStringLiteral( "https://tiles.openfreemap.org/planet" );
+  const QString kOsmAttribution = QStringLiteral( "OpenFreeMap © OpenMapTiles © OpenStreetMap contributors (ODbL); "
+                                                  "styl WFG Jasny na podstawie MapTiler Basic (BSD 3-Clause / CC BY 4.0)" );
+  const char *kOsmStyle = R"WFGSTYLE({"version":8,"name":"WFG Jasny (jak Mergin Maps)","id":"wfg_jasny","metadata":{"openmaptiles:version":"3.x","wfg:credit":"Styl WFG Jasny (jak Mergin Maps) — własna edycja WFG na podstawie MapTiler Basic (OpenMapTiles; kod BSD 3-Clause, wygląd CC BY 4.0). Dane © OpenStreetMap contributors (ODbL), kafle © OpenMapTiles.","wfg:about":"Paleta MapTiler Basic / Mergin Maps: ciepłe tło, miękka zieleń, jasny błękit, białe drogi; dodane obwiednie dróg, ścieżki, cmentarze, ogródki, nazwy ulic i wód.","wfg:licence":"kod BSD 3-Clause (na podstawie MapTiler Basic), wygląd CC BY 4.0"},"sources":{"openmaptiles":{"type":"vector","url":"https://tiles.openfreemap.org/planet","attribution":"OpenFreeMap © OpenMapTiles © OpenStreetMap contributors"}},"layers":[{"id":"background","type":"background","paint":{"background-color":"hsl(47, 26%, 88%)"}},{"id":"landuse-residential","type":"fill","source":"openmaptiles","source-layer":"landuse","filter":["in","class","residential","suburb","neighbourhood"],"paint":{"fill-color":"hsl(47, 13%, 86%)","fill-opacity":0.7}},{"id":"landuse-commercial","type":"fill","source":"openmaptiles","source-layer":"landuse","filter":["in","class","commercial","retail"],"paint":{"fill-color":"hsl(40, 20%, 85%)","fill-opacity":0.7},"minzoom":12},{"id":"landuse-industrial","type":"fill","source":"openmaptiles","source-layer":"landuse","filter":["in","class","industrial","garages","railway","quarry"],"paint":{"fill-color":"hsl(35, 12%, 83%)","fill-opacity":0.7},"minzoom":12},{"id":"landuse-institution","type":"fill","source":"openmaptiles","source-layer":"landuse","filter":["in","class","hospital","school","university","college","kindergarten"],"paint":{"fill-color":"hsl(45, 22%, 84%)","fill-opacity":0.8},"minzoom":12},{"id":"landuse-agriculture","type":"fill","source":"openmaptiles","source-layer":"landuse","filter":["==","class","agriculture"],"paint":{"fill-color":"#eae0d0"}},{"id":"landcover-farmland","type":"fill","source":"openmaptiles","source-layer":"landcover","filter":["==","class","farmland"],"paint":{"fill-color":"#eae0d0","fill-opacity":0.8}},{"id":"landcover-sand","type":"fill","source":"openmaptiles","source-layer":"landcover","filter":["==","class","sand"],"paint":{"fill-color":"hsl(52, 60%, 82%)","fill-opacity":0.8}},{"id":"landcover-wetland","type":"fill","source":"openmaptiles","source-layer":"landcover","filter":["==","class","wetland"],"paint":{"fill-color":"hsl(170, 25%, 80%)","fill-opacity":0.8}},{"id":"landcover-grass","type":"fill","source":"openmaptiles","source-layer":"landcover","filter":["==","class","grass"],"paint":{"fill-color":"hsl(82, 46%, 72%)","fill-opacity":0.45}},{"id":"landcover-park","type":"fill","source":"openmaptiles","source-layer":"landcover","filter":["in","subclass","park","garden","recreation_ground","village_green"],"paint":{"fill-color":"hsl(88, 40%, 74%)","fill-opacity":0.9}},{"id":"landcover-scrub","type":"fill","source":"openmaptiles","source-layer":"landcover","filter":["in","subclass","scrub","heath"],"paint":{"fill-color":"hsl(80, 35%, 78%)","fill-opacity":0.85}},{"id":"landuse-allotments","type":"fill","source":"openmaptiles","source-layer":"landuse","filter":["in","class","allotments"],"paint":{"fill-color":"hsl(70, 35%, 80%)","fill-opacity":0.9},"minzoom":12},{"id":"landcover-allotments","type":"fill","source":"openmaptiles","source-layer":"landcover","filter":["in","subclass","allotments","orchard","vineyard"],"paint":{"fill-color":"hsl(70, 35%, 80%)","fill-opacity":0.9},"minzoom":12},{"id":"landuse-cemetery","type":"fill","source":"openmaptiles","source-layer":"landuse","filter":["==","class","cemetery"],"paint":{"fill-color":"hsl(95, 22%, 76%)","fill-opacity":0.9}},{"id":"landuse-pitch","type":"fill","source":"openmaptiles","source-layer":"landuse","filter":["in","class","pitch","stadium","playground","track"],"paint":{"fill-color":"hsl(100, 35%, 76%)","fill-opacity":0.7},"minzoom":13},{"id":"landcover-wood","type":"fill","source":"openmaptiles","source-layer":"landcover","filter":["==","class","wood"],"paint":{"fill-color":"hsl(82, 46%, 72%)","fill-opacity":{"stops":[[8,0.6],[13,0.85]]}}},{"id":"park-protected","type":"fill","source":"openmaptiles","source-layer":"park","filter":["all"],"paint":{"fill-color":"#E1EBB0","fill-opacity":0.35}},{"id":"park-protected-outline","type":"line","source":"openmaptiles","source-layer":"park","filter":["all"],"paint":{"line-color":"hsl(90, 30%, 55%)","line-width":{"stops":[[10,0.6],[16,1.6]]},"line-dasharray":[3,2],"line-opacity":0.8},"minzoom":10},{"id":"waterway","type":"line","source":"openmaptiles","source-layer":"waterway","filter":["!in","brunnel","tunnel"],"paint":{"line-color":"hsl(205, 56%, 73%)","line-width":{"stops":[[8,0.6],[14,1.6],[18,6]]}}},{"id":"water","type":"fill","source":"openmaptiles","source-layer":"water","filter":["all"],"paint":{"fill-color":"hsl(205, 56%, 73%)"}},{"id":"building","type":"fill","source":"openmaptiles","source-layer":"building","filter":["all"],"paint":{"fill-color":"rgba(222, 211, 190, 1)","fill-opacity":{"stops":[[13,0.6],[16,1]]},"fill-outline-color":"hsl(39, 20%, 70%)"},"minzoom":13},{"id":"aeroway-area","type":"fill","source":"openmaptiles","source-layer":"aeroway","filter":["==","$type","Polygon"],"paint":{"fill-color":"#ffffff","fill-opacity":0.8},"minzoom":11},{"id":"road-minor-case","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["in","class","minor","service"],["!=","brunnel","tunnel"]],"paint":{"line-color":"hsl(40, 15%, 75%)","line-width":{"stops":[[13,1.5],[18,14]]}},"layout":{"line-cap":"round","line-join":"round"},"minzoom":13},{"id":"road-major-case","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["in","class","primary","secondary","tertiary","trunk"],["!=","brunnel","tunnel"]],"paint":{"line-color":"hsl(40, 15%, 75%)","line-width":{"stops":[[8,1.2],[12,3],[18,24]]}},"layout":{"line-cap":"round","line-join":"round"},"minzoom":8},{"id":"road-motorway-case","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["==","class","motorway"],["!=","brunnel","tunnel"]],"paint":{"line-color":"hsl(30, 20%, 65%)","line-width":{"stops":[[6,1.4],[12,4],[18,28]]}},"layout":{"line-cap":"round","line-join":"round"},"minzoom":6},{"id":"road-path","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["in","class","path","track"],["!in","subclass","cycleway"]],"paint":{"line-color":"hsl(30, 15%, 58%)","line-width":{"stops":[[14,0.8],[18,2]]},"line-dasharray":[2,1]},"minzoom":14},{"id":"road-cycleway","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["==","class","path"],["==","subclass","cycleway"]],"paint":{"line-color":"hsl(205, 45%, 55%)","line-width":{"stops":[[14,1],[18,2.5]]},"line-dasharray":[3,1]},"minzoom":14},{"id":"road-minor","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["in","class","minor","service"],["!=","brunnel","tunnel"]],"paint":{"line-color":"hsl(0, 0%, 97%)","line-width":{"stops":[[13,1],[18,12]]}},"layout":{"line-cap":"round","line-join":"round"},"minzoom":13},{"id":"road-major","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["in","class","primary","secondary","tertiary","trunk"],["!=","brunnel","tunnel"]],"paint":{"line-color":"#ffffff","line-width":{"stops":[[8,0.6],[12,2],[18,20]]}},"layout":{"line-cap":"round","line-join":"round"},"minzoom":8},{"id":"road-motorway","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["==","class","motorway"],["!=","brunnel","tunnel"]],"paint":{"line-color":"hsl(0, 0%, 100%)","line-width":{"stops":[[6,0.8],[12,3],[18,24]]}},"layout":{"line-cap":"round","line-join":"round"},"minzoom":6},{"id":"road-tunnel","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["all",["==","brunnel","tunnel"],["in","class","motorway","primary","secondary","tertiary","trunk","minor"]],"paint":{"line-color":"hsl(40, 15%, 75%)","line-width":{"stops":[[12,1],[18,10]]},"line-dasharray":[2,1],"line-opacity":0.6},"minzoom":12},{"id":"railway","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["in","class","rail","transit"],"paint":{"line-color":"hsl(34, 12%, 66%)","line-width":{"stops":[[10,0.6],[18,3]]}},"minzoom":10},{"id":"railway-ties","type":"line","source":"openmaptiles","source-layer":"transportation","filter":["in","class","rail","transit"],"paint":{"line-color":"hsl(34, 12%, 66%)","line-width":{"stops":[[14,3],[18,8]]},"line-dasharray":[0.2,3]},"minzoom":14},{"id":"admin-sub","type":"line","source":"openmaptiles","source-layer":"boundary","filter":["in","admin_level",4,6,8],"paint":{"line-color":"hsl(0, 0%, 60%)","line-width":{"stops":[[8,0.6],[16,1.6]]},"line-dasharray":[4,2],"line-opacity":0.5}},{"id":"admin-country","type":"line","source":"openmaptiles","source-layer":"boundary","filter":["<=","admin_level",2],"paint":{"line-color":"hsl(0, 0%, 60%)","line-width":{"stops":[[3,0.8],[10,2.4]]}}},{"id":"water-name","type":"symbol","source":"openmaptiles","source-layer":"water_name","filter":["==","$type","Point"],"layout":{"text-field":"{name}","text-font":["Noto Sans Italic"],"text-size":{"stops":[[12,11],[16,14]]},"text-max-width":8},"paint":{"text-color":"hsl(205, 60%, 35%)","text-halo-color":"rgba(255, 255, 255, 0.85)","text-halo-width":1.2},"minzoom":12},{"id":"waterway-name","type":"symbol","source":"openmaptiles","source-layer":"waterway","filter":["has","name"],"layout":{"text-field":"{name}","text-font":["Noto Sans Italic"],"text-size":11,"text-max-width":8,"symbol-placement":"line"},"paint":{"text-color":"hsl(205, 60%, 35%)","text-halo-color":"rgba(255, 255, 255, 0.85)","text-halo-width":1.2},"minzoom":13},{"id":"road-name","type":"symbol","source":"openmaptiles","source-layer":"transportation_name","filter":["==","$type","LineString"],"layout":{"text-field":"{name}","text-font":["Noto Sans Regular"],"text-size":{"stops":[[13,10],[17,13]]},"text-max-width":8,"symbol-placement":"line"},"paint":{"text-color":"#333333","text-halo-color":"rgba(255, 255, 255, 0.85)","text-halo-width":1.2},"minzoom":13},{"id":"housenumber","type":"symbol","source":"openmaptiles","source-layer":"housenumber","filter":["==","$type","Point"],"layout":{"text-field":"{housenumber}","text-font":["Noto Sans Regular"],"text-size":9,"text-max-width":8},"paint":{"text-color":"rgba(212, 177, 146, 1)","text-halo-color":"rgba(255, 255, 255, 0.85)","text-halo-width":1.2},"minzoom":17},{"id":"poi","type":"symbol","source":"openmaptiles","source-layer":"poi","filter":["all",["==","$type","Point"],["<=","rank",14]],"layout":{"text-field":"{name}","text-font":["Noto Sans Regular"],"text-size":10,"text-max-width":8},"paint":{"text-color":"#666666","text-halo-color":"rgba(255, 255, 255, 0.85)","text-halo-width":1.2},"minzoom":15},{"id":"place-other","type":"symbol","source":"openmaptiles","source-layer":"place","filter":["!in","class","city","state","country","continent"],"layout":{"text-field":"{name}","text-font":["Noto Sans Regular"],"text-size":{"stops":[[10,10],[14,13]]},"text-max-width":8},"paint":{"text-color":"hsl(0, 0%, 25%)","text-halo-color":"rgba(255, 255, 255, 0.85)","text-halo-width":1.2},"minzoom":10},{"id":"place-city","type":"symbol","source":"openmaptiles","source-layer":"place","filter":["==","class","city"],"layout":{"text-field":"{name}","text-font":["Noto Sans Bold"],"text-size":{"stops":[[6,12],[12,18]]},"text-max-width":8},"paint":{"text-color":"hsl(0, 0%, 0%)","text-halo-color":"rgba(255, 255, 255, 0.85)","text-halo-width":1.2},"minzoom":5,"maxzoom":16},{"id":"place-country","type":"symbol","source":"openmaptiles","source-layer":"place","filter":["==","class","country"],"layout":{"text-field":"{name}","text-font":["Noto Sans Bold"],"text-size":{"stops":[[3,11],[7,16]]},"text-max-width":8,"text-transform":"uppercase"},"paint":{"text-color":"hsl(0, 0%, 0%)","text-halo-color":"rgba(255, 255, 255, 0.85)","text-halo-width":1.2},"minzoom":2,"maxzoom":8}]})WFGSTYLE";
+
+  //! Szablon adresu kafli z TileJSON OpenFreeMap (adres niesie datę wydania
+  //! kafli, więc nie wpisujemy go na sztywno). Jedno zapytanie na 6 godzin.
+  QString osmTileTemplate( QString *error )
+  {
+    static QString cached;
+    static QElapsedTimer age;
+    // WorkFieldGIS 24.11.2026 — podkład sprawdzany przy każdym otwarciu projektu:
+    // bez sieci nie pytamy ponownie przez 10 minut (każde pytanie to do 4 s czekania).
+    static QElapsedTimer lastFailure;
+    static QString lastError;
+    if ( !cached.isEmpty() && age.isValid() && age.elapsed() < 6LL * 3600 * 1000 )
+      return cached;
+    if ( cached.isEmpty() && lastFailure.isValid() && lastFailure.elapsed() < 10LL * 60 * 1000 )
+    {
+      if ( error )
+        *error = lastError;
+      return cached;
+    }
+    QNetworkRequest request( ( QUrl( kOsmTileJson ) ) );
+    request.setTransferTimeout( 4000 );
+    QgsBlockingNetworkRequest blocking;
+    if ( blocking.get( request ) != QgsBlockingNetworkRequest::NoError )
+    {
+      if ( error )
+        *error = blocking.errorMessage();
+      lastError = blocking.errorMessage();
+      lastFailure.start();
+      return cached;
+    }
+    const QVariantMap tileJson = QgsJsonUtils::parseJson( QString::fromUtf8( blocking.reply().content() ) ).toMap();
+    const QVariantList tiles = tileJson.value( QStringLiteral( "tiles" ) ).toList();
+    const QString tileTemplate = tiles.isEmpty() ? QString() : tiles.first().toString();
+    if ( !tileTemplate.startsWith( QLatin1String( "https://" ) ) || !tileTemplate.contains( QLatin1String( "{z}" ) ) )
+    {
+      if ( error )
+        *error = QStringLiteral( "TileJSON bez adresu kafli" );
+      lastError = QStringLiteral( "TileJSON bez adresu kafli" );
+      lastFailure.start();
+      return cached;
+    }
+    cached = tileTemplate;
+    age.start();
+    return cached;
+  }
+} // namespace
+
+// [WF-ESRI-HIDDEN] WorkFieldGIS 24.11.2026
+int NarzedziaProjektu::setLayerVisibleByName( QgsProject *project, const QString &layerName, bool visible )
+{
+  if ( !project )
+    return 0;
+  int changed = 0;
+  const QList<QgsMapLayer *> layers = project->mapLayersByName( layerName );
+  for ( QgsMapLayer *layer : layers )
+  {
+    QgsLayerTreeLayer *node = project->layerTreeRoot()->findLayer( layer->id() );
+    if ( node && node->itemVisibilityChecked() != visible )
+    {
+      node->setItemVisibilityChecked( visible );
+      ++changed;
+    }
+  }
+  return changed;
+}
+
+QVariantMap NarzedziaProjektu::ensureOsmVectorBasemap( QgsProject *project )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  result.insert( QStringLiteral( "dodano" ), false );
+  result.insert( QStringLiteral( "przeniesiono" ), false );
+  if ( !project || project->fileName().isEmpty() )
+  {
+    result.insert( QStringLiteral( "opis" ), tr( "Nie ma otwartego projektu." ) );
+    return result;
+  }
+  QgsLayerTree *root = project->layerTreeRoot();
+
+  QgsVectorTileLayer *layer = nullptr;
+  const auto layers = project->mapLayers();
+  for ( auto it = layers.constBegin(); it != layers.constEnd() && !layer; ++it )
+  {
+    if ( it.value()->customProperty( kOsmVectorProperty ).toString() == kOsmVectorValue )
+      layer = qobject_cast<QgsVectorTileLayer *>( it.value() );
+  }
+
+  if ( !layer )
+  {
+    QString error;
+    const QString tileTemplate = osmTileTemplate( &error );
+    if ( tileTemplate.isEmpty() )
+    {
+      const QString text = tr( "Podkład OpenStreetMap (wektorowy) nie został dodany — brak sieci (%1). "
+                               "Zostanie dodany przy następnym zapisie z dostępem do sieci." )
+                             .arg( error );
+      result.insert( QStringLiteral( "opis" ), text );
+      QgsMessageLog::logMessage( QStringLiteral( "[WF-OSM-VECTOR] %1" ).arg( text ), QStringLiteral( "WorkField" ), Qgis::MessageLevel::Warning );
+      return result;
+    }
+    QgsDataSourceUri uri;
+    uri.setParam( QStringLiteral( "type" ), QStringLiteral( "xyz" ) );
+    uri.setParam( QStringLiteral( "url" ), tileTemplate );
+    uri.setParam( QStringLiteral( "zmin" ), QStringLiteral( "0" ) );
+    uri.setParam( QStringLiteral( "zmax" ), QStringLiteral( "14" ) );
+    auto newLayer = std::make_unique<QgsVectorTileLayer>( QString::fromUtf8( uri.encodedUri() ), tr( "OpenStreetMap — wektorowa" ) );
+    if ( !newLayer->isValid() )
+    {
+      result.insert( QStringLiteral( "opis" ), tr( "Podkład OpenStreetMap (wektorowy) nie powstał: nieprawidłowe źródło %1." ).arg( tileTemplate ) );
+      return result;
+    }
+    QgsMapBoxGlStyleConversionContext context;
+    context.setTargetUnit( Qgis::RenderUnit::Millimeters );
+    context.setPixelSizeConversionFactor( 25.4 / 96.0 );
+    QgsMapBoxGlStyleConverter converter;
+    if ( converter.convert( QString::fromUtf8( kOsmStyle ), &context ) == QgsMapBoxGlStyleConverter::Success )
+    {
+      // QGIS 4.2 zwraca tu surowy wskaźnik, 4.4 std::unique_ptr — ten zapis działa z oboma
+      newLayer->setRenderer( std::unique_ptr<QgsVectorTileRenderer>( converter.renderer() ).release() );
+      newLayer->setLabeling( std::unique_ptr<QgsVectorTileLabeling>( converter.labeling() ).release() );
+    }
+    else
+    {
+      QgsMessageLog::logMessage( QStringLiteral( "[WF-OSM-VECTOR] styl WFG Jasny nie przeszedł konwersji: %1" ).arg( converter.errorMessage() ),
+                                 QStringLiteral( "WorkField" ), Qgis::MessageLevel::Warning );
+    }
+    newLayer->setCustomProperty( kOsmVectorProperty, kOsmVectorValue );
+    QgsLayerMetadata metadata = newLayer->metadata();
+    metadata.setRights( QStringList() << kOsmAttribution );
+    newLayer->setMetadata( metadata );
+    layer = newLayer.get();
+    project->addMapLayer( newLayer.release(), false );
+    root->addLayer( layer );
+    result.insert( QStringLiteral( "dodano" ), true );
+  }
+
+  // Zawsze na samym dole legendy (ostatni węzeł korzenia, także spoza grup).
+  QgsLayerTreeLayer *node = root->findLayer( layer->id() );
+  if ( !node )
+    node = root->addLayer( layer );
+  const QList<QgsLayerTreeNode *> children = root->children();
+  if ( children.isEmpty() || children.last() != node )
+  {
+    root->addChildNode( node->clone() );
+    if ( QgsLayerTreeGroup *parent = qobject_cast<QgsLayerTreeGroup *>( node->parent() ) )
+      parent->removeChildNode( node );
+    result.insert( QStringLiteral( "przeniesiono" ), !result.value( QStringLiteral( "dodano" ) ).toBool() );
+  }
+  if ( root->hasCustomLayerOrder() )
+  {
+    QList<QgsMapLayer *> order = root->customLayerOrder();
+    if ( order.isEmpty() || order.last() != layer )
+    {
+      order.removeAll( layer );
+      order.append( layer );
+      root->setCustomLayerOrder( order );
+    }
+  }
+
+  const QString text = result.value( QStringLiteral( "dodano" ) ).toBool()
+                         ? tr( "Dodano podkład OpenStreetMap (wektorowy) na dole legendy." )
+                         : ( result.value( QStringLiteral( "przeniesiono" ) ).toBool()
+                               ? tr( "Podkład OpenStreetMap (wektorowy) przeniesiony na dół legendy." )
+                               : tr( "Podkład OpenStreetMap (wektorowy) jest na miejscu." ) );
+  result.insert( QStringLiteral( "ok" ), true );
+  result.insert( QStringLiteral( "opis" ), text );
+  if ( result.value( QStringLiteral( "dodano" ) ).toBool() || result.value( QStringLiteral( "przeniesiono" ) ).toBool() )
+    QgsMessageLog::logMessage( QStringLiteral( "[WF-OSM-VECTOR] %1 (%2)" ).arg( text, layer->source() ), QStringLiteral( "WorkField" ), Qgis::MessageLevel::Info );
+  return result;
+}
 
 QString NarzedziaProjektu::kopiaZapasowa( const QString &sciezka ) const
 {
@@ -2409,6 +3363,94 @@ QVariantMap NarzedziaProjektu::repairIdentity( QgsProject *project )
   return result;
 }
 
+// WorkFieldGIS 24.11.2026 [WF-AUTO-EQUIP] — Piotr: „telefon i tak ostrzega, że
+// tego nie ma w warstwie i zostawia użytkownika ze stresem”. Okno główne pyta
+// przy otwarciu i woła repairIdentityWithBackup(); tu tylko plan i kopie.
+QVariantMap NarzedziaProjektu::identityFieldsPlan( QgsProject *project ) const
+{
+  QStringList names;
+  QStringList withData;
+  QStringList files;
+  bool projectHasData = false;
+  if ( project )
+  {
+    const auto layers = project->mapLayers();
+    for ( QgsMapLayer *mapLayer : layers )
+    {
+      QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( mapLayer );
+      if ( !carriesIdentity( layer ) )
+        continue;
+      const bool hasObjects = layer->featureCount() > 0;
+      projectHasData = projectHasData || hasObjects;
+      const bool missingUuid = FeatureIdentity::uuidFieldIndex( layer->fields() ) < 0;
+      const bool missingParentUuid = identityParentRelation( project, layer ).isValid()
+                                     && FeatureIdentity::fieldIndex( layer->fields(), FeatureIdentity::parentUuidFieldName() ) < 0;
+      if ( !missingUuid && !missingParentUuid )
+        continue;
+      names << layer->name();
+      if ( hasObjects )
+        withData << layer->name();
+      const QString gpkg = JournalUtils::gpkgPath( layer );
+      if ( !gpkg.isEmpty() && !files.contains( gpkg ) )
+        files << gpkg;
+    }
+  }
+  QVariantMap result;
+  result.insert( QStringLiteral( "layers" ), names );
+  result.insert( QStringLiteral( "withData" ), withData );
+  result.insert( QStringLiteral( "files" ), files );
+  result.insert( QStringLiteral( "projectHasData" ), projectHasData );
+  return result;
+}
+
+QVariantMap NarzedziaProjektu::repairIdentityWithBackup( QgsProject *project )
+{
+  QVariantMap result;
+  result.insert( QStringLiteral( "ok" ), false );
+  if ( !project || project->fileName().isEmpty() )
+  {
+    result.insert( QStringLiteral( "opis" ), tr( "Brak projektu." ) );
+    return result;
+  }
+  const QFileInfo projectFile( project->fileName() );
+  const QString backupDir = projectFile.absolutePath() + QStringLiteral( "/kopie" );
+  QStringList copies;
+
+  const QStringList files = identityFieldsPlan( project ).value( QStringLiteral( "files" ) ).toStringList();
+  for ( const QString &gpkg : files )
+  {
+    const QVariantMap snapshot = migawkaBazy( gpkg, backupDir );
+    if ( !snapshot.value( QStringLiteral( "ok" ) ).toBool() )
+    {
+      result.insert( QStringLiteral( "opis" ), tr( "Nie udało się zrobić kopii bazy %1 (%2). Nic nie zmieniłem." )
+                                                 .arg( QFileInfo( gpkg ).fileName(), snapshot.value( QStringLiteral( "blad" ) ).toString() ) );
+      result.insert( QStringLiteral( "kopie" ), copies );
+      return result;
+    }
+    copies << snapshot.value( QStringLiteral( "sciezka" ) ).toString();
+  }
+
+  QDir().mkpath( backupDir );
+  const QString projectCopy = QStringLiteral( "%1/%2_przed_uuid_%3.%4" )
+                                .arg( backupDir, projectFile.completeBaseName(),
+                                      QDateTime::currentDateTime().toString( QStringLiteral( "yyyyMMdd_HHmmss" ) ),
+                                      projectFile.suffix() );
+  if ( !QFile::copy( projectFile.absoluteFilePath(), projectCopy ) )
+  {
+    result.insert( QStringLiteral( "opis" ), tr( "Nie udało się skopiować pliku projektu do %1. Nic nie zmieniłem." ).arg( backupDir ) );
+    result.insert( QStringLiteral( "kopie" ), copies );
+    return result;
+  }
+  copies << projectCopy;
+
+  result = repairIdentity( project );
+  result.insert( QStringLiteral( "kopie" ), copies );
+  QgsMessageLog::logMessage( QStringLiteral( "[WF-AUTO-EQUIP] %1 Kopie: %2" )
+                               .arg( result.value( QStringLiteral( "opis" ) ).toString(), copies.join( QStringLiteral( "; " ) ) ),
+                             QStringLiteral( "WorkField" ), Qgis::MessageLevel::Info );
+  return result;
+}
+
 //! [WF-IDENTITY] A table of photos: ZAL_* by name, or the attachment fields.
 static bool isAttachmentTable( const QgsVectorLayer *layer )
 {
@@ -2796,6 +3838,107 @@ QVariantMap NarzedziaProjektu::stanProjektu( QgsProject *projekt ) const
 
     warstwy.append( w );
   }
+
+  // ---------------------------------------------------- układ współrzędnych
+  // WorkFieldGIS 24.11.2026 — [WF-CRS-STATE] projekt bez układu i stopnie
+  // w warstwie metrycznej (claude/DIAGNOZA_SOLTYKA_CZWARTEK_pusty_CRS_2026-11-24.md).
+  // Projekt SOŁTYKA CZWARTEK miał pusty <projectCrs>: pozycja GNSS nie była
+  // przeliczana i do warstwy EPSG:2178 trafiły stopnie WGS84, bez żadnego
+  // ostrzeżenia. Oba sprawdzenia są tanie: układ projektu i extent() dostawcy
+  // (bez czytania obiektów), tylko warstwy z pliku danych jak skan wyżej.
+  // Rodzaj "dane": wpis trafia do plakietki kontroli przy wczytaniu projektu.
+  const QgsCoordinateReferenceSystem projectCrs = projekt->crs();
+  // Pusty projekt (start aplikacji, nic nie wczytane) też nie ma układu — to nie
+  // usterka i nie ma czego mierzyć. Ostrzegamy tylko projekt z pliku i z warstwami.
+  const bool projectCrsInvalid = !projectCrs.isValid() && !projekt->fileName().isEmpty() && !projekt->mapLayers().isEmpty();
+  QString suggestedCrs;
+  QString suggestedFrom;
+  QStringList degreesLayers;
+  for ( auto it = mapaWarstw.constBegin(); it != mapaWarstw.constEnd(); ++it )
+  {
+    QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( it.value() );
+    if ( !layer || !layer->isSpatial() || !layer->crs().isValid() )
+      continue;
+    if ( !scanFile.isEmpty() && identityFilePath( layer ) != scanFile )
+      continue;
+    const QgsCoordinateReferenceSystem layerCrs = layer->crs();
+    if ( layerCrs.isGeographic() )
+      continue;
+    if ( suggestedCrs.isEmpty() )
+    {
+      suggestedCrs = layerCrs.authid();
+      suggestedFrom = layer->name();
+    }
+    const QgsRectangle extent = layer->extent();
+    if ( extent.isNull() )
+      continue;
+    const bool degreeRange = std::fabs( extent.xMinimum() ) <= 180.0 && std::fabs( extent.xMaximum() ) <= 180.0
+                             && std::fabs( extent.yMinimum() ) <= 90.0 && std::fabs( extent.yMaximum() ) <= 90.0;
+    if ( !degreeRange )
+      continue;
+    // Tylko gdy takie liczby leżą POZA obszarem stosowania układu: lokalna
+    // siatka metryczna może mieć współrzędne bliskie zera i jest w porządku.
+    const QgsRectangle bounds = layerCrs.bounds();
+    if ( bounds.isNull() )
+      continue;
+    bool outsideArea = true;
+    try
+    {
+      const QgsCoordinateTransform toLayer( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ), layerCrs, projekt->transformContext() );
+      outsideArea = !toLayer.transformBoundingBox( bounds ).contains( extent.center() );
+    }
+    catch ( QgsCsException & )
+    {
+      outsideArea = true;
+    }
+    if ( !outsideArea )
+      continue;
+    degreesLayers << layer->name();
+    ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
+             tr( "„%1”: współrzędne wyglądają na stopnie (x %2…%3, y %4…%5), a warstwa jest w układzie metrycznym %6 — obiekty leżą w złym miejscu" )
+               .arg( layer->name() )
+               .arg( extent.xMinimum(), 0, 'f', 4 )
+               .arg( extent.xMaximum(), 0, 'f', 4 )
+               .arg( extent.yMinimum(), 0, 'f', 4 )
+               .arg( extent.yMaximum(), 0, 'f', 4 )
+               .arg( layerCrs.authid() ),
+             tr( "Nie dodawaj obiektów do tej warstwy, dopóki jej nie przeliczysz. Naciśnij „Przelicz na %1”: "
+                 "obiekty zostaną przeliczone ze stopni WGS84, a przedtem powstanie kopia bazy w katalogu „kopie”. "
+                 "Jeśli projekt nie ma układu, najpierw ustaw układ (pierwsze ostrzeżenie)." )
+               .arg( layerCrs.authid() ),
+             QStringLiteral( "przelicz_stopnie" ), 0.0, QString(), layer->name() );
+    {
+      // [WF-CRS-REPROJECT] układ warstwy jedzie przy wpisie — na przycisk
+      QVariantMap degreesWarning = ostrzezenia.takeLast().toMap();
+      degreesWarning.insert( QStringLiteral( "uklad" ), layerCrs.authid() );
+      ostrzezenia.append( degreesWarning );
+    }
+    qCWarning( wfgCrs, "WorkField [WF-CRS-STATE]: stopnie w warstwie metrycznej %s (%s)",
+               qPrintable( layer->name() ), qPrintable( layerCrs.authid() ) );
+  }
+  if ( projectCrsInvalid )
+  {
+    ostrzez( QStringLiteral( "brak" ), QStringLiteral( "dane" ),
+             tr( "Projekt nie ma układu współrzędnych — pozycja GNSS nie jest przeliczana i do warstw trafiają stopnie zamiast metrów" ),
+             suggestedCrs.isEmpty()
+               ? tr( "Ustaw układ projektu w zakładce Projekt (Układ współrzędnych) i otwórz projekt ponownie. Do tego czasu nie mierz." )
+               : tr( "Naciśnij „Ustaw %1”: układ zostanie wzięty z warstwy „%2”, a projekt zapisany. "
+                     "Potem otwórz projekt ponownie. Do tego czasu nie mierz." )
+                   .arg( suggestedCrs, suggestedFrom ),
+             suggestedCrs.isEmpty() ? QString() : QStringLiteral( "ustaw_uklad" ),
+             0.0, QString(), suggestedFrom );
+    // Układ do ustawienia jedzie przy wpisie; wpis idzie na początek listy,
+    // bo bez układu reszta ostrzeżeń jest drugorzędna.
+    QVariantMap crsWarning = ostrzezenia.takeLast().toMap();
+    if ( !suggestedCrs.isEmpty() )
+      crsWarning.insert( QStringLiteral( "uklad" ), suggestedCrs );
+    ostrzezenia.prepend( crsWarning );
+    qCWarning( wfgCrs, "WorkField [WF-CRS-STATE]: projekt bez układu współrzędnych; propozycja %s z warstwy %s",
+               qPrintable( suggestedCrs ), qPrintable( suggestedFrom ) );
+  }
+  wynik.insert( QStringLiteral( "projectCrs" ), projectCrs.authid() );
+  wynik.insert( QStringLiteral( "projectCrsInvalid" ), projectCrsInvalid );
+  wynik.insert( QStringLiteral( "degreesInProjectedLayer" ), degreesLayers );
 
   // --------------------------------------------------------------- pomiar
   const QgsSnappingConfig snap = projekt->snappingConfig();

@@ -569,7 +569,9 @@ Drawer {
     // WorkField 7.10.2026 [WF-KAFLE-KOLEJNOSC] — kafle w kolejności legendy
     // (od góry). Przepis dokłada od dołu, więc odwracamy.
     const tabele = przepis.warstwy.map(function (x) { return x.nazwa; }).reverse();
-    let zostaly = ["przyciaganie", "bez_nakladania", "zalaczniki", "klawisze", "tyczenie"];
+    // WorkFieldGIS 24.11.2026 — Piotr: przyciąganie i unikanie nakładania nie są
+    // już modułami wyposażenia (osobne ustawienia w warstwach); wyjęte z katalogu.
+    let zostaly = ["zalaczniki", "klawisze", "tyczenie"];
     let bledy = {};
     for (let runda = 0; runda < 2 && zostaly.length > 0; runda++) {
       const nastepne = [];
@@ -1301,9 +1303,13 @@ Drawer {
         iface.setProjectVariable("obiekt_kategoria", wl.kategoria);
       }
       iface.addXyzBasemap("Esri World Imagery", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", 19);
-      // WorkField 6.10.2026 [WF-NOWY-PODKLADY] — OSM POD ESRI: addXyzBasemap
-      // dokłada na sam dół legendy, więc drugi dodany ląduje pod pierwszym.
-      iface.addXyzBasemap("OpenStreetMap", "https://tile.openstreetmap.org/{z}/{x}/{y}.png", 19);
+      // WorkFieldGIS 24.11.2026 [WF-ESRI-HIDDEN] — Piotr: ortofoto Esri jest
+      // w projekcie, ale zgaszone (włącza się je w legendzie). Rastrowego OSM
+      // z tile.openstreetmap.org już nie dokładamy (było [WF-NOWY-PODKLADY]
+      // 6.10): zasady OSMF nie pozwalają na ciężkie użycie w rozpowszechnianej
+      // aplikacji, a jego miejsce zajął podkład wektorowy [WF-OSM-VECTOR].
+      NarzedziaProjektu.setLayerVisibleByName(qgisProject, "Esri World Imagery", false);
+      mainWindow.ensureOsmBasemap("new", true); // [WF-OSM-VECTOR] zawsze na dole
       dashBoard.urzadzNowyProjekt(path, name);
       dashBoard.pendingUklad = "";
       if (dashBoard.pendingBlankCenter) {
@@ -2695,8 +2701,12 @@ Drawer {
           ikona: "wfg_zapisz"
           enabled: projectSection.filePath !== ""
           onClicked: {
+            // [WF-OSM-VECTOR] podkład OSM na dole legendy, przed zapisem
+            // (24.11: przez mainWindow.ensureOsmBasemap — szanuje ustawienie)
+            const podklad = mainWindow.ensureOsmBasemap("save", false);
             if (ProjectUtils.saveProject(qgisProject)) {
-              displayToast(qsTr("Projekt zapisany"));
+              displayToast(podklad.dodano ? qsTr("Projekt zapisany. %1").arg(mainWindow.osmBasemapAddedText())
+                                          : (!podklad.ok && podklad.opis !== "" ? qsTr("Projekt zapisany. %1").arg(podklad.opis) : qsTr("Projekt zapisany")));
               projectSection.refresh();
             } else {
               displayToast(qsTr("Nie udało się zapisać projektu"));
@@ -2707,7 +2717,16 @@ Drawer {
           text: qsTr("Zapisz jako…") // [WF-PORZADKI-EKS] CORE od 19.10, naprawione
           ikona: "wfg_zapisz_jako"
           enabled: projectSection.filePath !== ""
-          onClicked: projectNameDialog.openFor("saveas")
+          onClicked: projectNameDialog.openFor("saveas", true)
+        }
+        // WorkFieldGIS 24.11.2026 — [WF-SAVE-AS-DATA] decyzja Piotra: „Zapisz jako”
+        // kopiuje projekt RAZEM z danymi, a pusty wzór na nowy teren to osobna pozycja.
+        // Dotąd „Zapisz jako” domyślnie opróżniało warstwy — zaskoczyło nawet autora.
+        QfPozycjaMenu {
+          text: qsTr("Zapisz jako nowy pusty projekt…")
+          ikona: "wfg_zapisz_jako"
+          enabled: projectSection.filePath !== ""
+          onClicked: projectNameDialog.openFor("saveas", false)
         }
         QfPozycjaMenu {
           text: qsTr("Powiększ do danych")
@@ -3579,7 +3598,7 @@ Drawer {
 
     title: mode === "blank" ? qsTr("Nowy projekt") /* WF-NOWY-TYTUL */
          : mode === "szablon" ? qsTr("Zapisz jako szablon")
-         : qsTr("Zapisz jako nowy projekt")
+         : keepObjects ? qsTr("Zapisz jako") : qsTr("Zapisz jako nowy pusty projekt") // [WF-SAVE-AS-DATA]
     confirmText: mode === "saveas" ? qsTr("Zapisz") : qsTr("Utwórz")
     busy: pracuje
     onConfirmed: zatwierdz()
@@ -3630,9 +3649,12 @@ Drawer {
     property bool pracuje: false
     property string opisPracy: ""
     property string nazwaKopii: ""
+    //! [WF-SAVE-AS-DATA] true: kopia z obiektami i zdjęciami; false: pusty wzór
+    property bool keepObjects: true
 
-    function openFor(newMode) {
+    function openFor(newMode, keepData) {
       mode = newMode;
+      keepObjects = keepData !== false; // [WF-SAVE-AS-DATA]
       pracuje = false;
       opisPracy = "";
       if (mode === "saveas") {
@@ -3648,8 +3670,11 @@ Drawer {
         kopiujPodklady.checked = false;
         kopiujOrto.checked = false;
         warstwyKopii = lista;
-        kopiujZalaczniki.checked = false;
-        zachowajObiekty.checked = false;
+        // [WF-SAVE-AS-DATA] „Zapisz jako” = obiekty i zdjęcia razem (inaczej wiersze
+        // załączników wskazywałyby na brakujące pliki); „pusty projekt” = bez nich.
+        // Oba pola zostają widoczne — człowiek może zmienić zdanie w oknie.
+        kopiujZalaczniki.checked = keepObjects;
+        zachowajObiekty.checked = keepObjects;
       }
       metZleceniodawca.text = ""; // WF-METRYCZKA-CZYSC
       metTeren.text = "";
@@ -3857,6 +3882,7 @@ Drawer {
           iface.loadProjectEnded.disconnect(poWczytaniu);
           if (sciezka.indexOf(w.katalog) === 0) {
             iface.setProjectTitle(nazwa);
+            mainWindow.ensureOsmBasemap("saveas", true); // [WF-OSM-VECTOR]
             ProjectUtils.saveProject(qgisProject);
           }
         };

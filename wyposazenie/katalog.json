@@ -4,16 +4,6 @@
   "opis": "Wyposażenie WorkField — spis modułów, które projekt terenowy powinien mieć założone. Kolejność w spisie nie ma znaczenia; zależności rozstrzyga pole 'wymaga' w module.",
   "moduly": [
     {
-      "id": "przyciaganie",
-      "wersja": 2,
-      "sciezka": "moduly/przyciaganie"
-    },
-    {
-      "id": "bez_nakladania",
-      "wersja": 2,
-      "sciezka": "moduly/bez_nakladania"
-    },
-    {
       "id": "klawisze",
       "wersja": 2,
       "sciezka": "moduly/klawisze"
