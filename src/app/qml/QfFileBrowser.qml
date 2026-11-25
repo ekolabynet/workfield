@@ -260,6 +260,38 @@ QfWindowFrame {
   }
 
   /**
+   * [WF-CONTENT-COPY] 25.11.2026 — the Android system window gives a
+   * content:// link, not a path, and GDAL/OGR cannot open it
+   * („OGR: Cannot open content://…/document/2773”, Piotr 10:56: „Dodaj
+   * z pliku” GPKG / GeoJSON from Pobrane). The file is copied first into the
+   * app's "Imported Datasets" folder (where QField's own import puts files)
+   * and the copy goes on. FileUtils.fileName() gives the document's display
+   * name for a content:// link (the pattern check passed with it at 10:56).
+   * Returns the local path, the same path when it is not content://, or ""
+   * when copying failed.
+   */
+  function localCopy(path) {
+    if (!/^content:/i.test(path))
+      return path;
+    const name = FileUtils.fileName(path);
+    const root = stripUrl(iface.dataRoot());
+    platformUtilities.createDir(root, "Imported Datasets");
+    const dir = root + "/Imported Datasets";
+    const dot = name.lastIndexOf(".");
+    const base = dot > 0 ? name.substring(0, dot) : name;
+    const ext = dot > 0 ? name.substring(dot) : "";
+    let target = dir + "/" + name;
+    for (let n = 2; FileUtils.fileExists(target) && n < 100; n++)
+      target = dir + "/" + base + "_" + n + ext;
+    if (!FileUtils.kopiujPlik(path, target, false)) {
+      console.log("WorkField [WF-CONTENT-COPY]: kopia nie wyszła: " + path + " -> " + target);
+      return "";
+    }
+    console.log("WorkField [WF-CONTENT-COPY]: " + path + " -> " + target);
+    return target;
+  }
+
+  /**
    * Places (Piotr 25.10, 00:06): only the app folder on the internal storage,
    * the app folder on the SD card, the exchange space and Downloads.
    * Phone: exchange and Downloads hold other apps' files, which the app cannot
@@ -1180,16 +1212,33 @@ QfWindowFrame {
     nameFilters: [qsTr("Wszystkie pliki (*)")]
     onAccepted: {
       const path = String(selectedFile).replace(/^file:\/\//, "");
+      const name = FileUtils.fileName(path);
       if (browser.mode === "browse") {
-        // browsing a place the app cannot list (phone): act on the chosen file
-        browser.activate(FileUtils.fileName(path), path, false);
+        // browsing a place the app cannot list (phone): act on the chosen file;
+        // data files first get a local copy [WF-CONTENT-COPY]
+        if (browser.dataPattern.test(name)) {
+          const copied = browser.localCopy(path);
+          if (copied === "") {
+            browser.say(qsTr("Nie udało się skopiować pliku z pamięci telefonu: %1").arg(name), true);
+            return;
+          }
+          browser.activate(name, copied, false);
+          return;
+        }
+        browser.activate(name, path, false);
         return;
       }
-      if (!browser.matches(FileUtils.fileName(path), false)) {
-        browser.say(qsTr("Ten plik się nie nadaje: %1").arg(FileUtils.fileName(path)), true);
+      if (!browser.matches(name, false)) {
+        browser.say(qsTr("Ten plik się nie nadaje: %1").arg(name), true);
         return;
       }
-      browser.finishPick(path);
+      // [WF-CONTENT-COPY] the caller gets a real path, not content://
+      const local = browser.localCopy(path);
+      if (local === "") {
+        browser.say(qsTr("Nie udało się skopiować pliku z pamięci telefonu: %1").arg(name), true);
+        return;
+      }
+      browser.finishPick(local);
     }
   }
 
